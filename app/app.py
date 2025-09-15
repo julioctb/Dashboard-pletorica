@@ -1,20 +1,16 @@
 import reflex as rx
-from app.pages.dashboard import dashboard_page
-from app.pages.empresas_page import empresas_page
+from .pages.dashboard import dashboard_page
+from .pages.empresas_page import empresas_page
 
 #importacion de prueba
-from app.layout.sidebar_layout import sidebar
-from app.layout.navbar_layout import navbar
+from .layout.sidebar_layout import sidebar
+from .layout.navbar_layout import navbar
 
 #Configuracion de la Aplicacion
 class AppConfig:
     pass
 
 config = AppConfig()
-
-
-
-
 
 
 
