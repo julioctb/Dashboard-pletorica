@@ -42,3 +42,5 @@ urllib3==2.5.0
 virtualenv==20.34.0
 xattr==1.2.0
 zstandard==0.25.0
+
+reflex==0.8.9
