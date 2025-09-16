@@ -1,6 +1,7 @@
 import reflex as rx
 from typing import List
 from app.services import empresa_service
+
 from app.database.models import (
     Empresa,
     EmpresaCreate,
@@ -167,8 +168,8 @@ class EmpresasState(rx.State):
             
             # Crear objeto EmpresaCreate
             nueva_empresa = EmpresaCreate(
-                nombre_comercial=self.form_nombre_comercial.strip(),
-                razon_social=self.form_razon_social.strip(),
+                nombre_comercial=self.form_nombre_comercial.strip().upper(),
+                razon_social=self.form_razon_social.strip().upper(),
                 tipo_empresa=TipoEmpresa(self.form_tipo_empresa),
                 rfc=self.form_rfc.strip().upper(),
                 direccion=self.form_direccion.strip() or None,
@@ -190,9 +191,11 @@ class EmpresasState(rx.State):
                 
                 self.mensaje_info = f"Empresa '{empresa_creada.nombre_comercial}' creada exitosamente"
                 self.tipo_mensaje = "success"
+                return rx.toast.success(self.mensaje_info)
             else:
                 self.mensaje_info = "No se pudo crear la empresa. Verifique que el RFC no esté duplicado"
                 self.tipo_mensaje = "error"
+                return rx.toast.error(self.mensaje_info, position="top-right")
             
         except Exception as e:
             self.mensaje_info = f"Error al crear empresa: {str(e)}"
