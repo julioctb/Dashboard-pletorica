@@ -15,7 +15,7 @@ config = AppConfig()
 
 
 #se dibuja el layout para todas las paginas
-def base_layout(content: rx.Component) -> rx.Component:
+def index(content: rx.Component) -> rx.Component:
     return rx.hstack(
         sidebar(),
         rx.vstack(
@@ -23,7 +23,8 @@ def base_layout(content: rx.Component) -> rx.Component:
         rx.container(
             content,
             min_height="calc(100vh - 140px)", #Altura menos navbar y footer
-            padding="4"
+            width = "100%",
+            size="4"
         ),
         
     )
@@ -41,5 +42,5 @@ app= rx.App(
 )
 
 #definicion de rutas
-app.add_page(lambda: base_layout(dashboard_page()), route="/")
-app.add_page(lambda: base_layout(empresas_page()), route="/empresas")
+app.add_page(lambda: index(dashboard_page()), route="/")
+app.add_page(lambda: index(empresas_page()), route="/empresas")
