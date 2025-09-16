@@ -17,7 +17,7 @@ class EmpresasState(rx.State):
     # DATOS Y LISTAS
     # ========================
     empresas: List[EmpresaResumen] = []
-    empresa_seleccionada: Empresa = None
+    empresa_seleccionada: Empresa | None = None
     
     # ========================
     # FILTROS Y BÚSQUEDA
