@@ -1,0 +1,34 @@
+[project]
+name = "dashboard"
+version = "0.1.0"
+description = "proyecto de dashboard para manejo de contratos de dependencias"
+authors = [
+    {name = "Julio C Tello",email = "julioc.tello@me.com"}
+]
+license = {text = "Propriertary"}
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "reflex (==0.8.9)",
+    "supabase (>=2.18.1,<3.0.0)",
+    "pydantic (>=2.11.9,<3.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "loguru (>=0.7.3,<0.8.0)",
+    "pydantic-settings (>=2.10.1,<3.0.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "python-dateutil (>=2.9.0.post0,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=8.4.2,<9.0.0)",
+    "black (>=25.1.0,<26.0.0)",
+    "isort (>=6.0.1,<7.0.0)",
+    "flake8 (>=7.3.0,<8.0.0)",
+    "mypy (>=1.18.1,<2.0.0)"
+]
