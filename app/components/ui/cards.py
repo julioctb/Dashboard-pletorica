@@ -39,7 +39,7 @@ def base_card(
                 align="start",
                 spacing="1"
             ),
-            spacing=rx.cond(icon, "2", "0"),
+            spacing=rx.cond(icon is not None, "2", "0"),
             align="center"
         ),
         rx.spacer(),

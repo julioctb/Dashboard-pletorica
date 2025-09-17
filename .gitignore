@@ -1,6 +1,26 @@
+#Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+#Reflex
 .web
 .states
-__pycache__/
+.reflex/
+
+#entornos virtuales
+venv/
+.env
+
+#VSCode
+.vscode/
+
+#MacOS
+.DS_Store
+
+
 *.db
 assets/external/
 *.py[cod]
+

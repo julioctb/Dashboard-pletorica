@@ -2,7 +2,6 @@ import reflex as rx
 from .pages.dashboard import dashboard_page
 from .pages.empresas.empresas_page import empresas_page
 
-#importacion de prueba
 from .layout.sidebar_layout import sidebar
 from .layout.navbar_layout import navbar
 
