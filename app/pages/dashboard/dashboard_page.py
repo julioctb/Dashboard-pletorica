@@ -60,6 +60,5 @@ def dashboard_page() -> rx.Component:
         
         spacing="4",
         width="100%",
-        max_width="100%",
         padding="4"
     )

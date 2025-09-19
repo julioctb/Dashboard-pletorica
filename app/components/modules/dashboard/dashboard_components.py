@@ -81,7 +81,7 @@ def dashboard_stats_grid(stats: List[Dict]) -> rx.Component:
         ],
         columns="4",
         spacing="4",
-        width="100%"
+        width="100%"  # ← AGREGADO
     )
 
 def quick_actions_card() -> rx.Component:
@@ -120,7 +120,8 @@ def quick_actions_card() -> rx.Component:
         title="Acciones Rápidas",
         content=content,
         icon=rx.icon("zap", size=20, color="var(--blue-9)"),
-        hover_effect=False
+        hover_effect=False,
+       
     )
 
 def recent_activity_card(activities: List[Dict]) -> rx.Component:
@@ -166,7 +167,8 @@ def recent_activity_card(activities: List[Dict]) -> rx.Component:
         title="Actividad Reciente",
         content=content,
         icon=rx.icon("clock", size=20, color="var(--blue-9)"),
-        hover_effect=False
+        hover_effect=False,
+        max_width="100%"  # ← AGREGADO para que se expanda
     )
 
 def dashboard_summary_cards(
