@@ -8,6 +8,7 @@ authors = [
 license = {text = "Propriertary"}
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
+packages = [{include = "app"}]
 dependencies = [
     "reflex (==0.8.9)",
     "supabase (>=2.18.1,<3.0.0)",
@@ -19,6 +20,9 @@ dependencies = [
     "python-dateutil (>=2.9.0.post0,<3.0.0)"
 ]
 
+
+[tool.poetry]
+package-mode = false
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
