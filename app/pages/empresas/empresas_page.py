@@ -6,10 +6,6 @@ from app.components.modules.empresas.empresa_modals import modal_crear_empresa, 
 from app.components.modules.empresas.empresa_card import empresa_card
 from app.components.ui.filters import filtros_component
 
-from app.database.models import TipoEmpresa, EstatusEmpresa
-
-
-
 def empresas_page() -> rx.Component:
     """Página principal de gestión de empresas"""
     return rx.vstack(

@@ -1,13 +1,9 @@
-"""
-Modelos para el tracking completo del historial laboral de empleados
-Crítico para auditoría y trazabilidad
-"""
-
+from uuid import UUID
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 class TipoMovimiento(str, Enum):
     """Tipos de movimientos laborales"""
@@ -64,13 +60,25 @@ class HistorialLaboral(BaseModel):
         json_encoders={
             Decimal: lambda v: float(v),
             date: lambda v: v.isoformat(),
-            datetime: lambda v: v.isoformat()
+            datetime: lambda v: v.isoformat(),
+            UUID: lambda v: str(v)  # Convierte UUID a string para JSON
         }
     )
     
     # Identificación
     id: Optional[int] = None
-    empleado_id: int
+    
+    # DOBLE REFERENCIA AL EMPLEADO
+    empleado_id: int = Field(
+        description="FK al ID del empleado (para JOINs rápidos)",
+        gt=0  # Mayor que 0
+    )
+    
+    empleado_uuid: UUID = Field(
+        description="UUID del empleado (para trazabilidad permanente)"
+    )
+    
+    # Tipo de movimiento y fechas
     tipo_movimiento: TipoMovimiento
     fecha_movimiento: date
     fecha_efectiva: Optional[date] = Field(
@@ -187,10 +195,14 @@ class HistorialLaboralCreate(BaseModel):
     
     model_config = ConfigDict(
         use_enum_values=True,
-        str_strip_whitespace=True
+        str_strip_whitespace=True,
+        json_encoders={
+            UUID: lambda v: str(v)
+        }
     )
     
-    empleado_id: int
+    empleado_id: int = Field(description="ID del empleado")
+    empleado_uuid: UUID = Field(description="UUID del empleado")
     tipo_movimiento: TipoMovimiento
     fecha_movimiento: date
     motivo: str
@@ -281,6 +293,7 @@ class HistorialLaboralService:
         """Crea registro de alta inicial"""
         return HistorialLaboralCreate(
             empleado_id=empleado['id'],
+            empleado_uuid=empleado['uuid'],  # Agregado UUID
             tipo_movimiento=TipoMovimiento.ALTA,
             fecha_movimiento=empleado['fecha_ingreso'],
             motivo="Alta inicial en el sistema",
@@ -297,6 +310,7 @@ class HistorialLaboralService:
     @staticmethod
     def crear_registro_cambio_sueldo(
         empleado_id: int,
+        empleado_uuid: UUID,  # Agregado UUID
         salario_anterior: Decimal,
         salario_nuevo: Decimal,
         sdi_anterior: Decimal,
@@ -311,6 +325,7 @@ class HistorialLaboralService:
         
         return HistorialLaboralCreate(
             empleado_id=empleado_id,
+            empleado_uuid=empleado_uuid,  # Agregado UUID
             tipo_movimiento=TipoMovimiento.AUMENTO_SUELDO,
             fecha_movimiento=date.today(),
             motivo=motivo,
@@ -326,6 +341,7 @@ class HistorialLaboralService:
     @staticmethod
     def crear_registro_baja(
         empleado_id: int,
+        empleado_uuid: UUID,  # Agregado UUID
         tipo_baja: TipoMovimiento,
         fecha_baja: date,
         motivo: str,
@@ -336,6 +352,7 @@ class HistorialLaboralService:
         """Crea registro de baja"""
         return HistorialLaboralCreate(
             empleado_id=empleado_id,
+            empleado_uuid=empleado_uuid,  # Agregado UUID
             tipo_movimiento=tipo_baja,
             fecha_movimiento=fecha_baja,
             motivo=motivo,
@@ -344,4 +361,3 @@ class HistorialLaboralService:
             registrado_por=autorizado_por,
             afecta_nomina=True
         )
-
