@@ -24,3 +24,4 @@ venv/
 assets/external/
 *.py[cod]
 
+.DS_Store
