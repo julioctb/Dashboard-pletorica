@@ -25,3 +25,14 @@ assets/external/
 *.py[cod]
 
 .DS_Store
+
+echo "" >> .gitignore
+echo "# =======================" >> .gitignore
+echo "# BACKUPS Y MIGRACIONES" >> .gitignore
+echo "# =======================" >> .gitignore
+echo "backup_migration/" >> .gitignore
+echo "backup_migration_*/" >> .gitignore
+echo "*.backup" >> .gitignore
+echo "*.bak" >> .gitignore
+echo "*.old" >> .gitignore
+echo "migration_log.json" >> .gitignore
