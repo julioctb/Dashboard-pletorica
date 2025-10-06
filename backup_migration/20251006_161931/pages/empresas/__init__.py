@@ -1,5 +1,5 @@
 # Importar el estado principal
-from app.modules.empresas.presentation.states import EmpresasState
+from .empresas_state import EmpresasState
 
 # Importar la página principal
 from .empresas_page import empresas_page

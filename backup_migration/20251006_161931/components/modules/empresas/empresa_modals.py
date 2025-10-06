@@ -1,5 +1,5 @@
 import reflex as rx
-from app.modules.empresas.presentation.states import EmpresasState
+from app.pages.empresas.empresas_state import EmpresasState
 from app.database.models import TipoEmpresa, EstatusEmpresa
 
 def modal_crear_empresa() -> rx.Component:
