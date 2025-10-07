@@ -1,5 +1,5 @@
 import reflex as rx
-from app.modules.empresas.presentation.states import EmpresasState
+from app.presentation.pages.empresas.empresas_state import EmpresasState
 
 from app.components.ui.cards import empty_state_card
 from app.components.modules.empresas.empresa_modals import modal_crear_empresa, modal_detalle_empresa, modal_editar_empresa 

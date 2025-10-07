@@ -1,9 +1,9 @@
 import reflex as rx
-from .pages.dashboard import dashboard_page
-from .modules.empresas.presentation.pages import empresas_page
+from .pages.dashboard import dashboard_page  # Legacy dashboard
+from .presentation.pages.empresas import empresas_page
 
-from .layout.sidebar_layout import sidebar
-from .layout.navbar_layout import navbar
+from .presentation.layout.sidebar_layout import sidebar
+from .presentation.layout.navbar_layout import navbar
 
 #Configuracion de la Aplicacion
 class AppConfig:
