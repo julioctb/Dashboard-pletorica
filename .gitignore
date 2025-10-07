@@ -14,8 +14,9 @@ __pycache__/
 venv/
 .env
 
-# VSCode
+# IDEs
 .vscode/
+.idea/
 
 # MacOS
 .DS_Store
