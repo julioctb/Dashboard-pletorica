@@ -1,8 +1,8 @@
 from typing import Type
 import reflex as rx
 
-#importacion temporal de tipo
-from app.database.models import TipoEmpresa, EstatusEmpresa
+# Importar desde el domain layer
+from app.entities import TipoEmpresa, EstatusEmpresa
 
 def filtros_component(estado: Type[rx.State]) -> rx.Component:
   

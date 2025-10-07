@@ -1,9 +1,9 @@
 import reflex as rx
 from app.presentation.components.shared.base_state import BaseState
 from typing import List
-from app.application.services import empresa_service
+from app.services import empresa_service
 
-from app.domain.empresas import (
+from app.entities import (
     Empresa,
     EmpresaCreate,
     EmpresaUpdate,

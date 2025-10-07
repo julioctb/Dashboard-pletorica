@@ -1,10 +1,10 @@
 import reflex as rx
 from app.presentation.pages.empresas.empresas_state import EmpresasState
 
-from app.components.ui.cards import empty_state_card
-from app.components.modules.empresas.empresa_modals import modal_crear_empresa, modal_detalle_empresa, modal_editar_empresa 
-from app.components.modules.empresas.empresa_card import empresa_card
-from app.components.ui.filters import filtros_component
+from app.presentation.components.ui.cards import empty_state_card
+from app.presentation.components.empresas.empresa_modals import modal_crear_empresa, modal_detalle_empresa, modal_editar_empresa
+from app.presentation.components.empresas.empresa_card import empresa_card
+from app.presentation.components.ui.filters import filtros_component
 
 def empresas_page() -> rx.Component:
     """Página principal de gestión de empresas"""

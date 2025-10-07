@@ -1,5 +1,5 @@
 import reflex as rx
-from app.config import Config
+from app.core.config import Config
 
 def footer_sidebar() -> rx.Component:
     return rx.center(

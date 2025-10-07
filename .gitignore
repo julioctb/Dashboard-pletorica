@@ -1,38 +1,37 @@
-#Python
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.py[cod]
 
-#Reflex
+# Reflex
 .web
 .states
 .reflex/
 
-#entornos virtuales
+# Entornos virtuales
 venv/
 .env
 
-#VSCode
+# VSCode
 .vscode/
 
-#MacOS
+# MacOS
 .DS_Store
 
-
+# Bases de datos
 *.db
+
+# Assets externos
 assets/external/
-*.py[cod]
 
-.DS_Store
-
-echo "" >> .gitignore
-echo "# =======================" >> .gitignore
-echo "# BACKUPS Y MIGRACIONES" >> .gitignore
-echo "# =======================" >> .gitignore
-echo "backup_migration/" >> .gitignore
-echo "backup_migration_*/" >> .gitignore
-echo "*.backup" >> .gitignore
-echo "*.bak" >> .gitignore
-echo "*.old" >> .gitignore
-echo "migration_log.json" >> .gitignore
+# =======================
+# BACKUPS Y MIGRACIONES
+# =======================
+backup_migration/
+backup_migration_*/
+*.backup
+*.bak
+*.old
+migration_log.json

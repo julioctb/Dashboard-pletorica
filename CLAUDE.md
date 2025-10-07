@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Dashboard application built with Reflex (v0.8.9) for managing dependency contracts in Mexico (empresas, empleados, sedes, nominas). Uses Supabase as backend. **Recently consolidated** to clean layered architecture (2025-10-06).
+Dashboard application built with Reflex (v0.8.9) for managing dependency contracts in Mexico (empresas, empleados, sedes, nominas). Uses Supabase as backend. **Simplified to scalable layered architecture** (2025-10-06).
 
 **Author**: Julio C Tello (julioc.tello@me.com)
-**Status**: Production - Consolidated architecture
+**Status**: Production - Scalable Layered Architecture
 
 ## Development Commands
 
@@ -48,94 +48,102 @@ poetry run flake8 app/
 poetry run mypy app/
 ```
 
-### Backup & Restore
-```bash
-# Restore from backup if needed
-python3 migrate_to_modular.py --restore
-
-# Create backup before changes
-python3 migrate_to_modular.py --backup
-```
-
 ## Architecture
 
-### Clean Layered Architecture
+### Scalable Layered Architecture
 
-The application follows a **simple layered architecture** optimized for small teams and maintainability:
+The application follows a **simple layered architecture** optimized for **scalability and maintainability**:
 
 ```
 app/
-├── domain/                          # Business entities and rules
-│   ├── empresas/
-│   │   ├── entities.py              # Empresa, EmpresaCreate, EmpresaUpdate, EmpresaResumen
-│   │   └── __init__.py              # Clean exports
-│   ├── empleados/                   # (TODO: migrate from legacy)
-│   ├── sedes/
-│   └── nominas/
+├── core/                        # ⚙️ Cross-cutting concerns
+│   ├── config.py               # Environment configuration
+│   └── calculations/           # Business calculations (IMSS, ISR, payroll)
 │
-├── infrastructure/                  # Technical implementations
-│   └── database/
-│       ├── connection.py            # Supabase singleton (db_manager)
-│       ├── repositories/
-│       │   ├── empresa_repository.py  # IEmpresaRepository + SupabaseEmpresaRepository
-│       │   └── __init__.py
-│       └── __init__.py
+├── entities/                    # 📦 Domain models (ALL in one place)
+│   ├── empresa.py              # Empresa, EmpresaCreate, EmpresaUpdate, EmpresaResumen
+│   ├── empleado.py             # (TODO: migrate)
+│   ├── sede.py                 # (TODO: migrate)
+│   └── nomina.py               # (TODO: migrate)
 │
-├── application/                     # Business logic orchestration
-│   └── services/
-│       ├── empresa_service.py       # EmpresaService + empresa_service singleton
-│       └── __init__.py
+├── repositories/                # 💾 Data access layer (ALL in one place)
+│   ├── empresa_repository.py  # IEmpresaRepository + SupabaseEmpresaRepository
+│   ├── empleado_repository.py # (TODO: migrate)
+│   └── sede_repository.py      # (TODO: migrate)
 │
-├── presentation/                    # UI layer (Reflex)
+├── services/                    # 🔧 Business logic (ALL in one place)
+│   ├── empresa_service.py      # EmpresaService + empresa_service singleton
+│   ├── empleado_service.py     # (TODO: migrate)
+│   └── nomina_service.py       # (TODO: migrate)
+│
+├── database/                    # 🗄️ Infrastructure
+│   └── connection.py           # Supabase singleton (db_manager)
+│
+├── presentation/                # 🎨 UI Layer (Reflex)
 │   ├── pages/
-│   │   ├── empresas/
-│   │   │   ├── empresas_page.py     # Main page component
-│   │   │   ├── empresas_state.py    # Reflex state management
-│   │   │   └── __init__.py
-│   │   └── dashboard/               # (legacy - TODO: migrate)
+│   │   └── empresas/
+│   │       ├── empresas_page.py    # Main page component
+│   │       └── empresas_state.py   # Reflex state management
+│   │
 │   ├── components/
-│   │   ├── shared/
-│   │   │   └── base_state.py        # Common Reflex state
-│   │   ├── ui/                      # Reusable UI components
-│   │   └── business/                # Business-specific components (modals, cards)
+│   │   ├── empresas/           # Empresa-specific components
+│   │   │   ├── empresa_card.py
+│   │   │   └── empresa_modals.py
+│   │   ├── shared/             # Common state
+│   │   │   └── base_state.py
+│   │   └── ui/                 # Reusable UI components
+│   │       ├── cards.py
+│   │       ├── modals.py
+│   │       ├── filters.py
+│   │       └── toasts.py
+│   │
 │   └── layout/
 │       ├── sidebar_layout.py
 │       └── navbar_layout.py
 │
-├── core/                            # Cross-cutting concerns
-│   ├── config.py                    # Environment configuration
-│   └── calculations/
-│       ├── imss.py                  # Mexican social security
-│       ├── isr.py                   # Mexican income tax
-│       └── payroll.py               # Payroll processing
+├── tests/                       # 🧪 Unit tests
+│   ├── empresas/
+│   ├── empleados/
+│   ├── sedes/
+│   └── nominas/
 │
-├── app.py                           # Application entry point
-│
-└── [LEGACY - to be removed]
-    ├── modules/                     # Old modular monolith attempt
-    ├── database/                    # Old database models
-    ├── services/                    # Old services
-    ├── components/                  # Old UI components
-    └── pages/                       # Old pages
+└── app.py                       # Application entry point
 ```
 
 ### Architecture Benefits
 
-✅ **Simple & Clear**: One location per concept, easy navigation
-✅ **No Duplication**: Single source of truth for entities, services, etc.
-✅ **Maintainable**: Ideal for small teams (1-3 developers)
-✅ **Testable**: Clean dependencies, easy to mock
-✅ **Scalable**: Room to add empleados/sedes/nominas modules
-✅ **SOLID Principles**: Without over-engineering
+| Benefit | Description |
+|---------|-------------|
+| **🎯 Scalable** | Easy to add new entities/repos/services - just add a new file |
+| **🔍 Easy to find** | One layer = One directory. No nested structures |
+| **🚀 Simple** | No over-engineering. Straightforward for small teams |
+| **🔄 Maintainable** | Related code is together (feature folders in components/) |
+| **✅ Testable** | Each layer is independent and mockable |
+
+### Dependency Flow
+
+```
+Presentation → Services → Repositories → Database
+                   ↓           ↓
+               Entities    Entities
+                   ↓
+                Core
+```
+
+**Rules:**
+- Presentation ONLY imports from Services and Entities
+- Services ONLY import from Repositories and Entities
+- Repositories ONLY import from Database and Entities
+- Entities are pure (no dependencies)
 
 ## Key Patterns
 
-### 1. Domain Entities
+### 1. Entities (Domain Models)
 
-Domain entities use Pydantic for validation and business logic:
+All business entities use Pydantic for validation:
 
 ```python
-from app.domain.empresas import Empresa, TipoEmpresa, EstatusEmpresa
+from app.entities import Empresa, TipoEmpresa, EstatusEmpresa
 
 # Create entity
 empresa = Empresa(
@@ -148,19 +156,16 @@ empresa = Empresa(
 )
 
 # Business logic methods
-if empresa.puede_tener_empleados():  # True for NOMINA companies
+if empresa.puede_tener_empleados():
     ...
-
-if empresa.esta_activa():
-    empresa.suspender()  # Changes status with validation
 ```
 
-### 2. Repository Pattern
+### 2. Repositories (Data Access)
 
-Repositories abstract database access:
+Repositories abstract database operations:
 
 ```python
-from app.infrastructure.database.repositories import SupabaseEmpresaRepository
+from app.repositories import SupabaseEmpresaRepository
 
 # Create repository
 repository = SupabaseEmpresaRepository()
@@ -169,15 +174,14 @@ repository = SupabaseEmpresaRepository()
 empresa = await repository.obtener_por_id(1)
 empresas = await repository.obtener_todas(incluir_inactivas=False)
 nueva = await repository.crear(empresa)
-await repository.actualizar(empresa)
 ```
 
-### 3. Service Layer
+### 3. Services (Business Logic)
 
 Services orchestrate business operations:
 
 ```python
-from app.application.services import empresa_service
+from app.services import empresa_service
 
 # The singleton is already instantiated
 empresas = await empresa_service.obtener_todas()
@@ -202,7 +206,7 @@ class EmpresasState(BaseState):
 
     # Async methods work inside state
     async def cargar_empresas(self):
-        self.loading = True  # OK inside async method
+        self.loading = True
         try:
             self.empresas = await empresa_service.obtener_resumen_empresas()
         finally:
@@ -214,7 +218,7 @@ class EmpresasState(BaseState):
 Single connection manager (singleton):
 
 ```python
-from app.infrastructure.database import db_manager
+from app.database import db_manager
 
 # Get Supabase client
 supabase = db_manager.get_client()
@@ -242,19 +246,21 @@ Configuration is validated on startup by `app/core/config.py`.
 
 ### Adding a New Feature to Empresas
 
-1. **Update domain entity** if needed: `app/domain/empresas/entities.py`
-2. **Add repository method** if needed: `app/infrastructure/database/repositories/empresa_repository.py`
-3. **Add service method**: `app/application/services/empresa_service.py`
-4. **Update presentation**: `app/presentation/pages/empresas/`
+1. **Update entity** if needed: `app/entities/empresa.py`
+2. **Add repository method** if needed: `app/repositories/empresa_repository.py`
+3. **Add service method**: `app/services/empresa_service.py`
+4. **Update presentation**: `app/presentation/pages/empresas/` or `app/presentation/components/empresas/`
 
 ### Adding a New Module (e.g., Empleados)
 
-1. Create domain: `app/domain/empleados/entities.py`
-2. Create repository: `app/infrastructure/database/repositories/empleado_repository.py`
-3. Create service: `app/application/services/empleado_service.py`
-4. Create presentation: `app/presentation/pages/empleados/`
+1. Create entity: `app/entities/empleado.py`
+2. Create repository: `app/repositories/empleado_repository.py`
+3. Create service: `app/services/empleado_service.py`
+4. Create presentation:
+   - Page: `app/presentation/pages/empleados/`
+   - Components: `app/presentation/components/empleados/`
 
-Much simpler than creating 4 subdirectories per module!
+**Much simpler** - Just add files, no need to create nested directory structures!
 
 ### Reflex-Specific Notes
 
@@ -267,14 +273,17 @@ Much simpler than creating 4 subdirectories per module!
 ### Import Patterns
 
 ```python
-# Domain
-from app.domain.empresas import Empresa, TipoEmpresa, EstatusEmpresa
+# Entities
+from app.entities import Empresa, TipoEmpresa, EstatusEmpresa
 
 # Repository
-from app.infrastructure.database.repositories import SupabaseEmpresaRepository
+from app.repositories import SupabaseEmpresaRepository
 
 # Service (use singleton)
-from app.application.services import empresa_service
+from app.services import empresa_service
+
+# Database
+from app.database import db_manager
 
 # Presentation
 from app.presentation.pages.empresas import empresas_page, EmpresasState
@@ -294,46 +303,31 @@ These are independent utilities used across modules.
 ## Migration Status
 
 ### ✅ Completed
-- Domain layer consolidated
-- Infrastructure layer consolidated
-- Application services consolidated
-- Presentation layer for empresas migrated
-- Components and layout moved
-- Config reorganized to core/
+- ✅ Simplified to flat layered architecture
+- ✅ All code for empresas migrated
+- ✅ Removed all nested/complex directory structures
+- ✅ Clean imports throughout
 
-### ⚠️ Legacy Code (To Be Removed)
-- `app/modules/` - Old modular monolith attempt
-- `app/database/` - Old database models
-- `app/services/` - Old service layer
-- `app/components/` - Old components (moved to presentation/)
-- `app/pages/dashboard/` - Dashboard not yet migrated
-
-**Note**: Legacy code still exists for safety. Once everything is verified working, it can be deleted.
-
-## Backups
-
-Backups available in `backup_migration/`:
-- Most recent before consolidation
-- Restore with: `python3 migrate_to_modular.py --restore`
-
-## Testing
-
-- Configuration: `pytest.ini` (asyncio mode enabled)
-- Tests location: `tests/` directory
-- Run with: `pytest` or `pytest tests/empresas`
+### ⚠️ TODO
+- Migrate empleados module
+- Migrate sedes module
+- Migrate nominas module
+- Implement dashboard with new architecture
+- Add unit tests
 
 ## Important Files
 
 - **`app/app.py`**: Application entry point, routes
 - **`rxconfig.py`**: Reflex config (Sitemap, TailwindV4 plugins)
 - **`app/core/config.py`**: Environment configuration
-- **`app/infrastructure/database/connection.py`**: Database singleton
+- **`app/database/connection.py`**: Database singleton
+- **`app/entities/empresa.py`**: Main business entity
 - **`pyproject.toml`**: Dependencies and project metadata
 
 ## Next Steps
 
-1. Migrate remaining modules (empleados, sedes, nominas) to new structure
-2. Migrate dashboard page to presentation layer
-3. Remove legacy code after verification
-4. Add tests for new architecture
-5. Update documentation with examples
+1. Migrate remaining modules (empleados, sedes, nominas) to new flat structure
+2. Each module = 1 entity file + 1 repository file + 1 service file
+3. Add comprehensive tests
+4. Implement dashboard
+5. Add API documentation

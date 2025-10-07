@@ -1,8 +1,10 @@
-#Importar servicios separados
-from .empresa_service import empresa_service, EmpresaService
+"""
+Services - Business logic layer
+All services in one place for easy discovery
+"""
+from .empresa_service import EmpresaService, empresa_service
 
-#Exportar para uso externo
 __all__ = [
-    "empresa_service",
-    "EmpresaService"
+    'EmpresaService',
+    'empresa_service',
 ]

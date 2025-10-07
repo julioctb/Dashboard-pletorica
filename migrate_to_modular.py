@@ -121,6 +121,20 @@ class ModularMigrator:
                     dst = self.backup_path / file_name
                     shutil.copy2(src, dst)
                     print_success(f"Backup creado: {file_name}")
+            
+            # Copiar archivo .env si existe
+            env_file = self.app_path.parent / ".env"
+            if env_file.exists():
+                dst_env = self.backup_path / ".env"
+                shutil.copy2(env_file, dst_env)
+                print_success("Backup creado: .env")
+            
+            # Copiar rxconfig.py si existe
+            rxconfig_file = self.app_path.parent / "rxconfig.py"
+            if rxconfig_file.exists():
+                dst_rxconfig = self.backup_path / "rxconfig.py"
+                shutil.copy2(rxconfig_file, dst_rxconfig)
+                print_success("Backup creado: rxconfig.py")
         else:
             print_info("Modo dry-run: Backup simulado")
     
@@ -348,10 +362,14 @@ class IEmpresaRepository(ABC):
             if src_state.exists():
                 content = src_state.read_text()
                 
-                # Cambiar imports
+                # Cambiar imports para que funcionen con la estructura actual
                 content = content.replace(
                     "from app.services import empresa_service",
-                    "from ..application.empresa_service import EmpresaService"
+                    "from app.services.empresa_service import empresa_service"
+                )
+                content = content.replace(
+                    "from app.database.models import",
+                    "from app.database.models.empresa_models import"
                 )
                 content = content.replace(
                     "import reflex as rx",
@@ -485,11 +503,18 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
             if app_file.exists():
                 content = app_file.read_text()
                 
-                # Actualizar imports
+                # Actualizar imports para empresas
                 old_import = "from .pages.empresas.empresas_page import empresas_page"
                 new_import = "from .modules.empresas.presentation.pages import empresas_page"
                 
                 content = content.replace(old_import, new_import)
+                
+                # Mantener import del dashboard por ahora
+                # Se puede migrar después
+                content = content.replace(
+                    "from .pages.dashboard import dashboard_page",
+                    "from .pages.dashboard import dashboard_page  # TODO: Migrar a modules/"
+                )
                 
                 # Crear backup del app.py original
                 backup_app = self.backup_path / "app.py.original"

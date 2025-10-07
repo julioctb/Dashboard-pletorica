@@ -12,7 +12,7 @@ class Config:
     #CONFIGURACION DE LA APLICACION
     APP_NAME= os.getenv("APP_NAME","Sistema de Administración de Personal")
     APP_VERSION = os.getenv("APP_VERSION","0.0.1")
-    DEBUG = os.getenv("DEBUG","FALSE").lower == "true"
+    DEBUG = os.getenv("DEBUG","FALSE").lower() == "true"
 
     #Validar que todas las clases criticas esten presentes
 

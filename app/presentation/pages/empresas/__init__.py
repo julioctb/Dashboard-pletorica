@@ -1,4 +1,4 @@
-"""Módulo de presentación de Empresas"""
+"""MÃ³dulo de presentaciÃ³n de Empresas"""
 from .empresas_page import empresas_page
 from .empresas_state import EmpresasState
 
