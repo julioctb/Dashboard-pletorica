@@ -25,6 +25,12 @@ def empresas_page() -> rx.Component:
             rx.spacer(),
             
             rx.hstack(
+                rx.button(
+                    rx.icon("plus", size=16),
+                    "Nueva Empresa",
+                    size="2",
+                    on_click= EmpresasState.abrir_modal_crear
+                ),
                 modal_crear_empresa(),
                 rx.button(
                     rx.icon("refresh-cw", size=16),
@@ -40,32 +46,7 @@ def empresas_page() -> rx.Component:
             align="center"
         ),
         
-        # Mensaje informativo
-        rx.cond(
-            EmpresasState.mensaje_info,
-            rx.callout(
-                EmpresasState.mensaje_info,
-                icon=rx.cond(
-                    EmpresasState.tipo_mensaje == "info", 
-                    "info",
-                    rx.cond(
-                        EmpresasState.tipo_mensaje == "success",
-                        "check",
-                        "alert-triangle"
-                    )
-                ),
-                color_scheme=rx.cond(
-                    EmpresasState.tipo_mensaje == "info",
-                    "blue",
-                    rx.cond(
-                        EmpresasState.tipo_mensaje == "success",
-                        "green",
-                        "red"
-                    )
-                ),
-                size="2"
-            )
-        ),
+    
         
         # Filtros
         filtros_component(EmpresasState),

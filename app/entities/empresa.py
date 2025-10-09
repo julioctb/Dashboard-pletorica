@@ -109,8 +109,21 @@ class Empresa(BaseModel):
     @classmethod
     def validar_rfc(cls, v: str) -> str:
         """Valida y normaliza RFC"""
+        import re
         if v:
             v = v.upper().strip()
+            # Validar formato específico con mensaje claro
+            patron = r'^[A-Z&Ñ]{3,4}[0-9]{6}[A-V1-9][A-Z1-9][0-9A]$'
+            if not re.match(patron, v):
+                # Identificar qué parte está mal
+                if len(v) < 12 or len(v) > 13:
+                    raise ValueError(f'RFC debe tener 12 o 13 caracteres (tiene {len(v)})')
+                if not re.match(r'^[A-Z&Ñ]{3,4}', v[:4]):
+                    raise ValueError('RFC: Las primeras 3-4 letras son inválidas')
+                if not re.match(r'^[0-9]{6}', v[4:10] if len(v) == 13 else v[3:9]):
+                    raise ValueError('RFC: La fecha (6 dígitos) es inválida')
+                # Si llegamos aquí, es la homoclave
+                raise ValueError(f'RFC: La homoclave "{v[-3:]}" es inválida. Debe seguir el formato del SAT')
         return v
 
     @field_validator('email')
