@@ -1,5 +1,5 @@
 import reflex as rx
-# from .pages.dashboard import dashboard_page  # Legacy dashboard - TODO: migrar a nueva arquitectura
+from .presentation.pages.dashboard import dashboard_page  
 from .presentation.pages.empresas import empresas_page
 
 from .presentation.layout.sidebar_layout import sidebar
@@ -41,6 +41,5 @@ app= rx.App(
 )
 
 #definicion de rutas
-# app.add_page(lambda: index(dashboard_page()), route="/")  # TODO: migrar dashboard
-app.add_page(lambda: index(empresas_page()), route="/")  # Temporalmente empresas como página principal
+app.add_page(lambda: index(dashboard_page()), route="/") 
 app.add_page(lambda: index(empresas_page()), route="/empresas")

@@ -92,8 +92,8 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
             if await self.existe_rfc(empresa.rfc):
                 raise ValueError(f"RFC {empresa.rfc} ya existe")
 
-            # Preparar datos excluyendo ID (se asigna en BD)
-            datos = empresa.model_dump(exclude={'id'})
+            # Preparar datos excluyendo ID, fecha de creacion y fecha de actualizacion (se asigna en BD)
+            datos = empresa.model_dump(exclude={'id', 'fecha_creacion','fecha_actualizacion'})
             result = self.supabase.table(self.tabla).insert(datos).execute()
 
             if result.data:
@@ -107,7 +107,7 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
         """Actualiza una empresa existente"""
         try:
             # Excluir campos que no deben actualizarse
-            datos = empresa.model_dump(exclude={'id', 'fecha_creacion'})
+            datos = empresa.model_dump(exclude={'id', 'fecha_creacion','fecha_actualizacion'})
             result = self.supabase.table(self.tabla).update(datos).eq('id', empresa.id).execute()
 
             if result.data:
