@@ -1,10 +1,9 @@
 import reflex as rx
 from app.presentation.pages.empresas.empresas_state import EmpresasState
 
-from app.presentation.components.ui.cards import empty_state_card
-from app.presentation.components.empresas.empresa_modals import modal_crear_empresa, modal_detalle_empresa, modal_editar_empresa
-from app.presentation.components.empresas.empresa_card import empresa_card
 from app.presentation.components.ui.filters import filtros_component
+from app.presentation.components.empresas.empresa_modals import modal_empresa, modal_detalle_empresa
+from app.presentation.components.empresas.empresa_grid import empresas_grid
 
 def empresas_page() -> rx.Component:
     """Página principal de gestión de empresas"""
@@ -29,9 +28,8 @@ def empresas_page() -> rx.Component:
                     rx.icon("plus", size=16),
                     "Nueva Empresa",
                     size="2",
-                    on_click= EmpresasState.abrir_modal_crear
+                    on_click=EmpresasState.abrir_modal_crear
                 ),
-                modal_crear_empresa(),
                 rx.button(
                     rx.icon("refresh-cw", size=16),
                     "Actualizar",
@@ -50,54 +48,13 @@ def empresas_page() -> rx.Component:
         
         # Filtros
         filtros_component(EmpresasState),
-        
-        # Loading state
-        rx.cond(
-            EmpresasState.loading,
-            rx.center(
-                rx.spinner(size="3"),
-                padding="4"
-            )
-        ),
-        
-        # Lista de empresas
-        rx.cond(
-            EmpresasState.loading == False,
-            rx.cond(
-                EmpresasState.empresas.length() > 0,
-                rx.vstack(
-                    rx.text(
-                        f"Total: {EmpresasState.empresas.length()} empresas", 
-                        size="2", 
-                        color="var(--gray-9)"
-                    ),
-                    rx.grid(
-                        rx.foreach(
-                            EmpresasState.empresas,
-                            lambda empresa: empresa_card(
-                                empresa=empresa,
-                                on_view=EmpresasState.abrir_modal_detalle,
-                                on_edit=EmpresasState.abrir_modal_editar
-                            )
-                        ),
-                        columns="3",
-                        spacing="4",
-                        width="100%"
-                    ),
-                    spacing="3",
-                    width="100%"
-                ),
-                empty_state_card(
-                    title="No se encontraron empresas",
-                    description="Intente ajustar los filtros o crear una nueva empresa",
-                    icon="building-2"
-                )
-            )
-        ),
-        
+
+        # Grid de empresas
+        empresas_grid(),
+
         # Modales
+        modal_empresa(),
         modal_detalle_empresa(),
-        modal_editar_empresa(),
         
         spacing="4",
         width="100%",

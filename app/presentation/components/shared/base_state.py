@@ -6,7 +6,7 @@ import reflex as rx
 class BaseState(rx.State):
     """Estado base con funcionalidad común para todos los módulos"""
 
-    loading: bool = False
+    loading: bool = True
     mensaje_info: str = ""
     tipo_mensaje: str = "info" # info, success, error
 

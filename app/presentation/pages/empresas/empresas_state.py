@@ -41,8 +41,8 @@ class EmpresasState(BaseState):
     # ========================
     # ESTADO DE LA UI
     # ========================
-    mostrar_modal_crear: bool = False
-    mostrar_modal_editar: bool = False
+    mostrar_modal_empresa: bool = False  # Modal unificado crear/editar
+    modo_modal_empresa: str = ""  # "crear" | "editar" | ""
     mostrar_modal_detalle: bool = False
     
     # ========================
@@ -84,13 +84,10 @@ class EmpresasState(BaseState):
     
     def set_incluir_inactivas(self, value: bool):
         self.incluir_inactivas = value
-    
-    def set_mostrar_modal_crear(self, value: bool):
-        self.mostrar_modal_crear = value
-    
-    def set_mostrar_modal_editar(self, value: bool):
-        self.mostrar_modal_editar = value
-    
+
+    def set_mostrar_modal_empresa(self, value: bool):
+        self.mostrar_modal_empresa = value
+
     def set_mostrar_modal_detalle(self, value: bool):
         self.mostrar_modal_detalle = value
     
@@ -196,7 +193,7 @@ class EmpresasState(BaseState):
 
             if empresa_creada:
                 # Cerrar modal y recargar lista
-                self.cerrar_modal_crear()
+                self.cerrar_modal_empresa()
                 await self.cargar_empresas()
 
                 # Mostrar toast de éxito (modal ya cerrado)
@@ -249,7 +246,7 @@ class EmpresasState(BaseState):
 
             if empresa_actualizada:
                 # Cerrar modal y recargar lista
-                self.cerrar_modal_editar()
+                self.cerrar_modal_empresa()
                 await self.cargar_empresas()
 
                 # Mostrar toast de éxito (modal ya cerrado)
@@ -286,37 +283,16 @@ class EmpresasState(BaseState):
     # OPERACIONES DE MODALES
     # ========================
     def abrir_modal_crear(self):
-        """Abrir modal para crear nueva empresa"""
+        """Abrir modal unificado en modo crear"""
         self.limpiar_formulario()
         self.limpiar_mensajes()
-        self.mostrar_modal_crear = True
-    
-    def cerrar_modal_crear(self):
-        """Cerrar modal de crear empresa"""
-        self.mostrar_modal_crear = False
-        self.limpiar_formulario()
-        self.limpiar_mensajes()
-    
-    async def abrir_modal_detalle(self, empresa_id: int):
-        """Abrir modal con detalles de la empresa"""
-        try:
-            self.empresa_seleccionada = await empresa_service.obtener_por_id(empresa_id)
-            if self.empresa_seleccionada:
-                self.mostrar_modal_detalle = True
-            else:
-                self.mostrar_mensaje("No se pudo cargar la información de la empresa", "error")
-        except Exception as e:
-            self.mostrar_mensaje(f"Error al cargar empresa: {str(e)}", "error")
-    
-    def cerrar_modal_detalle(self):
-        """Cerrar modal de detalles"""
-        self.mostrar_modal_detalle = False
-        self.empresa_seleccionada = None
-    
+        self.modo_modal_empresa = "crear"
+        self.mostrar_modal_empresa = True
+
     async def abrir_modal_editar(self, empresa_id: int):
-        """Abrir modal para editar empresa"""
+        """Abrir modal unificado en modo editar"""
         try:
-            self.limpiar_mensajes()  # Limpiar mensajes previos
+            self.limpiar_mensajes()
             self.mostrar_modal_detalle = False  # Cerrar modal de detalle si está abierto
             empresa = await empresa_service.obtener_por_id(empresa_id)
             if empresa:
@@ -334,18 +310,36 @@ class EmpresasState(BaseState):
                 self.form_notas = empresa.notas or ""
 
                 self.empresa_seleccionada = empresa
-                self.mostrar_modal_editar = True
+                self.modo_modal_empresa = "editar"
+                self.mostrar_modal_empresa = True
             else:
                 self.mostrar_mensaje("No se pudo cargar la empresa para editar", "error")
         except Exception as e:
             self.mostrar_mensaje(f"Error al cargar empresa: {str(e)}", "error")
-    
-    def cerrar_modal_editar(self):
-        """Cerrar modal de editar empresa"""
-        self.mostrar_modal_editar = False
+
+    def cerrar_modal_empresa(self):
+        """Cerrar modal unificado (crear/editar)"""
+        self.mostrar_modal_empresa = False
+        self.modo_modal_empresa = ""
         self.empresa_seleccionada = None
         self.limpiar_formulario()
         self.limpiar_mensajes()
+
+    async def abrir_modal_detalle(self, empresa_id: int):
+        """Abrir modal con detalles de la empresa"""
+        try:
+            self.empresa_seleccionada = await empresa_service.obtener_por_id(empresa_id)
+            if self.empresa_seleccionada:
+                self.mostrar_modal_detalle = True
+            else:
+                self.mostrar_mensaje("No se pudo cargar la información de la empresa", "error")
+        except Exception as e:
+            self.mostrar_mensaje(f"Error al cargar empresa: {str(e)}", "error")
+
+    def cerrar_modal_detalle(self):
+        """Cerrar modal de detalles"""
+        self.mostrar_modal_detalle = False
+        self.empresa_seleccionada = None
     
     # ========================
     # OPERACIONES DE FILTROS
