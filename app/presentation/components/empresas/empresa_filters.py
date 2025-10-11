@@ -4,7 +4,7 @@ import reflex as rx
 
 from app.entities import TipoEmpresa, EstatusEmpresa
 
-
+#TODO arreglar los filtros para que funcionen
 def empresa_filters(estado: Type[rx.State]) -> rx.Component:
     """
     Componente de filtros para el módulo de empresas

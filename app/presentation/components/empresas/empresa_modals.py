@@ -207,7 +207,7 @@ def modal_empresa() -> rx.Component:
                 spacing="3",
                 width="100%"
             ),
-            rx.spacer(),
+           
 
             # Mostrar mensaje de error si existe
             rx.cond(
