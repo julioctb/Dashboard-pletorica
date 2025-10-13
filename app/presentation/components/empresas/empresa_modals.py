@@ -2,6 +2,37 @@ import reflex as rx
 from app.presentation.pages.empresas.empresas_state import EmpresasState
 from app.entities import TipoEmpresa, EstatusEmpresa
 
+from typing import Type
+
+def input_form_con_validacion(
+        placeholder: str,
+        state_prop_form_value: str,
+        state_set_prop_on_change,
+        estate_validacion_campo_on_blur,
+        estate: Type[rx.State],
+        prop_error_state
+
+) -> rx.Component:
+    return rx.vstack(
+                    rx.input(
+                        placeholder= placeholder,
+                        value=EmpresasState.form_nombre_comercial,
+                        on_change=EmpresasState.set_form_nombre_comercial,
+                        on_blur=EmpresasState.validar_nombre_comercial_campo,
+                        size="2",
+                        width="100%"
+                    ),
+                    rx.cond(
+                        EmpresasState.error_nombre_comercial != "",
+                        rx.text(
+                            EmpresasState.error_nombre_comercial,
+                            color="red",
+                            size="1"
+                        )
+                    ),
+                    spacing="1",
+                    width="100%"
+                )
 
 def modal_empresa() -> rx.Component:
     """Modal unificado para crear o editar empresa"""
