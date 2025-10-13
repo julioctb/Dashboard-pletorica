@@ -1,38 +1,7 @@
 import reflex as rx
+from app.presentation.components.ui.form_input import form_input, form_select
 from app.presentation.pages.empresas.empresas_state import EmpresasState
 from app.entities import TipoEmpresa, EstatusEmpresa
-
-from typing import Type
-
-def input_form_con_validacion(
-        placeholder: str,
-        state_prop_form_value: str,
-        state_set_prop_on_change,
-        estate_validacion_campo_on_blur,
-        estate: Type[rx.State],
-        prop_error_state
-
-) -> rx.Component:
-    return rx.vstack(
-                    rx.input(
-                        placeholder= placeholder,
-                        value=EmpresasState.form_nombre_comercial,
-                        on_change=EmpresasState.set_form_nombre_comercial,
-                        on_blur=EmpresasState.validar_nombre_comercial_campo,
-                        size="2",
-                        width="100%"
-                    ),
-                    rx.cond(
-                        EmpresasState.error_nombre_comercial != "",
-                        rx.text(
-                            EmpresasState.error_nombre_comercial,
-                            color="red",
-                            size="1"
-                        )
-                    ),
-                    spacing="1",
-                    width="100%"
-                )
 
 def modal_empresa() -> rx.Component:
     """Modal unificado para crear o editar empresa"""
@@ -61,169 +30,104 @@ def modal_empresa() -> rx.Component:
                 rx.text("Información Básica", weight="bold", size="3"),
 
                 # Nombre comercial con validación
-                rx.vstack(
-                    rx.input(
-                        placeholder="Nombre comercial *",
-                        value=EmpresasState.form_nombre_comercial,
-                        on_change=EmpresasState.set_form_nombre_comercial,
-                        on_blur=EmpresasState.validar_nombre_comercial_campo,
-                        size="2",
-                        width="100%"
-                    ),
-                    rx.cond(
-                        EmpresasState.error_nombre_comercial != "",
-                        rx.text(
-                            EmpresasState.error_nombre_comercial,
-                            color="red",
-                            size="1"
-                        )
-                    ),
-                    spacing="1",
-                    width="100%"
+                form_input(
+                    placeholder="Nombre comercial *",
+                    value=EmpresasState.form_nombre_comercial,
+                    on_change=EmpresasState.set_form_nombre_comercial,
+                    on_blur=EmpresasState.validar_nombre_comercial_campo,
+                    error=EmpresasState.error_nombre_comercial
                 ),
 
                 # Razón social con validación
-                rx.vstack(
-                    rx.input(
-                        placeholder="Razón social *",
-                        value=EmpresasState.form_razon_social,
-                        on_change=EmpresasState.set_form_razon_social,
-                        on_blur=EmpresasState.validar_razon_social_campo,
-                        size="2",
-                        width="100%"
-                    ),
-                    rx.cond(
-                        EmpresasState.error_razon_social != "",
-                        rx.text(
-                            EmpresasState.error_razon_social,
-                            color="red",
-                            size="1"
-                        )
-                    ),
-                    spacing="1",
-                    width="100%"
+                form_input(
+                    placeholder="Razón social *",
+                    value=EmpresasState.form_razon_social,
+                    on_change=EmpresasState.set_form_razon_social,
+                    on_blur=EmpresasState.validar_razon_social_campo,
+                    error=EmpresasState.error_razon_social
                 ),
 
-                # Tipo de empresa y RFC
+                # RFC
+                form_input(
+                    placeholder="RFC *",
+                    value=EmpresasState.form_rfc,
+                    on_change=EmpresasState.set_form_rfc,
+                    on_blur=EmpresasState.validar_rfc_campo,
+                    error=EmpresasState.error_rfc
+                ),
+
+                # Tipo de empresa con ancho de 50%
                 rx.hstack(
-                    rx.select(
-                        [tipo.value for tipo in TipoEmpresa],
-                        placeholder="Tipo de empresa *",
+                    form_select(
+                        label="Tipo de empresa *",
+                        options=[tipo.value for tipo in TipoEmpresa],
                         value=EmpresasState.form_tipo_empresa,
-                        on_change=EmpresasState.set_form_tipo_empresa,
-                        size="2"
+                        on_change=EmpresasState.set_form_tipo_empresa
                     ),
-                    rx.vstack(
-                        rx.input(
-                            placeholder="RFC *",
-                            value=EmpresasState.form_rfc,
-                            on_change=EmpresasState.set_form_rfc,
-                            on_blur=EmpresasState.validar_rfc_campo,
-                            size="2"
-                        ),
-                        rx.cond(
-                            EmpresasState.error_rfc != "",
-                            rx.text(
-                                EmpresasState.error_rfc,
-                                color="red",
-                                size="1"
-                            )
-                        ),
-                        spacing="1",
-                        width="100%"
-                    ),
+                    rx.box(width="100%"),  # Spacer para ocupar el otro 50%
                     spacing="2",
                     width="100%"
                 ),
 
                 # Información de contacto
                 rx.text("Información de Contacto", weight="bold", size="3"),
-                rx.input(
+                form_input(
                     placeholder="Dirección",
                     value=EmpresasState.form_direccion,
-                    on_change=EmpresasState.set_form_direccion,
-                    size="2",
+                    on_change=EmpresasState.set_form_direccion
+                ),
+
+                # Código postal y teléfono con validación (50% cada uno)
+                rx.hstack(
+                    form_input(
+                        placeholder="Código Postal",
+                        value=EmpresasState.form_codigo_postal,
+                        on_change=EmpresasState.set_form_codigo_postal,
+                        on_blur=EmpresasState.validar_codigo_postal_campo,
+                        error=EmpresasState.error_codigo_postal
+                    ),
+                    form_input(
+                        placeholder="Teléfono",
+                        value=EmpresasState.form_telefono,
+                        on_change=EmpresasState.set_form_telefono,
+                        on_blur=EmpresasState.validar_telefono_campo,
+                        error=EmpresasState.error_telefono
+                    ),
+                    spacing="2",
                     width="100%"
                 ),
 
-                # Código postal y teléfono con validación
+                # Email y página web con validación (50% cada uno)
                 rx.hstack(
-                    rx.vstack(
-                        rx.input(
-                            placeholder="Código Postal",
-                            value=EmpresasState.form_codigo_postal,
-                            on_change=EmpresasState.set_form_codigo_postal,
-                            on_blur=EmpresasState.validar_codigo_postal_campo,
-                            size="2"
-                        ),
-                        rx.cond(
-                            EmpresasState.error_codigo_postal != "",
-                            rx.text(
-                                EmpresasState.error_codigo_postal,
-                                color="red",
-                                size="1"
-                            )
-                        ),
-                        spacing="2"
+                    form_input(
+                        placeholder="Email",
+                        value=EmpresasState.form_email,
+                        on_change=EmpresasState.set_form_email,
+                        on_blur=EmpresasState.validar_email_campo,
+                        error=EmpresasState.error_email
                     ),
-                    rx.vstack(
-                        rx.input(
-                            placeholder="Teléfono",
-                            value=EmpresasState.form_telefono,
-                            on_change=EmpresasState.set_form_telefono,
-                            on_blur=EmpresasState.validar_telefono_campo,
-                            size="2"
-                        ),
-                        rx.cond(
-                            EmpresasState.error_telefono != "",
-                            rx.text(
-                                EmpresasState.error_telefono,
-                                color="red",
-                                size="1"
-                            )
-                        ),
-                        spacing="2"
-                    ),
-                    spacing="2"
-                ),
-
-                # Email y página web con validación
-                rx.hstack(
-                    rx.vstack(
-                        rx.input(
-                            placeholder="Email",
-                            value=EmpresasState.form_email,
-                            on_change=EmpresasState.set_form_email,
-                            on_blur=EmpresasState.validar_email_campo,
-                            size="2"
-                        ),
-                        rx.cond(
-                            EmpresasState.error_email != "",
-                            rx.text(
-                                EmpresasState.error_email,
-                                color="red",
-                                size="1"
-                            )
-                        ),
-                        spacing="2"
-                    ),
-                    rx.input(
+                    form_input(
                         placeholder="Página web",
                         value=EmpresasState.form_pagina_web,
-                        on_change=EmpresasState.set_form_pagina_web,
-                        size="2"
+                        on_change=EmpresasState.set_form_pagina_web
                     ),
-                    spacing="2"
+                    spacing="2",
+                    width="100%"
                 ),
 
                 # Control y notas
                 rx.text("Control", weight="bold", size="3"),
-                rx.select(
-                    [estatus.value for estatus in EstatusEmpresa],
-                    placeholder="Estatus",
-                    value=EmpresasState.form_estatus,
-                    on_change=EmpresasState.set_form_estatus,
-                    size="2",
+
+                # Estatus con ancho de 50% (como código postal)
+                rx.hstack(
+                    form_select(
+                        label="Estatus",
+                        options=[estatus.value for estatus in EstatusEmpresa],
+                        value=EmpresasState.form_estatus,
+                        on_change=EmpresasState.set_form_estatus,
+                    ),
+                    rx.box(width="100%"),  # Spacer para ocupar el otro 50%
+                    spacing="2",
                     width="100%"
                 ),
 
