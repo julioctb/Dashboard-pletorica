@@ -39,12 +39,12 @@ class Empresa(BaseModel):
 
     # Información básica
     nombre_comercial: str = Field(
-        min_length=1,
+        min_length=2,
         max_length=100,
         description="Nombre comercial de la empresa"
     )
     razon_social: str = Field(
-        min_length=1,
+        min_length=2,
         max_length=100,
         description="Razón social completa"
     )
@@ -129,9 +129,37 @@ class Empresa(BaseModel):
     @field_validator('email')
     @classmethod
     def validar_email(cls, v: Optional[str]) -> Optional[str]:
-        """Normaliza email a minúsculas"""
+        """Valida formato y normaliza email a minúsculas"""
+        import re
         if v:
             v = v.lower().strip()
+            # Validar formato (mismo patrón que frontend)
+            patron = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(patron, v):
+                raise ValueError('Formato de email inválido (ejemplo: usuario@dominio.com)')
+        return v
+
+    @field_validator('telefono')
+    @classmethod
+    def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
+        """Valida que el teléfono tenga 10 dígitos (mexicano)"""
+        if v:
+            v = v.strip()
+            # Remover separadores permitidos (misma lógica que frontend)
+            tel_solo_digitos = (
+                v.replace(" ", "")
+                .replace("-", "")
+                .replace("(", "")
+                .replace(")", "")
+                .replace("+", "")
+            )
+
+            if not tel_solo_digitos.isdigit():
+                raise ValueError('Teléfono: Solo números (puede usar espacios, guiones o paréntesis)')
+
+            if len(tel_solo_digitos) != 10:
+                raise ValueError(f'Teléfono debe tener 10 dígitos (tiene {len(tel_solo_digitos)})')
+
         return v
 
     # Métodos de consulta de tipo
@@ -206,8 +234,8 @@ class EmpresaCreate(BaseModel):
         validate_assignment=True
     )
 
-    nombre_comercial: str = Field(min_length=1, max_length=100)
-    razon_social: str = Field(min_length=1, max_length=100)
+    nombre_comercial: str = Field(min_length=2, max_length=100)
+    razon_social: str = Field(min_length=2, max_length=100)
     tipo_empresa: TipoEmpresa
     rfc: str = Field(min_length=12, max_length=13)
     direccion: Optional[str] = Field(None, max_length=200)
@@ -228,8 +256,8 @@ class EmpresaUpdate(BaseModel):
         validate_assignment=True
     )
 
-    nombre_comercial: Optional[str] = Field(None, min_length=1, max_length=100)
-    razon_social: Optional[str] = Field(None, min_length=1, max_length=100)
+    nombre_comercial: Optional[str] = Field(None, min_length=2, max_length=100)
+    razon_social: Optional[str] = Field(None, min_length=2, max_length=100)
     tipo_empresa: Optional[TipoEmpresa] = None
     rfc: Optional[str] = Field(None, min_length=12, max_length=13)
     direccion: Optional[str] = Field(None, max_length=200)

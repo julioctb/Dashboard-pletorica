@@ -12,6 +12,13 @@ from app.entities import (
     EstatusEmpresa
 )
 
+from app.core.exceptions import (
+    NotFoundError,
+    DuplicateError,
+    DatabaseError,
+    ValidationError
+)
+
 from .empresas_validators import (
     validar_nombre_comercial,
     validar_razon_social,
@@ -44,6 +51,7 @@ class EmpresasState(BaseState):
     mostrar_modal_empresa: bool = False  # Modal unificado crear/editar
     modo_modal_empresa: str = ""  # "crear" | "editar" | ""
     mostrar_modal_detalle: bool = False
+    saving: bool = False  # Estado de guardado (loading)
     
     # ========================
     # FORMULARIO DE EMPRESA
@@ -74,15 +82,19 @@ class EmpresasState(BaseState):
     # SETTERS EXPLÍCITOS (Reflex v0.8.9+)
     # ========================
     def set_filtro_tipo(self, value: str):
+        """Filtro de tipo - solo actualiza UI (manual)"""
         self.filtro_tipo = value
-    
+
     def set_filtro_estatus(self, value: str):
+        """Filtro de estatus - solo actualiza UI (manual)"""
         self.filtro_estatus = value
-    
+
     def set_filtro_busqueda(self, value: str):
+        """Búsqueda - solo actualiza UI (manual)"""
         self.filtro_busqueda = value
-    
+
     def set_incluir_inactivas(self, value: bool):
+        """Toggle incluir inactivas - solo actualiza UI (manual)"""
         self.incluir_inactivas = value
 
     def set_mostrar_modal_empresa(self, value: bool):
@@ -90,7 +102,10 @@ class EmpresasState(BaseState):
 
     def set_mostrar_modal_detalle(self, value: bool):
         self.mostrar_modal_detalle = value
-    
+
+    def set_saving(self, value: bool):
+        self.saving = value
+
     # Setters del formulario
     def set_form_nombre_comercial(self, value: str):
         self.form_nombre_comercial = value
@@ -102,7 +117,8 @@ class EmpresasState(BaseState):
         self.form_tipo_empresa = value
     
     def set_form_rfc(self, value: str):
-        self.form_rfc = value
+        """Set RFC con auto-conversión a mayúsculas"""
+        self.form_rfc = value.upper() if value else ""
     
     def set_form_direccion(self, value: str):
         self.form_direccion = value
@@ -132,46 +148,68 @@ class EmpresasState(BaseState):
         """Cargar la lista de empresas aplicando filtros"""
         self.loading = True
         try:
+            # PASO 1: Cargar empresas (con o sin búsqueda)
             if self.filtro_busqueda:
-                # Buscar por nombre
+                # Buscar por nombre (siempre incluye inactivas, filtraremos después)
                 empresas_completas = await empresa_service.buscar_por_nombre(self.filtro_busqueda)
-                # Convertir a resumen
-                self.empresas = []
-                for empresa in empresas_completas:
-                    resumen = EmpresaResumen(
-                        id=empresa.id,
-                        nombre_comercial=empresa.nombre_comercial,
-                        tipo_empresa=empresa.tipo_empresa,
-                        estatus=empresa.estatus,
-                        contacto_principal=empresa.email or empresa.telefono or "Sin contacto",
-                        fecha_creacion=empresa.fecha_creacion
-                    )
-                    self.empresas.append(resumen)
+                # Convertir a resumen usando factory method
+                self.empresas = [EmpresaResumen.from_empresa(e) for e in empresas_completas]
             else:
                 # Obtener resumen de todas las empresas
-                self.empresas = await empresa_service.obtener_resumen_empresas()
-                
-                # Aplicar filtros
-                if self.filtro_tipo:
-                    self.empresas = [e for e in self.empresas if e.tipo_empresa.value == self.filtro_tipo]
+                # IMPORTANTE: Pasar incluir_inactivas al servicio Y sin límite para filtrado correcto
+                incluir_todas = self.incluir_inactivas or bool(self.filtro_estatus)
+                self.empresas = await empresa_service.obtener_resumen_empresas(
+                    incluir_inactivas=incluir_todas,
+                    limite=None  # Sin límite para que el filtrado funcione correctamente
+                )
 
-                # Filtro de estatus: si hay filtro específico, usarlo; si no, aplicar incluir_inactivas
-                if self.filtro_estatus:
-                    self.empresas = [e for e in self.empresas if e.estatus.value == self.filtro_estatus]
-                elif not self.incluir_inactivas:
-                    # Solo filtrar activos si NO hay filtro de estatus específico
-                    self.empresas = [e for e in self.empresas if e.estatus == EstatusEmpresa.ACTIVO]
+            # PASO 2: Aplicar filtros en memoria
+            empresas_filtradas = self.empresas
 
-            self.mostrar_mensaje(f"Se encontraron {len(self.empresas)} empresas", "info")
+            # Filtro de tipo
+            # Nota: tipo_empresa es string por use_enum_values=True en EmpresaResumen
+            if self.filtro_tipo:
+                empresas_filtradas = [
+                    e for e in empresas_filtradas
+                    if e.tipo_empresa == self.filtro_tipo
+                ]
 
+            # Filtro de estatus
+            # Nota: estatus es string por use_enum_values=True en EmpresaResumen
+            if self.filtro_estatus:
+                empresas_filtradas = [
+                    e for e in empresas_filtradas
+                    if e.estatus == self.filtro_estatus
+                ]
+            elif not self.incluir_inactivas:
+                # Si NO hay filtro específico de estatus y NO se incluyen inactivas
+                # entonces solo mostrar ACTIVAS
+                empresas_filtradas = [
+                    e for e in empresas_filtradas
+                    if e.estatus == EstatusEmpresa.ACTIVO.value
+                ]
+
+            self.empresas = empresas_filtradas
+
+        except DatabaseError as e:
+            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
+            self.empresas = []
         except Exception as e:
-            self.mostrar_mensaje(f"Error al cargar empresas: {str(e)}", "error")
+            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
             self.empresas = []
         finally:
             self.loading = False
     
     async def crear_empresa(self):
         """Crear una nueva empresa"""
+        # Validar todos los campos antes de crear
+        self.validar_todos_los_campos()
+
+        # Si hay errores, simplemente no permitir submit (botón ya está deshabilitado)
+        if self.tiene_errores_formulario:
+            return
+
+        self.saving = True
         try:
             # Crear objeto EmpresaCreate (validaciones ya hechas en formulario)
             nueva_empresa = EmpresaCreate(
@@ -191,41 +229,57 @@ class EmpresasState(BaseState):
             # Crear la empresa
             empresa_creada = await empresa_service.crear(nueva_empresa)
 
-            if empresa_creada:
-                # Cerrar modal y recargar lista
-                self.cerrar_modal_empresa()
-                await self.cargar_empresas()
+            # Cerrar modal y recargar lista
+            self.cerrar_modal_empresa()
+            await self.cargar_empresas()
 
-                # Mostrar toast de éxito (modal ya cerrado)
-                return rx.toast.success(
-                    f"Empresa '{empresa_creada.nombre_comercial}' creada exitosamente",
-                    position="top-center",
-                    duration=4000
-                )
-            else:
-                # Error al crear (mostrar en modal)
-                self.mostrar_mensaje(
-                    "No se pudo crear la empresa. Verifique que el RFC no esté duplicado",
-                    "error"
-                )
-                return  # NO cerrar modal
+            # Mostrar toast de éxito (modal ya cerrado)
+            return rx.toast.success(
+                f"Empresa '{empresa_creada.nombre_comercial}' creada exitosamente",
+                position="top-center",
+                duration=4000
+            )
 
-        except ValueError as e:
-            # Errores de backend (RFC duplicado, etc.)
-            self.mostrar_mensaje(str(e), "error")
+        except DuplicateError as e:
+            # RFC duplicado - mensaje específico
+            self.mostrar_mensaje(
+                f"RFC duplicado: {e.field} ya existe en el sistema",
+                "error"
+            )
+            return  # NO cerrar modal
+
+        except ValidationError as e:
+            # Errores de validación del backend (Pydantic)
+            self.mostrar_mensaje(f"Error de validación: {str(e)}", "error")
+            return  # NO cerrar modal
+
+        except DatabaseError as e:
+            # Errores de base de datos
+            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
             return  # NO cerrar modal
 
         except Exception as e:
             # Errores inesperados
-            self.mostrar_mensaje(f"Error al crear empresa: {str(e)}", "error")
+            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
             return  # NO cerrar modal
+        finally:
+            self.saving = False
     
     async def actualizar_empresa(self):
         """Actualizar empresa existente"""
-        try:
-            if not self.empresa_seleccionada:
-                return
+        # Validar todos los campos antes de actualizar
+        self.validar_todos_los_campos()
 
+        # Si hay errores, simplemente no permitir submit (botón ya está deshabilitado)
+        if self.tiene_errores_formulario:
+            return
+
+        if not self.empresa_seleccionada:
+            self.mostrar_mensaje("No hay empresa seleccionada para actualizar", "error")
+            return
+
+        self.saving = True
+        try:
             # Crear objeto EmpresaUpdate (validaciones ya hechas en formulario)
             update_data = EmpresaUpdate(
                 nombre_comercial=self.form_nombre_comercial.strip().upper() or None,
@@ -244,40 +298,57 @@ class EmpresasState(BaseState):
             # Actualizar la empresa
             empresa_actualizada = await empresa_service.actualizar(self.empresa_seleccionada.id, update_data)
 
-            if empresa_actualizada:
-                # Cerrar modal y recargar lista
-                self.cerrar_modal_empresa()
-                await self.cargar_empresas()
+            # Cerrar modal y recargar lista
+            self.cerrar_modal_empresa()
+            await self.cargar_empresas()
 
-                # Mostrar toast de éxito (modal ya cerrado)
-                return rx.toast.success(
-                    f"Empresa '{empresa_actualizada.nombre_comercial}' actualizada exitosamente",
-                    position="top-center",
-                    duration=4000
-                )
-            else:
-                # Error al actualizar (mostrar en modal)
-                self.mostrar_mensaje("No se pudo actualizar la empresa", "error")
-                return  # NO cerrar modal
+            # Mostrar toast de éxito (modal ya cerrado)
+            return rx.toast.success(
+                f"Empresa '{empresa_actualizada.nombre_comercial}' actualizada exitosamente",
+                position="top-center",
+                duration=4000
+            )
+
+        except NotFoundError as e:
+            # Empresa no encontrada
+            self.mostrar_mensaje(f"Empresa no encontrada: {str(e)}", "error")
+            return  # NO cerrar modal
+
+        except ValidationError as e:
+            # Errores de validación del backend (Pydantic)
+            self.mostrar_mensaje(f"Error de validación: {str(e)}", "error")
+            return  # NO cerrar modal
+
+        except DatabaseError as e:
+            # Errores de base de datos
+            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
+            return  # NO cerrar modal
 
         except Exception as e:
             # Errores inesperados
-            self.mostrar_mensaje(f"Error al actualizar empresa: {str(e)}", "error")
+            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
             return  # NO cerrar modal
+        finally:
+            self.saving = False
     
     async def cambiar_estatus_empresa(self, empresa_id: int, nuevo_estatus: EstatusEmpresa):
         """Cambiar estatus de una empresa"""
         try:
-            resultado = await empresa_service.cambiar_estatus(empresa_id, nuevo_estatus)
+            await empresa_service.cambiar_estatus(empresa_id, nuevo_estatus)
+            await self.cargar_empresas()
 
-            if resultado:
-                await self.cargar_empresas()
-                self.mostrar_mensaje(f"Estatus cambiado a {nuevo_estatus.value}", "success")
-            else:
-                self.mostrar_mensaje("No se pudo cambiar el estatus", "error")
+            return rx.toast.success(
+                f"Estatus cambiado a {nuevo_estatus.value}",
+                position="top-center",
+                duration=3000
+            )
 
+        except NotFoundError as e:
+            self.mostrar_mensaje(f"Empresa no encontrada: {str(e)}", "error")
+        except DatabaseError as e:
+            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
         except Exception as e:
-            self.mostrar_mensaje(f"Error al cambiar estatus: {str(e)}", "error")
+            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
     
     # ========================
     # OPERACIONES DE MODALES
@@ -294,28 +365,32 @@ class EmpresasState(BaseState):
         try:
             self.limpiar_mensajes()
             self.mostrar_modal_detalle = False  # Cerrar modal de detalle si está abierto
-            empresa = await empresa_service.obtener_por_id(empresa_id)
-            if empresa:
-                # Cargar datos en el formulario
-                self.form_nombre_comercial = empresa.nombre_comercial
-                self.form_razon_social = empresa.razon_social
-                self.form_tipo_empresa = str(empresa.tipo_empresa)
-                self.form_rfc = empresa.rfc
-                self.form_direccion = empresa.direccion or ""
-                self.form_codigo_postal = empresa.codigo_postal or ""
-                self.form_telefono = empresa.telefono or ""
-                self.form_email = empresa.email or ""
-                self.form_pagina_web = empresa.pagina_web or ""
-                self.form_estatus = str(empresa.estatus)
-                self.form_notas = empresa.notas or ""
 
-                self.empresa_seleccionada = empresa
-                self.modo_modal_empresa = "editar"
-                self.mostrar_modal_empresa = True
-            else:
-                self.mostrar_mensaje("No se pudo cargar la empresa para editar", "error")
+            empresa = await empresa_service.obtener_por_id(empresa_id)
+
+            # Cargar datos en el formulario
+            self.form_nombre_comercial = empresa.nombre_comercial
+            self.form_razon_social = empresa.razon_social
+            self.form_tipo_empresa = str(empresa.tipo_empresa)
+            self.form_rfc = empresa.rfc
+            self.form_direccion = empresa.direccion or ""
+            self.form_codigo_postal = empresa.codigo_postal or ""
+            self.form_telefono = empresa.telefono or ""
+            self.form_email = empresa.email or ""
+            self.form_pagina_web = empresa.pagina_web or ""
+            self.form_estatus = str(empresa.estatus)
+            self.form_notas = empresa.notas or ""
+
+            self.empresa_seleccionada = empresa
+            self.modo_modal_empresa = "editar"
+            self.mostrar_modal_empresa = True
+
+        except NotFoundError as e:
+            self.mostrar_mensaje(f"Empresa no encontrada: {str(e)}", "error")
+        except DatabaseError as e:
+            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
         except Exception as e:
-            self.mostrar_mensaje(f"Error al cargar empresa: {str(e)}", "error")
+            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
 
     def cerrar_modal_empresa(self):
         """Cerrar modal unificado (crear/editar)"""
@@ -329,12 +404,14 @@ class EmpresasState(BaseState):
         """Abrir modal con detalles de la empresa"""
         try:
             self.empresa_seleccionada = await empresa_service.obtener_por_id(empresa_id)
-            if self.empresa_seleccionada:
-                self.mostrar_modal_detalle = True
-            else:
-                self.mostrar_mensaje("No se pudo cargar la información de la empresa", "error")
+            self.mostrar_modal_detalle = True
+
+        except NotFoundError as e:
+            self.mostrar_mensaje(f"Empresa no encontrada: {str(e)}", "error")
+        except DatabaseError as e:
+            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
         except Exception as e:
-            self.mostrar_mensaje(f"Error al cargar empresa: {str(e)}", "error")
+            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
 
     def cerrar_modal_detalle(self):
         """Cerrar modal de detalles"""
@@ -383,6 +460,15 @@ class EmpresasState(BaseState):
         """Validar teléfono en tiempo real"""
         self.error_telefono = validar_telefono(self.form_telefono)
 
+    def validar_todos_los_campos(self):
+        """Validar todos los campos del formulario (para submit)"""
+        self.validar_nombre_comercial_campo()
+        self.validar_razon_social_campo()
+        self.validar_rfc_campo()
+        self.validar_email_campo()
+        self.validar_codigo_postal_campo()
+        self.validar_telefono_campo()
+
     @rx.var
     def tiene_errores_formulario(self) -> bool:
         """Verifica si hay errores de validación en el formulario"""
@@ -394,6 +480,26 @@ class EmpresasState(BaseState):
             self.error_codigo_postal or
             self.error_telefono
         )
+
+    @rx.var
+    def tiene_filtros_activos(self) -> bool:
+        """Verifica si hay filtros activos"""
+        return bool(
+            self.filtro_busqueda or
+            self.filtro_tipo or
+            self.filtro_estatus or
+            self.incluir_inactivas
+        )
+
+    @rx.var
+    def cantidad_filtros_activos(self) -> int:
+        """Cuenta la cantidad de filtros activos"""
+        count = 0
+        if self.filtro_busqueda: count += 1
+        if self.filtro_tipo: count += 1
+        if self.filtro_estatus: count += 1
+        if self.incluir_inactivas: count += 1
+        return count
 
     # ========================
     # UTILIDADES

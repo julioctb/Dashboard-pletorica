@@ -1,12 +1,19 @@
 """
 Repositorio de Empresas - Interface y implementación para Supabase.
 Consolidado desde app/modules/empresas/infrastructure/.
+
+Patrón de manejo de errores:
+- NotFoundError: Cuando no se encuentra un recurso
+- DuplicateError: Cuando se viola unicidad (ej: RFC duplicado)
+- DatabaseError: Errores de conexión o infraestructura
+- Propagar otras excepciones hacia arriba
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional
 import logging
 
 from app.entities import Empresa, EmpresaResumen
+from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +27,20 @@ class IEmpresaRepository(ABC):
         pass
 
     @abstractmethod
-    async def obtener_todas(self, incluir_inactivas: bool = False) -> List[Empresa]:
-        """Obtiene todas las empresas"""
+    async def obtener_todas(
+        self,
+        incluir_inactivas: bool = False,
+        limite: Optional[int] = None,
+        offset: int = 0
+    ) -> List[Empresa]:
+        """
+        Obtiene todas las empresas con soporte de paginación.
+
+        Args:
+            incluir_inactivas: Si True, incluye empresas inactivas
+            limite: Número máximo de resultados (None = sin límite)
+            offset: Número de registros a saltar (para paginación)
+        """
         pass
 
     @abstractmethod
@@ -44,6 +63,11 @@ class IEmpresaRepository(ABC):
         """Verifica si existe un RFC en la base de datos"""
         pass
 
+    @abstractmethod
+    async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[Empresa]:
+        """Busca empresas por nombre comercial o razón social en la base de datos"""
+        pass
+
 
 class SupabaseEmpresaRepository(IEmpresaRepository):
     """Implementación del repositorio usando Supabase"""
@@ -62,60 +86,138 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
         self.supabase = db_manager.get_client()
         self.tabla = 'empresas'
 
-    async def obtener_por_id(self, empresa_id: int) -> Optional[Empresa]:
-        """Obtiene una empresa por su ID"""
+    async def obtener_por_id(self, empresa_id: int) -> Empresa:
+        """
+        Obtiene una empresa por su ID.
+
+        Args:
+            empresa_id: ID de la empresa a buscar
+
+        Returns:
+            Empresa encontrada
+
+        Raises:
+            NotFoundError: Si la empresa no existe
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
         try:
             result = self.supabase.table(self.tabla).select('*').eq('id', empresa_id).execute()
-            if result.data:
-                return Empresa(**result.data[0])
-            return None
+            if not result.data:
+                raise NotFoundError(f"Empresa con ID {empresa_id} no encontrada")
+            return Empresa(**result.data[0])
+        except NotFoundError:
+            raise  # Re-propagar errores de negocio
         except Exception as e:
             logger.error(f"Error obteniendo empresa {empresa_id}: {e}")
-            raise
+            raise DatabaseError(f"Error de base de datos al obtener empresa: {str(e)}")
 
-    async def obtener_todas(self, incluir_inactivas: bool = False) -> List[Empresa]:
-        """Obtiene todas las empresas"""
+    async def obtener_todas(
+        self,
+        incluir_inactivas: bool = False,
+        limite: Optional[int] = None,
+        offset: int = 0
+    ) -> List[Empresa]:
+        """
+        Obtiene todas las empresas con soporte de paginación.
+
+        Args:
+            incluir_inactivas: Si True, incluye empresas inactivas
+            limite: Número máximo de resultados (None = sin límite, default 100 para seguridad)
+            offset: Número de registros a saltar (para paginación)
+
+        Returns:
+            Lista de empresas (vacía si no hay resultados)
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
         try:
             query = self.supabase.table(self.tabla).select('*')
+
+            # Filtro de estatus
             if not incluir_inactivas:
                 query = query.eq('estatus', 'ACTIVO')
-            result = query.order('nombre_comercial').execute()
+
+            # Ordenamiento (usa índice idx_empresas_fecha_creacion para eficiencia)
+            query = query.order('fecha_creacion', desc=True)
+
+            # Paginación
+            if limite is not None:
+                # Rango: [offset, offset + limite)
+                query = query.range(offset, offset + limite - 1)
+            # Si limite es None, no aplicar límite (cargar TODAS)
+
+            result = query.execute()
             return [Empresa(**data) for data in result.data]
         except Exception as e:
             logger.error(f"Error obteniendo empresas: {e}")
-            return []
+            raise DatabaseError(f"Error de base de datos al obtener empresas: {str(e)}")
 
     async def crear(self, empresa: Empresa) -> Empresa:
-        """Crea una nueva empresa"""
+        """
+        Crea una nueva empresa.
+
+        Args:
+            empresa: Empresa a crear
+
+        Returns:
+            Empresa creada con ID asignado
+
+        Raises:
+            DuplicateError: Si el RFC ya existe
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
         try:
             # Verificar RFC duplicado
             if await self.existe_rfc(empresa.rfc):
-                raise ValueError(f"RFC {empresa.rfc} ya existe")
+                raise DuplicateError(
+                    f"RFC {empresa.rfc} ya existe",
+                    field="rfc",
+                    value=empresa.rfc
+                )
 
             # Preparar datos excluyendo ID, fecha de creacion y fecha de actualizacion (se asigna en BD)
             datos = empresa.model_dump(exclude={'id', 'fecha_creacion','fecha_actualizacion'})
             result = self.supabase.table(self.tabla).insert(datos).execute()
 
-            if result.data:
-                return Empresa(**result.data[0])
-            raise Exception("No se pudo crear la empresa")
+            if not result.data:
+                raise DatabaseError("No se pudo crear la empresa (sin respuesta de BD)")
+
+            return Empresa(**result.data[0])
+        except DuplicateError:
+            raise  # Re-propagar errores de negocio
         except Exception as e:
             logger.error(f"Error creando empresa: {e}")
-            raise
+            raise DatabaseError(f"Error de base de datos al crear empresa: {str(e)}")
 
     async def actualizar(self, empresa: Empresa) -> Empresa:
-        """Actualiza una empresa existente"""
+        """
+        Actualiza una empresa existente.
+
+        Args:
+            empresa: Empresa con datos actualizados
+
+        Returns:
+            Empresa actualizada
+
+        Raises:
+            NotFoundError: Si la empresa no existe
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
         try:
             # Excluir campos que no deben actualizarse
             datos = empresa.model_dump(exclude={'id', 'fecha_creacion','fecha_actualizacion'})
             result = self.supabase.table(self.tabla).update(datos).eq('id', empresa.id).execute()
 
-            if result.data:
-                return Empresa(**result.data[0])
-            raise Exception("No se pudo actualizar la empresa")
+            if not result.data:
+                raise NotFoundError(f"Empresa con ID {empresa.id} no encontrada")
+
+            return Empresa(**result.data[0])
+        except NotFoundError:
+            raise  # Re-propagar
         except Exception as e:
             logger.error(f"Error actualizando empresa {empresa.id}: {e}")
-            raise
+            raise DatabaseError(f"Error de base de datos al actualizar empresa: {str(e)}")
 
     async def eliminar(self, empresa_id: int) -> bool:
         """Elimina (soft delete) una empresa estableciendo estatus INACTIVO"""
@@ -139,3 +241,34 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
         except Exception as e:
             logger.error(f"Error verificando RFC: {e}")
             return False
+
+    async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[Empresa]:
+        """
+        Busca empresas por nombre comercial o razón social usando índices de la base de datos.
+
+        Args:
+            termino: Término de búsqueda
+            limite: Número máximo de resultados (default 10)
+
+        Returns:
+            Lista de empresas que coinciden con el término (vacía si no hay resultados)
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
+        try:
+            # Usar búsqueda en base de datos con ilike (case-insensitive LIKE)
+            # Supabase/PostgreSQL usa parámetros seguros automáticamente
+            result = self.supabase.table(self.tabla)\
+                .select('*')\
+                .or_(
+                    f"nombre_comercial.ilike.%{termino}%,"
+                    f"razon_social.ilike.%{termino}%"
+                )\
+                .limit(limite)\
+                .execute()
+
+            return [Empresa(**data) for data in result.data]
+        except Exception as e:
+            logger.error(f"Error buscando empresas con término '{termino}': {e}")
+            raise DatabaseError(f"Error de base de datos al buscar empresas: {str(e)}")

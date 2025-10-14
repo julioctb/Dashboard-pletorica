@@ -16,9 +16,9 @@ def empresas_page() -> rx.Component:
                 titulo="Gestión de empresas",
                 subtitulo="Administre las empresas del sistema"
             ),
-            
+
             rx.spacer(),
-            
+
             rx.hstack(
                 rx.button(
                     rx.icon("plus", size=16),
@@ -35,13 +35,13 @@ def empresas_page() -> rx.Component:
                 ),
                 spacing="2"
             ),
-            
+
             width="100%",
             align="center"
         ),
-        
-    
-        
+
+
+
         # Filtros
         empresa_filters(EmpresasState),
 
@@ -51,9 +51,9 @@ def empresas_page() -> rx.Component:
         # Modales
         modal_empresa(),
         modal_detalle_empresa(),
-        
+
         spacing="4",
         width="100%",
-        padding="4",
+        min_width="100%",
         on_mount=EmpresasState.cargar_empresas
     )

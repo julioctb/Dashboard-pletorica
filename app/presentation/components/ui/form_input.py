@@ -83,3 +83,43 @@ def form_select(
         spacing="1",
         width="100%"
     )
+
+
+def form_textarea(
+        label: str,
+        placeholder: str,
+        value: Any,
+        on_change: Any,
+        rows: int = 4
+) -> rx.Component:
+    '''
+    Entrada de texto multilínea para formulario con label.
+
+    Args:
+        label: Texto de etiqueta visible arriba del campo
+        placeholder: Texto que se muestra dentro del campo
+        value: Recibe la información del campo en el formulario
+        on_change: Maneja cuando el campo del formulario cambia
+        rows: Número de filas visibles (default 4)
+
+    Returns:
+        Componente rx.vstack conteniendo label y textarea
+    '''
+    return rx.vstack(
+        rx.text(
+            label,
+            size="2",
+            weight="medium"
+        ),
+        rx.text_area(
+            placeholder=placeholder,
+            value=value,
+            on_change=on_change,
+            size="2",
+            width="100%",
+            rows=str(rows)
+        ),
+        spacing="1",
+        width="100%",
+        align="start"
+    )

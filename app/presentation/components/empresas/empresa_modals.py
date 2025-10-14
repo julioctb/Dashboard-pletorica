@@ -1,5 +1,5 @@
 import reflex as rx
-from app.presentation.components.ui.form_input import form_input, form_select
+from app.presentation.components.ui.form_input import form_input, form_select, form_textarea
 from app.presentation.pages.empresas.empresas_state import EmpresasState
 from app.entities import TipoEmpresa, EstatusEmpresa
 
@@ -7,144 +7,25 @@ def modal_empresa() -> rx.Component:
     """Modal unificado para crear o editar empresa"""
     return rx.dialog.root(
         rx.dialog.content(
-            # Título dinámico
+            # Header: Título + Descripción (muy pegados)
             rx.dialog.title(
                 rx.cond(
                     EmpresasState.modo_modal_empresa == "crear",
                     "Crear Nueva Empresa",
                     "Editar Empresa"
-                )
+                )        
             ),
 
-            # Descripción dinámica
             rx.dialog.description(
                 rx.cond(
                     EmpresasState.modo_modal_empresa == "crear",
                     "Ingrese la información de la nueva empresa",
                     "Modifique la información de la empresa"
-                )
+                ),
+                margin_bottom="20px"  # GRANDE espacio antes del formulario
             ),
 
-            rx.vstack(
-                # Información básica
-                rx.text("Información Básica", weight="bold", size="3"),
-
-                # Nombre comercial con validación
-                form_input(
-                    placeholder="Nombre comercial *",
-                    value=EmpresasState.form_nombre_comercial,
-                    on_change=EmpresasState.set_form_nombre_comercial,
-                    on_blur=EmpresasState.validar_nombre_comercial_campo,
-                    error=EmpresasState.error_nombre_comercial
-                ),
-
-                # Razón social con validación
-                form_input(
-                    placeholder="Razón social *",
-                    value=EmpresasState.form_razon_social,
-                    on_change=EmpresasState.set_form_razon_social,
-                    on_blur=EmpresasState.validar_razon_social_campo,
-                    error=EmpresasState.error_razon_social
-                ),
-
-                # RFC
-                form_input(
-                    placeholder="RFC *",
-                    value=EmpresasState.form_rfc,
-                    on_change=EmpresasState.set_form_rfc,
-                    on_blur=EmpresasState.validar_rfc_campo,
-                    error=EmpresasState.error_rfc
-                ),
-
-                # Tipo de empresa con ancho de 50%
-                rx.hstack(
-                    form_select(
-                        label="Tipo de empresa *",
-                        options=[tipo.value for tipo in TipoEmpresa],
-                        value=EmpresasState.form_tipo_empresa,
-                        on_change=EmpresasState.set_form_tipo_empresa
-                    ),
-                    rx.box(width="100%"),  # Spacer para ocupar el otro 50%
-                    spacing="2",
-                    width="100%"
-                ),
-
-                # Información de contacto
-                rx.text("Información de Contacto", weight="bold", size="3"),
-                form_input(
-                    placeholder="Dirección",
-                    value=EmpresasState.form_direccion,
-                    on_change=EmpresasState.set_form_direccion
-                ),
-
-                # Código postal y teléfono con validación (50% cada uno)
-                rx.hstack(
-                    form_input(
-                        placeholder="Código Postal",
-                        value=EmpresasState.form_codigo_postal,
-                        on_change=EmpresasState.set_form_codigo_postal,
-                        on_blur=EmpresasState.validar_codigo_postal_campo,
-                        error=EmpresasState.error_codigo_postal
-                    ),
-                    form_input(
-                        placeholder="Teléfono",
-                        value=EmpresasState.form_telefono,
-                        on_change=EmpresasState.set_form_telefono,
-                        on_blur=EmpresasState.validar_telefono_campo,
-                        error=EmpresasState.error_telefono
-                    ),
-                    spacing="2",
-                    width="100%"
-                ),
-
-                # Email y página web con validación (50% cada uno)
-                rx.hstack(
-                    form_input(
-                        placeholder="Email",
-                        value=EmpresasState.form_email,
-                        on_change=EmpresasState.set_form_email,
-                        on_blur=EmpresasState.validar_email_campo,
-                        error=EmpresasState.error_email
-                    ),
-                    form_input(
-                        placeholder="Página web",
-                        value=EmpresasState.form_pagina_web,
-                        on_change=EmpresasState.set_form_pagina_web
-                    ),
-                    spacing="2",
-                    width="100%"
-                ),
-
-                # Control y notas
-                rx.text("Control", weight="bold", size="3"),
-
-                # Estatus con ancho de 50% (como código postal)
-                rx.hstack(
-                    form_select(
-                        label="Estatus",
-                        options=[estatus.value for estatus in EstatusEmpresa],
-                        value=EmpresasState.form_estatus,
-                        on_change=EmpresasState.set_form_estatus,
-                    ),
-                    rx.box(width="100%"),  # Spacer para ocupar el otro 50%
-                    spacing="2",
-                    width="100%"
-                ),
-
-                rx.text_area(
-                    placeholder="Notas adicionales",
-                    value=EmpresasState.form_notas,
-                    on_change=EmpresasState.set_form_notas,
-                    size="2",
-                    width="100%"
-                ),
-
-                spacing="3",
-                width="100%"
-            ),
-           
-
-            # Mostrar mensaje de error si existe
+            # Mensaje de error/info
             rx.cond(
                 EmpresasState.mensaje_info != "",
                 rx.callout(
@@ -160,8 +41,145 @@ def modal_empresa() -> rx.Component:
                         "blue"
                     ),
                     size="2",
-                    width="100%"
+                    width="100%",
+                    role="alert",
+                    aria_live="assertive"
                 )
+            ),
+
+            # Formulario (con margen superior extra)
+            rx.vstack(
+                # ============================================
+                # SECCIÓN 1: INFORMACIÓN BÁSICA
+                # ============================================
+                rx.vstack(
+                    rx.text("Información Básica", weight="bold", size="3"),
+
+                    form_input(
+                        placeholder="Nombre comercial *",
+                        value=EmpresasState.form_nombre_comercial,
+                        on_change=EmpresasState.set_form_nombre_comercial,
+                        on_blur=EmpresasState.validar_nombre_comercial_campo,
+                        error=EmpresasState.error_nombre_comercial
+                    ),
+
+                    form_input(
+                        placeholder="Razón social *",
+                        value=EmpresasState.form_razon_social,
+                        on_change=EmpresasState.set_form_razon_social,
+                        on_blur=EmpresasState.validar_razon_social_campo,
+                        error=EmpresasState.error_razon_social
+                    ),
+
+                    form_input(
+                        placeholder="RFC *",
+                        value=EmpresasState.form_rfc,
+                        on_change=EmpresasState.set_form_rfc,
+                        on_blur=EmpresasState.validar_rfc_campo,
+                        error=EmpresasState.error_rfc
+                    ),
+
+                    rx.hstack(
+                        form_select(
+                            label="Tipo de empresa *",
+                            options=[tipo.value for tipo in TipoEmpresa],
+                            value=EmpresasState.form_tipo_empresa,
+                            on_change=EmpresasState.set_form_tipo_empresa
+                        ),
+                        rx.box(width="100%"),  # Spacer
+                        spacing="2",
+                        width="100%"
+                    ),
+
+                    spacing="2",
+                    width="100%"
+                ),
+
+                # ============================================
+                # SECCIÓN 2: INFORMACIÓN DE CONTACTO
+                # ============================================
+                rx.vstack(
+                    rx.text("Información de Contacto", weight="bold", size="3"),
+
+                    form_input(
+                        placeholder="Dirección",
+                        value=EmpresasState.form_direccion,
+                        on_change=EmpresasState.set_form_direccion
+                    ),
+
+                    rx.hstack(
+                        form_input(
+                            placeholder="Código Postal",
+                            value=EmpresasState.form_codigo_postal,
+                            on_change=EmpresasState.set_form_codigo_postal,
+                            on_blur=EmpresasState.validar_codigo_postal_campo,
+                            error=EmpresasState.error_codigo_postal
+                        ),
+                        form_input(
+                            placeholder="Teléfono",
+                            value=EmpresasState.form_telefono,
+                            on_change=EmpresasState.set_form_telefono,
+                            on_blur=EmpresasState.validar_telefono_campo,
+                            error=EmpresasState.error_telefono
+                        ),
+                        spacing="2",
+                        width="100%"
+                    ),
+
+                    rx.hstack(
+                        form_input(
+                            placeholder="Email",
+                            value=EmpresasState.form_email,
+                            on_change=EmpresasState.set_form_email,
+                            on_blur=EmpresasState.validar_email_campo,
+                            error=EmpresasState.error_email
+                        ),
+                        form_input(
+                            placeholder="Página web",
+                            value=EmpresasState.form_pagina_web,
+                            on_change=EmpresasState.set_form_pagina_web
+                        ),
+                        spacing="2",
+                        width="100%"
+                    ),
+
+                    spacing="2",
+                    width="100%"
+                ),
+
+                # ============================================
+                # SECCIÓN 3: CONTROL Y NOTAS
+                # ============================================
+                rx.vstack(
+                    rx.text("Control", weight="bold", size="3"),
+
+                    rx.hstack(
+                        form_select(
+                            label="Estatus",
+                            options=[estatus.value for estatus in EstatusEmpresa],
+                            value=EmpresasState.form_estatus,
+                            on_change=EmpresasState.set_form_estatus,
+                        ),
+                        rx.box(width="100%"),  # Spacer
+                        spacing="2",
+                        width="100%"
+                    ),
+
+                    form_textarea(
+                        label="Notas Adicionales",
+                        placeholder="Información complementaria sobre la empresa...",
+                        value=EmpresasState.form_notas,
+                        on_change=EmpresasState.set_form_notas,
+                        rows=4
+                    ),
+
+                    spacing="2",
+                    width="100%"
+                ),
+
+                spacing="8",  # ~32px entre secciones (4x ratio vs spacing="2" interno)
+                width="100%",
+                margin_bottom="40px"  # Espacio GRANDE antes de los botones
             ),
 
             # Botones dinámicos
@@ -175,11 +193,23 @@ def modal_empresa() -> rx.Component:
                     )
                 ),
                 rx.button(
-                    # Texto dinámico del botón
+                    # Texto dinámico del botón con loading state
                     rx.cond(
-                        EmpresasState.modo_modal_empresa == "crear",
-                        "Crear Empresa",
-                        "Guardar Cambios"
+                        EmpresasState.saving,
+                        rx.hstack(
+                            rx.spinner(size="1"),
+                            rx.cond(
+                                EmpresasState.modo_modal_empresa == "crear",
+                                "Creando...",
+                                "Guardando..."
+                            ),
+                            spacing="2"
+                        ),
+                        rx.cond(
+                            EmpresasState.modo_modal_empresa == "crear",
+                            "Crear Empresa",
+                            "Guardar Cambios"
+                        )
                     ),
                     # Función dinámica
                     on_click=rx.cond(
@@ -187,7 +217,8 @@ def modal_empresa() -> rx.Component:
                         EmpresasState.crear_empresa,
                         EmpresasState.actualizar_empresa
                     ),
-                    disabled=EmpresasState.tiene_errores_formulario,
+                    disabled=EmpresasState.tiene_errores_formulario | EmpresasState.saving,
+                    loading=EmpresasState.saving,
                     size="2"
                 ),
                 spacing="4",
@@ -195,7 +226,7 @@ def modal_empresa() -> rx.Component:
             ),
 
             max_width="600px",
-            spacing="6"
+            spacing="7"  # Spacing GRANDE entre: header → formulario → botones
         ),
         open=EmpresasState.mostrar_modal_empresa,
         on_open_change=EmpresasState.set_mostrar_modal_empresa

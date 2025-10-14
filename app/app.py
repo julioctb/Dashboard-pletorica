@@ -3,30 +3,23 @@ from .presentation.pages.dashboard import dashboard_page
 from .presentation.pages.empresas import empresas_page
 
 from .presentation.layout.sidebar_layout import sidebar
-from .presentation.layout.navbar_layout import navbar
-
-#Configuracion de la Aplicacion
-class AppConfig:
-    pass
-
-config = AppConfig()
-
-
 
 #se dibuja el layout para todas las paginas
 def index(content: rx.Component) -> rx.Component:
     return rx.hstack(
         sidebar(),
-        rx.vstack(
-        # navbar(),
-        rx.container(
+        rx.box(
             content,
-            min_height="calc(100vh - 140px)", #Altura menos navbar y footer
-            width = "100%",
-            size="4"
+            width="100%",
+            flex="1",
+            overflow_y="auto",
+            style={
+                "minHeight": "calc(100vh - 140px)",
+                "padding": "1.5rem"
+            }
         ),
-        
-    )
+        width="100%",
+        spacing="0"
     )
 
 
