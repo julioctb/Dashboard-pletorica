@@ -1,6 +1,8 @@
 """Componente de filtros específico para el módulo de empresas"""
-from typing import Type
 import reflex as rx
+
+
+from typing import Type
 
 from app.entities import TipoEmpresa, EstatusEmpresa
 
@@ -72,8 +74,7 @@ def empresa_filters(estado: Type[rx.State]) -> rx.Component:
                 align="center"
             ),
 
-            # ===== DIVIDER =====
-            rx.divider(size="4", color_scheme="gray"),
+         
 
             # ===== FILA 1: BÚSQUEDA =====
             rx.vstack(
@@ -105,7 +106,8 @@ def empresa_filters(estado: Type[rx.State]) -> rx.Component:
                         style={"height": "40px"}
                     ),
                     spacing="3",  # 12px - Mejor espaciado
-                    justify="end"
+                    justify="end",
+                    width="100%"  # Necesario para que justify="end" funcione
                 ),
 
                 spacing="2",  # 8px entre input y botones
