@@ -68,6 +68,32 @@ class IEmpresaRepository(ABC):
         """Busca empresas por nombre comercial o razón social en la base de datos"""
         pass
 
+    @abstractmethod
+    async def buscar_con_filtros(
+        self,
+        texto: Optional[str] = None,
+        tipo_empresa: Optional[str] = None,
+        estatus: Optional[str] = None,
+        incluir_inactivas: bool = False,
+        limite: int = 50,
+        offset: int = 0
+    ) -> List[Empresa]:
+        """
+        Busca empresas con filtros combinados en la base de datos.
+
+        Args:
+            texto: Término de búsqueda en nombre comercial o razón social
+            tipo_empresa: Filtrar por tipo (NOMINA o MANTENIMIENTO)
+            estatus: Filtrar por estatus específico
+            incluir_inactivas: Si incluir empresas inactivas (sobrescribe filtro estatus)
+            limite: Número máximo de resultados (default 50 para UI)
+            offset: Número de registros a saltar (paginación)
+
+        Returns:
+            Lista de empresas que coinciden con todos los filtros
+        """
+        pass
+
 
 class SupabaseEmpresaRepository(IEmpresaRepository):
     """Implementación del repositorio usando Supabase"""
@@ -272,3 +298,71 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
         except Exception as e:
             logger.error(f"Error buscando empresas con término '{termino}': {e}")
             raise DatabaseError(f"Error de base de datos al buscar empresas: {str(e)}")
+
+    async def buscar_con_filtros(
+        self,
+        texto: Optional[str] = None,
+        tipo_empresa: Optional[str] = None,
+        estatus: Optional[str] = None,
+        incluir_inactivas: bool = False,
+        limite: int = 50,
+        offset: int = 0
+    ) -> List[Empresa]:
+        """
+        Busca empresas con filtros combinados en la base de datos.
+        Todos los filtros se aplican en la BD para máxima eficiencia.
+
+        Args:
+            texto: Término de búsqueda en nombre comercial o razón social
+            tipo_empresa: Filtrar por tipo (NOMINA o MANTENIMIENTO)
+            estatus: Filtrar por estatus específico
+            incluir_inactivas: Si incluir empresas inactivas (sobrescribe filtro estatus)
+            limite: Número máximo de resultados (default 50 para UI)
+            offset: Número de registros a saltar (paginación)
+
+        Returns:
+            Lista de empresas que coinciden con todos los filtros
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
+        try:
+            # Iniciamos con el query base
+            query = self.supabase.table(self.tabla).select('*')
+
+            # Aplicar filtro de texto si existe
+            if texto and texto.strip():
+                # Búsqueda en nombre comercial o razón social
+                query = query.or_(
+                    f"nombre_comercial.ilike.%{texto}%,"
+                    f"razon_social.ilike.%{texto}%"
+                )
+
+            # Aplicar filtro de tipo si existe
+            if tipo_empresa:
+                query = query.eq('tipo_empresa', tipo_empresa)
+
+            # Aplicar filtro de estatus
+            if estatus:
+                # Si hay un estatus específico, usarlo
+                query = query.eq('estatus', estatus)
+            elif not incluir_inactivas:
+                # Si no incluir inactivas, filtrar solo activas
+                query = query.eq('estatus', 'ACTIVO')
+            # Si incluir_inactivas es True, no aplicamos filtro de estatus
+
+            # Ordenamiento (usa índice para eficiencia)
+            query = query.order('fecha_creacion', desc=True)
+
+            # Aplicar paginación
+            if limite > 0:
+                query = query.range(offset, offset + limite - 1)
+
+            # Ejecutar query
+            result = query.execute()
+
+            return [Empresa(**data) for data in result.data]
+
+        except Exception as e:
+            logger.error(f"Error buscando empresas con filtros: {e}")
+            raise DatabaseError(f"Error de base de datos al buscar con filtros: {str(e)}")

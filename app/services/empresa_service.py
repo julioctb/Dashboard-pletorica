@@ -127,6 +127,50 @@ class EmpresaService:
         # Delegar búsqueda al repository (usa índices DB, ~100x más rápido)
         return await self.repository.buscar_por_texto(termino, limite)
 
+    async def buscar_con_filtros(
+        self,
+        texto: Optional[str] = None,
+        tipo_empresa: Optional[str] = None,
+        estatus: Optional[str] = None,
+        incluir_inactivas: bool = False,
+        limite: int = 50,
+        offset: int = 0
+    ) -> List[EmpresaResumen]:
+        """
+        Busca empresas con filtros combinados aplicados en la base de datos.
+        Optimizado para performance con índices y límites.
+
+        Args:
+            texto: Término de búsqueda (mínimo 2 caracteres para activar búsqueda)
+            tipo_empresa: Filtrar por tipo (NOMINA o MANTENIMIENTO)
+            estatus: Filtrar por estatus específico
+            incluir_inactivas: Si incluir empresas inactivas
+            limite: Número máximo de resultados (default 50 para UI)
+            offset: Número de registros a saltar (paginación)
+
+        Returns:
+            Lista de resúmenes de empresas que coinciden con los filtros
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        # Validar texto mínimo si se proporciona
+        if texto and len(texto.strip()) < 2:
+            texto = None  # Ignorar búsquedas muy cortas
+
+        # Delegar al repository con todos los filtros
+        empresas = await self.repository.buscar_con_filtros(
+            texto=texto,
+            tipo_empresa=tipo_empresa,
+            estatus=estatus,
+            incluir_inactivas=incluir_inactivas,
+            limite=limite,
+            offset=offset
+        )
+
+        # Convertir a resumen para la UI
+        return [EmpresaResumen.from_empresa(empresa) for empresa in empresas]
+
     async def crear(self, empresa_create: EmpresaCreate) -> Empresa:
         """
         Crea una nueva empresa.
@@ -231,7 +275,7 @@ class EmpresaService:
 
     async def obtener_empresas_nomina(self) -> List[Empresa]:
         """
-        Obtiene solo empresas de tipo NOMINA activas.
+        Obtiene solo empresas de tipo NOMINA activas usando filtros de BD.
 
         Returns:
             Lista de empresas de tipo NOMINA
@@ -239,12 +283,16 @@ class EmpresaService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        todas = await self.repository.obtener_todas(incluir_inactivas=False)
-        return [e for e in todas if e.tipo_empresa == TipoEmpresa.NOMINA]
+        # Usar filtros de BD en lugar de filtrar en memoria
+        return await self.repository.buscar_con_filtros(
+            tipo_empresa="NOMINA",
+            incluir_inactivas=False,
+            limite=100  # Límite razonable para este tipo de consulta
+        )
 
     async def obtener_empresas_mantenimiento(self) -> List[Empresa]:
         """
-        Obtiene solo empresas de tipo MANTENIMIENTO activas.
+        Obtiene solo empresas de tipo MANTENIMIENTO activas usando filtros de BD.
 
         Returns:
             Lista de empresas de tipo MANTENIMIENTO
@@ -252,8 +300,12 @@ class EmpresaService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        todas = await self.repository.obtener_todas(incluir_inactivas=False)
-        return [e for e in todas if e.tipo_empresa == TipoEmpresa.MANTENIMIENTO]
+        # Usar filtros de BD en lugar de filtrar en memoria
+        return await self.repository.buscar_con_filtros(
+            tipo_empresa="MANTENIMIENTO",
+            incluir_inactivas=False,
+            limite=100  # Límite razonable para este tipo de consulta
+        )
 
 
 # Instancia global del servicio (singleton)

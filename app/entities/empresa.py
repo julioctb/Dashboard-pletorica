@@ -270,7 +270,7 @@ class EmpresaUpdate(BaseModel):
 
 
 class EmpresaResumen(BaseModel):
-    """Modelo resumido de empresa para listados"""
+    """Modelo resumido de empresa para listados con datos clave para UI mejorada"""
 
     model_config = ConfigDict(
         use_enum_values=True,
@@ -279,20 +279,23 @@ class EmpresaResumen(BaseModel):
 
     id: int
     nombre_comercial: str
+    razon_social: str  # Agregado para mostrar en subtítulo
     tipo_empresa: TipoEmpresa
     estatus: EstatusEmpresa
-    contacto_principal: str
+    contacto_principal: Optional[str]  # Teléfono
+    email: Optional[str]  # Agregado para mostrar en tarjeta
     fecha_creacion: datetime
 
     @classmethod
     def from_empresa(cls, empresa: Empresa) -> 'EmpresaResumen':
         """Factory method para crear desde una empresa completa"""
-        contacto = empresa.email or empresa.telefono or "Sin contacto"
         return cls(
             id=empresa.id,
             nombre_comercial=empresa.nombre_comercial,
+            razon_social=empresa.razon_social,
             tipo_empresa=empresa.tipo_empresa,
             estatus=empresa.estatus,
-            contacto_principal=contacto,
+            contacto_principal=empresa.telefono,  # Teléfono directo
+            email=empresa.email,  # Email directo
             fecha_creacion=empresa.fecha_creacion
         )

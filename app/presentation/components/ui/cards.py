@@ -3,11 +3,11 @@ from typing import Optional, List, Any
 
 def base_card(
     title: str,
-    subtitle: Optional[str] = None,
-    badge: Optional[rx.Component] = None,
-    content: Optional[rx.Component] = None,
-    actions: Optional[rx.Component] = None,
-    icon: Optional[rx.Component] = None,
+    subtitle: Optional[str],
+    badge: Optional[rx.Component] ,
+    content: Optional[rx.Component] ,
+    actions: Optional[rx.Component] ,
+    icon: Optional[rx.Component] ,
     max_width: str = "400px",
     hover_effect: bool = True
 ) -> rx.Component:
@@ -39,7 +39,7 @@ def base_card(
                 align="start",
                 spacing="1"
             ),
-            spacing=rx.cond(icon is not None, "2", "0"),
+            spacing=rx.cond(icon, "2", "0"),
             align="center"
         ),
         rx.spacer(),
@@ -48,14 +48,19 @@ def base_card(
         align="center"
     )
     
-    # Contenido principal
+    # Contenido principal con espaciado flexible
     card_content = rx.vstack(
         header,
-        rx.cond(content, content, rx.fragment()),
+        rx.cond(
+            content,
+            rx.box(content, flex="1", overflow_y="auto"),  # Content ocupa espacio disponible
+            rx.box(flex="1")  # Espaciador si no hay contenido
+        ),
         rx.cond(actions, actions, rx.fragment()),
         spacing="3",
         align="start",
-        width="100%"
+        width="100%",
+        height="100%"  # Ocupar toda la altura disponible
     )
     
     # Aplicar hover effect si está habilitado
