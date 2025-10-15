@@ -3,44 +3,37 @@ from typing import Optional, List, Any
 
 def base_card(
     title: str,
-    subtitle: Optional[str],
-    badge: Optional[rx.Component] ,
-    content: Optional[rx.Component] ,
-    actions: Optional[rx.Component] ,
-    icon: Optional[rx.Component] ,
+    subtitle,
+    badge,
+    content,
+    actions,
     max_width: str = "400px",
     hover_effect: bool = True
 ) -> rx.Component:
     """
     Tarjeta base reutilizable para todo el sistema
-    
+
     Args:
         title: Título principal de la tarjeta
-        subtitle: Subtítulo opcional 
+        subtitle: Subtítulo opcional
         badge: Badge/etiqueta (ej: tipo, estatus)
         content: Contenido principal de la tarjeta
         actions: Botones de acción
-        icon: Icono opcional para el header
         max_width: Ancho máximo de la tarjeta
         hover_effect: Si aplicar efecto hover
     """
-    
+
     # Header de la tarjeta
     header = rx.hstack(
-        rx.hstack(
-            rx.cond(icon, icon, rx.fragment()),
-            rx.vstack(
-                rx.text(title, size="4", weight="bold"),
-                rx.cond(
-                    subtitle,
-                    rx.text(subtitle, size="2", color="var(--gray-9)"),
-                    rx.fragment()
-                ),
-                align="start",
-                spacing="1"
+        rx.vstack(
+            rx.text(title, size="4", weight="bold"),
+            rx.cond(
+                subtitle,
+                rx.text(subtitle, size="2", color="var(--gray-9)"),
+                rx.fragment()
             ),
-            spacing=rx.cond(icon, "2", "0"),
-            align="center"
+            align="start",
+            spacing="1"
         ),
         rx.spacer(),
         rx.cond(badge, badge, rx.fragment()),
