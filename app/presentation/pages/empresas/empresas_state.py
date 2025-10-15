@@ -148,7 +148,7 @@ class EmpresasState(BaseState):
         """Cargar la lista de empresas aplicando filtros en la base de datos"""
         self.loading = True
         try:
-            # Usar el nuevo método buscar_con_filtros que aplica TODO en la BD
+            # Usar el nuevo método buscar_con_filtros que aplica todos los filtros en la BD
             # Esto es mucho más eficiente: ~10-20x más rápido, ~90% menos bandwidth
             self.empresas = await empresa_service.buscar_con_filtros(
                 texto=self.filtro_busqueda if self.filtro_busqueda else None,
