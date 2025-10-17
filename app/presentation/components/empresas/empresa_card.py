@@ -240,7 +240,9 @@ def empresa_card(empresa: EmpresaResumen, on_view: callable, on_edit: callable) 
         ),
         width="100%",
         style={
-            "minHeight": "240px",  # Altura mínima (crece si es necesario)
+            "height": "240px",  # Altura fija para todas las cards
+            "display": "flex",
+            "flexDirection": "column",
             "borderLeft": get_estatus_border(empresa.estatus),
             "opacity": get_estatus_opacity(empresa.estatus),
             "filter": get_estatus_filter(empresa.estatus),

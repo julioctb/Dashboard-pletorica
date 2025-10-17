@@ -41,9 +41,9 @@ class EmpresasState(BaseState):
     # FILTROS Y BÚSQUEDA
     # ========================
     filtro_tipo: str = ""
-    filtro_estatus: str = ""
     filtro_busqueda: str = ""
-    incluir_inactivas: bool = False
+    solo_activas: bool = False  # True = solo activas, False = todas
+    chips_tipo_seleccionados: List[str] = []
     
     # ========================
     # ESTADO DE LA UI
@@ -85,17 +85,13 @@ class EmpresasState(BaseState):
         """Filtro de tipo - solo actualiza UI (manual)"""
         self.filtro_tipo = value
 
-    def set_filtro_estatus(self, value: str):
-        """Filtro de estatus - solo actualiza UI (manual)"""
-        self.filtro_estatus = value
-
     def set_filtro_busqueda(self, value: str):
         """Búsqueda - solo actualiza UI (manual)"""
         self.filtro_busqueda = value
 
-    def set_incluir_inactivas(self, value: bool):
-        """Toggle incluir inactivas - solo actualiza UI (manual)"""
-        self.incluir_inactivas = value
+    def set_solo_activas(self, value: bool):
+        """Toggle solo activas - solo actualiza UI (manual)"""
+        self.solo_activas = value
 
     def set_mostrar_modal_empresa(self, value: bool):
         self.mostrar_modal_empresa = value
@@ -142,6 +138,12 @@ class EmpresasState(BaseState):
         self.form_notas = value
     
     # ========================
+    # OPERACIONES CON CHIPS
+    # ========================
+    
+
+
+    # ========================
     # OPERACIONES PRINCIPALES
     # ========================
     async def cargar_empresas(self):
@@ -153,8 +155,8 @@ class EmpresasState(BaseState):
             self.empresas = await empresa_service.buscar_con_filtros(
                 texto=self.filtro_busqueda if self.filtro_busqueda else None,
                 tipo_empresa=self.filtro_tipo if self.filtro_tipo else None,
-                estatus=self.filtro_estatus if self.filtro_estatus else None,
-                incluir_inactivas=self.incluir_inactivas,
+                estatus="ACTIVO" if self.solo_activas else None,  # None = todas, "ACTIVO" = solo activas
+                incluir_inactivas=not self.solo_activas,  # Invertido: si solo_activas=True, no incluir inactivas
                 limite=100,  # Límite razonable para UI (puede aumentarse si se implementa paginación)
                 offset=0  # Por ahora sin paginación (puede agregarse después)
             )
@@ -396,9 +398,8 @@ class EmpresasState(BaseState):
     async def limpiar_filtros(self):
         """Limpiar todos los filtros"""
         self.filtro_tipo = ""
-        self.filtro_estatus = ""
         self.filtro_busqueda = ""
-        self.incluir_inactivas = False
+        self.solo_activas = False
         await self.cargar_empresas()
     
     # ========================
@@ -455,8 +456,7 @@ class EmpresasState(BaseState):
         return bool(
             self.filtro_busqueda or
             self.filtro_tipo or
-            self.filtro_estatus or
-            self.incluir_inactivas
+            self.solo_activas
         )
 
     @rx.var
@@ -465,8 +465,7 @@ class EmpresasState(BaseState):
         count = 0
         if self.filtro_busqueda: count += 1
         if self.filtro_tipo: count += 1
-        if self.filtro_estatus: count += 1
-        if self.incluir_inactivas: count += 1
+        if self.solo_activas: count += 1
         return count
 
     # ========================

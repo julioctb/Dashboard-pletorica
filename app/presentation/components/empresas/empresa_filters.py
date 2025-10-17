@@ -1,10 +1,8 @@
 """Componente de filtros específico para el módulo de empresas"""
 import reflex as rx
 
-
 from typing import Type
-
-from app.entities import TipoEmpresa, EstatusEmpresa
+from app.entities import TipoEmpresa
 
 
 def empresa_filters(estado: Type[rx.State]) -> rx.Component:
@@ -20,7 +18,7 @@ def empresa_filters(estado: Type[rx.State]) -> rx.Component:
     - Jerarquía visual mejorada (título size="5", controles size="3")
     - Accesibilidad WCAG 2.1 AA (controles 40px, contraste mejorado)
     - Badge contador de filtros activos
-    - Switch en lugar de checkbox
+    - Switch "Solo activas" (default OFF = muestra todas)
     - Iconos en botones para mejor reconocimiento
     - Espaciado optimizado (spacing="3" horizontal, spacing="4" vertical)
 
@@ -28,11 +26,10 @@ def empresa_filters(estado: Type[rx.State]) -> rx.Component:
         estado: Clase de estado (EmpresasState) con los campos:
             - filtro_busqueda: str
             - filtro_tipo: str
-            - filtro_estatus: str
-            - incluir_inactivas: bool
+            - solo_activas: bool (True = solo activas, False = todas)
             - tiene_filtros_activos: bool (computed)
             - cantidad_filtros_activos: int (computed)
-            - set_filtro_busqueda, set_filtro_tipo, set_filtro_estatus, set_incluir_inactivas
+            - set_filtro_busqueda, set_filtro_tipo, set_solo_activas
             - aplicar_filtros(), limpiar_filtros()
 
     Returns:
@@ -78,18 +75,19 @@ def empresa_filters(estado: Type[rx.State]) -> rx.Component:
 
             # ===== FILA 1: BÚSQUEDA =====
             rx.vstack(
-                # Input búsqueda (100% width)
-                rx.input(
-                    placeholder="Buscar por nombre comercial o razón social...",  # Sin emoji, más descriptivo
-                    value=estado.filtro_busqueda,
-                    on_change=estado.set_filtro_busqueda,
-                    size="3",  # 16px texto, 40px height
-                    style={"height": "40px"},  # Cumple WCAG 44px target
-                    width="100%"
-                ),
-
-                # Botones de acción (alineados a la derecha)
                 rx.hstack(
+
+                    # Input búsqueda (100% width)
+                    rx.input(
+                        placeholder="Buscar por nombre comercial o razón social...",  # Sin emoji, más descriptivo
+                        value=estado.filtro_busqueda,
+                        on_change=estado.set_filtro_busqueda,
+                        size="3",  # 16px texto, 40px height
+                        style={"height": "40px"},  # Cumple WCAG 44px target
+                        width="100%"
+                    ),
+
+                    # Botones de acción (alineados a la derecha)
                     rx.button(
                         rx.icon("search", size=18),
                         "Buscar",
@@ -98,15 +96,15 @@ def empresa_filters(estado: Type[rx.State]) -> rx.Component:
                         style={"height": "40px"}
                     ),
                     rx.button(
-                        rx.icon("refresh-cw", size=18),
+                        rx.icon("filter-x", size=18),
                         "Mostrar Todas",
                         on_click=estado.limpiar_filtros,
                         variant="soft",
                         size="3",
                         style={"height": "40px"}
                     ),
-                    spacing="3",  # 12px - Mejor espaciado
-                    justify="end",
+                   
+                  
                     width="100%"  # Necesario para que justify="end" funcione
                 ),
 
@@ -116,6 +114,7 @@ def empresa_filters(estado: Type[rx.State]) -> rx.Component:
 
             # ===== FILA 2: FILTROS ADICIONALES =====
             rx.hstack(
+
                 # Filtro por tipo
                 rx.select(
                     [tipo.value for tipo in TipoEmpresa],
@@ -125,25 +124,18 @@ def empresa_filters(estado: Type[rx.State]) -> rx.Component:
                     size="3"  # 16px - Mayor legibilidad
                 ),
 
-                # Filtro por estatus
-                rx.select(
-                    [estatus.value for estatus in EstatusEmpresa],
-                    placeholder="Estatus",
-                    value=estado.filtro_estatus,
-                    on_change=estado.set_filtro_estatus,
-                    size="3"
-                ),
+                rx.spacer(),
 
-                # Switch para incluir inactivas (mejor que checkbox)
+                # Switch para solo activas
                 rx.hstack(
                     rx.text(
-                        "Incluir inactivas",
+                        "Solo activas",
                         size="2",  # 14px
                         weight="medium"
                     ),
                     rx.switch(
-                        checked=estado.incluir_inactivas,
-                        on_change=estado.set_incluir_inactivas,
+                        checked=estado.solo_activas,
+                        on_change=estado.set_solo_activas,
                         size="3"
                     ),
                     spacing="2",

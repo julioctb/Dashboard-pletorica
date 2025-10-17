@@ -26,14 +26,7 @@ def empresas_page() -> rx.Component:
                     size="2",
                     on_click=EmpresasState.abrir_modal_crear
                 ),
-                rx.button(
-                    rx.icon("refresh-cw", size=16),
-                    "Actualizar",
-                    on_click=EmpresasState.cargar_empresas,
-                    variant="soft",
-                    size="2"
-                ),
-                spacing="2"
+                
             ),
 
             width="100%",
