@@ -110,7 +110,7 @@ def empresa_card(empresa: EmpresaResumen, on_view: callable, on_edit: callable) 
     Optimizaciones técnicas:
     - Helpers reutilizables (info_row, get_estatus_*)
     - Sin código duplicado
-    - Evaluación de estatus optimizada
+    - Evaluación de estatus reactiva con rx.cond
     - Tooltips en botones
 
     Args:

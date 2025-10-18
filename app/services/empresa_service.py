@@ -72,7 +72,7 @@ class EmpresaService:
 
         Args:
             incluir_inactivas: Si True, incluye empresas inactivas
-            limite: Número máximo de resultados (None = default 100)
+            limite: Número máximo de resultados (None = 100 por defecto)
             offset: Número de registros a saltar
 
         Returns:
@@ -268,44 +268,6 @@ class EmpresaService:
             DatabaseError: Si hay error de BD
         """
         return await self.repository.eliminar(empresa_id)
-
-    # ==========================================
-    # OPERACIONES DE CONSULTA ESPECÍFICAS
-    # ==========================================
-
-    async def obtener_empresas_nomina(self) -> List[Empresa]:
-        """
-        Obtiene solo empresas de tipo NOMINA activas usando filtros de BD.
-
-        Returns:
-            Lista de empresas de tipo NOMINA
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        # Usar filtros de BD en lugar de filtrar en memoria
-        return await self.repository.buscar_con_filtros(
-            tipo_empresa="NOMINA",
-            incluir_inactivas=False,
-            limite=100  # Límite razonable para este tipo de consulta
-        )
-
-    async def obtener_empresas_mantenimiento(self) -> List[Empresa]:
-        """
-        Obtiene solo empresas de tipo MANTENIMIENTO activas usando filtros de BD.
-
-        Returns:
-            Lista de empresas de tipo MANTENIMIENTO
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        # Usar filtros de BD en lugar de filtrar en memoria
-        return await self.repository.buscar_con_filtros(
-            tipo_empresa="MANTENIMIENTO",
-            incluir_inactivas=False,
-            limite=100  # Límite razonable para este tipo de consulta
-        )
 
 
 # Instancia global del servicio (singleton)

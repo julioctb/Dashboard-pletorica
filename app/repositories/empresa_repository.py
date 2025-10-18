@@ -148,7 +148,7 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
 
         Args:
             incluir_inactivas: Si True, incluye empresas inactivas
-            limite: Número máximo de resultados (None = sin límite, default 100 para seguridad)
+            limite: Número máximo de resultados (None = 100 por defecto para seguridad)
             offset: Número de registros a saltar (para paginación)
 
         Returns:
@@ -167,11 +167,13 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
             # Ordenamiento (usa índice idx_empresas_fecha_creacion para eficiencia)
             query = query.order('fecha_creacion', desc=True)
 
-            # Paginación
-            if limite is not None:
-                # Rango: [offset, offset + limite)
-                query = query.range(offset, offset + limite - 1)
-            # Si limite es None, no aplicar límite (cargar TODAS)
+            # Paginación con límite por defecto para seguridad
+            if limite is None:
+                limite = 100  # Límite de seguridad por defecto
+                logger.debug("Usando límite por defecto de 100 registros")
+
+            # Rango: [offset, offset + limite)
+            query = query.range(offset, offset + limite - 1)
 
             result = query.execute()
             return [Empresa(**data) for data in result.data]
