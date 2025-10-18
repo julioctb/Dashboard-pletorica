@@ -2,10 +2,15 @@
 Entidades de dominio para Empresas.
 Consolidadas desde múltiples ubicaciones legacy.
 """
+import re
 from datetime import datetime
 from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator, ConfigDict
+
+# Constantes de validación
+RFC_PATTERN = r'^[A-Z&Ñ]{3,4}[0-9]{6}[A-V1-9][A-Z1-9][0-9A]$'
+EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
 
 class TipoEmpresa(str, Enum):
@@ -54,7 +59,7 @@ class Empresa(BaseModel):
     rfc: str = Field(
         min_length=12,
         max_length=13,
-        pattern=r'^[A-Z&Ñ]{3,4}[0-9]{6}[A-V1-9][A-Z1-9][0-9A]$',
+        pattern=RFC_PATTERN,
         description="RFC válido de la empresa"
     )
 
@@ -109,12 +114,10 @@ class Empresa(BaseModel):
     @classmethod
     def validar_rfc(cls, v: str) -> str:
         """Valida y normaliza RFC"""
-        import re
         if v:
             v = v.upper().strip()
-            # Validar formato específico con mensaje claro
-            patron = r'^[A-Z&Ñ]{3,4}[0-9]{6}[A-V1-9][A-Z1-9][0-9A]$'
-            if not re.match(patron, v):
+            # Validar formato específico con mensaje claro usando constante global
+            if not re.match(RFC_PATTERN, v):
                 # Identificar qué parte está mal
                 if len(v) < 12 or len(v) > 13:
                     raise ValueError(f'RFC debe tener 12 o 13 caracteres (tiene {len(v)})')
@@ -130,12 +133,10 @@ class Empresa(BaseModel):
     @classmethod
     def validar_email(cls, v: Optional[str]) -> Optional[str]:
         """Valida formato y normaliza email a minúsculas"""
-        import re
         if v:
             v = v.lower().strip()
-            # Validar formato (mismo patrón que frontend)
-            patron = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-            if not re.match(patron, v):
+            # Validar formato usando constante global (mismo patrón que frontend)
+            if not re.match(EMAIL_PATTERN, v):
                 raise ValueError('Formato de email inválido (ejemplo: usuario@dominio.com)')
         return v
 

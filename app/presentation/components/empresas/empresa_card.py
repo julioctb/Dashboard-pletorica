@@ -238,9 +238,11 @@ def empresa_card(empresa: EmpresaResumen, on_view: callable, on_edit: callable) 
             width="100%",
             height="100%"
         ),
-        width="100%",
+        width="100%",  # Flexible dentro de los límites
         style={
-            "height": "240px",  # Altura fija para todas las cards
+            "minWidth": "300px",   # Nunca más pequeña (legible)
+            "maxWidth": "400px",   # Nunca más grande (estética)
+            "height": "240px",     # Altura fija para consistencia
             "display": "flex",
             "flexDirection": "column",
             "borderLeft": get_estatus_border(empresa.estatus),

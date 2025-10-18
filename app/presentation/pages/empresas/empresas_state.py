@@ -43,7 +43,6 @@ class EmpresasState(BaseState):
     filtro_tipo: str = ""
     filtro_busqueda: str = ""
     solo_activas: bool = False  # True = solo activas, False = todas
-    chips_tipo_seleccionados: List[str] = []
     
     # ========================
     # ESTADO DE LA UI
@@ -99,9 +98,6 @@ class EmpresasState(BaseState):
     def set_mostrar_modal_detalle(self, value: bool):
         self.mostrar_modal_detalle = value
 
-    def set_saving(self, value: bool):
-        self.saving = value
-
     # Setters del formulario
     def set_form_nombre_comercial(self, value: str):
         self.form_nombre_comercial = value
@@ -136,12 +132,6 @@ class EmpresasState(BaseState):
     
     def set_form_notas(self, value: str):
         self.form_notas = value
-    
-    # ========================
-    # OPERACIONES CON CHIPS
-    # ========================
-    
-
 
     # ========================
     # OPERACIONES PRINCIPALES
@@ -181,20 +171,8 @@ class EmpresasState(BaseState):
 
         self.saving = True
         try:
-            # Crear objeto EmpresaCreate (validaciones ya hechas en formulario)
-            nueva_empresa = EmpresaCreate(
-                nombre_comercial=self.form_nombre_comercial.strip().upper(),
-                razon_social=self.form_razon_social.strip().upper(),
-                tipo_empresa=TipoEmpresa(self.form_tipo_empresa),
-                rfc=self.form_rfc.strip().upper(),
-                direccion=self.form_direccion.strip() or None,
-                codigo_postal=self.form_codigo_postal.strip() or None,
-                telefono=self.form_telefono.strip() or None,
-                email=self.form_email.strip() or None,
-                pagina_web=self.form_pagina_web.strip() or None,
-                estatus=EstatusEmpresa(self.form_estatus),
-                notas=self.form_notas.strip() or None
-            )
+            # Preparar datos usando helper (maneja normalización automáticamente)
+            nueva_empresa = self._preparar_empresa_desde_formulario(es_actualizacion=False)
 
             # Crear la empresa
             empresa_creada = await empresa_service.crear(nueva_empresa)
@@ -210,27 +188,9 @@ class EmpresasState(BaseState):
                 duration=4000
             )
 
-        except DuplicateError as e:
-            # RFC duplicado - mensaje específico
-            self.mostrar_mensaje(
-                f"RFC duplicado: {e.field} ya existe en el sistema",
-                "error"
-            )
-            return  # NO cerrar modal
-
-        except ValidationError as e:
-            # Errores de validación del backend (Pydantic)
-            self.mostrar_mensaje(f"Error de validación: {str(e)}", "error")
-            return  # NO cerrar modal
-
-        except DatabaseError as e:
-            # Errores de base de datos
-            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
-            return  # NO cerrar modal
-
         except Exception as e:
-            # Errores inesperados
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            # Manejo centralizado de errores
+            self._manejar_error(e, "crear empresa")
             return  # NO cerrar modal
         finally:
             self.saving = False
@@ -250,20 +210,8 @@ class EmpresasState(BaseState):
 
         self.saving = True
         try:
-            # Crear objeto EmpresaUpdate (validaciones ya hechas en formulario)
-            update_data = EmpresaUpdate(
-                nombre_comercial=self.form_nombre_comercial.strip().upper() or None,
-                razon_social=self.form_razon_social.strip() or None,
-                tipo_empresa=TipoEmpresa(self.form_tipo_empresa) if self.form_tipo_empresa else None,
-                rfc=self.form_rfc.strip().upper() or None,
-                direccion=self.form_direccion.strip() or None,
-                codigo_postal=self.form_codigo_postal.strip() or None,
-                telefono=self.form_telefono.strip() or None,
-                email=self.form_email.strip() or None,
-                pagina_web=self.form_pagina_web.strip() or None,
-                estatus=EstatusEmpresa(self.form_estatus) if self.form_estatus else None,
-                notas=self.form_notas.strip() or None
-            )
+            # Preparar datos usando helper (maneja normalización automáticamente)
+            update_data = self._preparar_empresa_desde_formulario(es_actualizacion=True)
 
             # Actualizar la empresa
             empresa_actualizada = await empresa_service.actualizar(self.empresa_seleccionada.id, update_data)
@@ -279,24 +227,9 @@ class EmpresasState(BaseState):
                 duration=4000
             )
 
-        except NotFoundError as e:
-            # Empresa no encontrada
-            self.mostrar_mensaje(f"Empresa no encontrada: {str(e)}", "error")
-            return  # NO cerrar modal
-
-        except ValidationError as e:
-            # Errores de validación del backend (Pydantic)
-            self.mostrar_mensaje(f"Error de validación: {str(e)}", "error")
-            return  # NO cerrar modal
-
-        except DatabaseError as e:
-            # Errores de base de datos
-            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
-            return  # NO cerrar modal
-
         except Exception as e:
-            # Errores inesperados
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            # Manejo centralizado de errores
+            self._manejar_error(e, "actualizar empresa")
             return  # NO cerrar modal
         finally:
             self.saving = False
@@ -313,12 +246,9 @@ class EmpresasState(BaseState):
                 duration=3000
             )
 
-        except NotFoundError as e:
-            self.mostrar_mensaje(f"Empresa no encontrada: {str(e)}", "error")
-        except DatabaseError as e:
-            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            # Manejo centralizado de errores
+            self._manejar_error(e, "cambiar estatus")
     
     # ========================
     # OPERACIONES DE MODALES
@@ -355,12 +285,9 @@ class EmpresasState(BaseState):
             self.modo_modal_empresa = "editar"
             self.mostrar_modal_empresa = True
 
-        except NotFoundError as e:
-            self.mostrar_mensaje(f"Empresa no encontrada: {str(e)}", "error")
-        except DatabaseError as e:
-            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            # Manejo centralizado de errores
+            self._manejar_error(e, "abrir modal de edición")
 
     def cerrar_modal_empresa(self):
         """Cerrar modal unificado (crear/editar)"""
@@ -376,12 +303,9 @@ class EmpresasState(BaseState):
             self.empresa_seleccionada = await empresa_service.obtener_por_id(empresa_id)
             self.mostrar_modal_detalle = True
 
-        except NotFoundError as e:
-            self.mostrar_mensaje(f"Empresa no encontrada: {str(e)}", "error")
-        except DatabaseError as e:
-            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            # Manejo centralizado de errores
+            self._manejar_error(e, "abrir detalles")
 
     def cerrar_modal_detalle(self):
         """Cerrar modal de detalles"""
@@ -469,6 +393,96 @@ class EmpresasState(BaseState):
         return count
 
     # ========================
+    # MÉTODOS HELPER PRIVADOS
+    # ========================
+    def _manejar_error(self, error: Exception, operacion: str = "") -> None:
+        """
+        Maneja errores de forma centralizada y muestra mensajes apropiados.
+
+        Args:
+            error: Excepción capturada
+            operacion: Descripción de la operación (opcional)
+        """
+        contexto = f" al {operacion}" if operacion else ""
+
+        if isinstance(error, NotFoundError):
+            self.mostrar_mensaje(f"Empresa no encontrada{contexto}: {str(error)}", "error")
+        elif isinstance(error, DuplicateError):
+            self.mostrar_mensaje(f"RFC duplicado: {error.field} ya existe en el sistema", "error")
+        elif isinstance(error, ValidationError):
+            self.mostrar_mensaje(f"Error de validación{contexto}: {str(error)}", "error")
+        elif isinstance(error, DatabaseError):
+            self.mostrar_mensaje(f"Error de base de datos{contexto}: {str(error)}", "error")
+        else:
+            self.mostrar_mensaje(f"Error inesperado{contexto}: {str(error)}", "error")
+
+    @staticmethod
+    def _normalizar_texto(texto: str) -> str:
+        """
+        Normaliza texto: elimina espacios y convierte a mayúsculas.
+
+        Args:
+            texto: Texto a normalizar
+
+        Returns:
+            Texto normalizado o None si está vacío
+        """
+        if not texto:
+            return None
+        normalizado = texto.strip().upper()
+        return normalizado if normalizado else None
+
+    def _preparar_empresa_desde_formulario(self, es_actualizacion: bool = False) -> EmpresaCreate | EmpresaUpdate:
+        """
+        Prepara objeto Empresa desde los campos del formulario con normalización.
+
+        Args:
+            es_actualizacion: Si True, retorna EmpresaUpdate; si False, EmpresaCreate
+
+        Returns:
+            EmpresaCreate o EmpresaUpdate con datos normalizados
+        """
+        # Normalizar campos de texto
+        nombre_comercial = self._normalizar_texto(self.form_nombre_comercial)
+        razon_social = self._normalizar_texto(self.form_razon_social)
+        rfc = self._normalizar_texto(self.form_rfc)
+        direccion = self.form_direccion.strip() or None
+        codigo_postal = self.form_codigo_postal.strip() or None
+        telefono = self.form_telefono.strip() or None
+        email = self.form_email.strip() or None
+        pagina_web = self.form_pagina_web.strip() or None
+        notas = self.form_notas.strip() or None
+
+        # Datos comunes
+        datos_comunes = {
+            "tipo_empresa": TipoEmpresa(self.form_tipo_empresa) if self.form_tipo_empresa else None,
+            "direccion": direccion,
+            "codigo_postal": codigo_postal,
+            "telefono": telefono,
+            "email": email,
+            "pagina_web": pagina_web,
+            "estatus": EstatusEmpresa(self.form_estatus) if self.form_estatus else None,
+            "notas": notas
+        }
+
+        if es_actualizacion:
+            # Para actualización: todos los campos son opcionales
+            return EmpresaUpdate(
+                nombre_comercial=nombre_comercial,
+                razon_social=razon_social,
+                rfc=rfc,
+                **datos_comunes
+            )
+        else:
+            # Para creación: nombre, razón social y RFC son requeridos
+            return EmpresaCreate(
+                nombre_comercial=nombre_comercial,
+                razon_social=razon_social,
+                rfc=rfc,
+                **datos_comunes
+            )
+
+    # ========================
     # UTILIDADES
     # ========================
     def limpiar_formulario(self):
@@ -495,3 +509,11 @@ class EmpresasState(BaseState):
         self.error_email = ""
         self.error_codigo_postal = ""
         self.error_telefono = ""
+
+    # ========================
+    # MANEJO DE EVENTOS DE TECLADO
+    # ========================
+    async def handle_key_down(self, key):
+        """Manejar tecla Enter en el campo de búsqueda"""
+        if key == "Enter":
+            await self.aplicar_filtros()

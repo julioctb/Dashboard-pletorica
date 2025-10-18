@@ -81,6 +81,7 @@ def empresa_filters(estado: Type[rx.State]) -> rx.Component:
                     rx.input(
                         placeholder="Buscar por nombre comercial o razón social...",  # Sin emoji, más descriptivo
                         value=estado.filtro_busqueda,
+                        on_key_down=estado.handle_key_down,
                         on_change=estado.set_filtro_busqueda,
                         size="3",  # 16px texto, 40px height
                         style={"height": "40px"},  # Cumple WCAG 44px target
@@ -93,7 +94,7 @@ def empresa_filters(estado: Type[rx.State]) -> rx.Component:
                         "Buscar",
                         on_click=estado.aplicar_filtros,
                         size="3",
-                        style={"height": "40px"}
+                        style={"height": "40px"}  
                     ),
                     rx.button(
                         rx.icon("filter-x", size=18),
