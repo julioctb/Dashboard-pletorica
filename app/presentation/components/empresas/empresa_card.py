@@ -27,7 +27,9 @@ def info_row(
         ),
         spacing="2",
         align="center",
-        width=width
+        width=width,
+        min_width="0",      # Allows compression for truncate
+        overflow="hidden"   # Hides overflow content
     )
 
 
@@ -230,7 +232,13 @@ def empresa_card(empresa: EmpresaResumen, on_view: callable, on_edit: callable) 
                 align="center"
             ),
             # Contenido principal con espaciado flexible
-            rx.box(content, flex="1", overflow_y="auto"),
+            rx.box(
+                content,
+                flex="1",
+                overflow_y="auto",
+                overflow_x="hidden",  # Prevents horizontal scroll
+                width="100%"
+            ),
             # Acciones
             actions,
             spacing="3",
