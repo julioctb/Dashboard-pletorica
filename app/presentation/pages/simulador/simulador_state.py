@@ -1,4 +1,5 @@
 """Estado para el simulador de costo patronal"""
+import reflex as rx
 
 from app.presentation.components.shared.base_state import BaseState
 from app.core.calculations.simulador_costo_patronal import (
@@ -35,6 +36,7 @@ class SimuladorState(BaseState):
     # ─────────────────────────────────────────────────────────────────
     resultado: dict = {}
     calculado: bool = False
+    is_calculating: bool = False
 
     # ─────────────────────────────────────────────────────────────────
     # SETTERS (conversión de string a número)
@@ -80,12 +82,63 @@ class SimuladorState(BaseState):
             self.dias_aguinaldo = int(value) if value else 15
         except ValueError:
             pass
+    
+    def set_estado(self, value: str):
+        """Setter para estado - acepta ID interno"""
+        self.estado = value
+
+    def set_estado_display(self, display_name: str):
+        """Setter que convierte nombre display a ID interno"""
+        # Mapping inverso
+        display_to_id = {
+            "Aguascalientes": "aguascalientes",
+            "Baja California": "baja_california",
+            "Baja California Sur": "baja_california_sur",
+            "Campeche": "campeche",
+            "Chiapas": "chiapas",
+            "Chihuahua": "chihuahua",
+            "Ciudad de México": "ciudad_de_mexico",
+            "Coahuila": "coahuila",
+            "Colima": "colima",
+            "Durango": "durango",
+            "Estado de México": "estado_de_mexico",
+            "Guanajuato": "guanajuato",
+            "Guerrero": "guerrero",
+            "Hidalgo": "hidalgo",
+            "Jalisco": "jalisco",
+            "Michoacán": "michoacan",
+            "Morelos": "morelos",
+            "Nayarit": "nayarit",
+            "Nuevo León": "nuevo_leon",
+            "Oaxaca": "oaxaca",
+            "Puebla": "puebla",
+            "Querétaro": "queretaro",
+            "Quintana Roo": "quintana_roo",
+            "San Luis Potosí": "san_luis_potosi",
+            "Sinaloa": "sinaloa",
+            "Sonora": "sonora",
+            "Tabasco": "tabasco",
+            "Tamaulipas": "tamaulipas",
+            "Tlaxcala": "tlaxcala",
+            "Veracruz": "veracruz",
+            "Yucatán": "yucatan",
+            "Zacatecas": "zacatecas"
+        }
+        self.estado = display_to_id.get(display_name, "puebla")
+
+    def set_zona_frontera(self, value: bool):
+        self.zona_frontera = value
+
+    def set_aplicar_art_36(self, value: bool):
+        self.aplicar_art_36 = value
 
     # ─────────────────────────────────────────────────────────────────
     # MÉTODOS
     # ─────────────────────────────────────────────────────────────────
+   
     def calcular(self):
         """Ejecuta el cálculo de costo patronal"""
+        self.is_calculating = True
         try:
             # 1. Crear configuración de empresa
             config = ConfiguracionEmpresa(
@@ -112,51 +165,51 @@ class SimuladorState(BaseState):
             calc = CalculadoraCostoPatronal(config)
             resultado = calc.calcular(trabajador)
 
-            # 4. Guardar resultado como dict
+            # 4. Guardar resultado como dict (valores ya formateados)
             self.resultado = {
                 # Salarios
-                "salario_diario": resultado.salario_diario,
-                "salario_mensual": resultado.salario_mensual,
-                "factor_integracion": resultado.factor_integracion,
-                "sbc_diario": resultado.sbc_diario,
-                "sbc_mensual": resultado.sbc_mensual,
-                "dias_cotizados": resultado.dias_cotizados,
+                "salario_diario": f"$ {resultado.salario_diario:,.2f}",
+                "salario_mensual": f"$ {resultado.salario_mensual:,.2f}",
+                "factor_integracion": f"{resultado.factor_integracion:.4f}",
+                "sbc_diario": f"$ {resultado.sbc_diario:,.2f}",
+                "sbc_mensual": f"$ {resultado.sbc_mensual:,.2f}",
+                "dias_cotizados": str(resultado.dias_cotizados),
                 # IMSS Patronal
-                "imss_cuota_fija": resultado.imss_cuota_fija,
-                "imss_excedente_pat": resultado.imss_excedente_pat,
-                "imss_prest_dinero_pat": resultado.imss_prest_dinero_pat,
-                "imss_gastos_med_pens_pat": resultado.imss_gastos_med_pens_pat,
-                "imss_invalidez_vida_pat": resultado.imss_invalidez_vida_pat,
-                "imss_guarderias": resultado.imss_guarderias,
-                "imss_retiro": resultado.imss_retiro,
-                "imss_cesantia_vejez_pat": resultado.imss_cesantia_vejez_pat,
-                "imss_riesgo_trabajo": resultado.imss_riesgo_trabajo,
+                "imss_cuota_fija": f"$ {resultado.imss_cuota_fija:,.2f}",
+                "imss_excedente_pat": f"$ {resultado.imss_excedente_pat:,.2f}",
+                "imss_prest_dinero_pat": f"$ {resultado.imss_prest_dinero_pat:,.2f}",
+                "imss_gastos_med_pens_pat": f"$ {resultado.imss_gastos_med_pens_pat:,.2f}",
+                "imss_invalidez_vida_pat": f"$ {resultado.imss_invalidez_vida_pat:,.2f}",
+                "imss_guarderias": f"$ {resultado.imss_guarderias:,.2f}",
+                "imss_retiro": f"$ {resultado.imss_retiro:,.2f}",
+                "imss_cesantia_vejez_pat": f"$ {resultado.imss_cesantia_vejez_pat:,.2f}",
+                "imss_riesgo_trabajo": f"$ {resultado.imss_riesgo_trabajo:,.2f}",
                 # IMSS Obrero
-                "imss_excedente_obr": resultado.imss_excedente_obr,
-                "imss_prest_dinero_obr": resultado.imss_prest_dinero_obr,
-                "imss_gastos_med_pens_obr": resultado.imss_gastos_med_pens_obr,
-                "imss_invalidez_vida_obr": resultado.imss_invalidez_vida_obr,
-                "imss_cesantia_vejez_obr": resultado.imss_cesantia_vejez_obr,
+                "imss_excedente_obr": f"$ {resultado.imss_excedente_obr:,.2f}",
+                "imss_prest_dinero_obr": f"$ {resultado.imss_prest_dinero_obr:,.2f}",
+                "imss_gastos_med_pens_obr": f"$ {resultado.imss_gastos_med_pens_obr:,.2f}",
+                "imss_invalidez_vida_obr": f"$ {resultado.imss_invalidez_vida_obr:,.2f}",
+                "imss_cesantia_vejez_obr": f"$ {resultado.imss_cesantia_vejez_obr:,.2f}",
                 # Art. 36 LSS
-                "imss_obrero_absorbido": resultado.imss_obrero_absorbido,
+                "imss_obrero_absorbido": f"$ {resultado.imss_obrero_absorbido:,.2f}",
                 "es_salario_minimo": resultado.es_salario_minimo,
                 # Otros
-                "infonavit": resultado.infonavit,
-                "isn": resultado.isn,
+                "infonavit": f"$ {resultado.infonavit:,.2f}",
+                "isn": f"$ {resultado.isn:,.2f}",
                 # Provisiones
-                "provision_aguinaldo": resultado.provision_aguinaldo,
-                "provision_vacaciones": resultado.provision_vacaciones,
-                "provision_prima_vac": resultado.provision_prima_vac,
+                "provision_aguinaldo": f"$ {resultado.provision_aguinaldo:,.2f}",
+                "provision_vacaciones": f"$ {resultado.provision_vacaciones:,.2f}",
+                "provision_prima_vac": f"$ {resultado.provision_prima_vac:,.2f}",
                 # ISR
-                "isr_a_retener": resultado.isr_a_retener,
+                "isr_a_retener": f"$ {resultado.isr_a_retener:,.2f}",
                 # Totales (propiedades calculadas)
-                "total_imss_patronal": resultado.total_imss_patronal,
-                "total_imss_obrero": resultado.total_imss_obrero,
-                "total_provisiones": resultado.total_provisiones,
-                "total_carga_patronal": resultado.total_carga_patronal,
-                "costo_total": resultado.costo_total,
-                "factor_costo": resultado.factor_costo,
-                "salario_neto": resultado.salario_neto,
+                "total_imss_patronal": f"$ {resultado.total_imss_patronal:,.2f}",
+                "total_imss_obrero": f"$ {resultado.total_imss_obrero:,.2f}",
+                "total_provisiones": f"$ {resultado.total_provisiones:,.2f}",
+                "total_carga_patronal": f"$ {resultado.total_carga_patronal:,.2f}",
+                "costo_total": f"$ {resultado.costo_total:,.2f}",
+                "factor_costo": f"{resultado.factor_costo:.4f}",
+                "salario_neto": f"$ {resultado.salario_neto:,.2f}",
             }
 
             # 5. Marcar como calculado
@@ -166,6 +219,8 @@ class SimuladorState(BaseState):
         except Exception as e:
             self.mostrar_mensaje(f"Error al calcular: {str(e)}", "error")
             self.calculado = False
+        finally:
+            self.is_calculating = False
 
     def limpiar(self):
         """Limpia los resultados"""
