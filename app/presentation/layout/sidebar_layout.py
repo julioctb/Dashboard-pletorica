@@ -24,6 +24,7 @@ def sidebar_item(
             padding_x="0.5rem",
             padding_y="0.75rem",
             align="center",
+            justify="start",
             style={
                 "_hover": {
                     "bg": rx.color("accent", 4),
@@ -41,7 +42,23 @@ def sidebar_item(
 def sidebar_items() -> rx.Component:
     return rx.vstack(
             sidebar_item('Dashboard','layout-dashboard', '/#' ),
-            sidebar_item('Empresas','building-2', '/empresas' ),
+            rx.accordion.root(
+                rx.accordion.item(
+                    header= rx.hstack(
+                        rx.icon('building-2'),
+                        rx.text('Empresas', size= '4'),
+                        
+                    ),
+                    content= rx.vstack(
+                        sidebar_item('Listado','building-2', '/empresas' ),
+                        sidebar_item('Simulador','Calculator', '/simulador' )
+                        )
+                ),
+                
+                collapsible=True,
+                variant='ghost',
+                width="100%",
+            ),
             sidebar_item('Sedes','map-pin-house', '/#' ),
             sidebar_item('Personal','users', '/#' ),
             sidebar_item('Mensajes','mail', '/#' ),

@@ -4,19 +4,13 @@ Motor principal de cálculo de nómina
 from decimal import Decimal
 from datetime import date, datetime
 from typing import Dict, List, Optional
-from .imss import CalculadoraIMSS
-from .isr import CalculadoraISR
+
+#TODO CONECTAR CON MODULO IMSS E ISR
+# from .imss import CalculadoraIMSS
+# from .isr import CalculadoraISR
 
 class MotorNomina:
     """Motor de cálculo de nómina integrado"""
-    
-    # UMA 2024
-    UMA_DIARIO = Decimal('108.57')
-    SALARIO_MINIMO = Decimal('248.93')  # Zona general 2024
-    
-    def __init__(self):
-        self.calculadora_imss = CalculadoraIMSS()
-        self.calculadora_isr = CalculadoraISR()
     
     def procesar_nomina_empleado(
         self,
