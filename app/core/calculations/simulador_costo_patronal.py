@@ -8,19 +8,22 @@ Permite ajustar todas las variables por empresa:
 - Prestaciones superiores a la ley
 - Días de pago por mes (30 o 30.4)
 
-REFACTORIZACIÓN FASE 1 (2025-12-31):
-- Entidades movidas a app/entities/costo_patronal.py
-- Lógica de cálculo permanece aquí temporalmente
-- Próxima fase: separar calculadores especializados
+REFACTORIZACIÓN:
+- Fase 1 (2025-12-31): Entidades movidas a app/entities/costo_patronal.py
+- Fase 2 (2025-12-31): Calculadores especializados separados (IMSS, ISR, Provisiones)
+- Orquestador: Este archivo coordina los calculadores especializados
 """
 
 from typing import Optional
-from app.core.fiscales import ConstantesFiscales
+from app.core.fiscales import ConstantesFiscales, ISN_POR_ESTADO
 from app.entities.costo_patronal import (
     ConfiguracionEmpresa,
     Trabajador,
     ResultadoCuotas
 )
+from app.core.calculations.calculadora_imss import CalculadoraIMSS
+from app.core.calculations.calculadora_isr import CalculadoraISR
+from app.core.calculations.calculadora_provisiones import CalculadoraProvisiones
 
 # NOTA: Las clases ConfiguracionEmpresa, Trabajador y ResultadoCuotas
 # fueron movidas a app/entities/costo_patronal.py en Fase 1 de refactorización
@@ -31,166 +34,152 @@ from app.entities.costo_patronal import (
 # =============================================================================
 
 class CalculadoraCostoPatronal:
-    """Calculadora de costo patronal con configuración por empresa"""
-    
+    """
+    Calculadora principal de costo patronal - Orquestador.
+
+    Coordina los calculadores especializados:
+    - CalculadoraIMSS: Cuotas IMSS patronales y obreras
+    - CalculadoraISR: Impuesto Sobre la Renta
+    - CalculadoraProvisiones: Aguinaldo, vacaciones, prima vacacional
+
+    Responsabilidad: Ensamblar resultados de calculadores especializados
+    en un objeto ResultadoCuotas completo.
+    """
+
     def __init__(self, config: ConfiguracionEmpresa):
+        """
+        Inicializa calculadora con configuración de empresa.
+
+        Args:
+            config: Configuración personalizada de la empresa
+        """
         self.config = config
         self.const = ConstantesFiscales
         self.resultados: list[ResultadoCuotas] = []
-    
-    def calcular_isr(self, base_gravable: float) -> tuple[float, float, float]:
-        """
-        Calcula ISR mensual.
-        Retorna: (isr_antes_subsidio, subsidio, isr_a_retener)
-        """
-        if base_gravable <= 0:
-            return 0.0, 0.0, 0.0
-        
-        # Buscar rango en tabla
-        isr = 0.0
-        for lim_inf, lim_sup, cuota_fija, tasa in self.const.TABLA_ISR_MENSUAL:
-            if lim_inf <= base_gravable <= lim_sup:
-                excedente = base_gravable - lim_inf
-                isr = cuota_fija + (excedente * tasa)
-                break
-        
-        # Subsidio al empleo
-        subsidio = 0.0
-        if base_gravable <= self.const.LIMITE_SUBSIDIO_MENSUAL:
-            subsidio = self.const.SUBSIDIO_EMPLEO_MENSUAL
-        
-        isr_a_retener = max(0, isr - subsidio)
-        
-        return isr, subsidio, isr_a_retener
+
+        # Inyectar calculadores especializados (Dependency Injection)
+        self.calc_imss = CalculadoraIMSS(self.const)
+        self.calc_isr = CalculadoraISR(self.const)
+        self.calc_provisiones = CalculadoraProvisiones(self.const)
     
     def calcular(self, trabajador: Trabajador) -> ResultadoCuotas:
-        """Calcula todas las cuotas para un trabajador"""
-        
+        """
+        Calcula todas las cuotas para un trabajador.
+
+        Orquesta los calculadores especializados y ensambla el resultado
+        completo. Reducido de 129 líneas → 78 líneas mediante delegación.
+
+        Args:
+            trabajador: Datos del trabajador a calcular
+
+        Returns:
+            ResultadoCuotas con todos los campos calculados
+        """
         dias = trabajador.dias_cotizados_mes
-        
-        # Factor de integración y SBC
+
+        # ═════════════════════════════════════════════════════════════════════
+        # SALARIOS Y SBC
+        # ═════════════════════════════════════════════════════════════════════
         factor_int = self.config.calcular_factor_integracion(trabajador.antiguedad_anos)
         sbc_diario = trabajador.salario_diario * factor_int
         sbc_diario = min(sbc_diario, self.const.TOPE_SBC_DIARIO)  # Aplicar tope
-        
-        # Bases de cálculo
-        uma = self.const.UMA_DIARIO
-        tres_uma = self.const.TRES_UMA
-        excedente_base = max(0, sbc_diario - tres_uma)
-        
-        # ─────────────────────────────────────────────────────────────────────
-        # IMSS PATRONAL
-        # ─────────────────────────────────────────────────────────────────────
-        imss_cuota_fija = uma * self.const.IMSS_CUOTA_FIJA * dias
-        imss_excedente_pat = excedente_base * self.const.IMSS_EXCEDENTE_PAT * dias
-        imss_prest_dinero_pat = sbc_diario * self.const.IMSS_PREST_DINERO_PAT * dias
-        imss_gastos_med_pat = sbc_diario * self.const.IMSS_GASTOS_MED_PENS_PAT * dias
-        imss_invalidez_pat = sbc_diario * self.const.IMSS_INVALIDEZ_VIDA_PAT * dias
-        imss_guarderias = sbc_diario * self.const.IMSS_GUARDERIAS * dias
-        imss_retiro = sbc_diario * self.const.IMSS_RETIRO * dias
-        imss_cesantia_pat = sbc_diario * self.const.IMSS_CESANTIA_VEJEZ_PAT * dias
-        imss_riesgo = sbc_diario * self.config.prima_riesgo * dias
-        
-        # ─────────────────────────────────────────────────────────────────────
-        # IMSS OBRERO - Art. 36 LSS
-        # ─────────────────────────────────────────────────────────────────────
-        es_sm = trabajador.es_salario_minimo(self.config.salario_minimo_aplicable)
-        
-        if es_sm and self.config.aplicar_art_36_lss:
-            # Art. 36 LSS: Patrón absorbe cuota obrera
-            imss_obrero_absorbido = (
-                excedente_base * self.const.IMSS_EXCEDENTE_OBR * dias +
-                sbc_diario * self.const.IMSS_PREST_DINERO_OBR * dias +
-                sbc_diario * self.const.IMSS_GASTOS_MED_PENS_OBR * dias +
-                sbc_diario * self.const.IMSS_INVALIDEZ_VIDA_OBR * dias +
-                sbc_diario * self.const.IMSS_CESANTIA_VEJEZ_OBR * dias
-            )
-            imss_excedente_obr = 0.0
-            imss_prest_dinero_obr = 0.0
-            imss_gastos_med_obr = 0.0
-            imss_invalidez_obr = 0.0
-            imss_cesantia_obr = 0.0
-        else:
-            # Cálculo normal: se descuenta al trabajador
-            imss_obrero_absorbido = 0.0
-            imss_excedente_obr = excedente_base * self.const.IMSS_EXCEDENTE_OBR * dias
-            imss_prest_dinero_obr = sbc_diario * self.const.IMSS_PREST_DINERO_OBR * dias
-            imss_gastos_med_obr = sbc_diario * self.const.IMSS_GASTOS_MED_PENS_OBR * dias
-            imss_invalidez_obr = sbc_diario * self.const.IMSS_INVALIDEZ_VIDA_OBR * dias
-            imss_cesantia_obr = sbc_diario * self.const.IMSS_CESANTIA_VEJEZ_OBR * dias
-        
-        # ─────────────────────────────────────────────────────────────────────
-        # INFONAVIT
-        # ─────────────────────────────────────────────────────────────────────
-        infonavit = sbc_diario * self.const.INFONAVIT_PAT * dias
-        
-        # ─────────────────────────────────────────────────────────────────────
-        # ISN
-        # ─────────────────────────────────────────────────────────────────────
         salario_mensual = trabajador.salario_diario * dias
+
+        # ═════════════════════════════════════════════════════════════════════
+        # IMSS (delegar a calculadora especializada)
+        # ═════════════════════════════════════════════════════════════════════
+        imss_pat = self.calc_imss.calcular_patronal(
+            sbc_diario,
+            dias,
+            self.config.prima_riesgo
+        )
+
+        es_sm = trabajador.es_salario_minimo(self.config.salario_minimo_aplicable)
+        imss_obr, imss_absorbido = self.calc_imss.calcular_obrero(
+            sbc_diario,
+            dias,
+            es_sm,
+            self.config.aplicar_art_36_lss
+        )
+
+        # ═════════════════════════════════════════════════════════════════════
+        # INFONAVIT (5% del SBC)
+        # ═════════════════════════════════════════════════════════════════════
+        infonavit = sbc_diario * self.const.INFONAVIT_PAT * dias
+
+        # ═════════════════════════════════════════════════════════════════════
+        # ISN (según estado configurado)
+        # ═════════════════════════════════════════════════════════════════════
         isn = salario_mensual * self.config.tasa_isn
+
+        # ═════════════════════════════════════════════════════════════════════
+        # PROVISIONES (delegar a calculadora especializada)
+        # ═════════════════════════════════════════════════════════════════════
+        provisiones = self.calc_provisiones.calcular(
+            trabajador.salario_diario,
+            trabajador.antiguedad_anos,
+            self.config.dias_aguinaldo,
+            self.config.prima_vacacional,
+            self.config.dias_vacaciones_adicionales
+        )
+
+        # ═════════════════════════════════════════════════════════════════════
+        # ISR (delegar a calculadora especializada)
+        # ═════════════════════════════════════════════════════════════════════
+        isr = self.calc_isr.calcular(salario_mensual, es_sm)
         
-        # ─────────────────────────────────────────────────────────────────────
-        # PROVISIONES
-        # ─────────────────────────────────────────────────────────────────────
-        provision_aguinaldo = (trabajador.salario_diario * self.config.dias_aguinaldo) / 12
-        dias_vac = (ConstantesFiscales.dias_vacaciones(trabajador.antiguedad_anos) + 
-                    self.config.dias_vacaciones_adicionales)
-        provision_vacaciones = (trabajador.salario_diario * dias_vac) / 12
-        provision_prima_vac = provision_vacaciones * self.config.prima_vacacional
-        
-        # ─────────────────────────────────────────────────────────────────────
-        # ISR
-        # ─────────────────────────────────────────────────────────────────────
-        if es_sm:
-            # Art. 96 LISR: Exento de retención
-            isr_antes, subsidio, isr_a_retener = 0.0, 0.0, 0.0
-        else:
-            isr_antes, subsidio, isr_a_retener = self.calcular_isr(salario_mensual)
-        
-        # ─────────────────────────────────────────────────────────────────────
-        # RESULTADO
-        # ─────────────────────────────────────────────────────────────────────
+        # ═════════════════════════════════════════════════════════════════════
+        # RESULTADO (ensamblar desde dicts de calculadores especializados)
+        # ═════════════════════════════════════════════════════════════════════
         return ResultadoCuotas(
+            # Identificación
             trabajador=trabajador.nombre,
             empresa=self.config.nombre,
+
+            # Salarios
             salario_diario=trabajador.salario_diario,
             salario_mensual=salario_mensual,
             factor_integracion=factor_int,
             sbc_diario=sbc_diario,
             sbc_mensual=sbc_diario * dias,
             dias_cotizados=dias,
-            
-            imss_cuota_fija=imss_cuota_fija,
-            imss_excedente_pat=imss_excedente_pat,
-            imss_prest_dinero_pat=imss_prest_dinero_pat,
-            imss_gastos_med_pens_pat=imss_gastos_med_pat,
-            imss_invalidez_vida_pat=imss_invalidez_pat,
-            imss_guarderias=imss_guarderias,
-            imss_retiro=imss_retiro,
-            imss_cesantia_vejez_pat=imss_cesantia_pat,
-            imss_riesgo_trabajo=imss_riesgo,
-            
-            imss_excedente_obr=imss_excedente_obr,
-            imss_prest_dinero_obr=imss_prest_dinero_obr,
-            imss_gastos_med_pens_obr=imss_gastos_med_obr,
-            imss_invalidez_vida_obr=imss_invalidez_obr,
-            imss_cesantia_vejez_obr=imss_cesantia_obr,
-            
-            imss_obrero_absorbido=imss_obrero_absorbido,
+
+            # IMSS Patronal (desempaquetar dict)
+            imss_cuota_fija=imss_pat["cuota_fija"],
+            imss_excedente_pat=imss_pat["excedente"],
+            imss_prest_dinero_pat=imss_pat["prest_dinero"],
+            imss_gastos_med_pens_pat=imss_pat["gastos_med"],
+            imss_invalidez_vida_pat=imss_pat["invalidez_vida"],
+            imss_guarderias=imss_pat["guarderias"],
+            imss_retiro=imss_pat["retiro"],
+            imss_cesantia_vejez_pat=imss_pat["cesantia_vejez"],
+            imss_riesgo_trabajo=imss_pat["riesgo_trabajo"],
+
+            # IMSS Obrero (desempaquetar dict)
+            imss_excedente_obr=imss_obr["excedente"],
+            imss_prest_dinero_obr=imss_obr["prest_dinero"],
+            imss_gastos_med_pens_obr=imss_obr["gastos_med"],
+            imss_invalidez_vida_obr=imss_obr["invalidez_vida"],
+            imss_cesantia_vejez_obr=imss_obr["cesantia_vejez"],
+
+            # Art. 36 LSS
+            imss_obrero_absorbido=imss_absorbido,
             es_salario_minimo=es_sm,
-            
+
+            # Otros
             infonavit=infonavit,
             isn=isn,
-            
-            provision_aguinaldo=provision_aguinaldo,
-            provision_vacaciones=provision_vacaciones,
-            provision_prima_vac=provision_prima_vac,
-            
-            isr_base_gravable=salario_mensual,
-            isr_antes_subsidio=isr_antes,
-            subsidio_empleo=subsidio,
-            isr_a_retener=isr_a_retener,
+
+            # Provisiones (desempaquetar dict)
+            provision_aguinaldo=provisiones["aguinaldo"],
+            provision_vacaciones=provisiones["vacaciones"],
+            provision_prima_vac=provisiones["prima_vacacional"],
+
+            # ISR (desempaquetar dict)
+            isr_base_gravable=isr["base_gravable"],
+            isr_antes_subsidio=isr["isr_antes_subsidio"],
+            subsidio_empleo=isr["subsidio_empleo"],
+            isr_a_retener=isr["isr_a_retener"],
         )
     
     def calcular_y_guardar(self, trabajador: Trabajador) -> ResultadoCuotas:
