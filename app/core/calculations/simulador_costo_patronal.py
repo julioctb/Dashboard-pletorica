@@ -24,6 +24,8 @@ from app.entities.costo_patronal import (
 from app.core.calculations.calculadora_imss import CalculadoraIMSS
 from app.core.calculations.calculadora_isr import CalculadoraISR
 from app.core.calculations.calculadora_provisiones import CalculadoraProvisiones
+from app.core.exporters import ExcelExporter
+from app.core.formatters import ResultadoFormatter
 
 # NOTA: Las clases ConfiguracionEmpresa, Trabajador y ResultadoCuotas
 # fueron movidas a app/entities/costo_patronal.py en Fase 1 de refactorización
@@ -241,186 +243,27 @@ class CalculadoraCostoPatronal:
 
     def exportar_excel(self, nombre_archivo: str = "costo_patronal_2026.xlsx") -> str:
         """
-        Exporta los resultados a Excel.
+        Exporta los resultados a Excel (wrapper conveniente).
+
+        Delega a ExcelExporter para mantener SRP.
         Requiere la biblioteca openpyxl: pip install openpyxl
 
-        Retorna: ruta del archivo creado
+        Args:
+            nombre_archivo: Nombre del archivo a crear
+
+        Returns:
+            Ruta del archivo creado
+
+        Raises:
+            ImportError: Si openpyxl no está instalado
+            ValueError: Si no hay resultados para exportar
         """
-        try:
-            import openpyxl
-            from openpyxl.styles import Font, PatternFill, Alignment
-            from openpyxl.utils import get_column_letter
-        except ImportError:
-            raise ImportError(
-                "Para exportar a Excel necesitas instalar openpyxl:\n"
-                "pip install openpyxl"
-            )
-
-        if not self.resultados:
-            raise ValueError("No hay resultados para exportar")
-
-        # Crear libro
-        wb = openpyxl.Workbook()
-
-        # Hoja 1: Resumen
-        ws_resumen = wb.active
-        ws_resumen.title = "Resumen"
-
-        # Encabezados
-        encabezados = [
-            "Trabajador", "Salario Diario", "Salario Mensual", "SBC Diario",
-            "IMSS Patronal", "IMSS Obrero", "INFONAVIT", "ISN",
-            "Provisiones", "ISR", "Salario Neto", "Costo Total", "Factor Costo"
-        ]
-
-        for col, encabezado in enumerate(encabezados, 1):
-            celda = ws_resumen.cell(1, col, encabezado)
-            celda.font = Font(bold=True, color="FFFFFF")
-            celda.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-            celda.alignment = Alignment(horizontal="center")
-
-        # Datos
-        for fila, r in enumerate(self.resultados, 2):
-            ws_resumen.cell(fila, 1, r.trabajador)
-            ws_resumen.cell(fila, 2, r.salario_diario)
-            ws_resumen.cell(fila, 3, r.salario_mensual)
-            ws_resumen.cell(fila, 4, r.sbc_diario)
-            ws_resumen.cell(fila, 5, r.total_imss_patronal)
-            ws_resumen.cell(fila, 6, r.total_imss_obrero)
-            ws_resumen.cell(fila, 7, r.infonavit)
-            ws_resumen.cell(fila, 8, r.isn)
-            ws_resumen.cell(fila, 9, r.total_provisiones)
-            ws_resumen.cell(fila, 10, r.isr_a_retener)
-            ws_resumen.cell(fila, 11, r.salario_neto)
-            ws_resumen.cell(fila, 12, r.costo_total)
-            ws_resumen.cell(fila, 13, r.factor_costo)
-
-        # Formatear columnas numéricas como moneda
-        for fila in range(2, len(self.resultados) + 2):
-            for col in range(2, 13):
-                ws_resumen.cell(fila, col).number_format = '$#,##0.00'
-            ws_resumen.cell(fila, 13).number_format = '0.0000'
-
-        # Ajustar anchos
-        for col in range(1, len(encabezados) + 1):
-            ws_resumen.column_dimensions[get_column_letter(col)].width = 15
-
-        # Hoja 2: Constantes
-        ws_const = wb.create_sheet("Constantes 2026")
-        ws_const['A1'] = "CONSTANTES FISCALES 2026"
-        ws_const['A1'].font = Font(bold=True, size=14)
-
-        fila = 3
-        constantes_info = [
-            ("SALARIOS MÍNIMOS", ""),
-            ("  General", f"${self.const.SALARIO_MINIMO_GENERAL:.2f}/día"),
-            ("  Frontera", f"${self.const.SALARIO_MINIMO_FRONTERA:.2f}/día"),
-            ("", ""),
-            ("UMA", ""),
-            ("  Diario", f"${self.const.UMA_DIARIO:.2f}"),
-            ("  Mensual", f"${self.const.UMA_MENSUAL:.2f}"),
-            ("  Tope SBC", f"${self.const.TOPE_SBC_DIARIO:.2f}"),
-            ("", ""),
-            ("IMSS - TASAS", ""),
-            ("  Cesantía y Vejez Patronal", f"{self.const.IMSS_CESANTIA_VEJEZ_PAT:.3%}"),
-            ("  Cesantía y Vejez Obrero", f"{self.const.IMSS_CESANTIA_VEJEZ_OBR:.3%}"),
-            ("  Retiro", f"{self.const.IMSS_RETIRO:.2%}"),
-            ("  INFONAVIT", f"{self.const.INFONAVIT_PAT:.2%}"),
-            ("", ""),
-            ("SUBSIDIO AL EMPLEO", ""),
-            ("  Mensual", f"${self.const.SUBSIDIO_EMPLEO_MENSUAL:.2f}"),
-            ("  Límite", f"${self.const.LIMITE_SUBSIDIO_MENSUAL:.2f}"),
-        ]
-
-        for concepto, valor in constantes_info:
-            ws_const.cell(fila, 1, concepto)
-            ws_const.cell(fila, 2, valor)
-            if concepto and not concepto.startswith("  "):
-                ws_const.cell(fila, 1).font = Font(bold=True)
-            fila += 1
-
-        ws_const.column_dimensions['A'].width = 30
-        ws_const.column_dimensions['B'].width = 20
-
-        # Guardar archivo
-        wb.save(nombre_archivo)
-        return nombre_archivo
+        exporter = ExcelExporter(self.const)
+        return exporter.exportar(self.resultados, nombre_archivo)
 
 
-# =============================================================================
-# FUNCIONES DE IMPRESIÓN
-# =============================================================================
-
-def imprimir_resultado(r: ResultadoCuotas):
-    """Imprime resultado de forma legible"""
-    
-    print("\n" + "="*65)
-    print(f"COSTO PATRONAL: {r.trabajador}")
-    print(f"Empresa: {r.empresa}")
-    print("="*65)
-    
-    if r.es_salario_minimo:
-        print("\n   ⚠️  SALARIO MÍNIMO:")
-        print("       • Exento de retención ISR (Art. 96 LISR)")
-        print("       • Cuota obrera IMSS la paga el patrón (Art. 36 LSS)")
-    
-    print(f"\n📋 SALARIO")
-    print(f"   Salario diario:            ${r.salario_diario:>12,.2f}")
-    print(f"   Días cotizados:            {r.dias_cotizados:>12}")
-    print(f"   Salario mensual:           ${r.salario_mensual:>12,.2f}")
-    
-    print(f"\n📊 INTEGRACIÓN")
-    print(f"   Factor de integración:     {r.factor_integracion:>13.4f}")
-    print(f"   SBC diario:                ${r.sbc_diario:>12,.2f}")
-    print(f"   SBC mensual:               ${r.sbc_mensual:>12,.2f}")
-    
-    print(f"\n🏥 IMSS PATRONAL")
-    print(f"   Cuota fija (E.M.):         ${r.imss_cuota_fija:>12,.2f}")
-    print(f"   Excedente (E.M.):          ${r.imss_excedente_pat:>12,.2f}")
-    print(f"   Prest. en dinero (E.M.):   ${r.imss_prest_dinero_pat:>12,.2f}")
-    print(f"   Gastos méd. pensionados:   ${r.imss_gastos_med_pens_pat:>12,.2f}")
-    print(f"   Invalidez y vida:          ${r.imss_invalidez_vida_pat:>12,.2f}")
-    print(f"   Guarderías:                ${r.imss_guarderias:>12,.2f}")
-    print(f"   Retiro:                    ${r.imss_retiro:>12,.2f}")
-    print(f"   Cesantía y vejez (3.513%): ${r.imss_cesantia_vejez_pat:>12,.2f}")
-    print(f"   Riesgo de trabajo:         ${r.imss_riesgo_trabajo:>12,.2f}")
-    print(f"   ─────────────────────────────────────────────")
-    print(f"   TOTAL IMSS PATRONAL:       ${r.total_imss_patronal:>12,.2f}")
-    
-    if r.imss_obrero_absorbido > 0:
-        print(f"\n⚖️  ART. 36 LSS - CUOTA OBRERA (patrón paga)")
-        print(f"   IMSS obrero absorbido:     ${r.imss_obrero_absorbido:>12,.2f}")
-    
-    print(f"\n🏠 INFONAVIT (5%)")
-    print(f"   Aportación patronal:       ${r.infonavit:>12,.2f}")
-    
-    print(f"\n💰 ISN")
-    print(f"   Impuesto sobre nómina:     ${r.isn:>12,.2f}")
-    
-    print(f"\n📅 PROVISIONES MENSUALES")
-    print(f"   Aguinaldo:                 ${r.provision_aguinaldo:>12,.2f}")
-    print(f"   Vacaciones:                ${r.provision_vacaciones:>12,.2f}")
-    print(f"   Prima vacacional:          ${r.provision_prima_vac:>12,.2f}")
-    print(f"   ─────────────────────────────────────────────")
-    print(f"   TOTAL PROVISIONES:         ${r.total_provisiones:>12,.2f}")
-    
-    print(f"\n👷 DESCUENTOS AL TRABAJADOR")
-    if r.es_salario_minimo:
-        print(f"   IMSS Obrero:               $        0.00  (Art. 36 LSS)")
-        print(f"   ISR:                       $        0.00  (Art. 96 LISR)")
-    else:
-        print(f"   IMSS Obrero:               ${r.total_imss_obrero:>12,.2f}")
-        print(f"   ISR a retener:             ${r.isr_a_retener:>12,.2f}")
-    print(f"   ─────────────────────────────────────────────")
-    print(f"   TOTAL DESCUENTOS:          ${r.total_descuentos_trabajador:>12,.2f}")
-    
-    print(f"\n" + "="*65)
-    print(f"💵 COSTO TOTAL PATRONAL:      ${r.costo_total:>12,.2f}")
-    print(f"📈 FACTOR DE COSTO:           {r.factor_costo:>13.4f}")
-    print(f"   (El trabajador cuesta {r.factor_costo:.2%} de su salario nominal)")
-    print("="*65)
-    print(f"💰 SALARIO NETO TRABAJADOR:   ${r.salario_neto:>12,.2f}")
-    print("="*65)
+# NOTA: Función imprimir_resultado() movida a app/core/formatters/resultado_formatter.py
+# Usar: ResultadoFormatter.imprimir(resultado)
 
 
 # =============================================================================
@@ -492,7 +335,7 @@ if __name__ == "__main__":
     )
     
     resultado = calc.calcular(trabajador_sm)
-    imprimir_resultado(resultado)
+    ResultadoFormatter.imprimir(resultado)
     
     # ─────────────────────────────────────────────────────────────────────────
     # COMPARACIÓN CON CIFRAS DEL CONTADOR
