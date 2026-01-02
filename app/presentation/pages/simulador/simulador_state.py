@@ -2,11 +2,8 @@
 import reflex as rx
 
 from app.presentation.components.shared.base_state import BaseState
-from app.core.calculations.simulador_costo_patronal import (
-    ConfiguracionEmpresa,
-    Trabajador,
-    CalculadoraCostoPatronal,
-)
+from app.entities.costo_patronal import ConfiguracionEmpresa, Trabajador
+from app.core.calculations import CalculadoraCostoPatronal
 
 
 class SimuladorState(BaseState):
@@ -27,6 +24,8 @@ class SimuladorState(BaseState):
     # ─────────────────────────────────────────────────────────────────
     # DATOS DEL TRABAJADOR
     # ─────────────────────────────────────────────────────────────────
+    tipo_salario_calculo: str = ""
+    salario_mensual: float = 0.0
     salario_diario: float = 315.04
     antiguedad_anos: int = 1
     dias_cotizados: float = 30.0
@@ -41,9 +40,9 @@ class SimuladorState(BaseState):
     # ─────────────────────────────────────────────────────────────────
     # SETTERS (conversión de string a número)
     # ─────────────────────────────────────────────────────────────────
-    def set_salario_diario(self, value: str):
+    def set_salario_mensual(self, value: str):
         try:
-            self.salario_diario = float(value) if value else 0.0
+            self.salario_mensual= float(value)
         except ValueError:
             pass
 
@@ -82,6 +81,9 @@ class SimuladorState(BaseState):
             self.dias_aguinaldo = int(value) if value else 15
         except ValueError:
             pass
+    
+    def set_tipo_salario_calculo(self, value: str):
+            self.tipo_salario_calculo = value
     
     def set_estado(self, value: str):
         """Setter para estado - acepta ID interno"""
@@ -135,7 +137,13 @@ class SimuladorState(BaseState):
     # ─────────────────────────────────────────────────────────────────
     # MÉTODOS
     # ─────────────────────────────────────────────────────────────────
-   
+    
+    @rx.var
+    def calc_salario_diario(self) -> float:
+        if self.tipo_salario_calculo == 'Salario Mínimo':
+            return 315.04
+        return round(self.salario_mensual / 30,2) if self.salario_mensual else 0.0
+
     def calcular(self):
         """Ejecuta el cálculo de costo patronal"""
         self.is_calculating = True
@@ -143,7 +151,6 @@ class SimuladorState(BaseState):
             # 1. Crear configuración de empresa
             config = ConfiguracionEmpresa(
                 nombre=self.nombre_empresa,
-                registro_patronal="SIM-001",
                 estado=self.estado,
                 prima_riesgo=self.prima_riesgo / 100,
                 factor_integracion_fijo=self.factor_integracion if self.factor_integracion > 0 else None,
@@ -156,7 +163,7 @@ class SimuladorState(BaseState):
             # 2. Crear trabajador
             trabajador = Trabajador(
                 nombre="Trabajador simulado",
-                salario_diario=self.salario_diario,
+                salario_diario=self.calc_salario_diario,
                 antiguedad_anos=self.antiguedad_anos,
                 dias_cotizados_mes=int(self.dias_cotizados),
             )
@@ -225,6 +232,9 @@ class SimuladorState(BaseState):
 
     def limpiar(self):
         """Limpia los resultados"""
+        self.salario_mensual = 0.0
+        self.salario_diario = 0.0
+        self.tipo_salario_calculo = ""
         self.resultado = {}
         self.calculado = False
         self.limpiar_mensajes()

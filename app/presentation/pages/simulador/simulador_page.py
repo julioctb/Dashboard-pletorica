@@ -78,72 +78,89 @@ def formulario_empresa() -> rx.Component:
     
         ),
 
-def formulario_parametros() -> rx.Component:
-     '''Formulario de parametros para hacer el calculo'''
-     return rx.card(
-          rx.heading('Parametros del calculo', size='4', margin_bottom='1em'),
-
-           rx.vstack(
-             rx.hstack(
-            # Tipo de calculo
-                rx.box(
-                    rx.text("Tipo de calculo", size="2", weight="bold"),
-                    
-                    width='100%' 
-                ),
-             ),
-        ),
-     )
-
 def formulario_trabajador() -> rx.Component:
     """Formulario de datos del trabajador"""
     return rx.card(
         rx.heading("Parametros a Configurar del Trabajador", size="4", margin_bottom="1em"),
         
         rx.vstack(
-             rx.select(
+            # Salarios
+            rx.hstack(
+                rx.box(
+                    rx.text("Tipo de cálculo", size="2", weight="bold"),
+                    rx.select(
                         list(TIPO_SALARIO_CALCULO.values()),
                         placeholder="Selecciona un tipo de calculo",
-                       
-                        on_change=SimuladorState.set_estado_display,
-                        width='100%'
+                        value=SimuladorState.tipo_salario_calculo,
+                        on_change=SimuladorState.set_tipo_salario_calculo,
+                        width='100%',
                     ),
-            # Salario diario
-            rx.box(
-                rx.text("Salario diario ($)", size="2", weight="bold"),
-           
+                    flex='1',  # Cada elemento ocupa 1/3 del espacio
+                ),
 
-                rx.input(
-                    value=SimuladorState.salario_diario.to(str),
-                    on_change=SimuladorState.set_salario_diario,
-                    type="number",
-                    step="0.01",
+                rx.box(
+                    rx.text("Salario mensual ($)", size="2", weight="bold"),
+                    rx.input(
+                        value=SimuladorState.salario_mensual,
+                        on_change=SimuladorState.set_salario_mensual,
+                        disabled=(
+                            (SimuladorState.tipo_salario_calculo == 'Salario Mínimo') |
+                            (SimuladorState.tipo_salario_calculo == "")
+                        ),
+                        type="number",
+                        step="0.01",
+                        width='100%',
+                    ),
+                    flex='1',  # Cada elemento ocupa 1/3 del espacio
                 ),
-                width="100%",
+                rx.box(
+                    rx.text("Salario diario ($)", size="2", weight="bold"),
+                    rx.input(
+                        value=SimuladorState.calc_salario_diario,
+                        disabled=True,
+                        type="number",
+                        step="0.01",
+                        width='100%',
+                    ),
+                    flex='1',  # Cada elemento ocupa 1/3 del espacio
+                ),
+
+                spacing='3',
+                width='100%',
             ),
             
-            # Antigüedad
-            rx.box(
-                rx.text("Antigüedad (años)", size="2", weight="bold"),
-                rx.input(
-                    value=SimuladorState.antiguedad_anos.to(str),
-                    on_change=SimuladorState.set_antiguedad_anos,
-                    type="number",
-                    min="1",
+            # Antigüedad y Dias cotizados (para proyeccion anual se usa 30.4)
+            rx.hstack(
+                rx.box(
+                    rx.text("Antigüedad (años)", size="2", weight="bold"),
+                    rx.input(
+                        value=SimuladorState.antiguedad_anos.to(str),
+                        on_change=SimuladorState.set_antiguedad_anos,
+                        type="number",
+                        min="1",
+                        width='100%',
+                    ),
+                    flex='1',
                 ),
-                width="100%",
-            ),
-            
-            # Días cotizados
-            rx.box(
-                rx.text("Días cotizados", size="2", weight="bold"),
-                rx.input(
-                    value=SimuladorState.dias_cotizados.to(str),
-                    on_change=SimuladorState.set_dias_cotizados,
-                    type="number",
-                    step="0.1",
+
+                # Días cotizados
+                rx.box(
+                    rx.text("Días cotizados", size="2", weight="bold"),
+                    rx.input(
+                        value=SimuladorState.dias_cotizados.to(str),
+                        on_change=SimuladorState.set_dias_cotizados,
+                        type="number",
+                        step="0.1",
+                        width='100%',
+                    ),
+                    flex='1',
                 ),
-                width="100%",
+
+                # Espaciador para alinear con la fila superior (3 elementos)
+                rx.box(flex='1'),
+
+                spacing='3',
+                width='100%',
             ),
             
             spacing="3",

@@ -30,13 +30,17 @@ class ConfiguracionEmpresa:
     # IDENTIFICACIÓN
     # ─────────────────────────────────────────────────────────────────────────
     nombre: str
-    registro_patronal: str
     estado: str
 
     # ─────────────────────────────────────────────────────────────────────────
     # IMSS - RIESGO DE TRABAJO
     # ─────────────────────────────────────────────────────────────────────────
     prima_riesgo: float  # Ej: 0.025984 para 2.5984%
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # REGISTRO PATRONAL (opcional - para simulaciones no es necesario)
+    # ─────────────────────────────────────────────────────────────────────────
+    registro_patronal: Optional[str] = None
 
     # ─────────────────────────────────────────────────────────────────────────
     # FACTOR DE INTEGRACIÓN
