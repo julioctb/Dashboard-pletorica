@@ -14,8 +14,8 @@ REFACTORIZACIÓN:
 - Orquestador: Este archivo coordina los calculadores especializados
 """
 
-from typing import Optional
-from app.core.fiscales import ConstantesFiscales, ISN_POR_ESTADO
+
+from app.core.fiscales import ConstantesFiscales
 from app.entities.costo_patronal import (
     ConfiguracionEmpresa,
     Trabajador,
@@ -25,7 +25,7 @@ from app.core.calculations.calculadora_imss import CalculadoraIMSS
 from app.core.calculations.calculadora_isr import CalculadoraISR
 from app.core.calculations.calculadora_provisiones import CalculadoraProvisiones
 from app.core.exporters import ExcelExporter
-from app.core.formatters import ResultadoFormatter
+
 
 # NOTA: Las clases ConfiguracionEmpresa, Trabajador y ResultadoCuotas
 # fueron movidas a app/entities/costo_patronal.py en Fase 1 de refactorización
@@ -264,108 +264,3 @@ class CalculadoraCostoPatronal:
 
 # NOTA: Función imprimir_resultado() movida a app/core/formatters/resultado_formatter.py
 # Usar: ResultadoFormatter.imprimir(resultado)
-
-
-# =============================================================================
-# CONFIGURACIONES PREDEFINIDAS
-# =============================================================================
-
-def crear_configuracion_mantiser() -> ConfiguracionEmpresa:
-    """Configuración de Mantiser basada en EMA real"""
-    return ConfiguracionEmpresa(
-        nombre="Mantiser",
-        registro_patronal="Y46-55423-10-3",
-        estado="puebla",
-        prima_riesgo=0.0259840,  # 2.5984%
-        factor_integracion_fijo=1.0493,  # Del EMA real
-        dias_aguinaldo=15,
-        prima_vacacional=0.25,
-        dias_vacaciones_adicionales=0,
-        dias_por_mes=30,
-        zona_frontera=False,
-        aplicar_art_36_lss=True,
-    )
-
-
-def crear_configuracion_pletorica() -> ConfiguracionEmpresa:
-    """Configuración de Pletórica (ajustar según datos reales)"""
-    return ConfiguracionEmpresa(
-        nombre="Pletórica",
-        registro_patronal="XXXXXX",  # Completar
-        estado="puebla",
-        prima_riesgo=0.005,  # Prima mínima clase I (ajustar según real)
-        factor_integracion_fijo=None,  # Calcular automáticamente
-        dias_aguinaldo=15,
-        prima_vacacional=0.25,
-        dias_vacaciones_adicionales=0,
-        dias_por_mes=30,
-        zona_frontera=False,
-        aplicar_art_36_lss=True,
-    )
-
-
-# =============================================================================
-# EJEMPLO DE USO
-# =============================================================================
-
-if __name__ == "__main__":
-    
-    # ─────────────────────────────────────────────────────────────────────────
-    # CONFIGURAR EMPRESA
-    # ─────────────────────────────────────────────────────────────────────────
-    
-    mantiser = crear_configuracion_mantiser()
-    mantiser.mostrar_configuracion()
-    
-    # ─────────────────────────────────────────────────────────────────────────
-    # CREAR CALCULADORA
-    # ─────────────────────────────────────────────────────────────────────────
-    
-    calc = CalculadoraCostoPatronal(mantiser)
-    
-    # ─────────────────────────────────────────────────────────────────────────
-    # CALCULAR TRABAJADOR SM
-    # ─────────────────────────────────────────────────────────────────────────
-    
-    trabajador_sm = Trabajador(
-        nombre="Trabajador SM 2026 (1 año)",
-        salario_diario=ConstantesFiscales.SALARIO_MINIMO_GENERAL,
-        antiguedad_anos=1,
-        dias_cotizados_mes=30,
-    )
-    
-    resultado = calc.calcular(trabajador_sm)
-    ResultadoFormatter.imprimir(resultado)
-    
-    # ─────────────────────────────────────────────────────────────────────────
-    # COMPARACIÓN CON CIFRAS DEL CONTADOR
-    # ─────────────────────────────────────────────────────────────────────────
-    
-    print("\n" + "="*65)
-    print("COMPARACIÓN CON CIFRAS DEL CONTADOR (2026)")
-    print("="*65)
-    
-    # Cifras del contador (por día, usando 30.4 días)
-    cont_imss = 53.68
-    cont_rcv = 27.87
-    cont_infonavit = 16.53
-    cont_total = 98.08
-    
-    # Mis cifras (por día)
-    dias = resultado.dias_cotizados
-    mi_imss_dia = (resultado.total_imss_patronal - resultado.imss_retiro -
-                   resultado.imss_cesantia_vejez_pat) / dias
-    mi_rcv_dia = (resultado.imss_retiro + resultado.imss_cesantia_vejez_pat) / dias
-    mi_infonavit_dia = resultado.infonavit / dias
-    mi_obrero_dia = resultado.imss_obrero_absorbido / dias
-    
-    print(f"\n{'Concepto':<25} {'Contador':>12} {'Mi cálculo':>12}")
-    print("─"*50)
-    print(f"{'IMSS (sin RCV)':<25} ${cont_imss:>10,.2f} ${mi_imss_dia + mi_obrero_dia:>10,.2f}")
-    print(f"{'RCV':<25} ${cont_rcv:>10,.2f} ${mi_rcv_dia:>10,.2f}")
-    print(f"{'INFONAVIT':<25} ${cont_infonavit:>10,.2f} ${mi_infonavit_dia:>10,.2f}")
-    print("─"*50)
-    
-    mi_total_dia = mi_imss_dia + mi_obrero_dia + mi_rcv_dia + mi_infonavit_dia
-    print(f"{'TOTAL/día':<25} ${cont_total:>10,.2f} ${mi_total_dia:>10,.2f}")
-    print(f"{'TOTAL/mes (×30.4)':<25} ${cont_total * 30.4:>10,.2f} ${mi_total_dia * 30.4:>10,.2f}")

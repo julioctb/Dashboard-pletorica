@@ -1,43 +1,8 @@
 import reflex as rx
 from app.presentation.pages.simulador.simulador_state import SimuladorState
-
 from app.presentation.components.ui.headers import page_header
+from app.core.catalogos import ESTADOS_DISPLAY, TIPO_SALARIO_CALCULO
 
-# Mapping de estados: valor_interno -> Nombre Display
-ESTADOS_DISPLAY = {
-    "aguascalientes": "Aguascalientes",
-    "baja_california": "Baja California",
-    "baja_california_sur": "Baja California Sur",
-    "campeche": "Campeche",
-    "chiapas": "Chiapas",
-    "chihuahua": "Chihuahua",
-    "ciudad_de_mexico": "Ciudad de México",
-    "coahuila": "Coahuila",
-    "colima": "Colima",
-    "durango": "Durango",
-    "estado_de_mexico": "Estado de México",
-    "guanajuato": "Guanajuato",
-    "guerrero": "Guerrero",
-    "hidalgo": "Hidalgo",
-    "jalisco": "Jalisco",
-    "michoacan": "Michoacán",
-    "morelos": "Morelos",
-    "nayarit": "Nayarit",
-    "nuevo_leon": "Nuevo León",
-    "oaxaca": "Oaxaca",
-    "puebla": "Puebla",
-    "queretaro": "Querétaro",
-    "quintana_roo": "Quintana Roo",
-    "san_luis_potosi": "San Luis Potosí",
-    "sinaloa": "Sinaloa",
-    "sonora": "Sonora",
-    "tabasco": "Tabasco",
-    "tamaulipas": "Tamaulipas",
-    "tlaxcala": "Tlaxcala",
-    "veracruz": "Veracruz",
-    "yucatan": "Yucatán",
-    "zacatecas": "Zacatecas"
-}
 
 def formulario_empresa() -> rx.Component:
     """Formulario de configuración de empresa"""
@@ -45,95 +10,109 @@ def formulario_empresa() -> rx.Component:
         rx.heading("Configuración Empresa", size="4", margin_bottom="1em"),
         
         rx.vstack(
-            # Estado (select) - Nombres legibles
-            rx.box(
-                rx.text("Estado", size="2", weight="bold"),
-                rx.select(
-                    list(ESTADOS_DISPLAY.values()),
-                    placeholder="Selecciona un estado",
-                    default_value="Puebla",
-                    on_change=SimuladorState.set_estado_display,
-                ),
-                width="100%",
-            ),
-            
-            # Prima de riesgo
-            rx.box(
-                rx.text("Prima de riesgo (%)", size="2", weight="bold"),
-                rx.input(
-                    value=SimuladorState.prima_riesgo.to(str),
-                    on_change=SimuladorState.set_prima_riesgo,
-                    type="number",
-                    step="0.0001",
-                ),
-                width="100%",
-            ),
-            
-            # Factor de integración
-            rx.box(
-                rx.text("Factor de integración (0 = automático)", size="2", weight="bold"),
-                rx.input(
-                    value=SimuladorState.factor_integracion.to(str),
-                    on_change=SimuladorState.set_factor_integracion,
-                    type="number",
-                    step="0.0001",
-                ),
-                width="100%",
-            ),
-            
-            # Días de aguinaldo
-            rx.box(
-                rx.text("Días de aguinaldo", size="2", weight="bold"),
-                rx.input(
-                    value=SimuladorState.dias_aguinaldo.to(str),
-                    on_change=SimuladorState.set_dias_aguinaldo,
-                    type="number",
-                ),
-                width="100%",
-            ),
-            
-            # Prima vacacional
-            rx.box(
-                rx.text("Prima vacacional (%)", size="2", weight="bold"),
-                rx.input(
-                    value=SimuladorState.prima_vacacional.to(str),
-                    on_change=SimuladorState.set_prima_vacacional,
-                    type="number",
-                ),
-                width="100%",
-            ),
-            
-            # Checkboxes
             rx.hstack(
-                rx.checkbox(
-                    "Zona frontera",
-                    checked=SimuladorState.zona_frontera,
-                    on_change=SimuladorState.set_zona_frontera,
+                # Estado (select) - Nombres legibles
+                rx.box(
+                    rx.text("Estado", size="2", weight="bold"),
+                    rx.select(
+                        list(ESTADOS_DISPLAY.values()),
+                        placeholder="Selecciona un estado",
+                        default_value="Puebla",
+                        on_change=SimuladorState.set_estado_display,
+                        width='100%',
+                    ),
+                    width='100%',
                 ),
-                rx.checkbox(
-                    "Aplicar Art. 36 LSS",
-                    checked=SimuladorState.aplicar_art_36,
-                    on_change=SimuladorState.set_aplicar_art_36,
+
+                # Prima de riesgo
+                rx.box(
+                    rx.text("Prima de riesgo (%)", size="2", weight="bold"),
+                    rx.input(
+                        value=SimuladorState.prima_riesgo.to(str),
+                        on_change=SimuladorState.set_prima_riesgo,
+                        type="number",
+                        step="0.0001",
+                        width='100%',
+                    ),
+                    width='100%',
                 ),
+                spacing='3',
+                width='100%',
+            ),
+            rx.heading('Prestaciones',size='3', margin_bottom='.5em'),
+            rx.hstack(
+                # Días de aguinaldo
+                rx.box(
+                    rx.text("Días de aguinaldo", size="2", weight="bold"),
+                    rx.input(
+                        value=SimuladorState.dias_aguinaldo.to(str),
+                        on_change=SimuladorState.set_dias_aguinaldo,
+                        type="number",
+                        width="100%",
+                    ),
+                    width="100%",
+                ),
+
+                # Prima vacacional
+                rx.box(
+                    rx.text("Prima vacacional (%)", size="2", weight="bold"),
+                    rx.input(
+                        value=SimuladorState.prima_vacacional.to(str),
+                        on_change=SimuladorState.set_prima_vacacional,
+                        type="number",
+                        width="100%",
+                    ),
+                    width="100%",
+                ),
+
+                spacing='2',
+                width='100%',
+            ),
+            
+                    
                 spacing="4",
             ),
             
-            spacing="3",
+            spacing="2",
             width="100%",
+    
         ),
-        
-        width="100%",
-    )
+
+def formulario_parametros() -> rx.Component:
+     '''Formulario de parametros para hacer el calculo'''
+     return rx.card(
+          rx.heading('Parametros del calculo', size='4', margin_bottom='1em'),
+
+           rx.vstack(
+             rx.hstack(
+            # Tipo de calculo
+                rx.box(
+                    rx.text("Tipo de calculo", size="2", weight="bold"),
+                    
+                    width='100%' 
+                ),
+             ),
+        ),
+     )
 
 def formulario_trabajador() -> rx.Component:
     """Formulario de datos del trabajador"""
     return rx.card(
-        rx.heading("Datos del Trabajador", size="4", margin_bottom="1em"),
+        rx.heading("Parametros a Configurar del Trabajador", size="4", margin_bottom="1em"),
         
         rx.vstack(
+             rx.select(
+                        list(TIPO_SALARIO_CALCULO.values()),
+                        placeholder="Selecciona un tipo de calculo",
+                       
+                        on_change=SimuladorState.set_estado_display,
+                        width='100%'
+                    ),
             # Salario diario
             rx.box(
                 rx.text("Salario diario ($)", size="2", weight="bold"),
+           
+
                 rx.input(
                     value=SimuladorState.salario_diario.to(str),
                     on_change=SimuladorState.set_salario_diario,
@@ -174,7 +153,7 @@ def formulario_trabajador() -> rx.Component:
         width="100%",
     )
 
-def seccion_resultados() -> rx.Component:
+def resumen_destacado() -> rx.Component:
     """Muestra los resultados del cálculo"""
     return rx.cond(
         SimuladorState.calculado,
@@ -195,32 +174,6 @@ def seccion_resultados() -> rx.Component:
 
                     # Métricas principales en grid 2 columnas
                     rx.hstack(
-                        # Costo Total
-                        rx.vstack(
-                            rx.text("💰 Costo Total Patronal", size="2", color="var(--gray-11)", weight="medium"),
-                            rx.text(
-                                SimuladorState.resultado['costo_total'],
-                                size="7",
-                                weight="bold",
-                                color="var(--green-11)"
-                            ),
-                            align="start",
-                            spacing="1"
-                        ),
-
-                        # Factor de Costo
-                        rx.vstack(
-                            rx.text("📊 Factor de Costo", size="2", color="var(--gray-11)", weight="medium"),
-                            rx.text(
-                                SimuladorState.resultado['factor_costo'],
-                                size="6",
-                                weight="bold",
-                                color="var(--blue-11)"
-                            ),
-                            align="start",
-                            spacing="1"
-                        ),
-
                         # Salario Neto
                         rx.vstack(
                             rx.text("💵 Salario Neto Trabajador", size="2", color="var(--gray-11)", weight="medium"),
@@ -230,9 +183,35 @@ def seccion_resultados() -> rx.Component:
                                 weight="bold",
                                 color="var(--gray-12)"
                             ),
-                            align="start",
+                            align="center",
                             spacing="1"
                         ),
+
+                        # Factor de Costo
+                        rx.vstack(
+                            rx.text("📊 Salario Diario", size="2", color="var(--gray-11)", weight="medium"),
+                            rx.text(
+                                SimuladorState.resultado['salario_diario'],
+                                size="6",
+                                weight="bold",
+                                color="var(--blue-11)"
+                            ),
+                            align="center",
+                            spacing="1"
+                        ),
+                        # Costo Total
+                        rx.vstack(
+                            rx.text("💰 Costo Total Patronal", size="2", color="var(--gray-11)", weight="medium"),
+                            rx.text(
+                                SimuladorState.resultado['costo_total'],
+                                size="7",
+                                weight="bold",
+                                color="var(--green-11)"
+                            ),
+                            align="center",
+                            spacing="1"
+                        ),
+
 
                         spacing="6",
                         width="100%",
@@ -245,187 +224,166 @@ def seccion_resultados() -> rx.Component:
                 background="var(--green-2)",
                 border=f"2px solid var(--green-7)",
                 padding="1.5em",
-                width="100%"
+                min_width="600px"
             ),
-
-            # Separador visual
-            rx.divider(margin_y="1.5em"),
-
-            rx.heading("Desglose Detallado", size="4", margin_bottom="1em", color="var(--gray-12)"),
-
-            # ═══════════════════════════════════════════════════════════════
-            # DETALLES - Debajo del resumen
-            # ═══════════════════════════════════════════════════════════════
-            rx.vstack(
-                # Salarios
-                rx.card(
-                    rx.heading("Salarios", size="3", margin_bottom="0.5em"),
-                    rx.hstack(
-                        rx.text("Salario diario:", weight="bold"),
-                        rx.text(SimuladorState.resultado['salario_diario']),
-                    ),
-                    rx.hstack(
-                        rx.text("Salario mensual:", weight="bold"),
-                        rx.text(SimuladorState.resultado['salario_mensual']),
-                    ),
-                    rx.hstack(
-                        rx.text("Factor de integración:", weight="bold"),
-                        rx.text(SimuladorState.resultado['factor_integracion']),
-                    ),
-                    rx.hstack(
-                        rx.text("SBC diario:", weight="bold"),
-                        rx.text(SimuladorState.resultado['sbc_diario']),
-                    ),
-                    width="100%",
-                ),
-                
-                # IMSS Patronal
-                rx.card(
-                    rx.heading("IMSS Patronal", size="3", margin_bottom="0.5em"),
-                    rx.hstack(
-                        rx.text("Cuota fija:", weight="bold"),
-                        rx.text(SimuladorState.resultado['imss_cuota_fija']),
-                    ),
-                    rx.hstack(
-                        rx.text("Excedente:", weight="bold"),
-                        rx.text(SimuladorState.resultado['imss_excedente_pat']),
-                    ),
-                    rx.hstack(
-                        rx.text("Prest. en dinero:", weight="bold"),
-                        rx.text(SimuladorState.resultado['imss_prest_dinero_pat']),
-                    ),
-                    rx.hstack(
-                        rx.text("Gastos médicos:", weight="bold"),
-                        rx.text(SimuladorState.resultado['imss_gastos_med_pens_pat']),
-                    ),
-                    rx.hstack(
-                        rx.text("Invalidez y vida:", weight="bold"),
-                        rx.text(SimuladorState.resultado['imss_invalidez_vida_pat']),
-                    ),
-                    rx.hstack(
-                        rx.text("Guarderías:", weight="bold"),
-                        rx.text(SimuladorState.resultado['imss_guarderias']),
-                    ),
-                    rx.hstack(
-                        rx.text("Retiro:", weight="bold"),
-                        rx.text(SimuladorState.resultado['imss_retiro']),
-                    ),
-                    rx.hstack(
-                        rx.text("Cesantía y vejez:", weight="bold"),
-                        rx.text(SimuladorState.resultado['imss_cesantia_vejez_pat']),
-                    ),
-                    rx.hstack(
-                        rx.text("Riesgo de trabajo:", weight="bold"),
-                        rx.text(SimuladorState.resultado['imss_riesgo_trabajo']),
-                    ),
-                    rx.divider(),
-                    rx.hstack(
-                        rx.text("TOTAL IMSS PATRONAL:", weight="bold"),
-                        rx.text(SimuladorState.resultado['total_imss_patronal'], color="blue"),
-                    ),
-                    width="100%",
-                ),
-                
-                # Art. 36 LSS (solo si es salario mínimo)
-                rx.cond(
-                    SimuladorState.resultado.get('es_salario_minimo', False),
-                    rx.card(
-                        rx.heading("Art. 36 LSS - Cuota obrera absorbida", size="3", margin_bottom="0.5em"),
-                        rx.hstack(
-                            rx.text("IMSS obrero absorbido:", weight="bold"),
-                            rx.text(SimuladorState.resultado['imss_obrero_absorbido'], color="orange"),
-                        ),
-                        width="100%",
-                    ),
-                    rx.box(),
-                ),
-                
-                # Otros conceptos
-                rx.card(
-                    rx.heading("Otros Conceptos", size="3", margin_bottom="0.5em"),
-                    rx.hstack(
-                        rx.text("INFONAVIT:", weight="bold"),
-                        rx.text(SimuladorState.resultado['infonavit']),
-                    ),
-                    rx.hstack(
-                        rx.text("ISN:", weight="bold"),
-                        rx.text(SimuladorState.resultado['isn']),
-                    ),
-                    width="100%",
-                ),
-                
-                # Provisiones
-                rx.card(
-                    rx.heading("Provisiones Mensuales", size="3", margin_bottom="0.5em"),
-                    rx.hstack(
-                        rx.text("Aguinaldo:", weight="bold"),
-                        rx.text(SimuladorState.resultado['provision_aguinaldo']),
-                    ),
-                    rx.hstack(
-                        rx.text("Vacaciones:", weight="bold"),
-                        rx.text(SimuladorState.resultado['provision_vacaciones']),
-                    ),
-                    rx.hstack(
-                        rx.text("Prima vacacional:", weight="bold"),
-                        rx.text(SimuladorState.resultado['provision_prima_vac']),
-                    ),
-                    rx.divider(),
-                    rx.hstack(
-                        rx.text("TOTAL PROVISIONES:", weight="bold"),
-                        rx.text(SimuladorState.resultado['total_provisiones'], color="blue"),
-                    ),
-                    width="100%",
-                ),
-
-                spacing="3",
-                width="100%",
-            ),
-
-            spacing="4",
-            width="100%",
-            margin_top="2em",
         ),
-        rx.box(),  # No mostrar nada si no hay cálculo
     )
+
+
+def desglose_detallado() -> rx.Component:
+            """ Muestra el desglose de los calculos  """
+            return rx.vstack(
+                
+                #Tabla de detalle de conceptos
+                rx.table.root(
+                    rx.table.header(
+                        rx.table.row(
+                            rx.table.column_header_cell('Concepto'),
+                            rx.table.column_header_cell('Importe')
+                        ),
+                    ),
+                    rx.table.body(
+                        
+                        # Salarios
+                        rx.table.row(
+                            rx.table.row_header_cell('Salarios', font_weight='bold', col_span=2),
+                        ),
+                        fila_tabla_simulador('Factor de Integración:', SimuladorState.resultado['factor_integracion']),
+                        fila_tabla_simulador('SBC diario:', SimuladorState.resultado['sbc_diario']),
+                        fila_tabla_simulador('Salario diario:', SimuladorState.resultado['salario_diario']),
+                        fila_tabla_simulador('Salario mensual:', SimuladorState.resultado['salario_mensual'], color='blue'),
+                        
+                        # IMSS Patronal
+                        rx.table.row(
+                            rx.table.row_header_cell('IMSS Patronal', font_weight='bold', col_span=2),
+                        ),
+                        fila_tabla_simulador('Cuota fija:', SimuladorState.resultado['imss_cuota_fija']),
+                        fila_tabla_simulador('Excedente:', SimuladorState.resultado['imss_excedente_pat']),
+                        fila_tabla_simulador('Prest. en dinero:', SimuladorState.resultado['imss_prest_dinero_pat']),
+                        fila_tabla_simulador('Gastos médicos:', SimuladorState.resultado['imss_gastos_med_pens_pat']),
+                        fila_tabla_simulador('Invalidez y vida:', SimuladorState.resultado['imss_invalidez_vida_pat']),
+                        fila_tabla_simulador('Guarderías:', SimuladorState.resultado['imss_guarderias']),
+                        fila_tabla_simulador('Retiro:', SimuladorState.resultado['imss_retiro']),
+                        fila_tabla_simulador('Cesantía y vejez:', SimuladorState.resultado['imss_cesantia_vejez_pat']),
+                        fila_tabla_simulador('Riesgo de trabajo:', SimuladorState.resultado['imss_riesgo_trabajo']),
+                        fila_tabla_simulador('Total IMSS Patronal:', SimuladorState.resultado['total_imss_patronal'], font_weight='bold', color='blue'),
+
+                        # Otros conceptos
+                        fila_tabla_simulador('Infonavit(5%):', SimuladorState.resultado['infonavit'],font_weight='bold', color='blue'),
+                        fila_tabla_simulador('ISN:', SimuladorState.resultado['isn'],font_weight='bold', color='blue'),
+
+                        # Provisiones
+                        rx.table.row(
+                            rx.table.row_header_cell('Provisiones Mensuales', font_weight='bold', col_span=2),
+                        ),
+                        fila_tabla_simulador('Aguinaldo:', SimuladorState.resultado['provision_aguinaldo']),
+                        fila_tabla_simulador('Vacaciones:', SimuladorState.resultado['provision_vacaciones']),
+                        fila_tabla_simulador('Prima Vacacional:', SimuladorState.resultado['provision_prima_vac']),
+                        fila_tabla_simulador('Total Provisiones:', SimuladorState.resultado['total_provisiones'], font_weight='bold', color='blue'),
+                        
+
+                        # Art. 36 LSS (solo si es salario mínimo)
+                        rx.cond(
+                            SimuladorState.resultado.get('es_salario_minimo', False),
+                            rx.fragment(
+                                rx.table.row(
+                                    rx.table.row_header_cell('Cuota obrera (Art. 36 LSS)', font_weight='bold', col_span=2),
+                                ),
+                                fila_tabla_simulador('IMSS obrero absorbido:', SimuladorState.resultado['imss_obrero_absorbido'],font_weight='bold', color='blue'),
+                            ),
+                            rx.fragment(),
+                        ),
+
+                        #Descuentos al trabajador
+                        rx.table.row(
+                            rx.table.row_header_cell('Descuentos al trabajador', font_weight='bold', col_span=2),
+                        ),
+                        fila_tabla_simulador('IMSS Obrero:', SimuladorState.resultado['total_imss_obrero']),
+                        fila_tabla_simulador('ISR a retener:', SimuladorState.resultado["isr_a_retener"]),
+                        fila_tabla_simulador('Total Descuentos:', SimuladorState.resultado['total_descuentos_trabajador'],font_weight='bold', color='blue'),
+                    ),
+                    variant= 'surface',  
+                    width='300px',
+                    size='1'              
+                )
+            ),
+
+        
 
 def simulador_page() -> rx.Component:
     """Pagina del simulador del costo patronal"""
 
     return rx.vstack(
+
         page_header(
             icono='calculator',
             titulo='Simulador de Costo Patronal',
             subtitulo='Proyección 2026'
         ),
 
-        #Formularios en 2 columnas
         rx.hstack(
-            formulario_empresa(),
-            formulario_trabajador(),
-            spacing='4',
+            # Columna izquierda: Formularios, resumen y botones (ancho fijo)
+            rx.vstack(
+                formulario_empresa(),
+                formulario_trabajador(),
+                # Botones
+                rx.hstack(
+                    rx.button(
+                        'Calcular',
+                        on_click=SimuladorState.calcular,
+                        loading=SimuladorState.is_calculating,
+                        color_scheme='green',
+                        size='3'
+                    ),
+                    rx.button(
+                        'Limpiar',
+                        on_click=SimuladorState.limpiar,
+                        color_scheme='gray',
+                        size='3'
+                    ),
+                    spacing='3',
+                    margin_top='1em'
+                ),
+                resumen_destacado(),
+
+
+                spacing='4',
+                width='45%',
+                min_width='600px',  # Evita que se encoja
+                align='start',
+            ),
+
+            # Columna derecha: Desglose detallado (ancho flexible)
+            desglose_detallado(),
+
+            spacing='6',
+            align='start',
             width='100%',
-            align='start'
         ),
-
-        #Botones
-        rx.hstack(
-            rx.button(
-                'Calcular',
-                on_click=SimuladorState.calcular,
-                loading=SimuladorState.is_calculating,
-                color_scheme='green',
-                size='3'
-            ),
-            rx.button(
-                'Limpiar',
-                on_click=SimuladorState.limpiar,
-                color_scheme='gray',
-                size='3'
-            ),
-            spacing='3',
-            margin_top='1em'
-        ),
-
-        #Resultados
-        seccion_resultados()
     )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# COMPONENTE AUXILIAR: Fila de tabla reutilizable
+# ═════════════════════════════════════════════════════════════════════════════
+
+def fila_tabla_simulador(
+    concepto: str,
+    importe: str | float,
+    font_weight: str = "normal",
+    color: str = None
+) -> rx.Component:
+    """
+    Crea una fila de tabla con concepto e importe.
+
+    Args:
+        concepto: Texto del concepto (ej: "Salario diario:")
+        importe: Importe formateado o valor
+        font_weight: Peso de la fuente ("normal" o "bold" para totales)
+        color: Color opcional para el importe (ej: "blue" para totales)
+    """
+    return rx.table.row(
+        rx.table.row_header_cell(concepto, font_weight=font_weight),
+        rx.table.cell(importe, justify='end', color=color)
+    )
+

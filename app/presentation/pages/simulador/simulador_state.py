@@ -210,6 +210,7 @@ class SimuladorState(BaseState):
                 "costo_total": f"$ {resultado.costo_total:,.2f}",
                 "factor_costo": f"{resultado.factor_costo:.4f}",
                 "salario_neto": f"$ {resultado.salario_neto:,.2f}",
+                "total_descuentos_trabajador": f"$ {resultado.total_descuentos_trabajador:,.2f}"
             }
 
             # 5. Marcar como calculado

@@ -122,27 +122,7 @@ class ConfiguracionEmpresa:
 
         return round(factor, 4)
 
-    def mostrar_configuracion(self):
-        """Imprime la configuración actual de la empresa"""
-        print("\n" + "="*60)
-        print(f"CONFIGURACIÓN: {self.nombre}")
-        print("="*60)
-        print(f"  Registro patronal:     {self.registro_patronal}")
-        print(f"  Estado:                {self.estado.title()} (ISN: {self.tasa_isn:.1%})")
-        print(f"  Prima de riesgo:       {self.prima_riesgo:.4%}")
-        print(f"  Zona frontera:         {'Sí' if self.zona_frontera else 'No'}")
-        print(f"  Salario mínimo:        ${self.salario_minimo_aplicable:,.2f}")
-        print(f"\n  PRESTACIONES:")
-        print(f"  Días aguinaldo:        {self.dias_aguinaldo}")
-        print(f"  Prima vacacional:      {self.prima_vacacional:.0%}")
-        print(f"  Vacaciones extra:      {self.dias_vacaciones_adicionales} días")
-        print(f"  Factor fijo:           {self.factor_integracion_fijo or 'Automático'}")
-        print(f"\n  CONFIGURACIÓN:")
-        print(f"  Días por mes:          {self.dias_por_mes}")
-        print(f"  Aplicar Art 36 LSS:    {'Sí' if self.aplicar_art_36_lss else 'No'}")
-        print("="*60)
-
-
+   
 # =============================================================================
 # DATOS DEL TRABAJADOR
 # =============================================================================
@@ -301,7 +281,7 @@ class ResultadoCuotas:
     @property
     def total_carga_patronal(self) -> float:
         """
-        Todo lo que paga el patrón además del salario.
+        Total de lo que paga el patrón además del salario.
 
         Incluye:
         - IMSS patronal
