@@ -170,7 +170,31 @@ class SimuladorState(BaseState):
 
             # 3. Crear calculadora y ejecutar
             calc = CalculadoraCostoPatronal(config)
-            resultado = calc.calcular(trabajador)
+
+            if self.tipo_salario_calculo == 'Salario Neto (inverso)':
+                salario_neto_deseado = float(self.salario_mensual)
+
+                try:
+                    # ✅ Desempaquetar tupla (resultado, iteraciones)
+                    resultado, iteraciones = calc.calcular_desde_neto(
+                        salario_neto_deseado=salario_neto_deseado,
+                        trabajador=trabajador
+                    )
+
+                    # ⚠️ Validar convergencia
+                    if iteraciones >= 50:
+                        self.mostrar_mensaje(
+                            "Advertencia: El cálculo puede no ser exacto. Intenta con un salario diferente.",
+                            "warning"
+                        )
+
+                except ValueError as e:
+                    # 🚨 Error de validación (salario neto < salario mínimo)
+                    self.mostrar_mensaje(str(e), "error")
+                    self.calculado = False
+                    return
+            else:
+                resultado = calc.calcular(trabajador)
 
             # 4. Guardar resultado como dict (valores ya formateados)
             self.resultado = {
@@ -222,10 +246,35 @@ class SimuladorState(BaseState):
 
             # 5. Marcar como calculado
             self.calculado = True
-            self.mostrar_mensaje("Cálculo realizado correctamente", "success")
+
+            # 📋 Mensaje informativo para Art. 36 LSS
+            if resultado.es_salario_minimo and self.aplicar_art_36:
+                self.mostrar_mensaje(
+                    "✅ Cálculo realizado. Nota: Salario mínimo - El patrón absorbe la cuota IMSS obrera (Art. 36 LSS)",
+                    "success"
+                )
+            else:
+                self.mostrar_mensaje("Cálculo realizado correctamente", "success")
+
+        except ValueError as e:
+            # 🚨 Error de validación (salario menor al mínimo, datos inválidos, etc.)
+            error_msg = str(e)
+
+            # Si es error de salario mínimo, mostrar mensaje conciso
+            if "SALARIO ILEGAL" in error_msg or "salario mínimo" in error_msg.lower():
+                self.mostrar_mensaje(
+                    "⚠️ Salario ilegal: El salario ingresado es menor al mínimo legal ($315.04/día). "
+                    "Pagar menos del salario mínimo viola la Constitución.",
+                    "error"
+                )
+            else:
+                # Otros errores de validación
+                self.mostrar_mensaje(f"Error de validación: {error_msg}", "error")
+
+            self.calculado = False
 
         except Exception as e:
-            self.mostrar_mensaje(f"Error al calcular: {str(e)}", "error")
+            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
             self.calculado = False
         finally:
             self.is_calculating = False

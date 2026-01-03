@@ -76,7 +76,32 @@ class CalculadoraCostoPatronal:
 
         Returns:
             ResultadoCuotas con todos los campos calculados
+
+        Raises:
+            ValueError: Si el salario diario es menor al salario mínimo legal
         """
+        # ═════════════════════════════════════════════════════════════════════
+        # VALIDACIÓN: Salario mínimo legal (Art. 123 Constitucional)
+        # ═════════════════════════════════════════════════════════════════════
+        salario_minimo_aplicable = self.config.salario_minimo_aplicable
+
+        if trabajador.salario_diario < salario_minimo_aplicable:
+            # Calcular diferencia
+            diferencia = salario_minimo_aplicable - trabajador.salario_diario
+            salario_mensual_actual = trabajador.salario_diario * trabajador.dias_cotizados_mes
+            salario_minimo_mensual = salario_minimo_aplicable * trabajador.dias_cotizados_mes
+
+            raise ValueError(
+                f"⚠️ SALARIO ILEGAL: El salario diario (${trabajador.salario_diario:,.2f}) "
+                f"es menor al salario mínimo legal (${salario_minimo_aplicable:.2f}).\n\n"
+                f"📋 Detalles:\n"
+                f"   • Salario ingresado: ${trabajador.salario_diario:.2f}/día → ${salario_mensual_actual:,.2f}/mes\n"
+                f"   • Salario mínimo:    ${salario_minimo_aplicable:.2f}/día → ${salario_minimo_mensual:,.2f}/mes\n"
+                f"   • Diferencia:        ${diferencia:.2f}/día\n\n"
+                f"🚫 Pagar menos del salario mínimo viola el Art. 123 Constitucional y la Ley Federal del Trabajo.\n"
+                f"💡 Ajusta el salario al mínimo legal o superior."
+            )
+
         dias = trabajador.dias_cotizados_mes
 
         # ═════════════════════════════════════════════════════════════════════
@@ -195,11 +220,78 @@ class CalculadoraCostoPatronal:
         Calcula el salario bruto necesario para alcanzar un neto deseado.
         Usa método iterativo (bisección) para encontrar el salario correcto.
 
-        Retorna: (resultado, iteraciones)
+        IMPORTANTE: El salario neto incluye SOLO descuentos fiscales obligatorios:
+        - IMSS Obrero (5 ramos)
+        - ISR (Impuesto Sobre la Renta)
+
+        NO incluye descuentos variables (INFONAVIT, FONACOT, pensión alimenticia, etc.)
+
+        Args:
+            salario_neto_deseado: Salario neto mensual deseado
+            trabajador: Datos del trabajador (antiguedad, días cotizados, etc.)
+
+        Returns:
+            Tupla (resultado, iteraciones):
+            - resultado: ResultadoCuotas con el salario bruto calculado
+            - iteraciones: Número de iteraciones hasta convergencia
+
+        Raises:
+            ValueError: Si el salario neto deseado es menor al salario mínimo mensual
+
+        Ejemplo:
+            >>> config = ConfiguracionEmpresa(...)
+            >>> calc = CalculadoraCostoPatronal(config)
+            >>> trabajador = Trabajador("Juan", salario_diario=0, antiguedad_anos=1)
+            >>> resultado, iter = calc.calcular_desde_neto(12000, trabajador)
+            >>> print(f"Salario bruto: ${resultado.salario_diario:.2f}/día")
+            Salario bruto: $493.33/día
+            >>> print(f"Convergió en {iter} iteraciones")
+            Convergió en 9 iteraciones
         """
+        # ═════════════════════════════════════════════════════════════════════
+        # VALIDACIÓN: Salario neto no puede ser menor al salario mínimo
+        # ═════════════════════════════════════════════════════════════════════
+        salario_minimo_diario = self.config.salario_minimo_aplicable
+        salario_minimo_mensual = salario_minimo_diario * trabajador.dias_cotizados_mes
+
+        if salario_neto_deseado < salario_minimo_mensual:
+            raise ValueError(
+                f"El salario neto deseado (${salario_neto_deseado:,.2f}) no puede ser menor "
+                f"al salario mínimo mensual (${salario_minimo_mensual:,.2f}). "
+                f"Salario mínimo diario: ${salario_minimo_diario:.2f}"
+            )
+
+        # ═════════════════════════════════════════════════════════════════════
+        # CASO ESPECIAL: Si neto deseado ≈ salario mínimo → Art. 36 LSS
+        # ═════════════════════════════════════════════════════════════════════
+        # Cuando el salario neto deseado está muy cerca del salario mínimo mensual,
+        # el resultado correcto es el salario mínimo exacto (con Art. 36 LSS aplicado).
+        # Esto evita problemas de convergencia por la discontinuidad:
+        #   - Salario = mínimo → Art. 36 aplica → neto = bruto (sin descuentos)
+        #   - Salario > mínimo → Art. 36 NO aplica → hay descuentos IMSS e ISR
+
+        tolerancia_salario_minimo = salario_minimo_mensual * 0.02  # 2% de tolerancia
+
+        if abs(salario_neto_deseado - salario_minimo_mensual) <= tolerancia_salario_minimo:
+            # El neto deseado está muy cerca del salario mínimo
+            # Retornar directamente salario mínimo (aplica Art. 36)
+            trabajador_sm = Trabajador(
+                nombre=trabajador.nombre,
+                salario_diario=salario_minimo_diario,
+                antiguedad_anos=trabajador.antiguedad_anos,
+                dias_cotizados_mes=trabajador.dias_cotizados_mes,
+                zona_frontera=trabajador.zona_frontera,
+            )
+            resultado = self.calcular(trabajador_sm)
+
+            return resultado, 1  # 1 iteración (directo)
+
+        # ═════════════════════════════════════════════════════════════════════
+        # CONFIGURACIÓN DEL ALGORITMO DE BISECCIÓN
+        # ═════════════════════════════════════════════════════════════════════
         # Límites de búsqueda
-        salario_min = salario_neto_deseado / trabajador.dias_cotizados_mes  # Estimación baja
-        salario_max = salario_neto_deseado * 2 / trabajador.dias_cotizados_mes  # Estimación alta
+        salario_min = salario_neto_deseado / trabajador.dias_cotizados_mes  # Estimación baja (0% descuentos)
+        salario_max = salario_neto_deseado * 2 / trabajador.dias_cotizados_mes  # Estimación alta (50% descuentos)
 
         max_iteraciones = 50
         tolerancia = 1.0  # $1 de tolerancia

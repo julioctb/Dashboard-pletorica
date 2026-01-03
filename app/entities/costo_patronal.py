@@ -265,12 +265,50 @@ class ResultadoCuotas:
 
     @property
     def total_descuentos_trabajador(self) -> float:
-        """Total de descuentos que se le aplican al trabajador (IMSS + ISR)"""
+        """
+        Total de descuentos fiscales obligatorios al trabajador.
+
+        Incluye SOLO:
+        - IMSS Obrero (5 ramos): Excedente 3 UMA, Prestaciones en dinero,
+          Gastos médicos pensionados, Invalidez y vida, Cesantía y vejez
+        - ISR (Impuesto Sobre la Renta): Retención mensual con subsidio al empleo
+
+        NO incluye descuentos variables:
+        - Préstamos INFONAVIT/FONACOT
+        - Pensión alimenticia
+        - Faltas/incapacidades
+        - Anticipos/préstamos de la empresa
+        - Cuotas sindicales
+        """
         return self.total_imss_obrero + self.isr_a_retener
 
     @property
     def salario_neto(self) -> float:
-        """Salario neto que recibe el trabajador después de descuentos"""
+        """
+        Salario neto que recibe el trabajador después de descuentos obligatorios.
+
+        Fórmula: Salario Bruto - (IMSS Obrero + ISR)
+
+        IMPORTANTE: Este es el salario neto FISCAL estándar, calculado con
+        descuentos obligatorios únicamente. Para calcular el salario neto REAL
+        que aparecerá en el recibo de nómina, deben agregarse descuentos
+        adicionales como:
+        - Préstamos INFONAVIT (amortización de crédito)
+        - Préstamos FONACOT
+        - Pensión alimenticia (orden judicial)
+        - Faltas/incapacidades
+        - Anticipos/préstamos internos
+
+        Ejemplo:
+            Salario bruto: $15,000.00
+            - IMSS Obrero:    -$537.75
+            - ISR:          -$1,339.14
+            ──────────────────────────
+            Salario neto:  $13,123.11
+
+        Returns:
+            Salario neto mensual después de descuentos fiscales obligatorios
+        """
         return self.salario_mensual - self.total_descuentos_trabajador
 
     @property

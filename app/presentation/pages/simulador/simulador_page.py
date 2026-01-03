@@ -90,7 +90,7 @@ def formulario_trabajador() -> rx.Component:
                     rx.text("Tipo de cálculo", size="2", weight="bold"),
                     rx.select(
                         list(TIPO_SALARIO_CALCULO.values()),
-                        placeholder="Selecciona un tipo de calculo",
+                        placeholder="Selecciona un tipo",
                         value=SimuladorState.tipo_salario_calculo,
                         on_change=SimuladorState.set_tipo_salario_calculo,
                         width='100%',
