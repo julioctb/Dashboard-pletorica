@@ -175,27 +175,3 @@ class CalculadoraIMSS:
             }
 
         return cuotas, imss_obrero_absorbido
-
-    def calcular_total_patronal(self, cuotas_patronales: dict[str, float]) -> float:
-        """
-        Suma todas las cuotas patronales.
-
-        Args:
-            cuotas_patronales: Dict retornado por calcular_patronal()
-
-        Returns:
-            Total de cuotas IMSS patronales
-        """
-        return sum(cuotas_patronales.values())
-
-    def calcular_total_obrero(self, cuotas_obreras: dict[str, float]) -> float:
-        """
-        Suma todas las cuotas obreras.
-
-        Args:
-            cuotas_obreras: Dict retornado por calcular_obrero()[0]
-
-        Returns:
-            Total de cuotas IMSS obreras (descuento al trabajador)
-        """
-        return sum(cuotas_obreras.values())

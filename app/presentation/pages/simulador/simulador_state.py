@@ -52,12 +52,6 @@ class SimuladorState(BaseState):
         except ValueError:
             pass
 
-    def set_factor_integracion(self, value: str):
-        try:
-            self.factor_integracion = float(value) if value else 0.0
-        except ValueError:
-            pass
-
     def set_prima_vacacional(self, value: str):
         try:
             self.prima_vacacional = float(value) if value else 0.0
@@ -84,20 +78,10 @@ class SimuladorState(BaseState):
     
     def set_tipo_salario_calculo(self, value: str):
             self.tipo_salario_calculo = value
-    
-    def set_estado(self, value: str):
-        """Setter para estado - acepta ID interno"""
-        self.estado = value
 
     def set_estado_display(self, display_name: str):
         """Setter que convierte nombre display a ID interno"""
         self.estado = obtener_clave_estado(display_name) or "puebla"
-
-    def set_zona_frontera(self, value: bool):
-        self.zona_frontera = value
-
-    def set_aplicar_art_36(self, value: bool):
-        self.aplicar_art_36 = value
 
     # ─────────────────────────────────────────────────────────────────
     # MÉTODOS

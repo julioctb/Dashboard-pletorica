@@ -147,24 +147,3 @@ class CalculadoraISR:
         if base_gravable <= self.const.LIMITE_SUBSIDIO_MENSUAL:
             return self.const.SUBSIDIO_EMPLEO_MENSUAL
         return 0.0
-
-    def calcular_anual(self, base_gravable_anual: float) -> dict[str, float]:
-        """
-        Calcula ISR anual (para finiquitos, PTU, etc.).
-
-        Aplica la tabla anual de ISR. Pendiente de implementación
-        en futuras fases.
-
-        Args:
-            base_gravable_anual: Ingreso anual gravable
-
-        Returns:
-            Diccionario con desglose del ISR anual
-
-        Raises:
-            NotImplementedError: Funcionalidad pendiente
-        """
-        raise NotImplementedError(
-            "Cálculo de ISR anual pendiente de implementación. "
-            "Actualmente solo soporta ISR mensual."
-        )
