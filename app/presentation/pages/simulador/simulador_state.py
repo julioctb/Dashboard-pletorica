@@ -4,6 +4,7 @@ import reflex as rx
 from app.presentation.components.shared.base_state import BaseState
 from app.entities.costo_patronal import ConfiguracionEmpresa, Trabajador
 from app.core.calculations import CalculadoraCostoPatronal
+from app.core.catalogos import obtener_clave_estado
 
 
 class SimuladorState(BaseState):
@@ -26,7 +27,6 @@ class SimuladorState(BaseState):
     # ─────────────────────────────────────────────────────────────────
     tipo_salario_calculo: str = ""
     salario_mensual: float = 0.0
-    salario_diario: float = 315.04
     antiguedad_anos: int = 1
     dias_cotizados: float = 30.0
 
@@ -91,42 +91,7 @@ class SimuladorState(BaseState):
 
     def set_estado_display(self, display_name: str):
         """Setter que convierte nombre display a ID interno"""
-        # Mapping inverso
-        display_to_id = {
-            "Aguascalientes": "aguascalientes",
-            "Baja California": "baja_california",
-            "Baja California Sur": "baja_california_sur",
-            "Campeche": "campeche",
-            "Chiapas": "chiapas",
-            "Chihuahua": "chihuahua",
-            "Ciudad de México": "ciudad_de_mexico",
-            "Coahuila": "coahuila",
-            "Colima": "colima",
-            "Durango": "durango",
-            "Estado de México": "estado_de_mexico",
-            "Guanajuato": "guanajuato",
-            "Guerrero": "guerrero",
-            "Hidalgo": "hidalgo",
-            "Jalisco": "jalisco",
-            "Michoacán": "michoacan",
-            "Morelos": "morelos",
-            "Nayarit": "nayarit",
-            "Nuevo León": "nuevo_leon",
-            "Oaxaca": "oaxaca",
-            "Puebla": "puebla",
-            "Querétaro": "queretaro",
-            "Quintana Roo": "quintana_roo",
-            "San Luis Potosí": "san_luis_potosi",
-            "Sinaloa": "sinaloa",
-            "Sonora": "sonora",
-            "Tabasco": "tabasco",
-            "Tamaulipas": "tamaulipas",
-            "Tlaxcala": "tlaxcala",
-            "Veracruz": "veracruz",
-            "Yucatán": "yucatan",
-            "Zacatecas": "zacatecas"
-        }
-        self.estado = display_to_id.get(display_name, "puebla")
+        self.estado = obtener_clave_estado(display_name) or "puebla"
 
     def set_zona_frontera(self, value: bool):
         self.zona_frontera = value
@@ -282,7 +247,6 @@ class SimuladorState(BaseState):
     def limpiar(self):
         """Limpia los resultados"""
         self.salario_mensual = 0.0
-        self.salario_diario = 0.0
         self.tipo_salario_calculo = ""
         self.resultado = {}
         self.calculado = False

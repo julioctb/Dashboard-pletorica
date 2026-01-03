@@ -24,7 +24,6 @@ from app.entities.costo_patronal import (
 from app.core.calculations.calculadora_imss import CalculadoraIMSS
 from app.core.calculations.calculadora_isr import CalculadoraISR
 from app.core.calculations.calculadora_provisiones import CalculadoraProvisiones
-from app.core.exporters import ExcelExporter
 
 
 # NOTA: Las clases ConfiguracionEmpresa, Trabajador y ResultadoCuotas
@@ -57,7 +56,6 @@ class CalculadoraCostoPatronal:
         """
         self.config = config
         self.const = ConstantesFiscales
-        self.resultados: list[ResultadoCuotas] = []
 
         # Inyectar calculadores especializados (Dependency Injection)
         self.calc_imss = CalculadoraIMSS(self.const)
@@ -208,11 +206,6 @@ class CalculadoraCostoPatronal:
             subsidio_empleo=isr["subsidio_empleo"],
             isr_a_retener=isr["isr_a_retener"],
         )
-    
-    def calcular_y_guardar(self, trabajador: Trabajador) -> ResultadoCuotas:
-        resultado = self.calcular(trabajador)
-        self.resultados.append(resultado)
-        return resultado
 
     def calcular_desde_neto(self, salario_neto_deseado: float,
                             trabajador: Trabajador) -> tuple[ResultadoCuotas, int]:
@@ -328,31 +321,3 @@ class CalculadoraCostoPatronal:
 
         # Si no converge, retornar el mejor resultado
         return resultado, max_iteraciones
-
-    def limpiar_resultados(self):
-        """Limpia la lista de resultados guardados"""
-        self.resultados.clear()
-
-    def exportar_excel(self, nombre_archivo: str = "costo_patronal_2026.xlsx") -> str:
-        """
-        Exporta los resultados a Excel (wrapper conveniente).
-
-        Delega a ExcelExporter para mantener SRP.
-        Requiere la biblioteca openpyxl: pip install openpyxl
-
-        Args:
-            nombre_archivo: Nombre del archivo a crear
-
-        Returns:
-            Ruta del archivo creado
-
-        Raises:
-            ImportError: Si openpyxl no está instalado
-            ValueError: Si no hay resultados para exportar
-        """
-        exporter = ExcelExporter(self.const)
-        return exporter.exportar(self.resultados, nombre_archivo)
-
-
-# NOTA: Función imprimir_resultado() movida a app/core/formatters/resultado_formatter.py
-# Usar: ResultadoFormatter.imprimir(resultado)
