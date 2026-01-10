@@ -1,10 +1,28 @@
 """
-Services - Business logic layer
-All services in one place for easy discovery
+Servicios de aplicación (lógica de negocio).
+
+Este módulo exporta todos los servicios para facilitar imports:
+    from app.services import empresa_service, area_servicio_service
 """
-from .empresa_service import EmpresaService, empresa_service
+
+# Empresa
+from app.services.empresa_service import (
+    EmpresaService,
+    empresa_service,
+)
+
+# Área de Servicio
+from app.services.area_servicio_service import (
+    AreaServicioService,
+    area_servicio_service,
+)
+
 
 __all__ = [
-    'EmpresaService',
-    'empresa_service',
+    # Empresa
+    "EmpresaService",
+    "empresa_service",
+    # Área de Servicio
+    "AreaServicioService",
+    "area_servicio_service",
 ]

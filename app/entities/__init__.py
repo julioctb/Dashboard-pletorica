@@ -1,8 +1,12 @@
 """
-Entities - Domain models
-All business entities in one place for easy discovery
+Entidades de dominio del sistema.
+
+Este módulo exporta todas las entidades de negocio para facilitar imports:
+    from app.entities import Empresa, AreaServicio, etc.
 """
-from .empresa import (
+
+# Empresa
+from app.entities.empresa import (
     Empresa,
     EmpresaCreate,
     EmpresaUpdate,
@@ -11,11 +15,40 @@ from .empresa import (
     EstatusEmpresa,
 )
 
+# Área de Servicio
+from app.entities.area_servicio import (
+    AreaServicio,
+    AreaServicioCreate,
+    AreaServicioUpdate,
+    EstatusAreaServicio,
+)
+
+# Costo Patronal (si existe)
+try:
+    from app.entities.costo_patronal import (
+        ConfiguracionEmpresa,
+        Trabajador,
+        ResultadoCuotas,
+    )
+except ImportError:
+    pass  # El módulo puede no existir aún
+
+
 __all__ = [
-    'Empresa',
-    'EmpresaCreate',
-    'EmpresaUpdate',
-    'EmpresaResumen',
-    'TipoEmpresa',
-    'EstatusEmpresa',
+    # Empresa
+    "Empresa",
+    "EmpresaCreate",
+    "EmpresaUpdate",
+    "EmpresaResumen",
+    "TipoEmpresa",
+    "EstatusEmpresa",
+    # Área de Servicio
+    "AreaServicio",
+    "AreaServicioCreate",
+    "AreaServicioUpdate",
+    "EstatusAreaServicio",
+    # Costo Patronal
+    "ConfiguracionEmpresa",
+    "Trabajador",
+    "ResultadoCuotas",
 ]
