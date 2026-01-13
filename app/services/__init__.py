@@ -11,10 +11,10 @@ from app.services.empresa_service import (
     empresa_service,
 )
 
-# Área de Servicio
-from app.services.area_servicio_service import (
-    AreaServicioService,
-    area_servicio_service,
+# Tipo de Servicio
+from app.services.tipo_servicio_service import (
+    TipoServicioService,
+    tipo_servicio_service,
 )
 
 
@@ -22,7 +22,7 @@ __all__ = [
     # Empresa
     "EmpresaService",
     "empresa_service",
-    # Área de Servicio
-    "AreaServicioService",
-    "area_servicio_service",
+    # Tipo de Servicio
+    "TipoServicioService",
+    "tipo_servicio_service",
 ]

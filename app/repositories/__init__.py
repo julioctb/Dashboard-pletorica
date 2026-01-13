@@ -11,10 +11,10 @@ from app.repositories.empresa_repository import (
     SupabaseEmpresaRepository,
 )
 
-# Área de Servicio
-from app.repositories.area_servicio_repository import (
-    IAreaServicioRepository,
-    SupabaseAreaServicioRepository,
+# Tipo de Servicio
+from app.repositories.tipo_servicio_repository import (
+    ITipoServicioRepository,
+    SupabaseTipoServicioRepository,
 )
 
 
@@ -22,7 +22,7 @@ __all__ = [
     # Empresa
     "IEmpresaRepository",
     "SupabaseEmpresaRepository",
-    # Área de Servicio
-    "IAreaServicioRepository",
-    "SupabaseAreaServicioRepository",
+    # Tipo de Servicio
+    "ITipoServicioRepository",
+    "SupabaseTipoServicioRepository",
 ]

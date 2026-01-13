@@ -1,5 +1,5 @@
 """
-Validadores de formulario para Áreas de Servicio.
+Validadores de formulario para Tipos de Servicio.
 Funciones puras que retornan mensaje de error o string vacío si es válido.
 """
 import re
@@ -7,7 +7,7 @@ import re
 
 def validar_clave(clave: str) -> str:
     """
-    Valida la clave del área de servicio.
+    Valida la clave del tipo de servicio.
 
     Args:
         clave: Clave a validar
@@ -34,7 +34,7 @@ def validar_clave(clave: str) -> str:
 
 def validar_nombre(nombre: str) -> str:
     """
-    Valida el nombre del área de servicio.
+    Valida el nombre del tipo de servicio.
 
     Args:
         nombre: Nombre a validar
@@ -58,7 +58,7 @@ def validar_nombre(nombre: str) -> str:
 
 def validar_descripcion(descripcion: str) -> str:
     """
-    Valida la descripción del área de servicio.
+    Valida la descripción del tipo de servicio.
 
     Args:
         descripcion: Descripción a validar
@@ -75,14 +75,14 @@ def validar_descripcion(descripcion: str) -> str:
     return ""
 
 
-def validar_formulario_area(clave: str, nombre: str, descripcion: str = "") -> dict:
+def validar_formulario_tipo(clave: str, nombre: str, descripcion: str = "") -> dict:
     """
-    Valida todos los campos del formulario de área.
+    Valida todos los campos del formulario de tipo.
 
     Args:
-        clave: Clave del área
-        nombre: Nombre del área
-        descripcion: Descripción del área (opcional)
+        clave: Clave del tipo
+        nombre: Nombre del tipo
+        descripcion: Descripción del tipo (opcional)
 
     Returns:
         Diccionario con errores por campo. Vacío si todo es válido.

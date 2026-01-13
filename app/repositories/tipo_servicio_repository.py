@@ -1,5 +1,5 @@
 """
-Repositorio de Áreas de Servicio - Interface y implementación para Supabase.
+Repositorio de Tipos de Servicio - Interface y implementación para Supabase.
 
 Patrón de manejo de errores:
 - NotFoundError: Cuando no se encuentra un recurso
@@ -11,23 +11,23 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 import logging
 
-from app.entities import AreaServicio
+from app.entities import TipoServicio
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
 
 logger = logging.getLogger(__name__)
 
 
-class IAreaServicioRepository(ABC):
-    """Interface del repositorio de áreas de servicio - define el contrato"""
+class ITipoServicioRepository(ABC):
+    """Interface del repositorio de tipos de servicio - define el contrato"""
 
     @abstractmethod
-    async def obtener_por_id(self, area_id: int) -> AreaServicio:
-        """Obtiene un área de servicio por su ID"""
+    async def obtener_por_id(self, tipo_id: int) -> TipoServicio:
+        """Obtiene un tipo de servicio por su ID"""
         pass
 
     @abstractmethod
-    async def obtener_por_clave(self, clave: str) -> Optional[AreaServicio]:
-        """Obtiene un área de servicio por su clave"""
+    async def obtener_por_clave(self, clave: str) -> Optional[TipoServicio]:
+        """Obtiene un tipo de servicio por su clave"""
         pass
 
     @abstractmethod
@@ -36,30 +36,30 @@ class IAreaServicioRepository(ABC):
         incluir_inactivas: bool = False,
         limite: Optional[int] = None,
         offset: int = 0
-    ) -> List[AreaServicio]:
+    ) -> List[TipoServicio]:
         """
-        Obtiene todas las áreas de servicio con soporte de paginación.
+        Obtiene todos los tipos de servicio con soporte de paginación.
 
         Args:
-            incluir_inactivas: Si True, incluye áreas inactivas
+            incluir_inactivas: Si True, incluye tipos inactivos
             limite: Número máximo de resultados (None = sin límite)
             offset: Número de registros a saltar (para paginación)
         """
         pass
 
     @abstractmethod
-    async def crear(self, area: AreaServicio) -> AreaServicio:
-        """Crea una nueva área de servicio"""
+    async def crear(self, tipo: TipoServicio) -> TipoServicio:
+        """Crea un nuevo tipo de servicio"""
         pass
 
     @abstractmethod
-    async def actualizar(self, area: AreaServicio) -> AreaServicio:
-        """Actualiza un área de servicio existente"""
+    async def actualizar(self, tipo: TipoServicio) -> TipoServicio:
+        """Actualiza un tipo de servicio existente"""
         pass
 
     @abstractmethod
-    async def eliminar(self, area_id: int) -> bool:
-        """Elimina (inactiva) un área de servicio"""
+    async def eliminar(self, tipo_id: int) -> bool:
+        """Elimina (inactiva) un tipo de servicio"""
         pass
 
     @abstractmethod
@@ -68,17 +68,17 @@ class IAreaServicioRepository(ABC):
         pass
 
     @abstractmethod
-    async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[AreaServicio]:
-        """Busca áreas por nombre o clave"""
+    async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[TipoServicio]:
+        """Busca tipos por nombre o clave"""
         pass
 
     @abstractmethod
     async def contar(self, incluir_inactivas: bool = False) -> int:
-        """Cuenta el total de áreas de servicio"""
+        """Cuenta el total de tipos de servicio"""
         pass
 
 
-class SupabaseAreaServicioRepository(IAreaServicioRepository):
+class SupabaseTipoServicioRepository(ITipoServicioRepository):
     """Implementación del repositorio usando Supabase"""
 
     def __init__(self, db_manager=None):
@@ -93,77 +93,77 @@ class SupabaseAreaServicioRepository(IAreaServicioRepository):
             db_manager = default_db
 
         self.supabase = db_manager.get_client()
-        self.tabla = 'areas_servicio'
+        self.tabla = 'tipos_servicio'
 
-    async def obtener_por_id(self, area_id: int) -> AreaServicio:
+    async def obtener_por_id(self, tipo_id: int) -> TipoServicio:
         """
-        Obtiene un área de servicio por su ID.
+        Obtiene un tipo de servicio por su ID.
 
         Args:
-            area_id: ID del área a buscar
+            tipo_id: ID del tipo a buscar
 
         Returns:
-            AreaServicio encontrada
+            TipoServicio encontrado
 
         Raises:
-            NotFoundError: Si el área no existe
+            NotFoundError: Si el tipo no existe
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
-            result = self.supabase.table(self.tabla).select('*').eq('id', area_id).execute()
-            
+            result = self.supabase.table(self.tabla).select('*').eq('id', tipo_id).execute()
+
             if not result.data:
-                raise NotFoundError(f"Área de servicio con ID {area_id} no encontrada")
-            
-            return AreaServicio(**result.data[0])
-        
+                raise NotFoundError(f"Tipo de servicio con ID {tipo_id} no encontrado")
+
+            return TipoServicio(**result.data[0])
+
         except NotFoundError:
             raise
         except Exception as e:
-            logger.error(f"Error obteniendo área de servicio {area_id}: {e}")
-            raise DatabaseError(f"Error de base de datos al obtener área: {str(e)}")
+            logger.error(f"Error obteniendo tipo de servicio {tipo_id}: {e}")
+            raise DatabaseError(f"Error de base de datos al obtener tipo: {str(e)}")
 
-    async def obtener_por_clave(self, clave: str) -> Optional[AreaServicio]:
+    async def obtener_por_clave(self, clave: str) -> Optional[TipoServicio]:
         """
-        Obtiene un área de servicio por su clave.
+        Obtiene un tipo de servicio por su clave.
 
         Args:
-            clave: Clave del área a buscar (ej: "JAR", "LIM")
+            clave: Clave del tipo a buscar (ej: "JAR", "LIM")
 
         Returns:
-            AreaServicio si existe, None si no existe
+            TipoServicio si existe, None si no existe
 
         Raises:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
             result = self.supabase.table(self.tabla).select('*').eq('clave', clave.upper()).execute()
-            
+
             if not result.data:
                 return None
-            
-            return AreaServicio(**result.data[0])
-        
+
+            return TipoServicio(**result.data[0])
+
         except Exception as e:
-            logger.error(f"Error obteniendo área por clave {clave}: {e}")
-            raise DatabaseError(f"Error de base de datos al obtener área: {str(e)}")
+            logger.error(f"Error obteniendo tipo por clave {clave}: {e}")
+            raise DatabaseError(f"Error de base de datos al obtener tipo: {str(e)}")
 
     async def obtener_todas(
         self,
         incluir_inactivas: bool = False,
         limite: Optional[int] = None,
         offset: int = 0
-    ) -> List[AreaServicio]:
+    ) -> List[TipoServicio]:
         """
-        Obtiene todas las áreas de servicio con soporte de paginación.
+        Obtiene todos los tipos de servicio con soporte de paginación.
 
         Args:
-            incluir_inactivas: Si True, incluye áreas inactivas
+            incluir_inactivas: Si True, incluye tipos inactivos
             limite: Número máximo de resultados (None = 100 por defecto)
             offset: Número de registros a saltar (para paginación)
 
         Returns:
-            Lista de áreas de servicio (vacía si no hay resultados)
+            Lista de tipos de servicio (vacía si no hay resultados)
 
         Raises:
             DatabaseError: Si hay error de conexión/infraestructura
@@ -186,21 +186,21 @@ class SupabaseAreaServicioRepository(IAreaServicioRepository):
             query = query.range(offset, offset + limite - 1)
 
             result = query.execute()
-            return [AreaServicio(**data) for data in result.data]
-        
-        except Exception as e:
-            logger.error(f"Error obteniendo áreas de servicio: {e}")
-            raise DatabaseError(f"Error de base de datos al obtener áreas: {str(e)}")
+            return [TipoServicio(**data) for data in result.data]
 
-    async def crear(self, area: AreaServicio) -> AreaServicio:
+        except Exception as e:
+            logger.error(f"Error obteniendo tipos de servicio: {e}")
+            raise DatabaseError(f"Error de base de datos al obtener tipos: {str(e)}")
+
+    async def crear(self, tipo: TipoServicio) -> TipoServicio:
         """
-        Crea una nueva área de servicio.
+        Crea un nuevo tipo de servicio.
 
         Args:
-            area: AreaServicio a crear
+            tipo: TipoServicio a crear
 
         Returns:
-            AreaServicio creada con ID asignado
+            TipoServicio creado con ID asignado
 
         Raises:
             DuplicateError: Si la clave ya existe
@@ -208,99 +208,99 @@ class SupabaseAreaServicioRepository(IAreaServicioRepository):
         """
         try:
             # Verificar clave duplicada
-            if await self.existe_clave(area.clave):
+            if await self.existe_clave(tipo.clave):
                 raise DuplicateError(
-                    f"La clave '{area.clave}' ya existe",
+                    f"La clave '{tipo.clave}' ya existe",
                     field="clave",
-                    value=area.clave
+                    value=tipo.clave
                 )
 
             # Preparar datos excluyendo campos autogenerados
-            datos = area.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            datos = tipo.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
             result = self.supabase.table(self.tabla).insert(datos).execute()
 
             if not result.data:
-                raise DatabaseError("No se pudo crear el área de servicio (sin respuesta de BD)")
+                raise DatabaseError("No se pudo crear el tipo de servicio (sin respuesta de BD)")
 
-            return AreaServicio(**result.data[0])
-        
+            return TipoServicio(**result.data[0])
+
         except DuplicateError:
             raise
         except Exception as e:
-            logger.error(f"Error creando área de servicio: {e}")
-            raise DatabaseError(f"Error de base de datos al crear área: {str(e)}")
+            logger.error(f"Error creando tipo de servicio: {e}")
+            raise DatabaseError(f"Error de base de datos al crear tipo: {str(e)}")
 
-    async def actualizar(self, area: AreaServicio) -> AreaServicio:
+    async def actualizar(self, tipo: TipoServicio) -> TipoServicio:
         """
-        Actualiza un área de servicio existente.
+        Actualiza un tipo de servicio existente.
 
         Args:
-            area: AreaServicio con datos actualizados
+            tipo: TipoServicio con datos actualizados
 
         Returns:
-            AreaServicio actualizada
+            TipoServicio actualizado
 
         Raises:
-            NotFoundError: Si el área no existe
-            DuplicateError: Si la nueva clave ya existe en otra área
+            NotFoundError: Si el tipo no existe
+            DuplicateError: Si la nueva clave ya existe en otro tipo
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
             # Verificar que existe
-            await self.obtener_por_id(area.id)
+            await self.obtener_por_id(tipo.id)
 
             # Verificar clave duplicada (excluyendo el registro actual)
-            if await self.existe_clave(area.clave, excluir_id=area.id):
+            if await self.existe_clave(tipo.clave, excluir_id=tipo.id):
                 raise DuplicateError(
-                    f"La clave '{area.clave}' ya existe en otra área",
+                    f"La clave '{tipo.clave}' ya existe en otro tipo",
                     field="clave",
-                    value=area.clave
+                    value=tipo.clave
                 )
 
             # Preparar datos
-            datos = area.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
-            result = self.supabase.table(self.tabla).update(datos).eq('id', area.id).execute()
+            datos = tipo.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            result = self.supabase.table(self.tabla).update(datos).eq('id', tipo.id).execute()
 
             if not result.data:
-                raise NotFoundError(f"Área de servicio con ID {area.id} no encontrada")
+                raise NotFoundError(f"Tipo de servicio con ID {tipo.id} no encontrado")
 
-            return AreaServicio(**result.data[0])
-        
+            return TipoServicio(**result.data[0])
+
         except (NotFoundError, DuplicateError):
             raise
         except Exception as e:
-            logger.error(f"Error actualizando área de servicio {area.id}: {e}")
-            raise DatabaseError(f"Error de base de datos al actualizar área: {str(e)}")
+            logger.error(f"Error actualizando tipo de servicio {tipo.id}: {e}")
+            raise DatabaseError(f"Error de base de datos al actualizar tipo: {str(e)}")
 
-    async def eliminar(self, area_id: int) -> bool:
+    async def eliminar(self, tipo_id: int) -> bool:
         """
-        Elimina (soft delete) un área de servicio estableciendo estatus INACTIVO.
+        Elimina (soft delete) un tipo de servicio estableciendo estatus INACTIVO.
 
         Args:
-            area_id: ID del área a eliminar
+            tipo_id: ID del tipo a eliminar
 
         Returns:
             True si se eliminó correctamente
 
         Raises:
-            NotFoundError: Si el área no existe
+            NotFoundError: Si el tipo no existe
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
             # Verificar que existe
-            await self.obtener_por_id(area_id)
+            await self.obtener_por_id(tipo_id)
 
             result = self.supabase.table(self.tabla).update(
                 {'estatus': 'INACTIVO'}
-            ).eq('id', area_id).execute()
+            ).eq('id', tipo_id).execute()
 
             return bool(result.data)
-        
+
         except NotFoundError:
             raise
         except Exception as e:
-            logger.error(f"Error eliminando área de servicio {area_id}: {e}")
-            raise DatabaseError(f"Error de base de datos al eliminar área: {str(e)}")
+            logger.error(f"Error eliminando tipo de servicio {tipo_id}: {e}")
+            raise DatabaseError(f"Error de base de datos al eliminar tipo: {str(e)}")
 
     async def existe_clave(self, clave: str, excluir_id: Optional[int] = None) -> bool:
         """
@@ -318,34 +318,34 @@ class SupabaseAreaServicioRepository(IAreaServicioRepository):
         """
         try:
             query = self.supabase.table(self.tabla).select('id').eq('clave', clave.upper())
-            
+
             if excluir_id:
                 query = query.neq('id', excluir_id)
-            
+
             result = query.execute()
             return len(result.data) > 0
-        
+
         except Exception as e:
             logger.error(f"Error verificando clave {clave}: {e}")
             raise DatabaseError(f"Error de base de datos al verificar clave: {str(e)}")
 
-    async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[AreaServicio]:
+    async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[TipoServicio]:
         """
-        Busca áreas de servicio por nombre o clave.
+        Busca tipos de servicio por nombre o clave.
 
         Args:
             termino: Término de búsqueda
             limite: Número máximo de resultados (default 10)
 
         Returns:
-            Lista de áreas que coinciden (vacía si no hay resultados)
+            Lista de tipos que coinciden (vacía si no hay resultados)
 
         Raises:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
             termino_upper = termino.upper()
-            
+
             result = self.supabase.table(self.tabla)\
                 .select('*')\
                 .eq('estatus', 'ACTIVO')\
@@ -356,34 +356,34 @@ class SupabaseAreaServicioRepository(IAreaServicioRepository):
                 .limit(limite)\
                 .execute()
 
-            return [AreaServicio(**data) for data in result.data]
-        
+            return [TipoServicio(**data) for data in result.data]
+
         except Exception as e:
-            logger.error(f"Error buscando áreas con término '{termino}': {e}")
-            raise DatabaseError(f"Error de base de datos al buscar áreas: {str(e)}")
+            logger.error(f"Error buscando tipos con término '{termino}': {e}")
+            raise DatabaseError(f"Error de base de datos al buscar tipos: {str(e)}")
 
     async def contar(self, incluir_inactivas: bool = False) -> int:
         """
-        Cuenta el total de áreas de servicio.
+        Cuenta el total de tipos de servicio.
 
         Args:
-            incluir_inactivas: Si True, cuenta también las inactivas
+            incluir_inactivas: Si True, cuenta también los inactivos
 
         Returns:
-            Número total de áreas
+            Número total de tipos
 
         Raises:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
             query = self.supabase.table(self.tabla).select('id', count='exact')
-            
+
             if not incluir_inactivas:
                 query = query.eq('estatus', 'ACTIVO')
-            
+
             result = query.execute()
             return result.count if result.count else 0
-        
+
         except Exception as e:
-            logger.error(f"Error contando áreas de servicio: {e}")
-            raise DatabaseError(f"Error de base de datos al contar áreas: {str(e)}")
+            logger.error(f"Error contando tipos de servicio: {e}")
+            raise DatabaseError(f"Error de base de datos al contar tipos: {str(e)}")

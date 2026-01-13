@@ -59,6 +59,7 @@ def sidebar_items() -> rx.Component:
                 variant='ghost',
                 width="100%",
             ),
+            sidebar_item('Servicios','folder-cog', '/tipos-servicio' ),
             sidebar_item('Sedes','map-pin-house', '/#' ),
             sidebar_item('Personal','users', '/#' ),
             sidebar_item('Mensajes','mail', '/#' ),

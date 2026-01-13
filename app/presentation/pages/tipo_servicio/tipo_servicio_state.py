@@ -1,37 +1,37 @@
 """
-Estado de Reflex para el módulo de Áreas de Servicio.
+Estado de Reflex para el módulo de Tipos de Servicio.
 Maneja el estado de la UI y las operaciones del módulo.
 """
 import reflex as rx
 from typing import List, Optional
 
-from app.entities import AreaServicio, AreaServicioCreate, AreaServicioUpdate
-from app.services import area_servicio_service
+from app.entities import TipoServicio, TipoServicioCreate, TipoServicioUpdate
+from app.services import tipo_servicio_service
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
 from app.presentation.components.shared.base_state import BaseState
-from app.presentation.pages.areas_servicio.areas_servicio_validators import (
+from app.presentation.pages.tipo_servicio.tipo_servicio_validators import (
     validar_clave,
     validar_nombre,
     validar_descripcion,
 )
 
 
-class AreasServicioState(BaseState):
-    """Estado para el módulo de Áreas de Servicio"""
+class TipoServicioState(BaseState):
+    """Estado para el módulo de Tipos de Servicio"""
 
     # ========================
     # ESTADO DE DATOS
     # ========================
-    areas: List[dict] = []
-    area_seleccionada: Optional[dict] = None
-    total_areas: int = 0
+    tipos: List[dict] = []
+    tipo_seleccionado: Optional[dict] = None
+    total_tipos: int = 0
 
     # ========================
     # ESTADO DE UI
     # ========================
     loading: bool = False
     saving: bool = False
-    mostrar_modal_area: bool = False
+    mostrar_modal_tipo: bool = False
     mostrar_modal_confirmar_eliminar: bool = False
     es_edicion: bool = False
 
@@ -71,8 +71,8 @@ class AreasServicioState(BaseState):
     def set_form_descripcion(self, value: str):
         self.form_descripcion = value
 
-    def set_mostrar_modal_area(self, value: bool):
-        self.mostrar_modal_area = value
+    def set_mostrar_modal_tipo(self, value: bool):
+        self.mostrar_modal_tipo = value
 
     def set_mostrar_modal_confirmar_eliminar(self, value: bool):
         self.mostrar_modal_confirmar_eliminar = value
@@ -116,84 +116,89 @@ class AreasServicioState(BaseState):
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
-    async def cargar_areas(self):
-        """Cargar la lista de áreas de servicio"""
+    async def cargar_tipos(self):
+        """Cargar la lista de tipos de servicio"""
         self.loading = True
         try:
-            # Obtener áreas según filtros
-            areas = await area_servicio_service.obtener_todas(
+            # Obtener tipos según filtros
+            tipos = await tipo_servicio_service.obtener_todas(
                 incluir_inactivas=self.incluir_inactivas
             )
 
             # Filtrar por búsqueda si hay término
             if self.filtro_busqueda:
                 termino = self.filtro_busqueda.upper()
-                areas = [
-                    a for a in areas
-                    if termino in a.clave.upper() or termino in a.nombre.upper()
+                tipos = [
+                    t for t in tipos
+                    if termino in t.clave.upper() or termino in t.nombre.upper()
                 ]
 
             # Convertir a dict para Reflex
-            self.areas = [area.model_dump() for area in areas]
-            self.total_areas = len(self.areas)
+            self.tipos = [tipo.model_dump() for tipo in tipos]
+            self.total_tipos = len(self.tipos)
 
         except DatabaseError as e:
-            self.mostrar_mensaje(f"Error al cargar áreas: {str(e)}", "error")
-            self.areas = []
+            self.mostrar_mensaje(f"Error al cargar tipos: {str(e)}", "error")
+            self.tipos = []
         except Exception as e:
             self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
-            self.areas = []
+            self.tipos = []
         finally:
             self.loading = False
 
-    async def buscar_areas(self):
-        """Buscar áreas con el filtro actual"""
-        await self.cargar_areas()
+    async def buscar_tipos(self):
+        """Buscar tipos con el filtro actual"""
+        await self.cargar_tipos()
+
+    def handle_key_down(self, key: str):
+        """Manejar tecla presionada en búsqueda"""
+        if key == "Enter":
+            return TipoServicioState.buscar_tipos
 
     def toggle_inactivas(self):
         """Alternar mostrar/ocultar inactivas y recargar"""
         self.incluir_inactivas = not self.incluir_inactivas
-        return AreasServicioState.cargar_areas
+        return TipoServicioState.cargar_tipos
 
     # ========================
     # OPERACIONES CRUD
     # ========================
     def abrir_modal_crear(self):
-        """Abrir modal para crear nueva área"""
+        """Abrir modal para crear nuevo tipo"""
         self._limpiar_formulario()
         self.es_edicion = False
-        self.mostrar_modal_area = True
+        self.mostrar_modal_tipo = True
 
-    def abrir_modal_editar(self, area: dict):
-        """Abrir modal para editar área existente"""
+    def abrir_modal_editar(self, tipo: dict):
+        """Abrir modal para editar tipo existente"""
         self._limpiar_formulario()
         self.es_edicion = True
-        self.area_seleccionada = area
-        
-        # Cargar datos en el formulario
-        self.form_clave = area.get("clave", "")
-        self.form_nombre = area.get("nombre", "")
-        self.form_descripcion = area.get("descripcion", "") or ""
-        
-        self.mostrar_modal_area = True
+        self.tipo_seleccionado = tipo
 
-    def cerrar_modal_area(self):
+        # Cargar datos en el formulario
+        self.form_clave = tipo.get("clave", "")
+        self.form_nombre = tipo.get("nombre", "")
+        self.form_descripcion = tipo.get("descripcion", "") or ""
+
+        self.mostrar_modal_tipo = True
+
+    def cerrar_modal_tipo(self):
         """Cerrar modal de crear/editar"""
-        self.mostrar_modal_area = False
+        self.mostrar_modal_tipo = False
         self._limpiar_formulario()
 
-    def abrir_confirmar_eliminar(self, area: dict):
+    def abrir_confirmar_eliminar(self, tipo: dict):
         """Abrir modal de confirmación para eliminar"""
-        self.area_seleccionada = area
+        self.tipo_seleccionado = tipo
         self.mostrar_modal_confirmar_eliminar = True
 
     def cerrar_confirmar_eliminar(self):
         """Cerrar modal de confirmación"""
         self.mostrar_modal_confirmar_eliminar = False
-        self.area_seleccionada = None
+        self.tipo_seleccionado = None
 
-    async def guardar_area(self):
-        """Guardar área (crear o actualizar)"""
+    async def guardar_tipo(self):
+        """Guardar tipo (crear o actualizar)"""
         # Validar campos
         self.validar_todos_los_campos()
         if self.tiene_errores_formulario:
@@ -202,13 +207,13 @@ class AreasServicioState(BaseState):
         self.saving = True
         try:
             if self.es_edicion:
-                await self._actualizar_area()
+                await self._actualizar_tipo()
             else:
-                await self._crear_area()
+                await self._crear_tipo()
 
             # Cerrar modal y recargar
-            self.cerrar_modal_area()
-            await self.cargar_areas()
+            self.cerrar_modal_tipo()
+            await self.cargar_tipos()
 
         except DuplicateError as e:
             self.error_clave = f"La clave '{self.form_clave}' ya existe"
@@ -221,58 +226,58 @@ class AreasServicioState(BaseState):
         finally:
             self.saving = False
 
-    async def _crear_area(self):
-        """Crear nueva área"""
-        area_create = AreaServicioCreate(
+    async def _crear_tipo(self):
+        """Crear nuevo tipo"""
+        tipo_create = TipoServicioCreate(
             clave=self.form_clave.strip().upper(),
             nombre=self.form_nombre.strip().upper(),
             descripcion=self.form_descripcion.strip() if self.form_descripcion else None
         )
-        
-        await area_servicio_service.crear(area_create)
-        
+
+        await tipo_servicio_service.crear(tipo_create)
+
         return rx.toast.success(
-            f"Área '{area_create.nombre}' creada exitosamente",
+            f"Tipo '{tipo_create.nombre}' creado exitosamente",
             position="top-center",
             duration=3000
         )
 
-    async def _actualizar_area(self):
-        """Actualizar área existente"""
-        if not self.area_seleccionada:
+    async def _actualizar_tipo(self):
+        """Actualizar tipo existente"""
+        if not self.tipo_seleccionado:
             return
 
-        area_update = AreaServicioUpdate(
+        tipo_update = TipoServicioUpdate(
             clave=self.form_clave.strip().upper(),
             nombre=self.form_nombre.strip().upper(),
             descripcion=self.form_descripcion.strip() if self.form_descripcion else None
         )
 
-        await area_servicio_service.actualizar(
-            self.area_seleccionada["id"],
-            area_update
+        await tipo_servicio_service.actualizar(
+            self.tipo_seleccionado["id"],
+            tipo_update
         )
 
         return rx.toast.success(
-            f"Área '{area_update.nombre}' actualizada exitosamente",
+            f"Tipo '{tipo_update.nombre}' actualizado exitosamente",
             position="top-center",
             duration=3000
         )
 
-    async def eliminar_area(self):
-        """Eliminar (desactivar) área seleccionada"""
-        if not self.area_seleccionada:
+    async def eliminar_tipo(self):
+        """Eliminar (desactivar) tipo seleccionado"""
+        if not self.tipo_seleccionado:
             return
 
         self.saving = True
         try:
-            await area_servicio_service.eliminar(self.area_seleccionada["id"])
-            
+            await tipo_servicio_service.eliminar(self.tipo_seleccionado["id"])
+
             self.cerrar_confirmar_eliminar()
-            await self.cargar_areas()
+            await self.cargar_tipos()
 
             return rx.toast.success(
-                f"Área '{self.area_seleccionada['nombre']}' eliminada",
+                f"Tipo '{self.tipo_seleccionado['nombre']}' eliminado",
                 position="top-center",
                 duration=3000
             )
@@ -289,14 +294,14 @@ class AreasServicioState(BaseState):
             self.saving = False
             self.cerrar_confirmar_eliminar()
 
-    async def activar_area(self, area: dict):
-        """Activar un área inactiva"""
+    async def activar_tipo(self, tipo: dict):
+        """Activar un tipo inactivo"""
         try:
-            await area_servicio_service.activar(area["id"])
-            await self.cargar_areas()
+            await tipo_servicio_service.activar(tipo["id"])
+            await self.cargar_tipos()
 
             return rx.toast.success(
-                f"Área '{area['nombre']}' activada",
+                f"Tipo '{tipo['nombre']}' activado",
                 position="top-center",
                 duration=3000
             )
@@ -317,5 +322,5 @@ class AreasServicioState(BaseState):
         self.error_clave = ""
         self.error_nombre = ""
         self.error_descripcion = ""
-        self.area_seleccionada = None
+        self.tipo_seleccionado = None
         self.es_edicion = False

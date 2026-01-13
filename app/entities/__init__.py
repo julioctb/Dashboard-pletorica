@@ -15,12 +15,12 @@ from app.entities.empresa import (
     EstatusEmpresa,
 )
 
-# Área de Servicio
-from app.entities.area_servicio import (
-    AreaServicio,
-    AreaServicioCreate,
-    AreaServicioUpdate,
-    EstatusAreaServicio,
+# Tipo de Servicio
+from app.entities.tipo_servicio import (
+    TipoServicio,
+    TipoServicioCreate,
+    TipoServicioUpdate,
+    EstatusTipoServicio,
 )
 
 # Costo Patronal (si existe)
@@ -42,11 +42,11 @@ __all__ = [
     "EmpresaResumen",
     "TipoEmpresa",
     "EstatusEmpresa",
-    # Área de Servicio
-    "AreaServicio",
-    "AreaServicioCreate",
-    "AreaServicioUpdate",
-    "EstatusAreaServicio",
+    # Tipo de Servicio
+    "TipoServicio",
+    "TipoServicioCreate",
+    "TipoServicioUpdate",
+    "EstatusTipoServicio",
     # Costo Patronal
     "ConfiguracionEmpresa",
     "Trabajador",

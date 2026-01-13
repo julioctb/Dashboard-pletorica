@@ -1,8 +1,8 @@
 """
-Componentes de modal para Áreas de Servicio.
+Componentes de modal para Tipos de Servicio.
 """
 import reflex as rx
-from app.presentation.pages.areas_servicio.areas_servicio_state import AreasServicioState
+from app.presentation.pages.tipo_servicio.tipo_servicio_state import TipoServicioState
 
 
 def form_input(
@@ -68,15 +68,15 @@ def form_textarea(
     )
 
 
-def modal_area_servicio() -> rx.Component:
-    """Modal para crear o editar área de servicio"""
+def modal_tipo_servicio() -> rx.Component:
+    """Modal para crear o editar tipo de servicio"""
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title(
                 rx.cond(
-                    AreasServicioState.es_edicion,
-                    "Editar Área de Servicio",
-                    "Nueva Área de Servicio"
+                    TipoServicioState.es_edicion,
+                    "Editar Tipo de Servicio",
+                    "Nuevo Tipo de Servicio"
                 )
             ),
             rx.dialog.description(
@@ -86,10 +86,10 @@ def modal_area_servicio() -> rx.Component:
                         rx.text("Clave *", size="2", weight="medium"),
                         form_input(
                             placeholder="Ej: JAR, LIM, MTO",
-                            value=AreasServicioState.form_clave,
-                            on_change=AreasServicioState.set_form_clave,
-                            on_blur=AreasServicioState.validar_clave_campo,
-                            error=AreasServicioState.error_clave,
+                            value=TipoServicioState.form_clave,
+                            on_change=TipoServicioState.set_form_clave,
+                            on_blur=TipoServicioState.validar_clave_campo,
+                            error=TipoServicioState.error_clave,
                             max_length=5,
                         ),
                         rx.text(
@@ -107,10 +107,10 @@ def modal_area_servicio() -> rx.Component:
                         rx.text("Nombre *", size="2", weight="medium"),
                         form_input(
                             placeholder="Ej: JARDINERÍA",
-                            value=AreasServicioState.form_nombre,
-                            on_change=AreasServicioState.set_form_nombre,
-                            on_blur=AreasServicioState.validar_nombre_campo,
-                            error=AreasServicioState.error_nombre,
+                            value=TipoServicioState.form_nombre,
+                            on_change=TipoServicioState.set_form_nombre,
+                            on_blur=TipoServicioState.validar_nombre_campo,
+                            error=TipoServicioState.error_nombre,
                             max_length=50,
                         ),
                         spacing="1",
@@ -122,11 +122,11 @@ def modal_area_servicio() -> rx.Component:
                     rx.vstack(
                         rx.text("Descripción", size="2", weight="medium"),
                         form_textarea(
-                            placeholder="Descripción del área de servicio (opcional)",
-                            value=AreasServicioState.form_descripcion,
-                            on_change=AreasServicioState.set_form_descripcion,
-                            on_blur=AreasServicioState.validar_descripcion_campo,
-                            error=AreasServicioState.error_descripcion,
+                            placeholder="Descripción del tipo de servicio (opcional)",
+                            value=TipoServicioState.form_descripcion,
+                            on_change=TipoServicioState.set_form_descripcion,
+                            on_blur=TipoServicioState.validar_descripcion_campo,
+                            error=TipoServicioState.error_descripcion,
                             max_length=500,
                         ),
                         spacing="1",
@@ -147,12 +147,12 @@ def modal_area_servicio() -> rx.Component:
                         "Cancelar",
                         variant="soft",
                         color_scheme="gray",
-                        on_click=AreasServicioState.cerrar_modal_area,
+                        on_click=TipoServicioState.cerrar_modal_tipo,
                     ),
                 ),
                 rx.button(
                     rx.cond(
-                        AreasServicioState.saving,
+                        TipoServicioState.saving,
                         rx.hstack(
                             rx.spinner(size="1"),
                             rx.text("Guardando..."),
@@ -160,8 +160,8 @@ def modal_area_servicio() -> rx.Component:
                         ),
                         rx.text("Guardar")
                     ),
-                    on_click=AreasServicioState.guardar_area,
-                    disabled=~AreasServicioState.puede_guardar,
+                    on_click=TipoServicioState.guardar_tipo,
+                    disabled=~TipoServicioState.puede_guardar,
                     color_scheme="blue",
                 ),
                 spacing="3",
@@ -172,31 +172,31 @@ def modal_area_servicio() -> rx.Component:
 
             max_width="450px",
         ),
-        open=AreasServicioState.mostrar_modal_area,
-        on_open_change=AreasServicioState.set_mostrar_modal_area,
+        open=TipoServicioState.mostrar_modal_tipo,
+        on_open_change=TipoServicioState.set_mostrar_modal_tipo,
     )
 
 
 def modal_confirmar_eliminar() -> rx.Component:
-    """Modal de confirmación para eliminar área"""
+    """Modal de confirmación para eliminar tipo"""
     return rx.alert_dialog.root(
         rx.alert_dialog.content(
-            rx.alert_dialog.title("Eliminar Área de Servicio"),
+            rx.alert_dialog.title("Eliminar Tipo de Servicio"),
             rx.alert_dialog.description(
                 rx.vstack(
                     rx.text(
-                        "¿Estás seguro de que deseas eliminar esta área?"
+                        "¿Estás seguro de que deseas eliminar este tipo?"
                     ),
                     rx.cond(
-                        AreasServicioState.area_seleccionada,
+                        TipoServicioState.tipo_seleccionado,
                         rx.callout(
                             rx.text(
                                 rx.text(
-                                    AreasServicioState.area_seleccionada["clave"],
+                                    TipoServicioState.tipo_seleccionado["clave"],
                                     weight="bold"
                                 ),
                                 " - ",
-                                AreasServicioState.area_seleccionada["nombre"],
+                                TipoServicioState.tipo_seleccionado["nombre"],
                             ),
                             icon="info",
                             color_scheme="blue",
@@ -204,7 +204,7 @@ def modal_confirmar_eliminar() -> rx.Component:
                         rx.text("")
                     ),
                     rx.text(
-                        "Esta acción desactivará el área. Podrás reactivarla después.",
+                        "Esta acción desactivará el tipo. Podrás reactivarlo después.",
                         size="2",
                         color="gray"
                     ),
@@ -218,13 +218,13 @@ def modal_confirmar_eliminar() -> rx.Component:
                         "Cancelar",
                         variant="soft",
                         color_scheme="gray",
-                        on_click=AreasServicioState.cerrar_confirmar_eliminar,
+                        on_click=TipoServicioState.cerrar_confirmar_eliminar,
                     ),
                 ),
                 rx.alert_dialog.action(
                     rx.button(
                         rx.cond(
-                            AreasServicioState.saving,
+                            TipoServicioState.saving,
                             rx.hstack(
                                 rx.spinner(size="1"),
                                 rx.text("Eliminando..."),
@@ -233,7 +233,7 @@ def modal_confirmar_eliminar() -> rx.Component:
                             rx.text("Eliminar")
                         ),
                         color_scheme="red",
-                        on_click=AreasServicioState.eliminar_area,
+                        on_click=TipoServicioState.eliminar_tipo,
                     ),
                 ),
                 spacing="3",
@@ -243,6 +243,6 @@ def modal_confirmar_eliminar() -> rx.Component:
             ),
             max_width="400px",
         ),
-        open=AreasServicioState.mostrar_modal_confirmar_eliminar,
-        on_open_change=AreasServicioState.set_mostrar_modal_confirmar_eliminar,
+        open=TipoServicioState.mostrar_modal_confirmar_eliminar,
+        on_open_change=TipoServicioState.set_mostrar_modal_confirmar_eliminar,
     )

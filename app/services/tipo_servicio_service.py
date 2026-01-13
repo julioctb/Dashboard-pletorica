@@ -1,5 +1,5 @@
 """
-Servicio de aplicación para gestión de Áreas de Servicio.
+Servicio de aplicación para gestión de Tipos de Servicio.
 
 Patrón de manejo de errores:
 - Las excepciones del repository se propagan (NotFoundError, DuplicateError, DatabaseError)
@@ -10,20 +10,20 @@ import logging
 from typing import List, Optional
 
 from app.entities import (
-    AreaServicio,
-    AreaServicioCreate,
-    AreaServicioUpdate,
-    EstatusAreaServicio,
+    TipoServicio,
+    TipoServicioCreate,
+    TipoServicioUpdate,
+    EstatusTipoServicio,
 )
-from app.repositories import SupabaseAreaServicioRepository
+from app.repositories import SupabaseTipoServicioRepository
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
 
 logger = logging.getLogger(__name__)
 
 
-class AreaServicioService:
+class TipoServicioService:
     """
-    Servicio de aplicación para áreas de servicio.
+    Servicio de aplicación para tipos de servicio.
     Orquesta las operaciones de negocio.
     """
 
@@ -35,38 +35,38 @@ class AreaServicioService:
             repository: Implementación del repository. Si es None, usa Supabase por defecto.
         """
         if repository is None:
-            repository = SupabaseAreaServicioRepository()
+            repository = SupabaseTipoServicioRepository()
         self.repository = repository
 
     # ==========================================
     # OPERACIONES DE LECTURA
     # ==========================================
 
-    async def obtener_por_id(self, area_id: int) -> AreaServicio:
+    async def obtener_por_id(self, tipo_id: int) -> TipoServicio:
         """
-        Obtiene un área de servicio por su ID.
+        Obtiene un tipo de servicio por su ID.
 
         Args:
-            area_id: ID del área
+            tipo_id: ID del tipo
 
         Returns:
-            AreaServicio encontrada
+            TipoServicio encontrado
 
         Raises:
-            NotFoundError: Si el área no existe
+            NotFoundError: Si el tipo no existe
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_id(area_id)
+        return await self.repository.obtener_por_id(tipo_id)
 
-    async def obtener_por_clave(self, clave: str) -> Optional[AreaServicio]:
+    async def obtener_por_clave(self, clave: str) -> Optional[TipoServicio]:
         """
-        Obtiene un área de servicio por su clave.
+        Obtiene un tipo de servicio por su clave.
 
         Args:
-            clave: Clave del área (ej: "JAR", "LIM")
+            clave: Clave del tipo (ej: "JAR", "LIM")
 
         Returns:
-            AreaServicio si existe, None si no
+            TipoServicio si existe, None si no
 
         Raises:
             DatabaseError: Si hay error de BD
@@ -78,64 +78,64 @@ class AreaServicioService:
         incluir_inactivas: bool = False,
         limite: Optional[int] = None,
         offset: int = 0
-    ) -> List[AreaServicio]:
+    ) -> List[TipoServicio]:
         """
-        Obtiene todas las áreas de servicio con paginación.
+        Obtiene todos los tipos de servicio con paginación.
 
         Args:
-            incluir_inactivas: Si True, incluye áreas inactivas
+            incluir_inactivas: Si True, incluye tipos inactivos
             limite: Número máximo de resultados (None = 100 por defecto)
             offset: Número de registros a saltar
 
         Returns:
-            Lista de áreas (vacía si no hay resultados)
+            Lista de tipos (vacía si no hay resultados)
 
         Raises:
             DatabaseError: Si hay error de BD
         """
         return await self.repository.obtener_todas(incluir_inactivas, limite, offset)
 
-    async def obtener_activas(self) -> List[AreaServicio]:
+    async def obtener_activas(self) -> List[TipoServicio]:
         """
-        Obtiene todas las áreas de servicio activas.
+        Obtiene todos los tipos de servicio activos.
         Método de conveniencia para selects/dropdowns.
 
         Returns:
-            Lista de áreas activas ordenadas por nombre
+            Lista de tipos activos ordenados por nombre
 
         Raises:
             DatabaseError: Si hay error de BD
         """
         return await self.repository.obtener_todas(incluir_inactivas=False)
 
-    async def buscar(self, termino: str, limite: int = 10) -> List[AreaServicio]:
+    async def buscar(self, termino: str, limite: int = 10) -> List[TipoServicio]:
         """
-        Busca áreas por nombre o clave.
+        Busca tipos por nombre o clave.
 
         Args:
             termino: Término de búsqueda (mínimo 1 caracter)
             limite: Número máximo de resultados
 
         Returns:
-            Lista de áreas que coinciden
+            Lista de tipos que coinciden
 
         Raises:
             DatabaseError: Si hay error de BD
         """
         if not termino or len(termino.strip()) < 1:
             return []
-        
+
         return await self.repository.buscar_por_texto(termino.strip(), limite)
 
     async def contar(self, incluir_inactivas: bool = False) -> int:
         """
-        Cuenta el total de áreas de servicio.
+        Cuenta el total de tipos de servicio.
 
         Args:
-            incluir_inactivas: Si True, cuenta también las inactivas
+            incluir_inactivas: Si True, cuenta también los inactivos
 
         Returns:
-            Número total de áreas
+            Número total de tipos
 
         Raises:
             DatabaseError: Si hay error de BD
@@ -146,127 +146,127 @@ class AreaServicioService:
     # OPERACIONES DE ESCRITURA
     # ==========================================
 
-    async def crear(self, area_create: AreaServicioCreate) -> AreaServicio:
+    async def crear(self, tipo_create: TipoServicioCreate) -> TipoServicio:
         """
-        Crea una nueva área de servicio.
+        Crea un nuevo tipo de servicio.
 
         Args:
-            area_create: Datos del área a crear
+            tipo_create: Datos del tipo a crear
 
         Returns:
-            AreaServicio creada con ID asignado
+            TipoServicio creado con ID asignado
 
         Raises:
             DuplicateError: Si la clave ya existe
             DatabaseError: Si hay error de BD
         """
-        # Convertir AreaServicioCreate a AreaServicio
-        area = AreaServicio(**area_create.model_dump())
+        # Convertir TipoServicioCreate a TipoServicio
+        tipo = TipoServicio(**tipo_create.model_dump())
 
-        logger.info(f"Creando área de servicio: {area.clave} - {area.nombre}")
+        logger.info(f"Creando tipo de servicio: {tipo.clave} - {tipo.nombre}")
 
         # Delegar al repository (propaga DuplicateError o DatabaseError)
-        return await self.repository.crear(area)
+        return await self.repository.crear(tipo)
 
-    async def actualizar(self, area_id: int, area_update: AreaServicioUpdate) -> AreaServicio:
+    async def actualizar(self, tipo_id: int, tipo_update: TipoServicioUpdate) -> TipoServicio:
         """
-        Actualiza un área de servicio existente.
+        Actualiza un tipo de servicio existente.
 
         Args:
-            area_id: ID del área a actualizar
-            area_update: Datos a actualizar (solo campos con valor)
+            tipo_id: ID del tipo a actualizar
+            tipo_update: Datos a actualizar (solo campos con valor)
 
         Returns:
-            AreaServicio actualizada
+            TipoServicio actualizado
 
         Raises:
-            NotFoundError: Si el área no existe
+            NotFoundError: Si el tipo no existe
             DuplicateError: Si la nueva clave ya existe
             DatabaseError: Si hay error de BD
         """
-        # Obtener área actual
-        area_actual = await self.repository.obtener_por_id(area_id)
+        # Obtener tipo actual
+        tipo_actual = await self.repository.obtener_por_id(tipo_id)
 
         # Aplicar cambios (solo campos que vienen en el update)
-        datos_actualizados = area_update.model_dump(exclude_unset=True)
-        
+        datos_actualizados = tipo_update.model_dump(exclude_unset=True)
+
         for campo, valor in datos_actualizados.items():
             if valor is not None:
-                setattr(area_actual, campo, valor)
+                setattr(tipo_actual, campo, valor)
 
-        logger.info(f"Actualizando área de servicio ID {area_id}")
+        logger.info(f"Actualizando tipo de servicio ID {tipo_id}")
 
         # Delegar al repository
-        return await self.repository.actualizar(area_actual)
+        return await self.repository.actualizar(tipo_actual)
 
-    async def eliminar(self, area_id: int) -> bool:
+    async def eliminar(self, tipo_id: int) -> bool:
         """
-        Elimina (desactiva) un área de servicio.
+        Elimina (desactiva) un tipo de servicio.
 
         Reglas de negocio:
         - No se puede eliminar si tiene contratos activos asociados
         - (Se implementará cuando exista el módulo de contratos)
 
         Args:
-            area_id: ID del área a eliminar
+            tipo_id: ID del tipo a eliminar
 
         Returns:
             True si se eliminó correctamente
 
         Raises:
-            NotFoundError: Si el área no existe
+            NotFoundError: Si el tipo no existe
             BusinessRuleError: Si tiene contratos activos
             DatabaseError: Si hay error de BD
         """
-        # Obtener área para validar que existe
-        area = await self.repository.obtener_por_id(area_id)
+        # Obtener tipo para validar que existe
+        tipo = await self.repository.obtener_por_id(tipo_id)
 
         # Validar reglas de negocio
-        await self._validar_puede_eliminar(area)
+        await self._validar_puede_eliminar(tipo)
 
-        logger.info(f"Eliminando (desactivando) área de servicio: {area.clave}")
+        logger.info(f"Eliminando (desactivando) tipo de servicio: {tipo.clave}")
 
-        return await self.repository.eliminar(area_id)
+        return await self.repository.eliminar(tipo_id)
 
-    async def activar(self, area_id: int) -> AreaServicio:
+    async def activar(self, tipo_id: int) -> TipoServicio:
         """
-        Activa un área de servicio que estaba inactiva.
+        Activa un tipo de servicio que estaba inactivo.
 
         Args:
-            area_id: ID del área a activar
+            tipo_id: ID del tipo a activar
 
         Returns:
-            AreaServicio activada
+            TipoServicio activado
 
         Raises:
-            NotFoundError: Si el área no existe
-            BusinessRuleError: Si ya está activa
+            NotFoundError: Si el tipo no existe
+            BusinessRuleError: Si ya está activo
             DatabaseError: Si hay error de BD
         """
-        area = await self.repository.obtener_por_id(area_id)
+        tipo = await self.repository.obtener_por_id(tipo_id)
 
-        if area.estatus == EstatusAreaServicio.ACTIVO:
-            raise BusinessRuleError("El área ya está activa")
+        if tipo.estatus == EstatusTipoServicio.ACTIVO:
+            raise BusinessRuleError("El tipo ya está activo")
 
-        area.estatus = EstatusAreaServicio.ACTIVO
+        tipo.estatus = EstatusTipoServicio.ACTIVO
 
-        logger.info(f"Activando área de servicio: {area.clave}")
+        logger.info(f"Activando tipo de servicio: {tipo.clave}")
 
-        return await self.repository.actualizar(area)
+        return await self.repository.actualizar(tipo)
 
     # ==========================================
     # VALIDACIONES DE NEGOCIO (privadas)
     # ==========================================
 
-    async def _validar_puede_eliminar(self, area: AreaServicio) -> None:
+    async def _validar_puede_eliminar(self, tipo: TipoServicio) -> None:
         """
-        Valida si un área puede ser eliminada.
+        Valida si un tipo puede ser eliminado.
 
         Reglas:
         - No debe tener contratos activos asociados
 
         Args:
-            area: Área a validar
+            tipo: Tipo a validar
 
         Raises:
             BusinessRuleError: Si no cumple las reglas
@@ -274,10 +274,10 @@ class AreaServicioService:
         # TODO: Cuando exista el módulo de contratos, descomentar:
         # from app.repositories import SupabaseContratoRepository
         # contrato_repo = SupabaseContratoRepository()
-        # contratos = await contrato_repo.contar_por_area(area.id, solo_activos=True)
+        # contratos = await contrato_repo.contar_por_tipo(tipo.id, solo_activos=True)
         # if contratos > 0:
         #     raise BusinessRuleError(
-        #         f"No se puede eliminar el área '{area.nombre}' porque tiene {contratos} contrato(s) activo(s)"
+        #         f"No se puede eliminar el tipo '{tipo.nombre}' porque tiene {contratos} contrato(s) activo(s)"
         #     )
         pass
 
@@ -300,4 +300,4 @@ class AreaServicioService:
 # ==========================================
 
 # Instancia global del servicio para uso en toda la aplicación
-area_servicio_service = AreaServicioService()
+tipo_servicio_service = TipoServicioService()

@@ -1,7 +1,7 @@
 """
-Entidades de dominio para Áreas de Servicio.
+Entidades de dominio para Tipos de Servicio.
 
-Las áreas de servicio son un catálogo global que define los tipos
+Los tipos de servicio son un catálogo global que define los tipos
 de servicio que se pueden ofrecer: Jardinería, Limpieza, Mantenimiento, etc.
 
 No dependen de empresa - todas las empresas usan el mismo catálogo.
@@ -17,19 +17,19 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 CLAVE_PATTERN = r'^[A-Z]{2,5}$'
 
 
-class EstatusAreaServicio(str, Enum):
-    """Estados posibles de un área de servicio"""
+class EstatusTipoServicio(str, Enum):
+    """Estados posibles de un tipo de servicio"""
     ACTIVO = 'ACTIVO'
     INACTIVO = 'INACTIVO'
 
 
-class AreaServicio(BaseModel):
+class TipoServicio(BaseModel):
     """
-    Entidad principal de Área de Servicio.
-    
+    Entidad principal de Tipo de Servicio.
+
     Representa un tipo de servicio que las empresas pueden ofrecer.
     Es un catálogo global compartido por todas las empresas.
-    
+
     Ejemplos:
         - JAR: Jardinería
         - LIM: Limpieza
@@ -53,23 +53,23 @@ class AreaServicio(BaseModel):
         min_length=2,
         max_length=5,
         pattern=CLAVE_PATTERN,
-        description="Clave única del área (2-5 letras mayúsculas)"
+        description="Clave única del tipo (2-5 letras mayúsculas)"
     )
     nombre: str = Field(
         min_length=2,
         max_length=50,
-        description="Nombre del área de servicio"
+        description="Nombre del tipo de servicio"
     )
     descripcion: Optional[str] = Field(
         None,
         max_length=500,
-        description="Descripción detallada del área"
+        description="Descripción detallada del tipo"
     )
 
     # Control de estado
-    estatus: EstatusAreaServicio = Field(
-        default=EstatusAreaServicio.ACTIVO,
-        description="Estado actual del área"
+    estatus: EstatusTipoServicio = Field(
+        default=EstatusTipoServicio.ACTIVO,
+        description="Estado actual del tipo"
     )
 
     # Auditoría
@@ -83,7 +83,7 @@ class AreaServicio(BaseModel):
     @field_validator('clave')
     @classmethod
     def validar_clave(cls, v: str) -> str:
-        """Valida y normaliza la clave del área"""
+        """Valida y normaliza la clave del tipo"""
         if v:
             v = v.upper().strip()
             if not re.match(CLAVE_PATTERN, v):
@@ -106,31 +106,31 @@ class AreaServicio(BaseModel):
 
     # Métodos de negocio
     def esta_activo(self) -> bool:
-        """Verifica si el área está activa"""
-        return self.estatus == EstatusAreaServicio.ACTIVO
+        """Verifica si el tipo está activo"""
+        return self.estatus == EstatusTipoServicio.ACTIVO
 
     def puede_usarse_en_contratos(self) -> bool:
-        """Verifica si el área puede usarse en nuevos contratos"""
+        """Verifica si el tipo puede usarse en nuevos contratos"""
         return self.esta_activo()
 
     def desactivar(self) -> None:
-        """Desactiva el área de servicio"""
-        if self.estatus == EstatusAreaServicio.INACTIVO:
-            raise ValueError("El área ya está inactiva")
-        self.estatus = EstatusAreaServicio.INACTIVO
+        """Desactiva el tipo de servicio"""
+        if self.estatus == EstatusTipoServicio.INACTIVO:
+            raise ValueError("El tipo ya está inactivo")
+        self.estatus = EstatusTipoServicio.INACTIVO
 
     def activar(self) -> None:
-        """Activa el área de servicio"""
-        if self.estatus == EstatusAreaServicio.ACTIVO:
-            raise ValueError("El área ya está activa")
-        self.estatus = EstatusAreaServicio.ACTIVO
+        """Activa el tipo de servicio"""
+        if self.estatus == EstatusTipoServicio.ACTIVO:
+            raise ValueError("El tipo ya está activo")
+        self.estatus = EstatusTipoServicio.ACTIVO
 
     def __str__(self) -> str:
         return f"{self.clave} - {self.nombre}"
 
 
-class AreaServicioCreate(BaseModel):
-    """Modelo para crear una nueva área de servicio"""
+class TipoServicioCreate(BaseModel):
+    """Modelo para crear un nuevo tipo de servicio"""
 
     model_config = ConfigDict(
         use_enum_values=True,
@@ -141,7 +141,7 @@ class AreaServicioCreate(BaseModel):
     clave: str = Field(min_length=2, max_length=5)
     nombre: str = Field(min_length=2, max_length=50)
     descripcion: Optional[str] = Field(None, max_length=500)
-    estatus: EstatusAreaServicio = Field(default=EstatusAreaServicio.ACTIVO)
+    estatus: EstatusTipoServicio = Field(default=EstatusTipoServicio.ACTIVO)
 
     @field_validator('clave')
     @classmethod
@@ -162,8 +162,8 @@ class AreaServicioCreate(BaseModel):
         return v
 
 
-class AreaServicioUpdate(BaseModel):
-    """Modelo para actualizar un área de servicio existente (campos opcionales)"""
+class TipoServicioUpdate(BaseModel):
+    """Modelo para actualizar un tipo de servicio existente (campos opcionales)"""
 
     model_config = ConfigDict(
         use_enum_values=True,
@@ -174,7 +174,7 @@ class AreaServicioUpdate(BaseModel):
     clave: Optional[str] = Field(None, min_length=2, max_length=5)
     nombre: Optional[str] = Field(None, min_length=2, max_length=50)
     descripcion: Optional[str] = Field(None, max_length=500)
-    estatus: Optional[EstatusAreaServicio] = None
+    estatus: Optional[EstatusTipoServicio] = None
 
     @field_validator('clave')
     @classmethod
