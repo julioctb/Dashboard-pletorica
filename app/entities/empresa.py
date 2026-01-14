@@ -133,12 +133,12 @@ class Empresa(BaseModel):
     )
 
     codigo_corto: Optional[str] = Field(
-    None,
-    min_length=3,
-    max_length=3,
-    pattern=r'^[A-Z0-9]{3}$',
-    description="Código único de 3 caracteres (autogenerado)"
-)
+        None,
+        min_length=3,
+        max_length=3,
+        pattern=r'^[A-Z0-9]{3}$',
+        description="Código único de 3 caracteres (autogenerado, inmutable)"
+    )
 
     # Control de estado
     estatus: EstatusEmpresa = Field(
@@ -373,6 +373,7 @@ class EmpresaResumen(BaseModel):
     )
 
     id: int
+    codigo_corto: str  # Código único de 3 caracteres
     nombre_comercial: str
     razon_social: str  # Agregado para mostrar en subtítulo
     tipo_empresa: TipoEmpresa
@@ -380,20 +381,21 @@ class EmpresaResumen(BaseModel):
     contacto_principal: Optional[str]  # Teléfono
     email: Optional[str]  # Agregado para mostrar en tarjeta
     fecha_creacion: datetime
-    registro_patronal: Optional[str]  # Nuevo
-    tiene_imss: bool  # Nuevo
+    registro_patronal: Optional[str]
+    tiene_imss: bool
 
     @classmethod
     def from_empresa(cls, empresa: Empresa) -> 'EmpresaResumen':
         """Factory method para crear desde una empresa completa"""
         return cls(
             id=empresa.id,
+            codigo_corto=empresa.codigo_corto or "---",  # Fallback para empresas sin código
             nombre_comercial=empresa.nombre_comercial,
             razon_social=empresa.razon_social,
             tipo_empresa=empresa.tipo_empresa,
             estatus=empresa.estatus,
-            contacto_principal=empresa.telefono,  # Teléfono directo
-            email=empresa.email,  # Email directo
+            contacto_principal=empresa.telefono,
+            email=empresa.email,
             fecha_creacion=empresa.fecha_creacion,
             registro_patronal=empresa.registro_patronal,
             tiene_imss=empresa.tiene_datos_imss(),

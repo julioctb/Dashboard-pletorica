@@ -20,6 +20,7 @@ from app.entities import (
 )
 from app.repositories import SupabaseEmpresaRepository
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
+from app.core.utils import generar_candidatos_codigo
 
 logger = logging.getLogger(__name__)
 
@@ -173,21 +174,26 @@ class EmpresaService:
 
     async def crear(self, empresa_create: EmpresaCreate) -> Empresa:
         """
-        Crea una nueva empresa.
+        Crea una nueva empresa con código corto autogenerado.
 
         Args:
             empresa_create: Datos de la empresa a crear
 
         Returns:
-            Empresa creada con ID asignado
+            Empresa creada con ID y codigo_corto asignados
 
         Raises:
             DuplicateError: Si el RFC ya existe
             ValidationError: Si los datos no son válidos
             DatabaseError: Si hay error de BD
         """
-        # Convertir EmpresaCreate a Empresa (puede lanzar ValidationError)
-        empresa = Empresa(**empresa_create.model_dump())
+        # Generar código corto único
+        codigo_corto = await self._generar_codigo_unico(empresa_create.nombre_comercial)
+
+        # Convertir EmpresaCreate a Empresa con código asignado
+        datos = empresa_create.model_dump()
+        datos['codigo_corto'] = codigo_corto
+        empresa = Empresa(**datos)
 
         # Validación de reglas de negocio
         if empresa.tipo_empresa == TipoEmpresa.NOMINA:
@@ -196,6 +202,37 @@ class EmpresaService:
 
         # Delegar al repository (propaga DuplicateError o DatabaseError)
         return await self.repository.crear(empresa)
+
+    async def _generar_codigo_unico(self, nombre_comercial: str) -> str:
+        """
+        Genera un código corto único para la empresa.
+
+        Algoritmo:
+        1. Nivel 1: Primeras 3 letras de primera palabra significativa
+        2. Nivel 2: Iniciales de primeras 3 palabras (estilo RFC)
+        3. Fallback: Base + número incremental (XX2, XX3...)
+
+        Args:
+            nombre_comercial: Nombre comercial de la empresa
+
+        Returns:
+            Código único de 3 caracteres
+
+        Raises:
+            DatabaseError: Si no se puede generar un código único
+        """
+        candidatos = generar_candidatos_codigo(nombre_comercial)
+
+        for codigo in candidatos:
+            if not await self.repository.existe_codigo_corto(codigo):
+                logger.info(f"Código '{codigo}' asignado para '{nombre_comercial}'")
+                return codigo
+
+        # Si llegamos aquí, algo muy raro pasó (>100 colisiones)
+        raise DatabaseError(
+            f"No se pudo generar código único para '{nombre_comercial}' "
+            f"después de {len(candidatos)} intentos"
+        )
 
     async def actualizar(self, empresa_id: int, empresa_update: EmpresaUpdate) -> Empresa:
         """

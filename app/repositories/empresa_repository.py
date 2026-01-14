@@ -64,6 +64,11 @@ class IEmpresaRepository(ABC):
         pass
 
     @abstractmethod
+    async def existe_codigo_corto(self, codigo: str) -> bool:
+        """Verifica si existe un código corto en la base de datos"""
+        pass
+
+    @abstractmethod
     async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[Empresa]:
         """Busca empresas por nombre comercial o razón social en la base de datos"""
         pass
@@ -269,6 +274,26 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
         except Exception as e:
             logger.error(f"Error verificando RFC: {e}")
             return False
+
+    async def existe_codigo_corto(self, codigo: str) -> bool:
+        """
+        Verifica si existe un código corto en la base de datos.
+
+        Args:
+            codigo: Código corto a verificar (3 caracteres)
+
+        Returns:
+            True si el código ya existe, False si está disponible
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('id')\
+                .eq('codigo_corto', codigo.upper())\
+                .execute()
+            return len(result.data) > 0
+        except Exception as e:
+            logger.error(f"Error verificando código corto '{codigo}': {e}")
+            return True  # Por seguridad, asumir que existe si hay error
 
     async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[Empresa]:
         """
