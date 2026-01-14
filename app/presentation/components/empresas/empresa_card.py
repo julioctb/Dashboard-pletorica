@@ -221,7 +221,17 @@ def empresa_card(empresa: EmpresaResumen, on_view: callable, on_edit: callable) 
             # Header de la tarjeta
             rx.hstack(
                 rx.vstack(
-                    rx.text(empresa.nombre_comercial, size="4", weight="bold"),
+                    rx.hstack(
+                        rx.badge(
+                            empresa.codigo_corto,
+                            color_scheme="gray",
+                            variant="surface",
+                            size="1",
+                        ),
+                        rx.text(empresa.nombre_comercial, size="4", weight="bold"),
+                        spacing="2",
+                        align="center",
+                    ),
                     rx.text(empresa.razon_social, size="2", color="var(--gray-9)"),
                     align="start",
                     spacing="1"
