@@ -276,7 +276,18 @@ def modal_detalle_empresa() -> rx.Component:
                     # Información principal
                     rx.card(
                         rx.vstack(
-                            rx.text("Información General", weight="bold", size="4"),
+                            rx.hstack(
+                                rx.text("Información General", weight="bold", size="4"),
+                                rx.spacer(),
+                                rx.badge(
+                                    EmpresasState.empresa_seleccionada.codigo_corto,
+                                    color_scheme="blue",
+                                    size="2",
+                                    variant="solid",
+                                ),
+                                align="center",
+                                width="100%",
+                            ),
                             rx.grid(
                                 rx.vstack(
                                     rx.text("Nombre Comercial:", weight="bold", size="2"),
