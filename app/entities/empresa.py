@@ -3,6 +3,7 @@ Entidades de dominio para Empresas.
 Consolidadas desde múltiples ubicaciones legacy.
 """
 import re
+from decimal import Decimal
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -11,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 # Constantes de validación
 RFC_PATTERN = r'^[A-Z&Ñ]{3,4}[0-9]{6}[A-V1-9][A-Z1-9][0-9A]$'
 EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+REGISTRO_PATRONAL_PATTERN = r'^[A-Z][0-9]{2}-[0-9]{5}-[0-9]{2}-[0-9]$'
 
 
 class TipoEmpresa(str, Enum):
@@ -24,6 +26,30 @@ class EstatusEmpresa(str, Enum):
     ACTIVO = 'ACTIVO'
     INACTIVO = 'INACTIVO'
     SUSPENDIDO = 'SUSPENDIDO'
+
+def formatear_registro_patronal(valor: str) -> str:
+    """
+    Formatea el registro patronal al formato estándar: Y12-34567-10-1
+    
+    Acepta:
+        - Y1234567101 (sin guiones)
+        - Y12-34567-10-1 (con guiones)
+    """
+    # Limpiar: solo letras y números
+    limpio = re.sub(r'[^A-Z0-9]', '', valor.upper())
+    
+    if len(limpio) != 11:
+        raise ValueError(
+            f'Registro patronal debe tener 11 caracteres (tiene {len(limpio)})'
+        )
+    
+    if not re.match(r'^[A-Z][0-9]{10}$', limpio):
+        raise ValueError(
+            'Registro patronal inválido. Debe iniciar con letra seguida de 10 dígitos'
+        )
+    
+    # Formatear: Y12-34567-10-1
+    return f"{limpio[0:3]}-{limpio[3:8]}-{limpio[8:10]}-{limpio[10]}"
 
 
 class Empresa(BaseModel):
@@ -91,6 +117,28 @@ class Empresa(BaseModel):
         max_length=100,
         description="Sitio web de la empresa"
     )
+
+    # Datos IMSS (opcionales)
+    registro_patronal: Optional[str] = Field(
+        None,
+        max_length=15,
+        description="Registro patronal IMSS. Formato: Y12-34567-10-1"
+    )
+    prima_riesgo: Optional[Decimal] = Field(
+        None,
+        ge=Decimal("0.00500"),
+        le=Decimal("0.15000"),
+        decimal_places=5,
+        description="Prima de riesgo de trabajo (0.5% a 15%)"
+    )
+
+    codigo_corto: Optional[str] = Field(
+    None,
+    min_length=3,
+    max_length=3,
+    pattern=r'^[A-Z0-9]{3}$',
+    description="Código único de 3 caracteres (autogenerado)"
+)
 
     # Control de estado
     estatus: EstatusEmpresa = Field(
@@ -162,6 +210,38 @@ class Empresa(BaseModel):
                 raise ValueError(f'Teléfono debe tener 10 dígitos (tiene {len(tel_solo_digitos)})')
 
         return v
+    
+    @field_validator('registro_patronal')
+    @classmethod
+    def validar_registro_patronal(cls, v: Optional[str]) -> Optional[str]:
+        """Valida y formatea el registro patronal IMSS"""
+        if v:
+            return formatear_registro_patronal(v)
+        return v
+
+    @field_validator('prima_riesgo', mode='before')
+    @classmethod
+    def validar_prima_riesgo(cls, v) -> Optional[Decimal]:
+        """
+        Acepta porcentaje (2.598) o decimal (0.02598)
+        """
+        if v is None:
+            return None
+        
+        if isinstance(v, (int, float, str)):
+            v = Decimal(str(v))
+        
+        # Si es mayor a 1, asumimos porcentaje
+        if v > Decimal("1"):
+            v = v / Decimal("100")
+        
+        if v < Decimal("0.00500") or v > Decimal("0.15000"):
+            raise ValueError(
+                f'Prima de riesgo debe estar entre 0.5% y 15%'
+            )
+        
+        return v
+
 
     # Métodos de consulta de tipo
     def es_empresa_nomina(self) -> bool:
@@ -217,6 +297,16 @@ class Empresa(BaseModel):
             raise ValueError("La empresa ya está inactiva")
         self.estatus = EstatusEmpresa.INACTIVO
 
+    def get_prima_riesgo_porcentaje(self) -> Optional[float]:
+        """Retorna la prima de riesgo como porcentaje (ej: 2.598)"""
+        if self.prima_riesgo:
+            return float(self.prima_riesgo * 100)
+        return None
+
+    def tiene_datos_imss(self) -> bool:
+        """Verifica si tiene datos IMSS completos"""
+        return bool(self.registro_patronal and self.prima_riesgo)
+
     # Métodos de representación
     def get_info_completa(self) -> str:
         """Retorna información completa de la empresa"""
@@ -244,6 +334,8 @@ class EmpresaCreate(BaseModel):
     telefono: Optional[str] = Field(None, max_length=15)
     email: Optional[str] = Field(None, max_length=100)
     pagina_web: Optional[str] = Field(None, max_length=100)
+    registro_patronal: Optional[str] = Field(None, max_length=15)
+    prima_riesgo: Optional[Decimal] = Field(None)
     estatus: EstatusEmpresa = Field(default=EstatusEmpresa.ACTIVO)
     notas: Optional[str] = None
 
@@ -266,6 +358,8 @@ class EmpresaUpdate(BaseModel):
     telefono: Optional[str] = Field(None, max_length=15)
     email: Optional[str] = Field(None, max_length=100)
     pagina_web: Optional[str] = Field(None, max_length=100)
+    registro_patronal: Optional[str] = Field(None, max_length=15)
+    prima_riesgo: Optional[Decimal] = Field(None)
     estatus: Optional[EstatusEmpresa] = None
     notas: Optional[str] = None
 
@@ -286,6 +380,8 @@ class EmpresaResumen(BaseModel):
     contacto_principal: Optional[str]  # Teléfono
     email: Optional[str]  # Agregado para mostrar en tarjeta
     fecha_creacion: datetime
+    registro_patronal: Optional[str]  # Nuevo
+    tiene_imss: bool  # Nuevo
 
     @classmethod
     def from_empresa(cls, empresa: Empresa) -> 'EmpresaResumen':
@@ -298,5 +394,7 @@ class EmpresaResumen(BaseModel):
             estatus=empresa.estatus,
             contacto_principal=empresa.telefono,  # Teléfono directo
             email=empresa.email,  # Email directo
-            fecha_creacion=empresa.fecha_creacion
+            fecha_creacion=empresa.fecha_creacion,
+            registro_patronal=empresa.registro_patronal,
+            tiene_imss=empresa.tiene_datos_imss(),
         )

@@ -317,11 +317,16 @@ def desglose_detallado() -> rx.Component:
                         ),
                         fila_tabla_simulador('IMSS Obrero:', SimuladorState.resultado['total_imss_obrero']),
                         fila_tabla_simulador('ISR a retener:', SimuladorState.resultado["isr_a_retener"]),
-                        fila_tabla_simulador('Total Descuentos:', SimuladorState.resultado['total_descuentos_trabajador'],font_weight='bold', color='blue'),
+                        fila_tabla_simulador('Total Descuentos:', SimuladorState.resultado['total_descuentos_trabajador'],font_weight='bold', color='blue')
                     ),
-                    variant= 'surface',  
+                    variant='surface',
                     width='300px',
-                    size='1'              
+                    size='1',
+                    style={
+                        "& tbody tr:nth-child(even)": {
+                            "background_color": "var(--gray-2)"
+                        }
+                    }
                 )
             ),
 
@@ -349,7 +354,7 @@ def simulador_page() -> rx.Component:
                         'Calcular',
                         on_click=SimuladorState.calcular,
                         loading=SimuladorState.is_calculating,
-                        color_scheme='green',
+                        color_scheme='blue',
                         size='3'
                     ),
                     rx.button(
@@ -388,7 +393,8 @@ def fila_tabla_simulador(
     concepto: str,
     importe: str | float,
     font_weight: str = "normal",
-    color: str = None
+    color: str = None,
+   
 ) -> rx.Component:
     """
     Crea una fila de tabla con concepto e importe.

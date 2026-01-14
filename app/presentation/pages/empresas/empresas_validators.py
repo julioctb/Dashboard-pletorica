@@ -202,3 +202,63 @@ def validar_campos_requeridos(nombre_comercial: str, razon_social: str, rfc: str
         return f"Campos obligatorios faltantes: {', '.join(faltantes)}"
 
     return ""
+
+def validar_registro_patronal(valor: str) -> str:
+    """
+    Valida registro patronal IMSS.
+    Formato esperado: Y12-34567-10-1 (11 caracteres sin guiones)
+    
+    Args:
+        valor: Registro patronal a validar
+        
+    Returns:
+        Mensaje de error o string vacío si es válido
+    """
+    if not valor or not valor.strip():
+        return ""  # Campo opcional
+    
+    # Limpiar: quitar guiones, espacios, convertir a mayúsculas
+    limpio = valor.strip().upper().replace("-", "").replace(" ", "")
+    
+    # Validar longitud
+    if len(limpio) != 11:
+        return f"Debe tener 11 caracteres (tiene {len(limpio)})"
+    
+    # Validar formato: letra + 10 dígitos
+    if not limpio[0].isalpha():
+        return "Debe iniciar con una letra"
+    
+    if not limpio[1:].isdigit():
+        return "Después de la letra deben ser 10 dígitos"
+    
+    return ""
+
+
+def validar_prima_riesgo(valor: str) -> str:
+    """
+    Valida prima de riesgo de trabajo.
+    Rango válido: 0.5% a 15%
+    
+    Args:
+        valor: Prima de riesgo a validar (como porcentaje)
+        
+    Returns:
+        Mensaje de error o string vacío si es válido
+    """
+    if not valor or not valor.strip():
+        return ""  # Campo opcional
+    
+    valor_limpio = valor.strip()
+    
+    try:
+        numero = float(valor_limpio)
+    except ValueError:
+        return "Debe ser un número válido (ejemplo: 2.598)"
+    
+    if numero < 0.5:
+        return "Mínimo 0.5%"
+    
+    if numero > 15:
+        return "Máximo 15%"
+    
+    return ""

@@ -96,7 +96,38 @@ def modal_empresa() -> rx.Component:
                 ),
 
                 # ============================================
-                # SECCIÓN 2: INFORMACIÓN DE CONTACTO
+                # SECCIÓN 2: DATOS IMSS
+                # ============================================
+                rx.vstack(
+                    rx.text("Datos IMSS", weight="bold", size="3"),
+
+                    rx.hstack(
+                        form_input(
+                            placeholder="Registro Patronal (ej: Y1234567101)",
+                            value=EmpresasState.form_registro_patronal,
+                            on_change=EmpresasState.set_form_registro_patronal,
+                            on_blur=EmpresasState.validar_registro_patronal_campo,
+                            error=EmpresasState.error_registro_patronal,
+                           
+                        ),
+                        form_input(
+                            placeholder="Prima de Riesgo % (ej: 2.598)",
+                            value=EmpresasState.form_prima_riesgo,
+                            on_change=EmpresasState.set_form_prima_riesgo,
+                            on_blur=EmpresasState.validar_prima_riesgo_campo,
+                            error=EmpresasState.error_prima_riesgo,
+                           
+                        ),
+                        spacing="2",
+                        width="100%"
+                    ),
+
+                    spacing="2",
+                    width="100%"
+                ),
+
+                # ============================================
+                # SECCIÓN 3: INFORMACIÓN DE CONTACTO
                 # ============================================
                 rx.vstack(
                     rx.text("Información de Contacto", weight="bold", size="3"),
@@ -148,7 +179,7 @@ def modal_empresa() -> rx.Component:
                 ),
 
                 # ============================================
-                # SECCIÓN 3: CONTROL Y NOTAS
+                # SECCIÓN 4: CONTROL Y NOTAS
                 # ============================================
                 rx.vstack(
                     rx.text("Control", weight="bold", size="3"),

@@ -1,4 +1,5 @@
 import reflex as rx
+from decimal import Decimal
 from app.presentation.components.shared.base_state import BaseState
 from typing import List
 from app.services import empresa_service
@@ -9,7 +10,7 @@ from app.entities import (
     EmpresaUpdate,
     EmpresaResumen,
     TipoEmpresa,
-    EstatusEmpresa
+    EstatusEmpresa,
 )
 
 from app.core.exceptions import (
@@ -25,7 +26,9 @@ from .empresas_validators import (
     validar_rfc,
     validar_email,
     validar_codigo_postal,
-    validar_telefono
+    validar_telefono, 
+    validar_registro_patronal,
+    validar_prima_riesgo
 )
 
 class EmpresasState(BaseState):
@@ -36,6 +39,7 @@ class EmpresasState(BaseState):
     # ========================
     empresas: List[EmpresaResumen] = []
     empresa_seleccionada: Empresa | None = None
+    empresas_columnas: List[str]= ['Clave','Nombre Comercial','Razon Social', 'RFC']
     
     # ========================
     # FILTROS Y BÚSQUEDA
@@ -66,6 +70,8 @@ class EmpresasState(BaseState):
     form_pagina_web: str = ""
     form_estatus: str = EstatusEmpresa.ACTIVO.value
     form_notas: str = ""
+    form_registro_patronal: str = ""
+    form_prima_riesgo: str = ""
 
     # ========================
     # ERRORES DE VALIDACIÓN DEL FORMULARIO
@@ -76,6 +82,8 @@ class EmpresasState(BaseState):
     error_email: str = ""
     error_codigo_postal: str = ""
     error_telefono: str = ""
+    error_registro_patronal: str = ""
+    error_prima_riesgo: str = ""
 
     # ========================
     # SETTERS EXPLÍCITOS (Reflex v0.8.9+)
@@ -132,6 +140,12 @@ class EmpresasState(BaseState):
     
     def set_form_notas(self, value: str):
         self.form_notas = value
+
+    def set_form_registro_patronal(self, value :str):
+        self.form_registro_patronal = value
+
+    def set_form_prima_riesgo(self,value :str):
+        self.form_prima_riesgo = value
 
     # ========================
     # OPERACIONES PRINCIPALES
@@ -280,6 +294,9 @@ class EmpresasState(BaseState):
             self.form_pagina_web = empresa.pagina_web or ""
             self.form_estatus = str(empresa.estatus)
             self.form_notas = empresa.notas or ""
+            # Datos IMSS
+            self.form_registro_patronal = empresa.registro_patronal or ""
+            self.form_prima_riesgo = str(empresa.get_prima_riesgo_porcentaje()) if empresa.prima_riesgo else ""
 
             self.empresa_seleccionada = empresa
             self.modo_modal_empresa = "editar"
@@ -353,6 +370,14 @@ class EmpresasState(BaseState):
         """Validar teléfono en tiempo real"""
         self.error_telefono = validar_telefono(self.form_telefono)
 
+    def validar_registro_patronal_campo(self):
+        """Validar registro patronal en tiempo real"""
+        self.error_registro_patronal = validar_registro_patronal(self.form_registro_patronal)
+
+    def validar_prima_riesgo_campo(self):
+        """Validar prima de riesgo en tiempo real"""
+        self.error_prima_riesgo = validar_prima_riesgo(self.form_prima_riesgo)
+
     def validar_todos_los_campos(self):
         """Validar todos los campos del formulario (para submit)"""
         self.validar_nombre_comercial_campo()
@@ -361,6 +386,8 @@ class EmpresasState(BaseState):
         self.validar_email_campo()
         self.validar_codigo_postal_campo()
         self.validar_telefono_campo()
+        self.validar_registro_patronal_campo()
+        self.validar_prima_riesgo_campo()    
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
@@ -371,7 +398,9 @@ class EmpresasState(BaseState):
             self.error_rfc or
             self.error_email or
             self.error_codigo_postal or
-            self.error_telefono
+            self.error_telefono or
+            self.error_registro_patronal or  # NUEVO
+            self.error_prima_riesgo          #
         )
 
     @rx.var
@@ -452,6 +481,8 @@ class EmpresasState(BaseState):
         email = self.form_email.strip() or None
         pagina_web = self.form_pagina_web.strip() or None
         notas = self.form_notas.strip() or None
+        registro_patronal = self.form_registro_patronal.strip() or None
+        prima_riesgo = Decimal(self.form_prima_riesgo) if self.form_prima_riesgo.strip() else None
 
         # Datos comunes
         datos_comunes = {
@@ -462,7 +493,9 @@ class EmpresasState(BaseState):
             "email": email,
             "pagina_web": pagina_web,
             "estatus": EstatusEmpresa(self.form_estatus) if self.form_estatus else None,
-            "notas": notas
+            "notas": notas,
+            "registro_patronal": registro_patronal,  # NUEVO
+            "prima_riesgo": prima_riesgo,            # NUEVO
         }
 
         if es_actualizacion:
@@ -500,6 +533,9 @@ class EmpresasState(BaseState):
         self.form_notas = ""
         # Limpiar errores de validación
         self.limpiar_errores_validacion()
+        # Datos IMSS
+        self.form_registro_patronal = ""
+        self.form_prima_riesgo = ""
 
     def limpiar_errores_validacion(self):
         """Limpiar todos los errores de validación del formulario"""
@@ -509,6 +545,8 @@ class EmpresasState(BaseState):
         self.error_email = ""
         self.error_codigo_postal = ""
         self.error_telefono = ""
+        self.error_registro_patronal = ""
+        self.error_prima_riesgo = ""
 
     # ========================
     # MANEJO DE EVENTOS DE TECLADO
