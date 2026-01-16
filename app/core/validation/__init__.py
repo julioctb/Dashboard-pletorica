@@ -1,0 +1,166 @@
+"""
+Módulo de validación centralizado.
+
+Estructura:
+- constants.py: Patrones regex y constantes de longitud
+- field_config.py: Clase FieldConfig para validación declarativa
+- validator_factory.py: crear_validador() + helpers
+- fields_catalog.py: Configuraciones predefinidas de campos
+- custom_validators.py: Validadores complejos (RFC, registro patronal)
+
+Uso básico:
+    from app.core.validation import CAMPO_RFC, crear_validador
+
+    validar_rfc = crear_validador(CAMPO_RFC)
+    error = validar_rfc("XAXX010101AB1")  # "" = válido
+
+Uso de validadores personalizados:
+    from app.core.validation import validar_rfc_detallado
+
+    error = validar_rfc_detallado("ABC")
+    # "RFC debe tener 12 o 13 caracteres (tiene 3)"
+"""
+
+# Clase de configuración
+from .field_config import FieldConfig
+
+# Factory y helpers
+from .validator_factory import (
+    crear_validador,
+    validar_con_config,
+    pydantic_validator,
+    validar_patron,
+    validar_longitud,
+    validar_requerido,
+)
+
+# Validadores personalizados
+from .custom_validators import (
+    validar_rfc_detallado,
+    normalizar_rfc,
+    validar_registro_patronal_detallado,
+    formatear_registro_patronal,
+    limpiar_telefono,
+)
+
+# Catálogo de campos - Empresas
+from .fields_catalog import (
+    CAMPO_NOMBRE_COMERCIAL,
+    CAMPO_RAZON_SOCIAL,
+    CAMPO_RFC,
+    CAMPO_DIRECCION,
+    CAMPO_CODIGO_POSTAL,
+    CAMPO_EMAIL,
+    CAMPO_TELEFONO,
+    CAMPO_PAGINA_WEB,
+    CAMPO_REGISTRO_PATRONAL,
+    CAMPO_PRIMA_RIESGO,
+    CAMPO_NOTAS,
+    # Tipo de Servicio
+    CAMPO_CLAVE_TIPO_SERVICIO,
+    CAMPO_NOMBRE_TIPO_SERVICIO,
+    CAMPO_DESCRIPCION_TIPO_SERVICIO,
+)
+
+# Constantes (re-export para conveniencia)
+from .constants import (
+    # Patrones
+    RFC_PATTERN,
+    RFC_PREFIX_PATTERN,
+    RFC_FECHA_PATTERN,
+    EMAIL_PATTERN,
+    CODIGO_POSTAL_PATTERN,
+    TELEFONO_PATTERN,
+    REGISTRO_PATRONAL_PATTERN,
+    REGISTRO_PATRONAL_LIMPIO_PATTERN,
+    CODIGO_CORTO_PATTERN,
+    CLAVE_TIPO_SERVICIO_PATTERN,
+    # Longitudes - Empresas
+    NOMBRE_COMERCIAL_MIN,
+    NOMBRE_COMERCIAL_MAX,
+    RAZON_SOCIAL_MIN,
+    RAZON_SOCIAL_MAX,
+    RFC_MIN,
+    RFC_MAX,
+    EMAIL_MAX,
+    DIRECCION_MAX,
+    TELEFONO_DIGITOS,
+    TELEFONO_MAX,
+    CODIGO_POSTAL_LEN,
+    CODIGO_CORTO_LEN,
+    REGISTRO_PATRONAL_LEN,
+    REGISTRO_PATRONAL_MAX,
+    PAGINA_WEB_MAX,
+    # Longitudes - Tipo de Servicio
+    CLAVE_TIPO_MIN,
+    CLAVE_TIPO_MAX,
+    NOMBRE_TIPO_MIN,
+    NOMBRE_TIPO_MAX,
+    DESCRIPCION_TIPO_MAX,
+)
+
+__all__ = [
+    # Config
+    "FieldConfig",
+    # Factory y helpers
+    "crear_validador",
+    "validar_con_config",
+    "pydantic_validator",
+    "validar_patron",
+    "validar_longitud",
+    "validar_requerido",
+    # Validadores custom
+    "validar_rfc_detallado",
+    "normalizar_rfc",
+    "validar_registro_patronal_detallado",
+    "formatear_registro_patronal",
+    "limpiar_telefono",
+    # Catálogo - Empresas
+    "CAMPO_NOMBRE_COMERCIAL",
+    "CAMPO_RAZON_SOCIAL",
+    "CAMPO_RFC",
+    "CAMPO_DIRECCION",
+    "CAMPO_CODIGO_POSTAL",
+    "CAMPO_EMAIL",
+    "CAMPO_TELEFONO",
+    "CAMPO_PAGINA_WEB",
+    "CAMPO_REGISTRO_PATRONAL",
+    "CAMPO_PRIMA_RIESGO",
+    "CAMPO_NOTAS",
+    # Catálogo - Tipo de Servicio
+    "CAMPO_CLAVE_TIPO_SERVICIO",
+    "CAMPO_NOMBRE_TIPO_SERVICIO",
+    "CAMPO_DESCRIPCION_TIPO_SERVICIO",
+    # Patrones
+    "RFC_PATTERN",
+    "RFC_PREFIX_PATTERN",
+    "RFC_FECHA_PATTERN",
+    "EMAIL_PATTERN",
+    "CODIGO_POSTAL_PATTERN",
+    "TELEFONO_PATTERN",
+    "REGISTRO_PATRONAL_PATTERN",
+    "REGISTRO_PATRONAL_LIMPIO_PATTERN",
+    "CODIGO_CORTO_PATTERN",
+    "CLAVE_TIPO_SERVICIO_PATTERN",
+    # Longitudes
+    "NOMBRE_COMERCIAL_MIN",
+    "NOMBRE_COMERCIAL_MAX",
+    "RAZON_SOCIAL_MIN",
+    "RAZON_SOCIAL_MAX",
+    "RFC_MIN",
+    "RFC_MAX",
+    "EMAIL_MAX",
+    "DIRECCION_MAX",
+    "TELEFONO_DIGITOS",
+    "TELEFONO_MAX",
+    "CODIGO_POSTAL_LEN",
+    "CODIGO_CORTO_LEN",
+    "REGISTRO_PATRONAL_LEN",
+    "REGISTRO_PATRONAL_MAX",
+    "PAGINA_WEB_MAX",
+    "CLAVE_TIPO_MIN",
+    "CLAVE_TIPO_MAX",
+    "NOMBRE_TIPO_MIN",
+    "NOMBRE_TIPO_MAX",
+    "DESCRIPCION_TIPO_MAX",
+]

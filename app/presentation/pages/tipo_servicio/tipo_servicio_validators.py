@@ -4,8 +4,7 @@ Funciones puras que retornan mensaje de error o string vacío si es válido.
 """
 import re
 
-from app.core.text_utils import normalizar_mayusculas
-from app.core.validation_patterns import (
+from app.core.validation.constants import (
     CLAVE_TIPO_SERVICIO_PATTERN,
     CLAVE_TIPO_MIN,
     CLAVE_TIPO_MAX,
@@ -35,7 +34,7 @@ def validar_clave(clave: str) -> str:
     if not clave or not clave.strip():
         return MSG_CLAVE_OBLIGATORIA
 
-    clave_limpia = normalizar_mayusculas(clave)
+    clave_limpia = clave.strip().upper()
 
     if len(clave_limpia) < CLAVE_TIPO_MIN:
         return msg_min_caracteres(CLAVE_TIPO_MIN)

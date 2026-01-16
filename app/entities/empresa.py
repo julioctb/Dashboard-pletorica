@@ -1,77 +1,51 @@
 """
 Entidades de dominio para Empresas.
-Consolidadas desde múltiples ubicaciones legacy.
+
+Usa FieldConfig del módulo de validación para mantener
+consistencia entre validación frontend y backend.
 """
-import re
 from decimal import Decimal
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.core.enums import TipoEmpresa, EstatusEmpresa
-from app.core.text_utils import normalizar_mayusculas, normalizar_minusculas, limpiar_alfanumerico
-from app.core.validation_patterns import (
-    RFC_PATTERN,
-    RFC_PREFIX_PATTERN,
-    EMAIL_PATTERN,
-    REGISTRO_PATRONAL_PATTERN,
-    REGISTRO_PATRONAL_LIMPIO_PATTERN,
-    CODIGO_POSTAL_PATTERN,
-    CODIGO_CORTO_PATTERN,
-    # Constantes de longitud
+from app.core.validation import (
+    validar_con_config,
+    validar_rfc_detallado,
+    formatear_registro_patronal,
+    # Configuraciones de campos
+    CAMPO_NOMBRE_COMERCIAL,
+    CAMPO_RAZON_SOCIAL,
+    CAMPO_EMAIL,
+    CAMPO_TELEFONO,
+    # Constantes para Field()
     NOMBRE_COMERCIAL_MIN,
     NOMBRE_COMERCIAL_MAX,
     RAZON_SOCIAL_MIN,
     RAZON_SOCIAL_MAX,
     RFC_MIN,
     RFC_MAX,
+    RFC_PATTERN,
     DIRECCION_MAX,
     CODIGO_POSTAL_LEN,
+    CODIGO_POSTAL_PATTERN,
     TELEFONO_MAX,
     EMAIL_MAX,
     PAGINA_WEB_MAX,
     REGISTRO_PATRONAL_MAX,
     CODIGO_CORTO_LEN,
+    CODIGO_CORTO_PATTERN,
 )
 from app.core.error_messages import (
-    msg_rfc_longitud,
-    MSG_RFC_LETRAS_INVALIDAS,
-    MSG_RFC_FECHA_INVALIDA,
-    msg_rfc_homoclave_invalida,
-    MSG_EMAIL_FORMATO_INVALIDO,
-    MSG_TELEFONO_SOLO_NUMEROS,
-    msg_telefono_digitos,
-    msg_registro_patronal_longitud,
-    MSG_REGISTRO_PATRONAL_INVALIDO,
     MSG_PRIMA_RIESGO_RANGO,
     msg_entidad_ya_estado,
 )
-
-def formatear_registro_patronal(valor: str) -> str:
-    """
-    Formatea el registro patronal al formato estándar: Y12-34567-10-1
-
-    Acepta:
-        - Y1234567101 (sin guiones)
-        - Y12-34567-10-1 (con guiones)
-    """
-    # Limpiar: solo letras y números usando función centralizada
-    limpio = limpiar_alfanumerico(valor)
-    
-    if len(limpio) != 11:
-        raise ValueError(msg_registro_patronal_longitud(11, len(limpio)))
-
-    if not re.match(REGISTRO_PATRONAL_LIMPIO_PATTERN, limpio):
-        raise ValueError(MSG_REGISTRO_PATRONAL_INVALIDO)
-    
-    # Formatear: Y12-34567-10-1
-    return f"{limpio[0:3]}-{limpio[3:8]}-{limpio[8:10]}-{limpio[10]}"
 
 
 class Empresa(BaseModel):
     """
     Entidad principal de Empresa con reglas de negocio.
-    Consolida funcionalidad de app/database/models, app/domain/entities, y app/modules/empresas/domain.
     """
 
     model_config = ConfigDict(
@@ -173,64 +147,67 @@ class Empresa(BaseModel):
     )
     fecha_actualizacion: Optional[datetime] = None
 
-    # Validadores adicionales
-    @field_validator('rfc')
+    # =========================================================================
+    # VALIDADORES - Usan FieldConfig para consistencia con frontend
+    # =========================================================================
+
+    @field_validator('nombre_comercial', mode='before')
+    @classmethod
+    def validar_nombre_comercial(cls, v: str) -> str:
+        """Valida y normaliza nombre comercial usando FieldConfig."""
+        if not v:
+            return v
+        v, error = validar_con_config(v, CAMPO_NOMBRE_COMERCIAL)
+        if error:
+            raise ValueError(error)
+        return v
+
+    @field_validator('razon_social', mode='before')
+    @classmethod
+    def validar_razon_social(cls, v: str) -> str:
+        """Valida y normaliza razón social usando FieldConfig."""
+        if not v:
+            return v
+        v, error = validar_con_config(v, CAMPO_RAZON_SOCIAL)
+        if error:
+            raise ValueError(error)
+        return v
+
+    @field_validator('rfc', mode='before')
     @classmethod
     def validar_rfc(cls, v: str) -> str:
-        """Valida y normaliza RFC"""
+        """Valida y normaliza RFC usando validador compartido."""
         if v:
-            v = normalizar_mayusculas(v)
-            # Validar formato específico con mensaje claro usando constante global
-            if not re.match(RFC_PATTERN, v):
-                # Identificar qué parte está mal
-                if len(v) < 12 or len(v) > 13:
-                    raise ValueError(msg_rfc_longitud(len(v)))
-                if not re.match(RFC_PREFIX_PATTERN, v[:4]):
-                    raise ValueError(MSG_RFC_LETRAS_INVALIDAS)
-                if not re.match(r'^[0-9]{6}', v[4:10] if len(v) == 13 else v[3:9]):
-                    raise ValueError(MSG_RFC_FECHA_INVALIDA)
-                # Si llegamos aquí, es la homoclave
-                raise ValueError(msg_rfc_homoclave_invalida(v[-3:]))
+            v = v.upper().strip()
+            error = validar_rfc_detallado(v, requerido=True)
+            if error:
+                raise ValueError(error)
         return v
 
-    @field_validator('email')
+    @field_validator('email', mode='before')
     @classmethod
     def validar_email(cls, v: Optional[str]) -> Optional[str]:
-        """Valida formato y normaliza email a minúsculas"""
+        """Valida y normaliza email usando FieldConfig."""
         if v:
-            v = normalizar_minusculas(v)
-            # Validar formato usando constante global (mismo patrón que frontend)
-            if not re.match(EMAIL_PATTERN, v):
-                raise ValueError(MSG_EMAIL_FORMATO_INVALIDO)
+            v, error = validar_con_config(v, CAMPO_EMAIL)
+            if error:
+                raise ValueError(error)
         return v
 
-    @field_validator('telefono')
+    @field_validator('telefono', mode='before')
     @classmethod
     def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
-        """Valida que el teléfono tenga 10 dígitos (mexicano)"""
+        """Valida teléfono usando FieldConfig (limpia y valida 10 dígitos)."""
         if v:
-            v = v.strip()
-            # Remover separadores permitidos (misma lógica que frontend)
-            tel_solo_digitos = (
-                v.replace(" ", "")
-                .replace("-", "")
-                .replace("(", "")
-                .replace(")", "")
-                .replace("+", "")
-            )
-
-            if not tel_solo_digitos.isdigit():
-                raise ValueError(MSG_TELEFONO_SOLO_NUMEROS)
-
-            if len(tel_solo_digitos) != 10:
-                raise ValueError(msg_telefono_digitos(10, len(tel_solo_digitos)))
-
+            v, error = validar_con_config(v, CAMPO_TELEFONO)
+            if error:
+                raise ValueError(error)
         return v
-    
-    @field_validator('registro_patronal')
+
+    @field_validator('registro_patronal', mode='before')
     @classmethod
     def validar_registro_patronal(cls, v: Optional[str]) -> Optional[str]:
-        """Valida y formatea el registro patronal IMSS"""
+        """Valida y formatea el registro patronal IMSS."""
         if v:
             return formatear_registro_patronal(v)
         return v
@@ -238,92 +215,96 @@ class Empresa(BaseModel):
     @field_validator('prima_riesgo', mode='before')
     @classmethod
     def validar_prima_riesgo(cls, v) -> Optional[Decimal]:
-        """
-        Acepta porcentaje (2.598) o decimal (0.02598)
-        """
+        """Acepta porcentaje (2.598) o decimal (0.02598)."""
         if v is None:
             return None
-        
+
         if isinstance(v, (int, float, str)):
             v = Decimal(str(v))
-        
+
         # Si es mayor a 1, asumimos porcentaje
         if v > Decimal("1"):
             v = v / Decimal("100")
-        
+
         if v < Decimal("0.00500") or v > Decimal("0.15000"):
             raise ValueError(MSG_PRIMA_RIESGO_RANGO)
-        
+
         return v
 
+    # =========================================================================
+    # MÉTODOS DE CONSULTA
+    # =========================================================================
 
-    # Métodos de consulta de tipo
     def es_empresa_nomina(self) -> bool:
-        """Verifica si es empresa de nómina"""
+        """Verifica si es empresa de nómina."""
         return self.tipo_empresa == TipoEmpresa.NOMINA
 
     def es_empresa_mantenimiento(self) -> bool:
-        """Verifica si es empresa de mantenimiento"""
+        """Verifica si es empresa de mantenimiento."""
         return self.tipo_empresa == TipoEmpresa.MANTENIMIENTO
 
-    # Métodos de consulta de estado
     def esta_activa(self) -> bool:
-        """Verifica si la empresa está activa"""
+        """Verifica si la empresa está activa."""
         return self.estatus == EstatusEmpresa.ACTIVO
 
     def esta_suspendida(self) -> bool:
-        """Verifica si la empresa está suspendida"""
+        """Verifica si la empresa está suspendida."""
         return self.estatus == EstatusEmpresa.SUSPENDIDO
 
     def esta_inactiva(self) -> bool:
-        """Verifica si la empresa está inactiva"""
+        """Verifica si la empresa está inactiva."""
         return self.estatus == EstatusEmpresa.INACTIVO
 
-    # Reglas de negocio
+    # =========================================================================
+    # REGLAS DE NEGOCIO
+    # =========================================================================
+
     def puede_facturar(self) -> bool:
-        """Solo empresas activas pueden facturar"""
+        """Solo empresas activas pueden facturar."""
         return self.estatus == EstatusEmpresa.ACTIVO
 
     def puede_tener_empleados(self) -> bool:
-        """Solo empresas de nómina pueden tener empleados"""
+        """Solo empresas de nómina pueden tener empleados."""
         return self.tipo_empresa == TipoEmpresa.NOMINA
 
     def puede_dar_mantenimiento(self) -> bool:
-        """Solo empresas de mantenimiento pueden dar este servicio"""
+        """Solo empresas de mantenimiento pueden dar este servicio."""
         return self.tipo_empresa == TipoEmpresa.MANTENIMIENTO
 
-    # Métodos de cambio de estado
+    # =========================================================================
+    # MÉTODOS DE CAMBIO DE ESTADO
+    # =========================================================================
+
     def activar(self):
-        """Activa la empresa"""
+        """Activa la empresa."""
         if self.estatus == EstatusEmpresa.ACTIVO:
             raise ValueError(msg_entidad_ya_estado("La empresa", "activa"))
         self.estatus = EstatusEmpresa.ACTIVO
 
     def suspender(self):
-        """Suspende la empresa"""
+        """Suspende la empresa."""
         if self.estatus == EstatusEmpresa.SUSPENDIDO:
             raise ValueError(msg_entidad_ya_estado("La empresa", "suspendida"))
         self.estatus = EstatusEmpresa.SUSPENDIDO
 
     def inactivar(self):
-        """Inactiva la empresa"""
+        """Inactiva la empresa."""
         if self.estatus == EstatusEmpresa.INACTIVO:
             raise ValueError(msg_entidad_ya_estado("La empresa", "inactiva"))
         self.estatus = EstatusEmpresa.INACTIVO
 
     def get_prima_riesgo_porcentaje(self) -> Optional[float]:
-        """Retorna la prima de riesgo como porcentaje (ej: 2.598)"""
+        """Retorna la prima de riesgo como porcentaje (ej: 2.598)."""
         if self.prima_riesgo:
             return float(self.prima_riesgo * 100)
         return None
 
     def tiene_datos_imss(self) -> bool:
-        """Verifica si tiene datos IMSS completos"""
+        """Verifica si tiene datos IMSS completos."""
         return bool(self.registro_patronal and self.prima_riesgo)
 
-    # Métodos de representación
     def get_info_completa(self) -> str:
-        """Retorna información completa de la empresa"""
+        """Retorna información completa de la empresa."""
         return f"{self.nombre_comercial} ({self.razon_social}) - {self.tipo_empresa.value.title()}"
 
     def __str__(self) -> str:
@@ -331,7 +312,7 @@ class Empresa(BaseModel):
 
 
 class EmpresaCreate(BaseModel):
-    """Modelo para crear una nueva empresa"""
+    """Modelo para crear una nueva empresa."""
 
     model_config = ConfigDict(
         use_enum_values=True,
@@ -355,7 +336,7 @@ class EmpresaCreate(BaseModel):
 
 
 class EmpresaUpdate(BaseModel):
-    """Modelo para actualizar una empresa existente (todos los campos opcionales)"""
+    """Modelo para actualizar una empresa existente (todos los campos opcionales)."""
 
     model_config = ConfigDict(
         use_enum_values=True,
@@ -379,7 +360,7 @@ class EmpresaUpdate(BaseModel):
 
 
 class EmpresaResumen(BaseModel):
-    """Modelo resumido de empresa para listados con datos clave para UI mejorada"""
+    """Modelo resumido de empresa para listados."""
 
     model_config = ConfigDict(
         use_enum_values=True,
@@ -387,23 +368,23 @@ class EmpresaResumen(BaseModel):
     )
 
     id: int
-    codigo_corto: str  # Código único de 3 caracteres
+    codigo_corto: str
     nombre_comercial: str
-    razon_social: str  # Agregado para mostrar en subtítulo
+    razon_social: str
     tipo_empresa: TipoEmpresa
     estatus: EstatusEmpresa
-    contacto_principal: Optional[str]  # Teléfono
-    email: Optional[str]  # Agregado para mostrar en tarjeta
+    contacto_principal: Optional[str]
+    email: Optional[str]
     fecha_creacion: datetime
     registro_patronal: Optional[str]
     tiene_imss: bool
 
     @classmethod
     def from_empresa(cls, empresa: Empresa) -> 'EmpresaResumen':
-        """Factory method para crear desde una empresa completa"""
+        """Factory method para crear desde una empresa completa."""
         return cls(
             id=empresa.id,
-            codigo_corto=empresa.codigo_corto or "---",  # Fallback para empresas sin código
+            codigo_corto=empresa.codigo_corto or "---",
             nombre_comercial=empresa.nombre_comercial,
             razon_social=empresa.razon_social,
             tipo_empresa=empresa.tipo_empresa,

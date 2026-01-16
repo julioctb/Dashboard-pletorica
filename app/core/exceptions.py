@@ -30,9 +30,6 @@ Uso:
         self.mostrar_mensaje(str(e), "error")
     except ValidationError as e:
         self.mostrar_mensaje(str(e), "error")
-
-Autor: Julio C Tello
-Fecha: 2025-10-13
 """
 
 
@@ -69,7 +66,6 @@ class ValidationError(ApplicationError):
         - RFC con formato inválido
         - Email sin formato correcto
         - Campo requerido faltante
-        - Longitud de campo incorrecta
     """
     pass
 
@@ -83,7 +79,6 @@ class NotFoundError(ApplicationError):
     Ejemplos:
         - Empresa con ID 999 no existe
         - Empleado no encontrado
-        - Sede no existe
     """
     pass
 
@@ -98,7 +93,6 @@ class DuplicateError(ApplicationError):
     Ejemplos:
         - RFC duplicado
         - Email ya registrado
-        - CURP duplicado
     """
 
     def __init__(self, message: str, field: str = None, value: str = None):
@@ -123,7 +117,6 @@ class DatabaseError(ApplicationError):
     Ejemplos:
         - Conexión perdida con Supabase
         - Timeout en query
-        - Error de permisos en DB
     """
     pass
 
@@ -138,26 +131,5 @@ class BusinessRuleError(ApplicationError):
     Ejemplos:
         - Intentar agregar empleados a empresa de tipo MANTENIMIENTO
         - Procesar nómina de empresa inactiva
-        - Eliminar empresa con empleados activos
     """
     pass
-
-
-class AuthorizationError(ApplicationError):
-    """
-    Error de autorización (permisos insuficientes).
-
-    Se lanza cuando un usuario no tiene permisos para realizar
-    una operación específica.
-
-    Ejemplos:
-        - Usuario sin permiso para eliminar empresas
-        - Acceso denegado a nóminas de otra empresa
-    """
-    pass
-
-
-# Aliases para compatibilidad con nombres comunes
-ResourceNotFoundError = NotFoundError
-UniqueConstraintError = DuplicateError
-PermissionDeniedError = AuthorizationError

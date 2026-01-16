@@ -1,13 +1,11 @@
 """
-Patrones de validación centralizados.
+Constantes de validación centralizadas.
 
-Este módulo contiene todos los patrones regex y constantes de validación
+Este módulo contiene todos los patrones regex y constantes de longitud
 usados tanto en entities (Pydantic) como en validators (frontend).
 
 IMPORTANTE: Cualquier cambio aquí afecta ambas capas de validación.
 """
-import re
-
 
 # =============================================================================
 # PATRONES DE RFC
@@ -32,6 +30,9 @@ EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 
 # Código postal mexicano (5 dígitos)
 CODIGO_POSTAL_PATTERN = r'^[0-9]{5}$'
+
+# Patrón de números de teléfono (10 dígitos)
+TELEFONO_PATTERN = r'^[0-9]{10}$'
 
 
 # =============================================================================
@@ -62,10 +63,9 @@ CLAVE_TIPO_SERVICIO_PATTERN = r'^[A-Z]{2,5}$'
 
 
 # =============================================================================
-# CONSTANTES DE LONGITUD
+# CONSTANTES DE LONGITUD - EMPRESAS
 # =============================================================================
 
-# Empresas
 NOMBRE_COMERCIAL_MIN = 2
 NOMBRE_COMERCIAL_MAX = 100
 RAZON_SOCIAL_MIN = 2
@@ -78,78 +78,17 @@ TELEFONO_DIGITOS = 10
 TELEFONO_MAX = 15
 CODIGO_POSTAL_LEN = 5
 CODIGO_CORTO_LEN = 3
+REGISTRO_PATRONAL_LEN = 11
 REGISTRO_PATRONAL_MAX = 15
 PAGINA_WEB_MAX = 100
 
-# Tipo de servicio
+
+# =============================================================================
+# CONSTANTES DE LONGITUD - TIPO DE SERVICIO
+# =============================================================================
+
 CLAVE_TIPO_MIN = 2
 CLAVE_TIPO_MAX = 5
 NOMBRE_TIPO_MIN = 2
 NOMBRE_TIPO_MAX = 50
 DESCRIPCION_TIPO_MAX = 500
-
-
-# =============================================================================
-# FUNCIONES DE VALIDACIÓN REUTILIZABLES
-# =============================================================================
-
-def validar_patron(valor: str, patron: str, mensaje_error: str) -> str:
-    """
-    Valida un valor contra un patrón regex.
-
-    Args:
-        valor: Valor a validar
-        patron: Patrón regex a usar
-        mensaje_error: Mensaje si no coincide
-
-    Returns:
-        String vacío si es válido, mensaje de error si no
-    """
-    if not re.match(patron, valor):
-        return mensaje_error
-    return ""
-
-
-def validar_longitud(
-    valor: str,
-    min_len: int | None = None,
-    max_len: int | None = None,
-    nombre_campo: str = "Campo"
-) -> str:
-    """
-    Valida la longitud de un valor.
-
-    Args:
-        valor: Valor a validar
-        min_len: Longitud mínima (opcional)
-        max_len: Longitud máxima (opcional)
-        nombre_campo: Nombre para el mensaje de error
-
-    Returns:
-        String vacío si es válido, mensaje de error si no
-    """
-    longitud = len(valor)
-
-    if min_len is not None and longitud < min_len:
-        return f"{nombre_campo} debe tener al menos {min_len} caracteres"
-
-    if max_len is not None and longitud > max_len:
-        return f"{nombre_campo} no puede tener más de {max_len} caracteres"
-
-    return ""
-
-
-def validar_requerido(valor: str | None, nombre_campo: str = "Campo") -> str:
-    """
-    Valida que un campo requerido tenga valor.
-
-    Args:
-        valor: Valor a validar
-        nombre_campo: Nombre para el mensaje de error
-
-    Returns:
-        String vacío si tiene valor, mensaje de error si no
-    """
-    if not valor or not valor.strip():
-        return f"{nombre_campo} es obligatorio"
-    return ""

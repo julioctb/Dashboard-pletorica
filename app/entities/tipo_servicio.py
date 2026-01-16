@@ -5,15 +5,21 @@ Los tipos de servicio son un catálogo global que define los tipos
 de servicio que se pueden ofrecer: Jardinería, Limpieza, Mantenimiento, etc.
 
 No dependen de empresa - todas las empresas usan el mismo catálogo.
+
+Usa FieldConfig del módulo de validación para mantener
+consistencia entre validación frontend y backend.
 """
-import re
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.core.enums import Estatus
-from app.core.text_utils import normalizar_mayusculas
-from app.core.validation_patterns import (
+from app.core.validation import (
+    validar_con_config,
+    # Configuraciones de campos
+    CAMPO_CLAVE_TIPO_SERVICIO,
+    CAMPO_NOMBRE_TIPO_SERVICIO,
+    # Constantes para Field()
     CLAVE_TIPO_SERVICIO_PATTERN,
     CLAVE_TIPO_MIN,
     CLAVE_TIPO_MAX,
@@ -21,13 +27,7 @@ from app.core.validation_patterns import (
     NOMBRE_TIPO_MAX,
     DESCRIPCION_TIPO_MAX,
 )
-from app.core.error_messages import (
-    msg_clave_longitud_actual,
-    MSG_CLAVE_SOLO_LETRAS,
-    MSG_CLAVE_SOLO_MAYUSCULAS,
-    msg_clave_longitud,
-    msg_entidad_ya_estado,
-)
+from app.core.error_messages import msg_entidad_ya_estado
 
 
 class TipoServicio(BaseModel):
@@ -86,27 +86,30 @@ class TipoServicio(BaseModel):
     )
     fecha_actualizacion: Optional[datetime] = None
 
-    # Validadores
-    @field_validator('clave')
+    # =========================================================================
+    # VALIDADORES - Usan FieldConfig para consistencia con frontend
+    # =========================================================================
+
+    @field_validator('clave', mode='before')
     @classmethod
     def validar_clave(cls, v: str) -> str:
-        """Valida y normaliza la clave del tipo"""
-        if v:
-            v = normalizar_mayusculas(v)
-            if not re.match(CLAVE_TIPO_SERVICIO_PATTERN, v):
-                if len(v) < CLAVE_TIPO_MIN or len(v) > CLAVE_TIPO_MAX:
-                    raise ValueError(msg_clave_longitud_actual(CLAVE_TIPO_MIN, CLAVE_TIPO_MAX, len(v)))
-                if not v.isalpha():
-                    raise ValueError(MSG_CLAVE_SOLO_LETRAS)
-                raise ValueError(MSG_CLAVE_SOLO_MAYUSCULAS)
+        """Valida y normaliza la clave usando FieldConfig."""
+        if not v:
+            return v
+        v, error = validar_con_config(v, CAMPO_CLAVE_TIPO_SERVICIO)
+        if error:
+            raise ValueError(error)
         return v
 
-    @field_validator('nombre')
+    @field_validator('nombre', mode='before')
     @classmethod
     def validar_nombre(cls, v: str) -> str:
-        """Valida y normaliza el nombre"""
-        if v:
-            v = normalizar_mayusculas(v)
+        """Valida y normaliza el nombre usando FieldConfig."""
+        if not v:
+            return v
+        v, error = validar_con_config(v, CAMPO_NOMBRE_TIPO_SERVICIO)
+        if error:
+            raise ValueError(error)
         return v
 
     # Métodos de negocio
@@ -148,22 +151,26 @@ class TipoServicioCreate(BaseModel):
     descripcion: Optional[str] = Field(None, max_length=DESCRIPCION_TIPO_MAX)
     estatus: Estatus = Field(default=Estatus.ACTIVO)
 
-    @field_validator('clave')
+    @field_validator('clave', mode='before')
     @classmethod
     def validar_clave(cls, v: str) -> str:
-        """Valida y normaliza la clave"""
-        if v:
-            v = normalizar_mayusculas(v)
-            if not re.match(CLAVE_TIPO_SERVICIO_PATTERN, v):
-                raise ValueError(msg_clave_longitud(CLAVE_TIPO_MIN, CLAVE_TIPO_MAX))
+        """Valida y normaliza la clave usando FieldConfig."""
+        if not v:
+            return v
+        v, error = validar_con_config(v, CAMPO_CLAVE_TIPO_SERVICIO)
+        if error:
+            raise ValueError(error)
         return v
 
-    @field_validator('nombre')
+    @field_validator('nombre', mode='before')
     @classmethod
     def validar_nombre(cls, v: str) -> str:
-        """Normaliza el nombre a mayúsculas"""
-        if v:
-            v = normalizar_mayusculas(v)
+        """Valida y normaliza el nombre usando FieldConfig."""
+        if not v:
+            return v
+        v, error = validar_con_config(v, CAMPO_NOMBRE_TIPO_SERVICIO)
+        if error:
+            raise ValueError(error)
         return v
 
 
@@ -181,20 +188,22 @@ class TipoServicioUpdate(BaseModel):
     descripcion: Optional[str] = Field(None, max_length=DESCRIPCION_TIPO_MAX)
     estatus: Optional[Estatus] = None
 
-    @field_validator('clave')
+    @field_validator('clave', mode='before')
     @classmethod
     def validar_clave(cls, v: Optional[str]) -> Optional[str]:
-        """Valida y normaliza la clave si se proporciona"""
+        """Valida y normaliza la clave usando FieldConfig si se proporciona."""
         if v:
-            v = normalizar_mayusculas(v)
-            if not re.match(CLAVE_TIPO_SERVICIO_PATTERN, v):
-                raise ValueError(msg_clave_longitud(CLAVE_TIPO_MIN, CLAVE_TIPO_MAX))
+            v, error = validar_con_config(v, CAMPO_CLAVE_TIPO_SERVICIO)
+            if error:
+                raise ValueError(error)
         return v
 
-    @field_validator('nombre')
+    @field_validator('nombre', mode='before')
     @classmethod
     def validar_nombre(cls, v: Optional[str]) -> Optional[str]:
-        """Normaliza el nombre a mayúsculas si se proporciona"""
+        """Valida y normaliza el nombre usando FieldConfig si se proporciona."""
         if v:
-            v = normalizar_mayusculas(v)
+            v, error = validar_con_config(v, CAMPO_NOMBRE_TIPO_SERVICIO)
+            if error:
+                raise ValueError(error)
         return v
