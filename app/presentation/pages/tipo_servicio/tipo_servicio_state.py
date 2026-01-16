@@ -5,6 +5,7 @@ Maneja el estado de la UI y las operaciones del módulo.
 import reflex as rx
 from typing import List, Optional
 
+from app.core.text_utils import normalizar_mayusculas
 from app.entities import TipoServicio, TipoServicioCreate, TipoServicioUpdate
 from app.services import tipo_servicio_service
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
@@ -62,11 +63,11 @@ class TipoServicioState(BaseState):
 
     def set_form_clave(self, value: str):
         """Set clave con auto-conversión a mayúsculas"""
-        self.form_clave = value.upper() if value else ""
+        self.form_clave = normalizar_mayusculas(value)
 
     def set_form_nombre(self, value: str):
         """Set nombre con auto-conversión a mayúsculas"""
-        self.form_nombre = value.upper() if value else ""
+        self.form_nombre = normalizar_mayusculas(value)
 
     def set_form_descripcion(self, value: str):
         self.form_descripcion = value
@@ -229,8 +230,8 @@ class TipoServicioState(BaseState):
     async def _crear_tipo(self):
         """Crear nuevo tipo"""
         tipo_create = TipoServicioCreate(
-            clave=self.form_clave.strip().upper(),
-            nombre=self.form_nombre.strip().upper(),
+            clave=normalizar_mayusculas(self.form_clave),
+            nombre=normalizar_mayusculas(self.form_nombre),
             descripcion=self.form_descripcion.strip() if self.form_descripcion else None
         )
 
@@ -248,8 +249,8 @@ class TipoServicioState(BaseState):
             return
 
         tipo_update = TipoServicioUpdate(
-            clave=self.form_clave.strip().upper(),
-            nombre=self.form_nombre.strip().upper(),
+            clave=normalizar_mayusculas(self.form_clave),
+            nombre=normalizar_mayusculas(self.form_nombre),
             descripcion=self.form_descripcion.strip() if self.form_descripcion else None
         )
 

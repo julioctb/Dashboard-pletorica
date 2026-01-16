@@ -3,6 +3,7 @@ from decimal import Decimal
 from app.presentation.components.shared.base_state import BaseState
 from typing import List
 from app.services import empresa_service
+from app.core.text_utils import normalizar_mayusculas
 
 from app.entities import (
     Empresa,
@@ -449,6 +450,7 @@ class EmpresasState(BaseState):
     def _normalizar_texto(texto: str) -> str:
         """
         Normaliza texto: elimina espacios y convierte a mayúsculas.
+        Usa función centralizada de app/core/text_utils.py
 
         Args:
             texto: Texto a normalizar
@@ -456,9 +458,7 @@ class EmpresasState(BaseState):
         Returns:
             Texto normalizado o None si está vacío
         """
-        if not texto:
-            return None
-        normalizado = texto.strip().upper()
+        normalizado = normalizar_mayusculas(texto)
         return normalizado if normalizado else None
 
     def _preparar_empresa_desde_formulario(self, es_actualizacion: bool = False) -> EmpresaCreate | EmpresaUpdate:

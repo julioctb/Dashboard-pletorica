@@ -9,6 +9,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.core.enums import TipoEmpresa, EstatusEmpresa
+from app.core.text_utils import normalizar_mayusculas, normalizar_minusculas, limpiar_alfanumerico
 from app.core.validation_patterns import (
     RFC_PATTERN,
     RFC_PREFIX_PATTERN,
@@ -49,13 +50,13 @@ from app.core.error_messages import (
 def formatear_registro_patronal(valor: str) -> str:
     """
     Formatea el registro patronal al formato estándar: Y12-34567-10-1
-    
+
     Acepta:
         - Y1234567101 (sin guiones)
         - Y12-34567-10-1 (con guiones)
     """
-    # Limpiar: solo letras y números
-    limpio = re.sub(r'[^A-Z0-9]', '', valor.upper())
+    # Limpiar: solo letras y números usando función centralizada
+    limpio = limpiar_alfanumerico(valor)
     
     if len(limpio) != 11:
         raise ValueError(msg_registro_patronal_longitud(11, len(limpio)))
@@ -178,7 +179,7 @@ class Empresa(BaseModel):
     def validar_rfc(cls, v: str) -> str:
         """Valida y normaliza RFC"""
         if v:
-            v = v.upper().strip()
+            v = normalizar_mayusculas(v)
             # Validar formato específico con mensaje claro usando constante global
             if not re.match(RFC_PATTERN, v):
                 # Identificar qué parte está mal
@@ -197,7 +198,7 @@ class Empresa(BaseModel):
     def validar_email(cls, v: Optional[str]) -> Optional[str]:
         """Valida formato y normaliza email a minúsculas"""
         if v:
-            v = v.lower().strip()
+            v = normalizar_minusculas(v)
             # Validar formato usando constante global (mismo patrón que frontend)
             if not re.match(EMAIL_PATTERN, v):
                 raise ValueError(MSG_EMAIL_FORMATO_INVALIDO)

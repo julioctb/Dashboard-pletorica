@@ -4,6 +4,7 @@ Funciones puras que retornan mensaje de error o string vacío si es válido.
 """
 import re
 
+from app.core.text_utils import normalizar_mayusculas, limpiar_alfanumerico
 from app.core.validation_patterns import (
     RFC_PATTERN,
     RFC_PREFIX_PATTERN,
@@ -100,7 +101,7 @@ def validar_rfc(rfc: str) -> str:
     if not rfc or not rfc.strip():
         return MSG_RFC_OBLIGATORIO
 
-    rfc_limpio = rfc.strip().upper()
+    rfc_limpio = normalizar_mayusculas(rfc)
 
     # Validar longitud
     if len(rfc_limpio) < 12 or len(rfc_limpio) > 13:
@@ -248,8 +249,8 @@ def validar_registro_patronal(valor: str) -> str:
     if not valor or not valor.strip():
         return ""  # Campo opcional
 
-    # Limpiar: quitar guiones, espacios, convertir a mayúsculas
-    limpio = valor.strip().upper().replace("-", "").replace(" ", "")
+    # Limpiar: solo alfanuméricos en mayúsculas
+    limpio = limpiar_alfanumerico(valor)
 
     # Validar longitud
     if len(limpio) != 11:

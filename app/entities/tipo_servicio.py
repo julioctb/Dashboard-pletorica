@@ -12,6 +12,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.core.enums import Estatus
+from app.core.text_utils import normalizar_mayusculas
 from app.core.validation_patterns import (
     CLAVE_TIPO_SERVICIO_PATTERN,
     CLAVE_TIPO_MIN,
@@ -91,7 +92,7 @@ class TipoServicio(BaseModel):
     def validar_clave(cls, v: str) -> str:
         """Valida y normaliza la clave del tipo"""
         if v:
-            v = v.upper().strip()
+            v = normalizar_mayusculas(v)
             if not re.match(CLAVE_TIPO_SERVICIO_PATTERN, v):
                 if len(v) < CLAVE_TIPO_MIN or len(v) > CLAVE_TIPO_MAX:
                     raise ValueError(msg_clave_longitud_actual(CLAVE_TIPO_MIN, CLAVE_TIPO_MAX, len(v)))
@@ -105,9 +106,7 @@ class TipoServicio(BaseModel):
     def validar_nombre(cls, v: str) -> str:
         """Valida y normaliza el nombre"""
         if v:
-            v = v.strip()
-            # Convertir a formato título
-            v = v.upper()
+            v = normalizar_mayusculas(v)
         return v
 
     # Métodos de negocio
@@ -154,7 +153,7 @@ class TipoServicioCreate(BaseModel):
     def validar_clave(cls, v: str) -> str:
         """Valida y normaliza la clave"""
         if v:
-            v = v.upper().strip()
+            v = normalizar_mayusculas(v)
             if not re.match(CLAVE_TIPO_SERVICIO_PATTERN, v):
                 raise ValueError(msg_clave_longitud(CLAVE_TIPO_MIN, CLAVE_TIPO_MAX))
         return v
@@ -164,7 +163,7 @@ class TipoServicioCreate(BaseModel):
     def validar_nombre(cls, v: str) -> str:
         """Normaliza el nombre a mayúsculas"""
         if v:
-            v = v.strip().upper()
+            v = normalizar_mayusculas(v)
         return v
 
 
@@ -187,7 +186,7 @@ class TipoServicioUpdate(BaseModel):
     def validar_clave(cls, v: Optional[str]) -> Optional[str]:
         """Valida y normaliza la clave si se proporciona"""
         if v:
-            v = v.upper().strip()
+            v = normalizar_mayusculas(v)
             if not re.match(CLAVE_TIPO_SERVICIO_PATTERN, v):
                 raise ValueError(msg_clave_longitud(CLAVE_TIPO_MIN, CLAVE_TIPO_MAX))
         return v
@@ -197,5 +196,5 @@ class TipoServicioUpdate(BaseModel):
     def validar_nombre(cls, v: Optional[str]) -> Optional[str]:
         """Normaliza el nombre a mayúsculas si se proporciona"""
         if v:
-            v = v.strip().upper()
+            v = normalizar_mayusculas(v)
         return v
