@@ -21,8 +21,8 @@ Uso de validadores personalizados:
     # "RFC debe tener 12 o 13 caracteres (tiene 3)"
 """
 
-# Clase de configuración
-from .field_config import FieldConfig
+# Clase de configuración y tipos
+from .field_config import FieldConfig, InputType
 
 # Factory y helpers
 from .validator_factory import (
@@ -43,6 +43,13 @@ from .custom_validators import (
     limpiar_telefono,
 )
 
+# Helpers para Pydantic
+from .pydantic_helpers import (
+    pydantic_field,
+    campo_validador,
+    campos_a_pydantic,
+)
+
 # Catálogo de campos - Empresas
 from .fields_catalog import (
     CAMPO_NOMBRE_COMERCIAL,
@@ -60,6 +67,29 @@ from .fields_catalog import (
     CAMPO_CLAVE_TIPO_SERVICIO,
     CAMPO_NOMBRE_TIPO_SERVICIO,
     CAMPO_DESCRIPCION_TIPO_SERVICIO,
+    # Diccionarios de campos para iteración
+    CAMPOS_EMPRESA,
+    CAMPOS_TIPO_SERVICIO,
+    CAMPOS_SIMULADOR,
+    # Secciones - Empresas
+    SECCION_INFO_BASICA,
+    SECCION_CONTACTO,
+    SECCION_IMSS,
+    SECCION_CONTROL,
+    # Secciones - Simulador
+    SECCION_CONFIG_EMPRESA,
+    SECCION_PRESTACIONES,
+    SECCION_TRABAJADOR,
+    # Campos Simulador
+    CAMPO_SIM_ESTADO,
+    CAMPO_SIM_PRIMA_RIESGO,
+    CAMPO_SIM_DIAS_AGUINALDO,
+    CAMPO_SIM_PRIMA_VACACIONAL,
+    CAMPO_SIM_TIPO_CALCULO,
+    CAMPO_SIM_SALARIO_MENSUAL,
+    CAMPO_SIM_SALARIO_DIARIO,
+    CAMPO_SIM_ANTIGUEDAD,
+    CAMPO_SIM_DIAS_COTIZADOS,
 )
 
 # Constantes (re-export para conveniencia)
@@ -100,8 +130,9 @@ from .constants import (
 )
 
 __all__ = [
-    # Config
+    # Config y tipos
     "FieldConfig",
+    "InputType",
     # Factory y helpers
     "crear_validador",
     "validar_con_config",
@@ -115,6 +146,10 @@ __all__ = [
     "validar_registro_patronal_detallado",
     "formatear_registro_patronal",
     "limpiar_telefono",
+    # Helpers para Pydantic
+    "pydantic_field",
+    "campo_validador",
+    "campos_a_pydantic",
     # Catálogo - Empresas
     "CAMPO_NOMBRE_COMERCIAL",
     "CAMPO_RAZON_SOCIAL",
@@ -131,6 +166,29 @@ __all__ = [
     "CAMPO_CLAVE_TIPO_SERVICIO",
     "CAMPO_NOMBRE_TIPO_SERVICIO",
     "CAMPO_DESCRIPCION_TIPO_SERVICIO",
+    # Diccionarios de campos
+    "CAMPOS_EMPRESA",
+    "CAMPOS_TIPO_SERVICIO",
+    "CAMPOS_SIMULADOR",
+    # Secciones - Empresas
+    "SECCION_INFO_BASICA",
+    "SECCION_CONTACTO",
+    "SECCION_IMSS",
+    "SECCION_CONTROL",
+    # Secciones - Simulador
+    "SECCION_CONFIG_EMPRESA",
+    "SECCION_PRESTACIONES",
+    "SECCION_TRABAJADOR",
+    # Campos Simulador
+    "CAMPO_SIM_ESTADO",
+    "CAMPO_SIM_PRIMA_RIESGO",
+    "CAMPO_SIM_DIAS_AGUINALDO",
+    "CAMPO_SIM_PRIMA_VACACIONAL",
+    "CAMPO_SIM_TIPO_CALCULO",
+    "CAMPO_SIM_SALARIO_MENSUAL",
+    "CAMPO_SIM_SALARIO_DIARIO",
+    "CAMPO_SIM_ANTIGUEDAD",
+    "CAMPO_SIM_DIAS_COTIZADOS",
     # Patrones
     "RFC_PATTERN",
     "RFC_PREFIX_PATTERN",

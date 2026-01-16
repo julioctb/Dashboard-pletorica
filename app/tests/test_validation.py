@@ -5,14 +5,26 @@ Verifica que:
 - Los validadores transforman valores correctamente (uppercase, strip)
 - Los patrones de validación funcionan
 - Los mensajes de error son consistentes
+- Los helpers pydantic_field y campo_validador funcionan correctamente
 """
 import pytest
 from decimal import Decimal
-from pydantic import ValidationError
+from typing import Optional
+from pydantic import BaseModel, ValidationError
 
 from app.entities.empresa import Empresa, EmpresaCreate, EmpresaUpdate
 from app.entities.tipo_servicio import TipoServicio, TipoServicioCreate, TipoServicioUpdate
 from app.core.enums import TipoEmpresa, EstatusEmpresa, Estatus
+from app.core.validation import (
+    CAMPO_RFC,
+    CAMPO_EMAIL,
+    CAMPO_TELEFONO,
+    CAMPO_NOMBRE_COMERCIAL,
+    pydantic_field,
+    campo_validador,
+    campos_a_pydantic,
+    CAMPOS_EMPRESA,
+)
 
 
 class TestEmpresaValidation:
@@ -293,3 +305,185 @@ class TestValidationConsistency:
             rfc="ABC010101AB1"
         )
         assert empresa.estatus == EstatusEmpresa.ACTIVO
+
+
+# =============================================================================
+# TESTS PARA PYDANTIC HELPERS
+# =============================================================================
+
+class TestPydanticField:
+    """Tests para pydantic_field() helper."""
+
+    def test_genera_field_requerido(self):
+        """pydantic_field genera Field requerido correctamente."""
+
+        class ModeloTest(BaseModel):
+            rfc: str = pydantic_field(CAMPO_RFC)
+
+        # Debe fallar sin RFC
+        with pytest.raises(ValidationError):
+            ModeloTest()
+
+    def test_genera_field_opcional(self):
+        """pydantic_field genera Field opcional correctamente."""
+
+        class ModeloTest(BaseModel):
+            email: Optional[str] = pydantic_field(CAMPO_EMAIL)
+
+        # No debe fallar sin email
+        modelo = ModeloTest()
+        assert modelo.email is None
+
+    def test_respeta_min_length(self):
+        """pydantic_field aplica min_length del FieldConfig."""
+
+        class ModeloTest(BaseModel):
+            nombre: str = pydantic_field(CAMPO_NOMBRE_COMERCIAL)
+
+        # Debe fallar con nombre muy corto (min=2)
+        with pytest.raises(ValidationError) as exc_info:
+            ModeloTest(nombre="A")
+        assert "2" in str(exc_info.value) or "short" in str(exc_info.value).lower()
+
+    def test_respeta_max_length(self):
+        """pydantic_field aplica max_length del FieldConfig."""
+
+        class ModeloTest(BaseModel):
+            nombre: str = pydantic_field(CAMPO_NOMBRE_COMERCIAL)
+
+        # Debe fallar con nombre muy largo (max=100)
+        with pytest.raises(ValidationError):
+            ModeloTest(nombre="A" * 101)
+
+    def test_override_funciona(self):
+        """pydantic_field permite override de valores."""
+
+        class ModeloTest(BaseModel):
+            nombre: str = pydantic_field(CAMPO_NOMBRE_COMERCIAL, min_length=5)
+
+        # Ahora min_length es 5 en lugar de 2
+        with pytest.raises(ValidationError):
+            ModeloTest(nombre="ABC")  # 3 < 5
+
+
+class TestCampoValidador:
+    """Tests para campo_validador() helper."""
+
+    def test_transforma_a_mayusculas(self):
+        """campo_validador aplica transformación str.upper."""
+
+        class ModeloTest(BaseModel):
+            rfc: str = pydantic_field(CAMPO_RFC)
+            validar_rfc = campo_validador('rfc', CAMPO_RFC)
+
+        modelo = ModeloTest(rfc="abc010101ab1")
+        assert modelo.rfc == "ABC010101AB1"
+
+    def test_transforma_email_a_minusculas(self):
+        """campo_validador aplica transformación str.lower para email."""
+
+        class ModeloTest(BaseModel):
+            email: Optional[str] = pydantic_field(CAMPO_EMAIL)
+            validar_email = campo_validador('email', CAMPO_EMAIL)
+
+        modelo = ModeloTest(email="CORREO@EJEMPLO.COM")
+        assert modelo.email == "correo@ejemplo.com"
+
+    def test_valida_patron(self):
+        """campo_validador valida patrón regex."""
+
+        class ModeloTest(BaseModel):
+            rfc: str = pydantic_field(CAMPO_RFC)
+            validar_rfc = campo_validador('rfc', CAMPO_RFC)
+
+        with pytest.raises(ValidationError) as exc_info:
+            ModeloTest(rfc="INVALIDO123")
+        assert "RFC" in str(exc_info.value)
+
+    def test_permite_none_en_opcional(self):
+        """campo_validador permite None en campos opcionales."""
+
+        class ModeloTest(BaseModel):
+            email: Optional[str] = pydantic_field(CAMPO_EMAIL)
+            validar_email = campo_validador('email', CAMPO_EMAIL)
+
+        modelo = ModeloTest(email=None)
+        assert modelo.email is None
+
+    def test_permite_vacio_en_opcional(self):
+        """campo_validador permite string vacío en campos opcionales."""
+
+        class ModeloTest(BaseModel):
+            email: Optional[str] = pydantic_field(CAMPO_EMAIL)
+            validar_email = campo_validador('email', CAMPO_EMAIL)
+
+        modelo = ModeloTest(email="")
+        assert modelo.email == ""
+
+
+class TestCamposAPydantic:
+    """Tests para campos_a_pydantic() helper."""
+
+    def test_convierte_diccionario_campos(self):
+        """campos_a_pydantic convierte dict de FieldConfig a definiciones Pydantic."""
+        resultado = campos_a_pydantic(CAMPOS_EMPRESA)
+
+        # Debe tener todas las claves
+        assert 'rfc' in resultado
+        assert 'email' in resultado
+        assert 'nombre_comercial' in resultado
+
+    def test_tipo_correcto_para_requeridos(self):
+        """campos_a_pydantic asigna tipo str a campos requeridos."""
+        resultado = campos_a_pydantic(CAMPOS_EMPRESA)
+
+        # RFC es requerido -> tipo str
+        tipo, field = resultado['rfc']
+        assert tipo == str
+
+    def test_tipo_correcto_para_opcionales(self):
+        """campos_a_pydantic asigna Optional[str] a campos opcionales."""
+        resultado = campos_a_pydantic(CAMPOS_EMPRESA)
+
+        # Email es opcional -> tipo Optional[str]
+        tipo, field = resultado['email']
+        assert tipo == Optional[str]
+
+
+class TestIntegracionCompleta:
+    """Tests de integración usando ambos helpers juntos."""
+
+    def test_modelo_completo_con_helpers(self):
+        """Modelo usando pydantic_field y campo_validador funciona correctamente."""
+
+        class EmpleadoTest(BaseModel):
+            rfc: str = pydantic_field(CAMPO_RFC)
+            email: Optional[str] = pydantic_field(CAMPO_EMAIL)
+            telefono: Optional[str] = pydantic_field(CAMPO_TELEFONO)
+
+            validar_rfc = campo_validador('rfc', CAMPO_RFC)
+            validar_email = campo_validador('email', CAMPO_EMAIL)
+            validar_telefono = campo_validador('telefono', CAMPO_TELEFONO)
+
+        # Crear con valores válidos
+        empleado = EmpleadoTest(
+            rfc="abc010101ab1",
+            email="CORREO@EJEMPLO.COM",
+            telefono="(55) 1234-5678"
+        )
+
+        # Verificar transformaciones
+        assert empleado.rfc == "ABC010101AB1"  # Mayúsculas
+        assert empleado.email == "correo@ejemplo.com"  # Minúsculas
+        assert empleado.telefono == "5512345678"  # Sin separadores
+
+    def test_modelo_falla_con_datos_invalidos(self):
+        """Modelo con helpers falla correctamente con datos inválidos."""
+
+        class EmpleadoTest(BaseModel):
+            rfc: str = pydantic_field(CAMPO_RFC)
+            validar_rfc = campo_validador('rfc', CAMPO_RFC)
+
+        # RFC inválido debe fallar
+        with pytest.raises(ValidationError):
+            EmpleadoTest(rfc="INVALIDO")

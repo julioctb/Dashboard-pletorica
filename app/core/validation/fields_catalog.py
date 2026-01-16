@@ -1,19 +1,24 @@
 """
-Catálogo de configuraciones de campos para validación.
+Catálogo de configuraciones de campos para validación y formularios.
 
-Contiene configuraciones para:
-- Empresas: nombre comercial, razón social, RFC, email, teléfono, etc.
-- Tipo de Servicio: clave, nombre, descripción
+Este catálogo define campos reutilizables que incluyen:
+- Reglas de validación (backend y frontend)
+- Metadatos de UI (labels, placeholders, hints)
+- Configuración de formularios (secciones, orden, ancho)
 
-Uso:
+Uso en validación:
     from app.core.validation import CAMPO_RFC, crear_validador
-
     validar_rfc = crear_validador(CAMPO_RFC)
     error = validar_rfc("XAXX010101AB1")  # "" = válido
+
+Uso en formularios:
+    from app.core.validation import CAMPO_RFC
+    from app.presentation.components.ui.form_field import form_field
+    form_field(CAMPO_RFC, value=State.form_rfc, error=State.error_rfc)
 """
 import re
 
-from .field_config import FieldConfig
+from .field_config import FieldConfig, InputType
 from .constants import (
     # Patrones
     RFC_PATTERN,
@@ -54,6 +59,16 @@ from app.core.error_messages import (
 
 
 # =============================================================================
+# SECCIONES DE FORMULARIO (constantes para consistencia)
+# =============================================================================
+
+SECCION_INFO_BASICA = "info_basica"
+SECCION_CONTACTO = "contacto"
+SECCION_IMSS = "imss"
+SECCION_CONTROL = "control"
+
+
+# =============================================================================
 # CAMPOS DE EMPRESA
 # =============================================================================
 
@@ -62,7 +77,14 @@ CAMPO_NOMBRE_COMERCIAL = FieldConfig(
     requerido=True,
     min_len=NOMBRE_COMERCIAL_MIN,
     max_len=NOMBRE_COMERCIAL_MAX,
-    transformar=str.upper
+    transformar=str.upper,
+    # UI
+    label='Nombre comercial *',
+    placeholder='Nombre comercial de la empresa',
+    hint=f'{NOMBRE_COMERCIAL_MIN}-{NOMBRE_COMERCIAL_MAX} caracteres',
+    input_type=InputType.TEXT,
+    section=SECCION_INFO_BASICA,
+    order=1,
 )
 
 CAMPO_RAZON_SOCIAL = FieldConfig(
@@ -70,7 +92,13 @@ CAMPO_RAZON_SOCIAL = FieldConfig(
     requerido=True,
     min_len=RAZON_SOCIAL_MIN,
     max_len=RAZON_SOCIAL_MAX,
-    transformar=str.upper
+    transformar=str.upper,
+    # UI
+    label='Razón social *',
+    placeholder='Razón social completa (SA de CV, etc.)',
+    input_type=InputType.TEXT,
+    section=SECCION_INFO_BASICA,
+    order=2,
 )
 
 CAMPO_RFC = FieldConfig(
@@ -80,13 +108,26 @@ CAMPO_RFC = FieldConfig(
     max_len=RFC_MAX,
     transformar=str.upper,
     patron=RFC_PATTERN,
-    patron_error='RFC no cumple el formato del SAT'
+    patron_error='RFC no cumple el formato del SAT',
+    # UI
+    label='RFC *',
+    placeholder='RFC con homoclave',
+    hint='12-13 caracteres alfanuméricos',
+    input_type=InputType.TEXT,
+    section=SECCION_INFO_BASICA,
+    order=3,
 )
 
 CAMPO_DIRECCION = FieldConfig(
     nombre='Dirección',
     requerido=False,
-    max_len=DIRECCION_MAX
+    max_len=DIRECCION_MAX,
+    # UI
+    label='Dirección',
+    placeholder='Calle, número, colonia, ciudad',
+    input_type=InputType.TEXT,
+    section=SECCION_CONTACTO,
+    order=1,
 )
 
 CAMPO_CODIGO_POSTAL = FieldConfig(
@@ -95,16 +136,15 @@ CAMPO_CODIGO_POSTAL = FieldConfig(
     min_len=CODIGO_POSTAL_LEN,
     max_len=CODIGO_POSTAL_LEN,
     patron=CODIGO_POSTAL_PATTERN,
-    patron_error=MSG_CP_SOLO_NUMEROS
-)
-
-CAMPO_EMAIL = FieldConfig(
-    nombre='Correo electrónico',
-    requerido=False,
-    max_len=EMAIL_MAX,
-    patron=EMAIL_PATTERN,
-    patron_error=MSG_EMAIL_FORMATO_INVALIDO,
-    transformar=str.lower
+    patron_error=MSG_CP_SOLO_NUMEROS,
+    # UI
+    label='Código Postal',
+    placeholder='00000',
+    hint='5 dígitos',
+    input_type=InputType.TEXT,
+    section=SECCION_CONTACTO,
+    order=2,
+    width='half',
 )
 
 CAMPO_TELEFONO = FieldConfig(
@@ -114,13 +154,42 @@ CAMPO_TELEFONO = FieldConfig(
     max_len=TELEFONO_DIGITOS,
     patron=TELEFONO_PATTERN,
     patron_error='Debe tener 10 dígitos',
-    transformar=lambda v: re.sub(r'[\s\-\(\)\+]', '', v)
+    transformar=lambda v: re.sub(r'[\s\-\(\)\+]', '', v),
+    # UI
+    label='Teléfono',
+    placeholder='(55) 1234-5678',
+    hint='10 dígitos',
+    input_type=InputType.TEL,
+    section=SECCION_CONTACTO,
+    order=3,
+    width='half',
+)
+
+CAMPO_EMAIL = FieldConfig(
+    nombre='Correo electrónico',
+    requerido=False,
+    max_len=EMAIL_MAX,
+    patron=EMAIL_PATTERN,
+    patron_error=MSG_EMAIL_FORMATO_INVALIDO,
+    transformar=str.lower,
+    # UI
+    label='Correo electrónico',
+    placeholder='correo@ejemplo.com',
+    input_type=InputType.EMAIL,
+    section=SECCION_CONTACTO,
+    order=4,
 )
 
 CAMPO_PAGINA_WEB = FieldConfig(
     nombre='Página web',
     requerido=False,
-    max_len=PAGINA_WEB_MAX
+    max_len=PAGINA_WEB_MAX,
+    # UI
+    label='Página web',
+    placeholder='https://www.ejemplo.com',
+    input_type=InputType.TEXT,
+    section=SECCION_CONTACTO,
+    order=5,
 )
 
 CAMPO_REGISTRO_PATRONAL = FieldConfig(
@@ -130,7 +199,14 @@ CAMPO_REGISTRO_PATRONAL = FieldConfig(
     max_len=REGISTRO_PATRONAL_LEN,
     patron=REGISTRO_PATRONAL_LIMPIO_PATTERN,
     patron_error=MSG_REGISTRO_PATRONAL_INVALIDO,
-    transformar=lambda v: re.sub(r'[\s\-]', '', v.upper())
+    transformar=lambda v: re.sub(r'[\s\-]', '', v.upper()),
+    # UI
+    label='Registro Patronal IMSS',
+    placeholder='Y12-34567-10-1',
+    hint='Formato: letra + 10 dígitos',
+    input_type=InputType.TEXT,
+    section=SECCION_IMSS,
+    order=1,
 )
 
 
@@ -151,12 +227,27 @@ def _validar_prima_riesgo(valor: str) -> str:
 CAMPO_PRIMA_RIESGO = FieldConfig(
     nombre='Prima de riesgo',
     requerido=False,
-    validador_custom=_validar_prima_riesgo
+    validador_custom=_validar_prima_riesgo,
+    # UI
+    label='Prima de riesgo (%)',
+    placeholder='2.5',
+    hint='Entre 0.5% y 15%',
+    input_type=InputType.NUMBER,
+    section=SECCION_IMSS,
+    order=2,
+    width='half',
 )
 
 CAMPO_NOTAS = FieldConfig(
     nombre='Notas',
-    requerido=False
+    requerido=False,
+    # UI
+    label='Notas',
+    placeholder='Observaciones adicionales...',
+    input_type=InputType.TEXTAREA,
+    section=SECCION_CONTROL,
+    order=2,
+    rows=3,
 )
 
 
@@ -171,7 +262,13 @@ CAMPO_CLAVE_TIPO_SERVICIO = FieldConfig(
     max_len=CLAVE_TIPO_MAX,
     patron=CLAVE_TIPO_SERVICIO_PATTERN,
     patron_error=MSG_CLAVE_SOLO_LETRAS,
-    transformar=str.upper
+    transformar=str.upper,
+    # UI
+    label='Clave *',
+    placeholder='Ej: JAR, LIM, MTO',
+    hint=f'{CLAVE_TIPO_MIN}-{CLAVE_TIPO_MAX} letras mayúsculas',
+    input_type=InputType.TEXT,
+    order=1,
 )
 
 CAMPO_NOMBRE_TIPO_SERVICIO = FieldConfig(
@@ -179,11 +276,183 @@ CAMPO_NOMBRE_TIPO_SERVICIO = FieldConfig(
     requerido=True,
     min_len=NOMBRE_TIPO_MIN,
     max_len=NOMBRE_TIPO_MAX,
-    transformar=str.upper
+    transformar=str.upper,
+    # UI
+    label='Nombre *',
+    placeholder='Nombre del tipo de servicio',
+    input_type=InputType.TEXT,
+    order=2,
 )
 
 CAMPO_DESCRIPCION_TIPO_SERVICIO = FieldConfig(
     nombre='Descripción',
     requerido=False,
-    max_len=DESCRIPCION_TIPO_MAX
+    max_len=DESCRIPCION_TIPO_MAX,
+    # UI
+    label='Descripción',
+    placeholder='Descripción detallada del servicio...',
+    hint=f'Máximo {DESCRIPCION_TIPO_MAX} caracteres',
+    input_type=InputType.TEXTAREA,
+    order=3,
+    rows=3,
 )
+
+
+# =============================================================================
+# CAMPOS DE SIMULADOR DE COSTO PATRONAL
+# =============================================================================
+
+SECCION_CONFIG_EMPRESA = "config_empresa"
+SECCION_PRESTACIONES = "prestaciones"
+SECCION_TRABAJADOR = "trabajador"
+
+CAMPO_SIM_ESTADO = FieldConfig(
+    nombre='Estado',
+    requerido=True,
+    # UI
+    label='Estado',
+    placeholder='Selecciona un estado',
+    input_type=InputType.SELECT,
+    section=SECCION_CONFIG_EMPRESA,
+    order=1,
+    width='half',
+)
+
+CAMPO_SIM_PRIMA_RIESGO = FieldConfig(
+    nombre='Prima de riesgo',
+    requerido=True,
+    # UI
+    label='Prima de riesgo (%)',
+    placeholder='2.5984',
+    hint='Porcentaje según giro de la empresa',
+    input_type=InputType.NUMBER,
+    section=SECCION_CONFIG_EMPRESA,
+    order=2,
+    width='half',
+)
+
+CAMPO_SIM_DIAS_AGUINALDO = FieldConfig(
+    nombre='Días de aguinaldo',
+    requerido=True,
+    # UI
+    label='Días de aguinaldo',
+    placeholder='15',
+    hint='Mínimo legal: 15 días',
+    input_type=InputType.NUMBER,
+    section=SECCION_PRESTACIONES,
+    order=1,
+    width='half',
+)
+
+CAMPO_SIM_PRIMA_VACACIONAL = FieldConfig(
+    nombre='Prima vacacional',
+    requerido=True,
+    # UI
+    label='Prima vacacional (%)',
+    placeholder='25',
+    hint='Mínimo legal: 25%',
+    input_type=InputType.NUMBER,
+    section=SECCION_PRESTACIONES,
+    order=2,
+    width='half',
+)
+
+CAMPO_SIM_TIPO_CALCULO = FieldConfig(
+    nombre='Tipo de cálculo',
+    requerido=True,
+    # UI
+    label='Tipo de cálculo',
+    placeholder='Selecciona un tipo',
+    input_type=InputType.SELECT,
+    section=SECCION_TRABAJADOR,
+    order=1,
+    width='third',
+)
+
+CAMPO_SIM_SALARIO_MENSUAL = FieldConfig(
+    nombre='Salario mensual',
+    requerido=False,
+    # UI
+    label='Salario mensual ($)',
+    placeholder='0.00',
+    input_type=InputType.NUMBER,
+    section=SECCION_TRABAJADOR,
+    order=2,
+    width='third',
+)
+
+CAMPO_SIM_SALARIO_DIARIO = FieldConfig(
+    nombre='Salario diario',
+    requerido=False,
+    # UI
+    label='Salario diario ($)',
+    placeholder='0.00',
+    hint='Calculado automáticamente',
+    input_type=InputType.NUMBER,
+    section=SECCION_TRABAJADOR,
+    order=3,
+    width='third',
+)
+
+CAMPO_SIM_ANTIGUEDAD = FieldConfig(
+    nombre='Antigüedad',
+    requerido=True,
+    # UI
+    label='Antigüedad (años)',
+    placeholder='1',
+    hint='Mínimo 1 año',
+    input_type=InputType.NUMBER,
+    section=SECCION_TRABAJADOR,
+    order=4,
+    width='half',
+)
+
+CAMPO_SIM_DIAS_COTIZADOS = FieldConfig(
+    nombre='Días cotizados',
+    requerido=True,
+    # UI
+    label='Días cotizados',
+    placeholder='30',
+    hint='Días del mes a cotizar',
+    input_type=InputType.NUMBER,
+    section=SECCION_TRABAJADOR,
+    order=5,
+    width='half',
+)
+
+
+# =============================================================================
+# DICCIONARIOS DE CAMPOS POR MÓDULO (para iterar fácilmente)
+# =============================================================================
+
+CAMPOS_EMPRESA = {
+    'nombre_comercial': CAMPO_NOMBRE_COMERCIAL,
+    'razon_social': CAMPO_RAZON_SOCIAL,
+    'rfc': CAMPO_RFC,
+    'direccion': CAMPO_DIRECCION,
+    'codigo_postal': CAMPO_CODIGO_POSTAL,
+    'telefono': CAMPO_TELEFONO,
+    'email': CAMPO_EMAIL,
+    'pagina_web': CAMPO_PAGINA_WEB,
+    'registro_patronal': CAMPO_REGISTRO_PATRONAL,
+    'prima_riesgo': CAMPO_PRIMA_RIESGO,
+    'notas': CAMPO_NOTAS,
+}
+
+CAMPOS_TIPO_SERVICIO = {
+    'clave': CAMPO_CLAVE_TIPO_SERVICIO,
+    'nombre': CAMPO_NOMBRE_TIPO_SERVICIO,
+    'descripcion': CAMPO_DESCRIPCION_TIPO_SERVICIO,
+}
+
+CAMPOS_SIMULADOR = {
+    'estado': CAMPO_SIM_ESTADO,
+    'prima_riesgo': CAMPO_SIM_PRIMA_RIESGO,
+    'dias_aguinaldo': CAMPO_SIM_DIAS_AGUINALDO,
+    'prima_vacacional': CAMPO_SIM_PRIMA_VACACIONAL,
+    'tipo_calculo': CAMPO_SIM_TIPO_CALCULO,
+    'salario_mensual': CAMPO_SIM_SALARIO_MENSUAL,
+    'salario_diario': CAMPO_SIM_SALARIO_DIARIO,
+    'antiguedad': CAMPO_SIM_ANTIGUEDAD,
+    'dias_cotizados': CAMPO_SIM_DIAS_COTIZADOS,
+}
