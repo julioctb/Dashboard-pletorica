@@ -8,19 +8,25 @@ No dependen de empresa - todas las empresas usan el mismo catálogo.
 """
 import re
 from datetime import datetime
-from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
-
-# Constantes de validación
-CLAVE_PATTERN = r'^[A-Z]{2,5}$'
-
-
-class EstatusTipoServicio(str, Enum):
-    """Estados posibles de un tipo de servicio"""
-    ACTIVO = 'ACTIVO'
-    INACTIVO = 'INACTIVO'
+from app.core.enums import Estatus
+from app.core.validation_patterns import (
+    CLAVE_TIPO_SERVICIO_PATTERN,
+    CLAVE_TIPO_MIN,
+    CLAVE_TIPO_MAX,
+    NOMBRE_TIPO_MIN,
+    NOMBRE_TIPO_MAX,
+    DESCRIPCION_TIPO_MAX,
+)
+from app.core.error_messages import (
+    msg_clave_longitud_actual,
+    MSG_CLAVE_SOLO_LETRAS,
+    MSG_CLAVE_SOLO_MAYUSCULAS,
+    msg_clave_longitud,
+    msg_entidad_ya_estado,
+)
 
 
 class TipoServicio(BaseModel):
@@ -50,25 +56,25 @@ class TipoServicio(BaseModel):
 
     # Información básica
     clave: str = Field(
-        min_length=2,
-        max_length=5,
-        pattern=CLAVE_PATTERN,
+        min_length=CLAVE_TIPO_MIN,
+        max_length=CLAVE_TIPO_MAX,
+        pattern=CLAVE_TIPO_SERVICIO_PATTERN,
         description="Clave única del tipo (2-5 letras mayúsculas)"
     )
     nombre: str = Field(
-        min_length=2,
-        max_length=50,
+        min_length=NOMBRE_TIPO_MIN,
+        max_length=NOMBRE_TIPO_MAX,
         description="Nombre del tipo de servicio"
     )
     descripcion: Optional[str] = Field(
         None,
-        max_length=500,
+        max_length=DESCRIPCION_TIPO_MAX,
         description="Descripción detallada del tipo"
     )
 
     # Control de estado
-    estatus: EstatusTipoServicio = Field(
-        default=EstatusTipoServicio.ACTIVO,
+    estatus: Estatus = Field(
+        default=Estatus.ACTIVO,
         description="Estado actual del tipo"
     )
 
@@ -86,12 +92,12 @@ class TipoServicio(BaseModel):
         """Valida y normaliza la clave del tipo"""
         if v:
             v = v.upper().strip()
-            if not re.match(CLAVE_PATTERN, v):
-                if len(v) < 2 or len(v) > 5:
-                    raise ValueError(f'La clave debe tener entre 2 y 5 caracteres (tiene {len(v)})')
+            if not re.match(CLAVE_TIPO_SERVICIO_PATTERN, v):
+                if len(v) < CLAVE_TIPO_MIN or len(v) > CLAVE_TIPO_MAX:
+                    raise ValueError(msg_clave_longitud_actual(CLAVE_TIPO_MIN, CLAVE_TIPO_MAX, len(v)))
                 if not v.isalpha():
-                    raise ValueError('La clave solo puede contener letras')
-                raise ValueError('La clave solo puede contener letras mayúsculas')
+                    raise ValueError(MSG_CLAVE_SOLO_LETRAS)
+                raise ValueError(MSG_CLAVE_SOLO_MAYUSCULAS)
         return v
 
     @field_validator('nombre')
@@ -107,7 +113,7 @@ class TipoServicio(BaseModel):
     # Métodos de negocio
     def esta_activo(self) -> bool:
         """Verifica si el tipo está activo"""
-        return self.estatus == EstatusTipoServicio.ACTIVO
+        return self.estatus == Estatus.ACTIVO
 
     def puede_usarse_en_contratos(self) -> bool:
         """Verifica si el tipo puede usarse en nuevos contratos"""
@@ -115,15 +121,15 @@ class TipoServicio(BaseModel):
 
     def desactivar(self) -> None:
         """Desactiva el tipo de servicio"""
-        if self.estatus == EstatusTipoServicio.INACTIVO:
-            raise ValueError("El tipo ya está inactivo")
-        self.estatus = EstatusTipoServicio.INACTIVO
+        if self.estatus == Estatus.INACTIVO:
+            raise ValueError(msg_entidad_ya_estado("El tipo", "inactivo"))
+        self.estatus = Estatus.INACTIVO
 
     def activar(self) -> None:
         """Activa el tipo de servicio"""
-        if self.estatus == EstatusTipoServicio.ACTIVO:
-            raise ValueError("El tipo ya está activo")
-        self.estatus = EstatusTipoServicio.ACTIVO
+        if self.estatus == Estatus.ACTIVO:
+            raise ValueError(msg_entidad_ya_estado("El tipo", "activo"))
+        self.estatus = Estatus.ACTIVO
 
     def __str__(self) -> str:
         return f"{self.clave} - {self.nombre}"
@@ -138,10 +144,10 @@ class TipoServicioCreate(BaseModel):
         validate_assignment=True
     )
 
-    clave: str = Field(min_length=2, max_length=5)
-    nombre: str = Field(min_length=2, max_length=50)
-    descripcion: Optional[str] = Field(None, max_length=500)
-    estatus: EstatusTipoServicio = Field(default=EstatusTipoServicio.ACTIVO)
+    clave: str = Field(min_length=CLAVE_TIPO_MIN, max_length=CLAVE_TIPO_MAX)
+    nombre: str = Field(min_length=NOMBRE_TIPO_MIN, max_length=NOMBRE_TIPO_MAX)
+    descripcion: Optional[str] = Field(None, max_length=DESCRIPCION_TIPO_MAX)
+    estatus: Estatus = Field(default=Estatus.ACTIVO)
 
     @field_validator('clave')
     @classmethod
@@ -149,8 +155,8 @@ class TipoServicioCreate(BaseModel):
         """Valida y normaliza la clave"""
         if v:
             v = v.upper().strip()
-            if not re.match(CLAVE_PATTERN, v):
-                raise ValueError('La clave debe tener entre 2 y 5 letras mayúsculas')
+            if not re.match(CLAVE_TIPO_SERVICIO_PATTERN, v):
+                raise ValueError(msg_clave_longitud(CLAVE_TIPO_MIN, CLAVE_TIPO_MAX))
         return v
 
     @field_validator('nombre')
@@ -171,10 +177,10 @@ class TipoServicioUpdate(BaseModel):
         validate_assignment=True
     )
 
-    clave: Optional[str] = Field(None, min_length=2, max_length=5)
-    nombre: Optional[str] = Field(None, min_length=2, max_length=50)
-    descripcion: Optional[str] = Field(None, max_length=500)
-    estatus: Optional[EstatusTipoServicio] = None
+    clave: Optional[str] = Field(None, min_length=CLAVE_TIPO_MIN, max_length=CLAVE_TIPO_MAX)
+    nombre: Optional[str] = Field(None, min_length=NOMBRE_TIPO_MIN, max_length=NOMBRE_TIPO_MAX)
+    descripcion: Optional[str] = Field(None, max_length=DESCRIPCION_TIPO_MAX)
+    estatus: Optional[Estatus] = None
 
     @field_validator('clave')
     @classmethod
@@ -182,8 +188,8 @@ class TipoServicioUpdate(BaseModel):
         """Valida y normaliza la clave si se proporciona"""
         if v:
             v = v.upper().strip()
-            if not re.match(CLAVE_PATTERN, v):
-                raise ValueError('La clave debe tener entre 2 y 5 letras mayúsculas')
+            if not re.match(CLAVE_TIPO_SERVICIO_PATTERN, v):
+                raise ValueError(msg_clave_longitud(CLAVE_TIPO_MIN, CLAVE_TIPO_MAX))
         return v
 
     @field_validator('nombre')

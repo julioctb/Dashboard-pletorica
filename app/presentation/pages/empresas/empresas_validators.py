@@ -4,6 +4,44 @@ Funciones puras que retornan mensaje de error o string vacío si es válido.
 """
 import re
 
+from app.core.validation_patterns import (
+    RFC_PATTERN,
+    RFC_PREFIX_PATTERN,
+    RFC_FECHA_PATTERN,
+    EMAIL_PATTERN,
+    NOMBRE_COMERCIAL_MIN,
+    NOMBRE_COMERCIAL_MAX,
+    RAZON_SOCIAL_MIN,
+    RAZON_SOCIAL_MAX,
+    EMAIL_MAX,
+    TELEFONO_DIGITOS,
+    CODIGO_POSTAL_LEN,
+)
+from app.core.error_messages import (
+    msg_campo_obligatorio,
+    msg_campo_obligatoria,
+    msg_min_caracteres,
+    msg_max_caracteres,
+    msg_campos_faltantes,
+    MSG_RFC_OBLIGATORIO,
+    msg_rfc_longitud,
+    MSG_RFC_LETRAS_INVALIDAS,
+    MSG_RFC_FECHA_INVALIDA,
+    msg_rfc_homoclave_invalida,
+    MSG_EMAIL_FORMATO_INVALIDO,
+    msg_email_max_longitud,
+    MSG_CP_SOLO_NUMEROS,
+    msg_cp_digitos,
+    MSG_TELEFONO_SOLO_NUMEROS,
+    msg_telefono_digitos,
+    msg_registro_patronal_longitud,
+    MSG_REGISTRO_PATRONAL_INICIO,
+    MSG_REGISTRO_PATRONAL_FORMATO,
+    MSG_PRIMA_RIESGO_NUMERO,
+    MSG_PRIMA_RIESGO_MIN,
+    MSG_PRIMA_RIESGO_MAX,
+)
+
 
 def validar_nombre_comercial(nombre: str) -> str:
     """
@@ -16,13 +54,13 @@ def validar_nombre_comercial(nombre: str) -> str:
         Mensaje de error o string vacío si es válido
     """
     if not nombre or not nombre.strip():
-        return "Nombre comercial es obligatorio"
+        return msg_campo_obligatorio("Nombre comercial")
 
-    if len(nombre.strip()) < 2:
-        return "Debe tener al menos 2 caracteres"
+    if len(nombre.strip()) < NOMBRE_COMERCIAL_MIN:
+        return msg_min_caracteres(NOMBRE_COMERCIAL_MIN)
 
-    if len(nombre.strip()) > 100:
-        return "Máximo 100 caracteres"
+    if len(nombre.strip()) > NOMBRE_COMERCIAL_MAX:
+        return msg_max_caracteres(NOMBRE_COMERCIAL_MAX)
 
     return ""
 
@@ -38,13 +76,13 @@ def validar_razon_social(razon: str) -> str:
         Mensaje de error o string vacío si es válido
     """
     if not razon or not razon.strip():
-        return "Razón social es obligatoria"
+        return msg_campo_obligatoria("Razón social")
 
-    if len(razon.strip()) < 2:
-        return "Debe tener al menos 2 caracteres"
+    if len(razon.strip()) < RAZON_SOCIAL_MIN:
+        return msg_min_caracteres(RAZON_SOCIAL_MIN)
 
-    if len(razon.strip()) > 100:
-        return "Máximo 100 caracteres"
+    if len(razon.strip()) > RAZON_SOCIAL_MAX:
+        return msg_max_caracteres(RAZON_SOCIAL_MAX)
 
     return ""
 
@@ -60,31 +98,27 @@ def validar_rfc(rfc: str) -> str:
         Mensaje de error o string vacío si es válido
     """
     if not rfc or not rfc.strip():
-        return "RFC es obligatorio"
+        return MSG_RFC_OBLIGATORIO
 
     rfc_limpio = rfc.strip().upper()
 
     # Validar longitud
     if len(rfc_limpio) < 12 or len(rfc_limpio) > 13:
-        return f"RFC debe tener 12 o 13 caracteres (tiene {len(rfc_limpio)})"
+        return msg_rfc_longitud(len(rfc_limpio))
 
-    # Patrón del SAT: 3-4 letras + 6 dígitos (fecha) + 3 caracteres (homoclave)
-    # Homoclave: [A-V1-9][A-Z1-9][0-9A]
-    patron = r'^[A-Z&Ñ]{3,4}[0-9]{6}[A-V1-9][A-Z1-9][0-9A]$'
-
-    if not re.match(patron, rfc_limpio):
+    if not re.match(RFC_PATTERN, rfc_limpio):
         # Identificar qué parte está mal para dar feedback específico
-        if not re.match(r'^[A-Z&Ñ]{3,4}', rfc_limpio[:4]):
-            return "Las primeras 3-4 letras son inválidas"
+        if not re.match(RFC_PREFIX_PATTERN, rfc_limpio[:4]):
+            return MSG_RFC_LETRAS_INVALIDAS
 
         inicio = 4 if len(rfc_limpio) == 13 else 3
         fecha = rfc_limpio[inicio:inicio+6]
 
-        if not re.match(r'^[0-9]{6}$', fecha):
-            return "La fecha (6 dígitos) es inválida"
+        if not re.match(RFC_FECHA_PATTERN, fecha):
+            return MSG_RFC_FECHA_INVALIDA
 
         # Si llegamos aquí, es la homoclave
-        return f"La homoclave '{rfc_limpio[-3:]}' no cumple el formato del SAT"
+        return msg_rfc_homoclave_invalida(rfc_limpio[-3:])
 
     return ""
 
@@ -104,14 +138,11 @@ def validar_email(email: str) -> str:
 
     email_limpio = email.strip()
 
-    # Patrón básico de email
-    patron = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(EMAIL_PATTERN, email_limpio):
+        return MSG_EMAIL_FORMATO_INVALIDO
 
-    if not re.match(patron, email_limpio):
-        return "Formato de email inválido (ejemplo: usuario@dominio.com)"
-
-    if len(email_limpio) > 100:
-        return "Email demasiado largo (máximo 100 caracteres)"
+    if len(email_limpio) > EMAIL_MAX:
+        return msg_email_max_longitud(EMAIL_MAX)
 
     return ""
 
@@ -132,10 +163,10 @@ def validar_codigo_postal(cp: str) -> str:
     cp_limpio = cp.strip()
 
     if not cp_limpio.isdigit():
-        return "Solo números permitidos"
+        return MSG_CP_SOLO_NUMEROS
 
-    if len(cp_limpio) != 5:
-        return f"Debe tener 5 dígitos (tiene {len(cp_limpio)})"
+    if len(cp_limpio) != CODIGO_POSTAL_LEN:
+        return msg_cp_digitos(CODIGO_POSTAL_LEN, len(cp_limpio))
 
     return ""
 
@@ -167,10 +198,10 @@ def validar_telefono(telefono: str) -> str:
     )
 
     if not tel_solo_digitos.isdigit():
-        return "Solo números (puede usar espacios, guiones o paréntesis)"
+        return MSG_TELEFONO_SOLO_NUMEROS
 
-    if len(tel_solo_digitos) != 10:
-        return f"Debe tener 10 dígitos (tiene {len(tel_solo_digitos)})"
+    if len(tel_solo_digitos) != TELEFONO_DIGITOS:
+        return msg_telefono_digitos(TELEFONO_DIGITOS, len(tel_solo_digitos))
 
     return ""
 
@@ -199,7 +230,7 @@ def validar_campos_requeridos(nombre_comercial: str, razon_social: str, rfc: str
         faltantes.append("RFC")
 
     if faltantes:
-        return f"Campos obligatorios faltantes: {', '.join(faltantes)}"
+        return msg_campos_faltantes(faltantes)
 
     return ""
 
@@ -207,30 +238,30 @@ def validar_registro_patronal(valor: str) -> str:
     """
     Valida registro patronal IMSS.
     Formato esperado: Y12-34567-10-1 (11 caracteres sin guiones)
-    
+
     Args:
         valor: Registro patronal a validar
-        
+
     Returns:
         Mensaje de error o string vacío si es válido
     """
     if not valor or not valor.strip():
         return ""  # Campo opcional
-    
+
     # Limpiar: quitar guiones, espacios, convertir a mayúsculas
     limpio = valor.strip().upper().replace("-", "").replace(" ", "")
-    
+
     # Validar longitud
     if len(limpio) != 11:
-        return f"Debe tener 11 caracteres (tiene {len(limpio)})"
-    
+        return msg_registro_patronal_longitud(11, len(limpio))
+
     # Validar formato: letra + 10 dígitos
     if not limpio[0].isalpha():
-        return "Debe iniciar con una letra"
-    
+        return MSG_REGISTRO_PATRONAL_INICIO
+
     if not limpio[1:].isdigit():
-        return "Después de la letra deben ser 10 dígitos"
-    
+        return MSG_REGISTRO_PATRONAL_FORMATO
+
     return ""
 
 
@@ -238,27 +269,27 @@ def validar_prima_riesgo(valor: str) -> str:
     """
     Valida prima de riesgo de trabajo.
     Rango válido: 0.5% a 15%
-    
+
     Args:
         valor: Prima de riesgo a validar (como porcentaje)
-        
+
     Returns:
         Mensaje de error o string vacío si es válido
     """
     if not valor or not valor.strip():
         return ""  # Campo opcional
-    
+
     valor_limpio = valor.strip()
-    
+
     try:
         numero = float(valor_limpio)
     except ValueError:
-        return "Debe ser un número válido (ejemplo: 2.598)"
-    
+        return MSG_PRIMA_RIESGO_NUMERO
+
     if numero < 0.5:
-        return "Mínimo 0.5%"
-    
+        return MSG_PRIMA_RIESGO_MIN
+
     if numero > 15:
-        return "Máximo 15%"
-    
+        return MSG_PRIMA_RIESGO_MAX
+
     return ""

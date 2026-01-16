@@ -5,27 +5,46 @@ Consolidadas desde múltiples ubicaciones legacy.
 import re
 from decimal import Decimal
 from datetime import datetime
-from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
-# Constantes de validación
-RFC_PATTERN = r'^[A-Z&Ñ]{3,4}[0-9]{6}[A-V1-9][A-Z1-9][0-9A]$'
-EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-REGISTRO_PATRONAL_PATTERN = r'^[A-Z][0-9]{2}-[0-9]{5}-[0-9]{2}-[0-9]$'
-
-
-class TipoEmpresa(str, Enum):
-    """Tipos de empresa en el sistema"""
-    NOMINA = 'NOMINA'
-    MANTENIMIENTO = 'MANTENIMIENTO'
-
-
-class EstatusEmpresa(str, Enum):
-    """Estados posibles de una empresa"""
-    ACTIVO = 'ACTIVO'
-    INACTIVO = 'INACTIVO'
-    SUSPENDIDO = 'SUSPENDIDO'
+from app.core.enums import TipoEmpresa, EstatusEmpresa
+from app.core.validation_patterns import (
+    RFC_PATTERN,
+    RFC_PREFIX_PATTERN,
+    EMAIL_PATTERN,
+    REGISTRO_PATRONAL_PATTERN,
+    REGISTRO_PATRONAL_LIMPIO_PATTERN,
+    CODIGO_POSTAL_PATTERN,
+    CODIGO_CORTO_PATTERN,
+    # Constantes de longitud
+    NOMBRE_COMERCIAL_MIN,
+    NOMBRE_COMERCIAL_MAX,
+    RAZON_SOCIAL_MIN,
+    RAZON_SOCIAL_MAX,
+    RFC_MIN,
+    RFC_MAX,
+    DIRECCION_MAX,
+    CODIGO_POSTAL_LEN,
+    TELEFONO_MAX,
+    EMAIL_MAX,
+    PAGINA_WEB_MAX,
+    REGISTRO_PATRONAL_MAX,
+    CODIGO_CORTO_LEN,
+)
+from app.core.error_messages import (
+    msg_rfc_longitud,
+    MSG_RFC_LETRAS_INVALIDAS,
+    MSG_RFC_FECHA_INVALIDA,
+    msg_rfc_homoclave_invalida,
+    MSG_EMAIL_FORMATO_INVALIDO,
+    MSG_TELEFONO_SOLO_NUMEROS,
+    msg_telefono_digitos,
+    msg_registro_patronal_longitud,
+    MSG_REGISTRO_PATRONAL_INVALIDO,
+    MSG_PRIMA_RIESGO_RANGO,
+    msg_entidad_ya_estado,
+)
 
 def formatear_registro_patronal(valor: str) -> str:
     """
@@ -39,14 +58,10 @@ def formatear_registro_patronal(valor: str) -> str:
     limpio = re.sub(r'[^A-Z0-9]', '', valor.upper())
     
     if len(limpio) != 11:
-        raise ValueError(
-            f'Registro patronal debe tener 11 caracteres (tiene {len(limpio)})'
-        )
-    
-    if not re.match(r'^[A-Z][0-9]{10}$', limpio):
-        raise ValueError(
-            'Registro patronal inválido. Debe iniciar con letra seguida de 10 dígitos'
-        )
+        raise ValueError(msg_registro_patronal_longitud(11, len(limpio)))
+
+    if not re.match(REGISTRO_PATRONAL_LIMPIO_PATTERN, limpio):
+        raise ValueError(MSG_REGISTRO_PATRONAL_INVALIDO)
     
     # Formatear: Y12-34567-10-1
     return f"{limpio[0:3]}-{limpio[3:8]}-{limpio[8:10]}-{limpio[10]}"
@@ -70,21 +85,21 @@ class Empresa(BaseModel):
 
     # Información básica
     nombre_comercial: str = Field(
-        min_length=2,
-        max_length=100,
+        min_length=NOMBRE_COMERCIAL_MIN,
+        max_length=NOMBRE_COMERCIAL_MAX,
         description="Nombre comercial de la empresa"
     )
     razon_social: str = Field(
-        min_length=2,
-        max_length=100,
+        min_length=RAZON_SOCIAL_MIN,
+        max_length=RAZON_SOCIAL_MAX,
         description="Razón social completa"
     )
     tipo_empresa: TipoEmpresa = Field(
         description="Tipo de empresa: nomina o mantenimiento"
     )
     rfc: str = Field(
-        min_length=12,
-        max_length=13,
+        min_length=RFC_MIN,
+        max_length=RFC_MAX,
         pattern=RFC_PATTERN,
         description="RFC válido de la empresa"
     )
@@ -92,36 +107,36 @@ class Empresa(BaseModel):
     # Información de contacto
     direccion: Optional[str] = Field(
         None,
-        max_length=200,
+        max_length=DIRECCION_MAX,
         description="Dirección física completa"
     )
     codigo_postal: Optional[str] = Field(
         None,
-        min_length=5,
-        max_length=5,
-        pattern=r'^[0-9]{5}$',
+        min_length=CODIGO_POSTAL_LEN,
+        max_length=CODIGO_POSTAL_LEN,
+        pattern=CODIGO_POSTAL_PATTERN,
         description="Código postal de 5 dígitos"
     )
     telefono: Optional[str] = Field(
         None,
-        max_length=15,
+        max_length=TELEFONO_MAX,
         description="Número de teléfono principal"
     )
     email: Optional[str] = Field(
         None,
-        max_length=100,
+        max_length=EMAIL_MAX,
         description="Correo electrónico de contacto"
     )
     pagina_web: Optional[str] = Field(
         None,
-        max_length=100,
+        max_length=PAGINA_WEB_MAX,
         description="Sitio web de la empresa"
     )
 
     # Datos IMSS (opcionales)
     registro_patronal: Optional[str] = Field(
         None,
-        max_length=15,
+        max_length=REGISTRO_PATRONAL_MAX,
         description="Registro patronal IMSS. Formato: Y12-34567-10-1"
     )
     prima_riesgo: Optional[Decimal] = Field(
@@ -134,9 +149,9 @@ class Empresa(BaseModel):
 
     codigo_corto: Optional[str] = Field(
         None,
-        min_length=3,
-        max_length=3,
-        pattern=r'^[A-Z0-9]{3}$',
+        min_length=CODIGO_CORTO_LEN,
+        max_length=CODIGO_CORTO_LEN,
+        pattern=CODIGO_CORTO_PATTERN,
         description="Código único de 3 caracteres (autogenerado, inmutable)"
     )
 
@@ -168,13 +183,13 @@ class Empresa(BaseModel):
             if not re.match(RFC_PATTERN, v):
                 # Identificar qué parte está mal
                 if len(v) < 12 or len(v) > 13:
-                    raise ValueError(f'RFC debe tener 12 o 13 caracteres (tiene {len(v)})')
-                if not re.match(r'^[A-Z&Ñ]{3,4}', v[:4]):
-                    raise ValueError('RFC: Las primeras 3-4 letras son inválidas')
+                    raise ValueError(msg_rfc_longitud(len(v)))
+                if not re.match(RFC_PREFIX_PATTERN, v[:4]):
+                    raise ValueError(MSG_RFC_LETRAS_INVALIDAS)
                 if not re.match(r'^[0-9]{6}', v[4:10] if len(v) == 13 else v[3:9]):
-                    raise ValueError('RFC: La fecha (6 dígitos) es inválida')
+                    raise ValueError(MSG_RFC_FECHA_INVALIDA)
                 # Si llegamos aquí, es la homoclave
-                raise ValueError(f'RFC: La homoclave "{v[-3:]}" es inválida. Debe seguir el formato del SAT')
+                raise ValueError(msg_rfc_homoclave_invalida(v[-3:]))
         return v
 
     @field_validator('email')
@@ -185,7 +200,7 @@ class Empresa(BaseModel):
             v = v.lower().strip()
             # Validar formato usando constante global (mismo patrón que frontend)
             if not re.match(EMAIL_PATTERN, v):
-                raise ValueError('Formato de email inválido (ejemplo: usuario@dominio.com)')
+                raise ValueError(MSG_EMAIL_FORMATO_INVALIDO)
         return v
 
     @field_validator('telefono')
@@ -204,10 +219,10 @@ class Empresa(BaseModel):
             )
 
             if not tel_solo_digitos.isdigit():
-                raise ValueError('Teléfono: Solo números (puede usar espacios, guiones o paréntesis)')
+                raise ValueError(MSG_TELEFONO_SOLO_NUMEROS)
 
             if len(tel_solo_digitos) != 10:
-                raise ValueError(f'Teléfono debe tener 10 dígitos (tiene {len(tel_solo_digitos)})')
+                raise ValueError(msg_telefono_digitos(10, len(tel_solo_digitos)))
 
         return v
     
@@ -236,9 +251,7 @@ class Empresa(BaseModel):
             v = v / Decimal("100")
         
         if v < Decimal("0.00500") or v > Decimal("0.15000"):
-            raise ValueError(
-                f'Prima de riesgo debe estar entre 0.5% y 15%'
-            )
+            raise ValueError(MSG_PRIMA_RIESGO_RANGO)
         
         return v
 
@@ -282,19 +295,19 @@ class Empresa(BaseModel):
     def activar(self):
         """Activa la empresa"""
         if self.estatus == EstatusEmpresa.ACTIVO:
-            raise ValueError("La empresa ya está activa")
+            raise ValueError(msg_entidad_ya_estado("La empresa", "activa"))
         self.estatus = EstatusEmpresa.ACTIVO
 
     def suspender(self):
         """Suspende la empresa"""
         if self.estatus == EstatusEmpresa.SUSPENDIDO:
-            raise ValueError("La empresa ya está suspendida")
+            raise ValueError(msg_entidad_ya_estado("La empresa", "suspendida"))
         self.estatus = EstatusEmpresa.SUSPENDIDO
 
     def inactivar(self):
         """Inactiva la empresa"""
         if self.estatus == EstatusEmpresa.INACTIVO:
-            raise ValueError("La empresa ya está inactiva")
+            raise ValueError(msg_entidad_ya_estado("La empresa", "inactiva"))
         self.estatus = EstatusEmpresa.INACTIVO
 
     def get_prima_riesgo_porcentaje(self) -> Optional[float]:
@@ -325,16 +338,16 @@ class EmpresaCreate(BaseModel):
         validate_assignment=True
     )
 
-    nombre_comercial: str = Field(min_length=2, max_length=100)
-    razon_social: str = Field(min_length=2, max_length=100)
+    nombre_comercial: str = Field(min_length=NOMBRE_COMERCIAL_MIN, max_length=NOMBRE_COMERCIAL_MAX)
+    razon_social: str = Field(min_length=RAZON_SOCIAL_MIN, max_length=RAZON_SOCIAL_MAX)
     tipo_empresa: TipoEmpresa
-    rfc: str = Field(min_length=12, max_length=13)
-    direccion: Optional[str] = Field(None, max_length=200)
-    codigo_postal: Optional[str] = Field(None, min_length=5, max_length=5)
-    telefono: Optional[str] = Field(None, max_length=15)
-    email: Optional[str] = Field(None, max_length=100)
-    pagina_web: Optional[str] = Field(None, max_length=100)
-    registro_patronal: Optional[str] = Field(None, max_length=15)
+    rfc: str = Field(min_length=RFC_MIN, max_length=RFC_MAX)
+    direccion: Optional[str] = Field(None, max_length=DIRECCION_MAX)
+    codigo_postal: Optional[str] = Field(None, min_length=CODIGO_POSTAL_LEN, max_length=CODIGO_POSTAL_LEN)
+    telefono: Optional[str] = Field(None, max_length=TELEFONO_MAX)
+    email: Optional[str] = Field(None, max_length=EMAIL_MAX)
+    pagina_web: Optional[str] = Field(None, max_length=PAGINA_WEB_MAX)
+    registro_patronal: Optional[str] = Field(None, max_length=REGISTRO_PATRONAL_MAX)
     prima_riesgo: Optional[Decimal] = Field(None)
     estatus: EstatusEmpresa = Field(default=EstatusEmpresa.ACTIVO)
     notas: Optional[str] = None
@@ -349,16 +362,16 @@ class EmpresaUpdate(BaseModel):
         validate_assignment=True
     )
 
-    nombre_comercial: Optional[str] = Field(None, min_length=2, max_length=100)
-    razon_social: Optional[str] = Field(None, min_length=2, max_length=100)
+    nombre_comercial: Optional[str] = Field(None, min_length=NOMBRE_COMERCIAL_MIN, max_length=NOMBRE_COMERCIAL_MAX)
+    razon_social: Optional[str] = Field(None, min_length=RAZON_SOCIAL_MIN, max_length=RAZON_SOCIAL_MAX)
     tipo_empresa: Optional[TipoEmpresa] = None
-    rfc: Optional[str] = Field(None, min_length=12, max_length=13)
-    direccion: Optional[str] = Field(None, max_length=200)
-    codigo_postal: Optional[str] = Field(None, min_length=5, max_length=5)
-    telefono: Optional[str] = Field(None, max_length=15)
-    email: Optional[str] = Field(None, max_length=100)
-    pagina_web: Optional[str] = Field(None, max_length=100)
-    registro_patronal: Optional[str] = Field(None, max_length=15)
+    rfc: Optional[str] = Field(None, min_length=RFC_MIN, max_length=RFC_MAX)
+    direccion: Optional[str] = Field(None, max_length=DIRECCION_MAX)
+    codigo_postal: Optional[str] = Field(None, min_length=CODIGO_POSTAL_LEN, max_length=CODIGO_POSTAL_LEN)
+    telefono: Optional[str] = Field(None, max_length=TELEFONO_MAX)
+    email: Optional[str] = Field(None, max_length=EMAIL_MAX)
+    pagina_web: Optional[str] = Field(None, max_length=PAGINA_WEB_MAX)
+    registro_patronal: Optional[str] = Field(None, max_length=REGISTRO_PATRONAL_MAX)
     prima_riesgo: Optional[Decimal] = Field(None)
     estatus: Optional[EstatusEmpresa] = None
     notas: Optional[str] = None

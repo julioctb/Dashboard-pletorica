@@ -399,8 +399,8 @@ class EmpresasState(BaseState):
             self.error_email or
             self.error_codigo_postal or
             self.error_telefono or
-            self.error_registro_patronal or  # NUEVO
-            self.error_prima_riesgo          #
+            self.error_registro_patronal or  
+            self.error_prima_riesgo          
         )
 
     @rx.var

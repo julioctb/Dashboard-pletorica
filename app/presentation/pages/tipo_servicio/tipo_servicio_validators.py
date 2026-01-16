@@ -4,6 +4,22 @@ Funciones puras que retornan mensaje de error o string vacío si es válido.
 """
 import re
 
+from app.core.validation_patterns import (
+    CLAVE_TIPO_SERVICIO_PATTERN,
+    CLAVE_TIPO_MIN,
+    CLAVE_TIPO_MAX,
+    NOMBRE_TIPO_MIN,
+    NOMBRE_TIPO_MAX,
+    DESCRIPCION_TIPO_MAX,
+)
+from app.core.error_messages import (
+    MSG_CLAVE_OBLIGATORIA,
+    MSG_CLAVE_SOLO_LETRAS,
+    MSG_NOMBRE_OBLIGATORIO,
+    msg_min_caracteres,
+    msg_max_caracteres,
+)
+
 
 def validar_clave(clave: str) -> str:
     """
@@ -16,18 +32,18 @@ def validar_clave(clave: str) -> str:
         Mensaje de error o string vacío si es válido
     """
     if not clave or not clave.strip():
-        return "La clave es obligatoria"
+        return MSG_CLAVE_OBLIGATORIA
 
     clave_limpia = clave.strip().upper()
 
-    if len(clave_limpia) < 2:
-        return "Debe tener al menos 2 caracteres"
+    if len(clave_limpia) < CLAVE_TIPO_MIN:
+        return msg_min_caracteres(CLAVE_TIPO_MIN)
 
-    if len(clave_limpia) > 5:
-        return "Máximo 5 caracteres"
+    if len(clave_limpia) > CLAVE_TIPO_MAX:
+        return msg_max_caracteres(CLAVE_TIPO_MAX)
 
-    if not clave_limpia.isalpha():
-        return "Solo se permiten letras (sin números ni símbolos)"
+    if not re.match(CLAVE_TIPO_SERVICIO_PATTERN, clave_limpia):
+        return MSG_CLAVE_SOLO_LETRAS
 
     return ""
 
@@ -43,15 +59,15 @@ def validar_nombre(nombre: str) -> str:
         Mensaje de error o string vacío si es válido
     """
     if not nombre or not nombre.strip():
-        return "El nombre es obligatorio"
+        return MSG_NOMBRE_OBLIGATORIO
 
     nombre_limpio = nombre.strip()
 
-    if len(nombre_limpio) < 2:
-        return "Debe tener al menos 2 caracteres"
+    if len(nombre_limpio) < NOMBRE_TIPO_MIN:
+        return msg_min_caracteres(NOMBRE_TIPO_MIN)
 
-    if len(nombre_limpio) > 50:
-        return "Máximo 50 caracteres"
+    if len(nombre_limpio) > NOMBRE_TIPO_MAX:
+        return msg_max_caracteres(NOMBRE_TIPO_MAX)
 
     return ""
 
@@ -69,8 +85,8 @@ def validar_descripcion(descripcion: str) -> str:
     if not descripcion or not descripcion.strip():
         return ""  # Descripción es opcional
 
-    if len(descripcion.strip()) > 500:
-        return "Máximo 500 caracteres"
+    if len(descripcion.strip()) > DESCRIPCION_TIPO_MAX:
+        return msg_max_caracteres(DESCRIPCION_TIPO_MAX)
 
     return ""
 
