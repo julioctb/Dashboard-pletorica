@@ -56,6 +56,7 @@ from app.core.error_messages import (
     MSG_PRIMA_RIESGO_MIN,
     MSG_PRIMA_RIESGO_MAX,
 )
+from app.core.catalogs import CatalogoPrestaciones, LimitesValidacion
 
 
 # =============================================================================
@@ -211,15 +212,18 @@ CAMPO_REGISTRO_PATRONAL = FieldConfig(
 
 
 def _validar_prima_riesgo(valor: str) -> str:
-    """Validador custom para prima de riesgo (0.5% - 15%)."""
+    """Validador custom para prima de riesgo usando límites del catálogo."""
     try:
         numero = float(valor)
     except ValueError:
         return MSG_PRIMA_RIESGO_NUMERO
 
-    if numero < 0.5:
+    min_pct = float(LimitesValidacion.PRIMA_RIESGO_MIN_PORCENTAJE)
+    max_pct = float(LimitesValidacion.PRIMA_RIESGO_MAX_PORCENTAJE)
+
+    if numero < min_pct:
         return MSG_PRIMA_RIESGO_MIN
-    if numero > 15:
+    if numero > max_pct:
         return MSG_PRIMA_RIESGO_MAX
     return ""
 
@@ -231,7 +235,7 @@ CAMPO_PRIMA_RIESGO = FieldConfig(
     # UI
     label='Prima de riesgo (%)',
     placeholder='2.5',
-    hint='Entre 0.5% y 15%',
+    hint=f'Entre {LimitesValidacion.PRIMA_RIESGO_MIN_PORCENTAJE}% y {LimitesValidacion.PRIMA_RIESGO_MAX_PORCENTAJE}%',
     input_type=InputType.NUMBER,
     section=SECCION_IMSS,
     order=2,
@@ -336,8 +340,8 @@ CAMPO_SIM_DIAS_AGUINALDO = FieldConfig(
     requerido=True,
     # UI
     label='Días de aguinaldo',
-    placeholder='15',
-    hint='Mínimo legal: 15 días',
+    placeholder=str(CatalogoPrestaciones.AGUINALDO_DIAS),
+    hint=f'Mínimo legal: {CatalogoPrestaciones.AGUINALDO_DIAS} días',
     input_type=InputType.NUMBER,
     section=SECCION_PRESTACIONES,
     order=1,
@@ -349,8 +353,8 @@ CAMPO_SIM_PRIMA_VACACIONAL = FieldConfig(
     requerido=True,
     # UI
     label='Prima vacacional (%)',
-    placeholder='25',
-    hint='Mínimo legal: 25%',
+    placeholder=str(int(CatalogoPrestaciones.PRIMA_VACACIONAL * 100)),
+    hint=f'Mínimo legal: {int(CatalogoPrestaciones.PRIMA_VACACIONAL * 100)}%',
     input_type=InputType.NUMBER,
     section=SECCION_PRESTACIONES,
     order=2,

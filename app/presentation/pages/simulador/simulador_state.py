@@ -5,6 +5,7 @@ from app.presentation.components.shared.base_state import BaseState
 from app.entities.costo_patronal import ConfiguracionEmpresa, Trabajador
 from app.core.calculations import CalculadoraCostoPatronal
 from app.core.catalogos import obtener_clave_estado
+from app.core.catalogs import CatalogoPrestaciones
 
 
 class SimuladorState(BaseState):
@@ -90,7 +91,7 @@ class SimuladorState(BaseState):
     @rx.var
     def calc_salario_diario(self) -> float:
         if self.tipo_salario_calculo == 'Salario Mínimo':
-            return 315.04
+            return float(CatalogoPrestaciones.SALARIO_MINIMO_GENERAL)
         return round(self.salario_mensual / 30,2) if self.salario_mensual else 0.0
 
     def calcular(self):
@@ -211,8 +212,9 @@ class SimuladorState(BaseState):
 
             # Si es error de salario mínimo, mostrar mensaje conciso
             if "SALARIO ILEGAL" in error_msg or "salario mínimo" in error_msg.lower():
+                sm = float(CatalogoPrestaciones.SALARIO_MINIMO_GENERAL)
                 self.mostrar_mensaje(
-                    "⚠️ Salario ilegal: El salario ingresado es menor al mínimo legal ($315.04/día). "
+                    f"⚠️ Salario ilegal: El salario ingresado es menor al mínimo legal (${sm:.2f}/día). "
                     "Pagar menos del salario mínimo viola la Constitución.",
                     "error"
                 )
