@@ -84,6 +84,10 @@ class SimuladorState(BaseState):
         """Setter que convierte nombre display a ID interno"""
         self.estado = obtener_clave_estado(display_name) or "puebla"
 
+    def noop(self, _value: str):
+        """No-op para campos de solo lectura."""
+        pass
+
     # ─────────────────────────────────────────────────────────────────
     # MÉTODOS
     # ─────────────────────────────────────────────────────────────────

@@ -93,7 +93,7 @@ def formulario_trabajador() -> rx.Component:
                 form_field(
                     config=CAMPO_SIM_SALARIO_DIARIO,
                     value=SimuladorState.calc_salario_diario,
-                    on_change=lambda _: None,  # Campo calculado, no editable
+                    on_change=SimuladorState.noop,  # Campo calculado, no editable
                     disabled=True,
                     step="0.01",
                 ),
