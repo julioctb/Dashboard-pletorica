@@ -8,11 +8,12 @@ Modelos puros de datos (dataclasses) que representan:
 
 Migrado desde app/core/calculations/simulador_costo_patronal.py
 Fecha: 2025-12-31
+Actualizado: 2026-01-17 (Migración a catálogos)
 """
 
 from dataclasses import dataclass
 from typing import Optional
-from app.core.fiscales import ConstantesFiscales, ISN_POR_ESTADO
+from app.core.catalogs import CatalogoISN, CatalogoPrestaciones, CatalogoVacaciones
 
 
 # =============================================================================
@@ -82,23 +83,23 @@ class ConfiguracionEmpresa:
     def __post_init__(self):
         """Valida estado y normaliza nombre"""
         self.estado = self.estado.lower().replace(" ", "_")
-        if self.estado not in ISN_POR_ESTADO:
+        if self.estado not in CatalogoISN.TASAS:
             raise ValueError(
                 f"Estado '{self.estado}' no reconocido. "
-                f"Estados válidos: {list(ISN_POR_ESTADO.keys())}"
+                f"Estados válidos: {list(CatalogoISN.TASAS.keys())}"
             )
 
     @property
     def tasa_isn(self) -> float:
         """Retorna la tasa de ISN del estado configurado"""
-        return ISN_POR_ESTADO[self.estado]
+        return float(CatalogoISN.TASAS[self.estado])
 
     @property
     def salario_minimo_aplicable(self) -> float:
         """Retorna el salario mínimo según zona geográfica"""
         if self.zona_frontera:
-            return ConstantesFiscales.SALARIO_MINIMO_FRONTERA
-        return ConstantesFiscales.SALARIO_MINIMO_GENERAL
+            return float(CatalogoPrestaciones.SALARIO_MINIMO_FRONTERA)
+        return float(CatalogoPrestaciones.SALARIO_MINIMO_GENERAL)
 
     def calcular_factor_integracion(self, antiguedad_anos: int) -> float:
         """
@@ -117,7 +118,7 @@ class ConfiguracionEmpresa:
         if self.factor_integracion_fijo is not None:
             return self.factor_integracion_fijo
 
-        dias_vac = (ConstantesFiscales.dias_vacaciones(antiguedad_anos) +
+        dias_vac = (CatalogoVacaciones.obtener_dias(antiguedad_anos) +
                     self.dias_vacaciones_adicionales)
 
         factor = 1.0

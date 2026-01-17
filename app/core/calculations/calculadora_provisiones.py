@@ -10,9 +10,10 @@ Responsabilidades:
 - Cálculo de provisión de prima vacacional
 
 Fecha: 2025-12-31 (Fase 2 de refactorización)
+Actualizado: 2026-01-17 (Migración a catálogos)
 """
 
-from app.core.fiscales import ConstantesFiscales
+from app.core.catalogs import CatalogoVacaciones
 
 
 class CalculadoraProvisiones:
@@ -25,15 +26,6 @@ class CalculadoraProvisiones:
     - Vacaciones (según tabla por antigüedad)
     - Prima vacacional (mínimo 25% del salario de vacaciones)
     """
-
-    def __init__(self, constantes: type[ConstantesFiscales] = ConstantesFiscales):
-        """
-        Inicializa calculadora con constantes fiscales.
-
-        Args:
-            constantes: Clase con constantes fiscales (default: ConstantesFiscales)
-        """
-        self.const = constantes
 
     def calcular(
         self,
@@ -83,7 +75,7 @@ class CalculadoraProvisiones:
         # ═════════════════════════════════════════════════════════════════════
         # DÍAS DE VACACIONES SEGÚN LFT (REFORMA 2023)
         # ═════════════════════════════════════════════════════════════════════
-        dias_vac_ley = self.const.dias_vacaciones(antiguedad_anos)
+        dias_vac_ley = CatalogoVacaciones.obtener_dias(antiguedad_anos)
         dias_vac_totales = dias_vac_ley + dias_vacaciones_adicionales
 
         # ═════════════════════════════════════════════════════════════════════

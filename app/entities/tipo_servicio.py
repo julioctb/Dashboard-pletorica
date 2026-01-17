@@ -18,8 +18,9 @@ from app.core.validation import (
     CAMPO_CLAVE_TIPO_SERVICIO,
     CAMPO_NOMBRE_TIPO_SERVICIO,
     CAMPO_DESCRIPCION_TIPO_SERVICIO,
+    pydantic_field,
+    campo_validador,
 )
-from app.core.validation.pydantic_helpers import pydantic_field, campo_validador
 from app.core.error_messages import msg_entidad_ya_estado
 
 

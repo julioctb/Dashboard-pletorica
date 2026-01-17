@@ -10,9 +10,10 @@ Responsabilidades:
 - Exención para salarios mínimos (Art. 96 LISR)
 
 Fecha: 2025-12-31 (Fase 2 de refactorización)
+Actualizado: 2026-01-17 (Migración a catálogos)
 """
 
-from app.core.fiscales import ConstantesFiscales
+from app.core.catalogs import CatalogoISR
 
 
 class CalculadoraISR:
@@ -22,15 +23,6 @@ class CalculadoraISR:
     Implementa la tabla progresiva del Art. 96 LISR y el subsidio
     al empleo según decreto presidencial vigente.
     """
-
-    def __init__(self, constantes: type[ConstantesFiscales] = ConstantesFiscales):
-        """
-        Inicializa calculadora con constantes fiscales.
-
-        Args:
-            constantes: Clase con constantes fiscales (default: ConstantesFiscales)
-        """
-        self.const = constantes
 
     def calcular(
         self,
@@ -114,11 +106,15 @@ class CalculadoraISR:
         Raises:
             ValueError: Si la tabla ISR está vacía o mal formada
         """
-        if not self.const.TABLA_ISR_MENSUAL:
+        if not CatalogoISR.TABLA_MENSUAL:
             raise ValueError("Tabla ISR mensual no configurada")
 
         # Buscar rango en tabla
-        for lim_inf, lim_sup, cuota_fija, tasa in self.const.TABLA_ISR_MENSUAL:
+        for rango in CatalogoISR.TABLA_MENSUAL:
+            lim_inf = float(rango.limite_inferior)
+            lim_sup = float(rango.limite_superior)
+            cuota_fija = float(rango.cuota_fija)
+            tasa = float(rango.tasa_excedente)
             if lim_inf <= base_gravable <= lim_sup:
                 excedente = base_gravable - lim_inf
                 isr = cuota_fija + (excedente * tasa)
@@ -126,7 +122,10 @@ class CalculadoraISR:
 
         # Si no encontró rango, usar el último (ingresos muy altos)
         # El último rango tiene límite superior = infinity
-        lim_inf, _, cuota_fija, tasa = self.const.TABLA_ISR_MENSUAL[-1]
+        ultimo = CatalogoISR.TABLA_MENSUAL[-1]
+        lim_inf = float(ultimo.limite_inferior)
+        cuota_fija = float(ultimo.cuota_fija)
+        tasa = float(ultimo.tasa_excedente)
         excedente = base_gravable - lim_inf
         isr = cuota_fija + (excedente * tasa)
         return round(isr, 2)
@@ -144,6 +143,6 @@ class CalculadoraISR:
         Returns:
             Monto del subsidio al empleo (0 si no aplica)
         """
-        if base_gravable <= self.const.LIMITE_SUBSIDIO_MENSUAL:
-            return self.const.SUBSIDIO_EMPLEO_MENSUAL
+        if base_gravable <= float(CatalogoISR.LIMITE_SUBSIDIO):
+            return float(CatalogoISR.SUBSIDIO_MENSUAL)
         return 0.0

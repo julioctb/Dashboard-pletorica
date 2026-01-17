@@ -16,7 +16,7 @@ Uso:
 import reflex as rx
 from typing import Any, Optional, Callable, List, Tuple
 
-from app.core.validation.field_config import FieldConfig, InputType
+from app.core.validation import FieldConfig, InputType
 
 
 def form_field(

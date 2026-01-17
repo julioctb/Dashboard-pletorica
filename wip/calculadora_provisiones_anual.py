@@ -11,9 +11,10 @@ porque actualmente no se usan en el simulador mensual.
 
 Estado: WIP - Pendiente integración con wip/payroll.py
 Fecha: 2026-01-03
+Actualizado: 2026-01-17 (Migración a catálogos)
 """
 
-from app.core.fiscales import ConstantesFiscales
+from app.core.catalogs import CatalogoVacaciones
 
 
 class CalculadoraProvisionesAnual:
@@ -23,9 +24,6 @@ class CalculadoraProvisionesAnual:
     Separada del calculador mensual para mantener el código limpio.
     Integrar cuando se implemente el motor de nómina completo.
     """
-
-    def __init__(self, constantes: type[ConstantesFiscales] = ConstantesFiscales):
-        self.const = constantes
 
     def calcular_aguinaldo_anual(
         self,
@@ -76,7 +74,7 @@ class CalculadoraProvisionesAnual:
             >>> calc.calcular_vacaciones_anuales(315.04, 1)
             3780.48  # 12 días de salario
         """
-        dias_vac = self.const.dias_vacaciones(antiguedad_anos) + dias_adicionales
+        dias_vac = CatalogoVacaciones.obtener_dias(antiguedad_anos) + dias_adicionales
         return round(salario_diario * dias_vac, 2)
 
     def calcular_prima_vacacional_anual(

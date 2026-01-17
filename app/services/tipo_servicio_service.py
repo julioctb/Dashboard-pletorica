@@ -13,8 +13,8 @@ from app.entities import (
     TipoServicio,
     TipoServicioCreate,
     TipoServicioUpdate,
-    EstatusTipoServicio,
 )
+from app.core.enums import Estatus
 from app.repositories import SupabaseTipoServicioRepository
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
 
@@ -245,10 +245,10 @@ class TipoServicioService:
         """
         tipo = await self.repository.obtener_por_id(tipo_id)
 
-        if tipo.estatus == EstatusTipoServicio.ACTIVO:
+        if tipo.estatus == Estatus.ACTIVO:
             raise BusinessRuleError("El tipo ya está activo")
 
-        tipo.estatus = EstatusTipoServicio.ACTIVO
+        tipo.estatus = Estatus.ACTIVO
 
         logger.info(f"Activando tipo de servicio: {tipo.clave}")
 

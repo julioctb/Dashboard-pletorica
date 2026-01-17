@@ -192,34 +192,3 @@ def validar_con_config(valor: str, config: FieldConfig) -> Tuple[str, str]:
             return valor_transformado, error
 
     return valor_transformado, ""
-
-
-def pydantic_validator(config: FieldConfig):
-    """
-    Decorador que crea un validador Pydantic desde FieldConfig.
-
-    Example:
-        from app.core.validation import CAMPO_RFC, pydantic_validator
-
-        class Empresa(BaseModel):
-            rfc: str
-
-            @field_validator('rfc')
-            @classmethod
-            @pydantic_validator(CAMPO_RFC)
-            def validar_rfc(cls, v):
-                return v  # El decorador ya validó y transformó
-    """
-    def decorator(func: Callable) -> Callable:
-        def wrapper(cls, v):
-            if v is None:
-                if config.requerido:
-                    raise ValueError(f"{config.nombre} es obligatorio")
-                return v
-
-            v_transformado, error = validar_con_config(str(v), config)
-            if error:
-                raise ValueError(error)
-            return v_transformado
-        return wrapper
-    return decorator

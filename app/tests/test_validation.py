@@ -22,8 +22,6 @@ from app.core.validation import (
     CAMPO_NOMBRE_COMERCIAL,
     pydantic_field,
     campo_validador,
-    campos_a_pydantic,
-    CAMPOS_EMPRESA,
 )
 
 
@@ -419,35 +417,6 @@ class TestCampoValidador:
 
         modelo = ModeloTest(email="")
         assert modelo.email == ""
-
-
-class TestCamposAPydantic:
-    """Tests para campos_a_pydantic() helper."""
-
-    def test_convierte_diccionario_campos(self):
-        """campos_a_pydantic convierte dict de FieldConfig a definiciones Pydantic."""
-        resultado = campos_a_pydantic(CAMPOS_EMPRESA)
-
-        # Debe tener todas las claves
-        assert 'rfc' in resultado
-        assert 'email' in resultado
-        assert 'nombre_comercial' in resultado
-
-    def test_tipo_correcto_para_requeridos(self):
-        """campos_a_pydantic asigna tipo str a campos requeridos."""
-        resultado = campos_a_pydantic(CAMPOS_EMPRESA)
-
-        # RFC es requerido -> tipo str
-        tipo, field = resultado['rfc']
-        assert tipo == str
-
-    def test_tipo_correcto_para_opcionales(self):
-        """campos_a_pydantic asigna Optional[str] a campos opcionales."""
-        resultado = campos_a_pydantic(CAMPOS_EMPRESA)
-
-        # Email es opcional -> tipo Optional[str]
-        tipo, field = resultado['email']
-        assert tipo == Optional[str]
 
 
 class TestIntegracionCompleta:

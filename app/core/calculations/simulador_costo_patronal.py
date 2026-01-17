@@ -11,11 +11,11 @@ Permite ajustar todas las variables por empresa:
 REFACTORIZACIÓN:
 - Fase 1 (2025-12-31): Entidades movidas a app/entities/costo_patronal.py
 - Fase 2 (2025-12-31): Calculadores especializados separados (IMSS, ISR, Provisiones)
+- Fase 3 (2026-01-17): Migración a catálogos (eliminación de facade fiscales.py)
 - Orquestador: Este archivo coordina los calculadores especializados
 """
 
-
-from app.core.fiscales import ConstantesFiscales
+from app.core.catalogs import CatalogoUMA, CatalogoINFONAVIT
 from app.entities.costo_patronal import (
     ConfiguracionEmpresa,
     Trabajador,
@@ -55,12 +55,11 @@ class CalculadoraCostoPatronal:
             config: Configuración personalizada de la empresa
         """
         self.config = config
-        self.const = ConstantesFiscales
 
-        # Inyectar calculadores especializados (Dependency Injection)
-        self.calc_imss = CalculadoraIMSS(self.const)
-        self.calc_isr = CalculadoraISR(self.const)
-        self.calc_provisiones = CalculadoraProvisiones(self.const)
+        # Calculadores especializados (usan catálogos internamente)
+        self.calc_imss = CalculadoraIMSS()
+        self.calc_isr = CalculadoraISR()
+        self.calc_provisiones = CalculadoraProvisiones()
     
     def calcular(self, trabajador: Trabajador) -> ResultadoCuotas:
         """
@@ -107,7 +106,7 @@ class CalculadoraCostoPatronal:
         # ═════════════════════════════════════════════════════════════════════
         factor_int = self.config.calcular_factor_integracion(trabajador.antiguedad_anos)
         sbc_diario = trabajador.salario_diario * factor_int
-        sbc_diario = min(sbc_diario, self.const.TOPE_SBC_DIARIO)  # Aplicar tope
+        sbc_diario = min(sbc_diario, float(CatalogoUMA.TOPE_SBC))  # Aplicar tope
         salario_mensual = trabajador.salario_diario * dias
 
         # ═════════════════════════════════════════════════════════════════════
@@ -130,7 +129,7 @@ class CalculadoraCostoPatronal:
         # ═════════════════════════════════════════════════════════════════════
         # INFONAVIT (5% del SBC)
         # ═════════════════════════════════════════════════════════════════════
-        infonavit = sbc_diario * self.const.INFONAVIT_PAT * dias
+        infonavit = sbc_diario * float(CatalogoINFONAVIT.TASA_PATRONAL) * dias
 
         # ═════════════════════════════════════════════════════════════════════
         # ISN (según estado configurado)

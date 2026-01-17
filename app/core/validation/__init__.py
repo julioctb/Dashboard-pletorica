@@ -28,7 +28,6 @@ from .field_config import FieldConfig, InputType
 from .validator_factory import (
     crear_validador,
     validar_con_config,
-    pydantic_validator,
     validar_patron,
     validar_longitud,
     validar_requerido,
@@ -47,7 +46,6 @@ from .custom_validators import (
 from .pydantic_helpers import (
     pydantic_field,
     campo_validador,
-    campos_a_pydantic,
 )
 
 # Catálogo de campos - Empresas
@@ -136,7 +134,6 @@ __all__ = [
     # Factory y helpers
     "crear_validador",
     "validar_con_config",
-    "pydantic_validator",
     "validar_patron",
     "validar_longitud",
     "validar_requerido",
@@ -149,7 +146,6 @@ __all__ = [
     # Helpers para Pydantic
     "pydantic_field",
     "campo_validador",
-    "campos_a_pydantic",
     # Catálogo - Empresas
     "CAMPO_NOMBRE_COMERCIAL",
     "CAMPO_RAZON_SOCIAL",

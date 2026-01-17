@@ -116,38 +116,3 @@ def campo_validador(nombre_campo: str, config: FieldConfig):
     # Crear y retornar el field_validator de Pydantic
     # mode='before' para que las transformaciones se apliquen antes de las constraints
     return field_validator(nombre_campo, mode='before')(classmethod(validator))
-
-
-def campos_a_pydantic(campos: dict[str, FieldConfig]) -> dict[str, tuple[type, Any]]:
-    """
-    Convierte un diccionario de FieldConfig a definiciones Pydantic.
-
-    Útil para generar modelos dinámicamente o para introspección.
-
-    Args:
-        campos: Dict de nombre -> FieldConfig
-
-    Returns:
-        Dict de nombre -> (tipo, Field)
-
-    Ejemplo:
-        from app.core.validation import CAMPOS_EMPLEADO
-
-        campos_pydantic = campos_a_pydantic(CAMPOS_EMPLEADO)
-        # {'rfc': (str, Field(...)), 'email': (Optional[str], Field(None)), ...}
-    """
-    from typing import Optional
-
-    resultado = {}
-
-    for nombre, config in campos.items():
-        field = pydantic_field(config)
-
-        if config.requerido:
-            tipo = str
-        else:
-            tipo = Optional[str]
-
-        resultado[nombre] = (tipo, field)
-
-    return resultado

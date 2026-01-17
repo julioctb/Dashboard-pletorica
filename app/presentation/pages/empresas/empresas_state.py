@@ -1,7 +1,13 @@
+"""
+Estado para la gestión de empresas.
+
+Refactorizado para usar diccionarios de configuración y reducir código repetitivo.
+"""
 import reflex as rx
 from decimal import Decimal
+from typing import List, Callable
+
 from app.presentation.components.shared.base_state import BaseState
-from typing import List
 from app.services import empresa_service
 from app.core.text_utils import normalizar_mayusculas
 
@@ -27,38 +33,71 @@ from .empresas_validators import (
     validar_rfc,
     validar_email,
     validar_codigo_postal,
-    validar_telefono, 
+    validar_telefono,
     validar_registro_patronal,
     validar_prima_riesgo
 )
 
+
+# ============================================================================
+# CONFIGURACIÓN DE CAMPOS VALIDABLES
+# ============================================================================
+# Mapeo: nombre_campo -> función validadora
+CAMPOS_VALIDACION: dict[str, Callable[[str], str]] = {
+    "nombre_comercial": validar_nombre_comercial,
+    "razon_social": validar_razon_social,
+    "rfc": validar_rfc,
+    "email": validar_email,
+    "codigo_postal": validar_codigo_postal,
+    "telefono": validar_telefono,
+    "registro_patronal": validar_registro_patronal,
+    "prima_riesgo": validar_prima_riesgo,
+}
+
+# Campos con sus valores por defecto para limpiar formulario
+FORM_DEFAULTS = {
+    "nombre_comercial": "",
+    "razon_social": "",
+    "tipo_empresa": TipoEmpresa.NOMINA.value,
+    "rfc": "",
+    "direccion": "",
+    "codigo_postal": "",
+    "telefono": "",
+    "email": "",
+    "pagina_web": "",
+    "estatus": EstatusEmpresa.ACTIVO.value,
+    "notas": "",
+    "registro_patronal": "",
+    "prima_riesgo": "",
+}
+
+
 class EmpresasState(BaseState):
     """Estado para la gestión de empresas"""
-    
+
     # ========================
     # DATOS Y LISTAS
     # ========================
     empresas: List[EmpresaResumen] = []
     empresa_seleccionada: Empresa | None = None
-    empresas_columnas: List[str]= ['Clave','Nombre Comercial','Razon Social', 'RFC']
-    
+
     # ========================
     # FILTROS Y BÚSQUEDA
     # ========================
     filtro_tipo: str = ""
     filtro_busqueda: str = ""
-    solo_activas: bool = False  # True = solo activas, False = todas
-    
+    solo_activas: bool = False
+
     # ========================
     # ESTADO DE LA UI
     # ========================
-    mostrar_modal_empresa: bool = False  # Modal unificado crear/editar
+    mostrar_modal_empresa: bool = False
     modo_modal_empresa: str = ""  # "crear" | "editar" | ""
     mostrar_modal_detalle: bool = False
-    saving: bool = False  # Estado de guardado (loading)
-    
+    saving: bool = False
+
     # ========================
-    # FORMULARIO DE EMPRESA
+    # FORMULARIO DE EMPRESA (Reflex requiere declaración explícita)
     # ========================
     form_nombre_comercial: str = ""
     form_razon_social: str = ""
@@ -75,7 +114,7 @@ class EmpresasState(BaseState):
     form_prima_riesgo: str = ""
 
     # ========================
-    # ERRORES DE VALIDACIÓN DEL FORMULARIO
+    # ERRORES DE VALIDACIÓN (Reflex requiere declaración explícita)
     # ========================
     error_nombre_comercial: str = ""
     error_razon_social: str = ""
@@ -87,471 +126,346 @@ class EmpresasState(BaseState):
     error_prima_riesgo: str = ""
 
     # ========================
-    # SETTERS EXPLÍCITOS (Reflex v0.8.9+)
+    # SETTERS DE FILTROS
     # ========================
     def set_filtro_tipo(self, value: str):
-        """Filtro de tipo - solo actualiza UI (manual)"""
         self.filtro_tipo = value
 
     def set_filtro_busqueda(self, value: str):
-        """Búsqueda - solo actualiza UI (manual)"""
         self.filtro_busqueda = value
 
     def set_solo_activas(self, value: bool):
-        """Toggle solo activas - solo actualiza UI (manual)"""
         self.solo_activas = value
 
-    def set_mostrar_modal_empresa(self, value: bool):
-        self.mostrar_modal_empresa = value
-
-    def set_mostrar_modal_detalle(self, value: bool):
-        self.mostrar_modal_detalle = value
-
-    # Setters del formulario
+    # ========================
+    # SETTERS DE FORMULARIO (Reflex v0.8.9+ requiere explícitos)
+    # ========================
     def set_form_nombre_comercial(self, value: str):
         self.form_nombre_comercial = value
-    
+
     def set_form_razon_social(self, value: str):
         self.form_razon_social = value
-    
+
     def set_form_tipo_empresa(self, value: str):
         self.form_tipo_empresa = value
-    
+
     def set_form_rfc(self, value: str):
-        """Set RFC con auto-conversión a mayúsculas"""
         self.form_rfc = value.upper() if value else ""
-    
+
     def set_form_direccion(self, value: str):
         self.form_direccion = value
-    
+
     def set_form_codigo_postal(self, value: str):
         self.form_codigo_postal = value
-    
+
     def set_form_telefono(self, value: str):
         self.form_telefono = value
-    
+
     def set_form_email(self, value: str):
         self.form_email = value
-    
+
     def set_form_pagina_web(self, value: str):
         self.form_pagina_web = value
-    
+
     def set_form_estatus(self, value: str):
         self.form_estatus = value
-    
+
     def set_form_notas(self, value: str):
         self.form_notas = value
 
-    def set_form_registro_patronal(self, value :str):
+    def set_form_registro_patronal(self, value: str):
         self.form_registro_patronal = value
 
-    def set_form_prima_riesgo(self,value :str):
+    def set_form_prima_riesgo(self, value: str):
         self.form_prima_riesgo = value
 
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
     async def cargar_empresas(self):
-        """Cargar la lista de empresas aplicando filtros en la base de datos"""
+        """Cargar empresas con filtros aplicados en BD"""
         self.loading = True
         try:
-            # Usar el nuevo método buscar_con_filtros que aplica todos los filtros en la BD
-            # Esto es mucho más eficiente: ~10-20x más rápido, ~90% menos bandwidth
             self.empresas = await empresa_service.buscar_con_filtros(
-                texto=self.filtro_busqueda if self.filtro_busqueda else None,
-                tipo_empresa=self.filtro_tipo if self.filtro_tipo else None,
-                estatus="ACTIVO" if self.solo_activas else None,  # None = todas, "ACTIVO" = solo activas
-                incluir_inactivas=not self.solo_activas,  # Invertido: si solo_activas=True, no incluir inactivas
-                limite=100,  # Límite razonable para UI (puede aumentarse si se implementa paginación)
-                offset=0  # Por ahora sin paginación (puede agregarse después)
+                texto=self.filtro_busqueda or None,
+                tipo_empresa=self.filtro_tipo or None,
+                estatus="ACTIVO" if self.solo_activas else None,
+                incluir_inactivas=not self.solo_activas,
+                limite=100,
+                offset=0
             )
-
         except DatabaseError as e:
-            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
+            self.mostrar_mensaje(f"Error de base de datos: {e}", "error")
             self.empresas = []
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            self.mostrar_mensaje(f"Error inesperado: {e}", "error")
             self.empresas = []
         finally:
             self.loading = False
-    
+
     async def crear_empresa(self):
         """Crear una nueva empresa"""
-        # Validar todos los campos antes de crear
-        self.validar_todos_los_campos()
-
-        # Si hay errores, simplemente no permitir submit (botón ya está deshabilitado)
+        self._validar_todos_los_campos()
         if self.tiene_errores_formulario:
             return
 
         self.saving = True
         try:
-            # Preparar datos usando helper (maneja normalización automáticamente)
             nueva_empresa = self._preparar_empresa_desde_formulario(es_actualizacion=False)
-
-            # Crear la empresa
             empresa_creada = await empresa_service.crear(nueva_empresa)
 
-            # Cerrar modal y recargar lista
             self.cerrar_modal_empresa()
             await self.cargar_empresas()
 
-            # Mostrar toast de éxito (modal ya cerrado)
             return rx.toast.success(
                 f"Empresa '{empresa_creada.nombre_comercial}' creada exitosamente",
                 position="top-center",
                 duration=4000
             )
-
         except Exception as e:
-            # Manejo centralizado de errores
             self._manejar_error(e, "crear empresa")
-            return  # NO cerrar modal
         finally:
             self.saving = False
-    
+
     async def actualizar_empresa(self):
         """Actualizar empresa existente"""
-        # Validar todos los campos antes de actualizar
-        self.validar_todos_los_campos()
-
-        # Si hay errores, simplemente no permitir submit (botón ya está deshabilitado)
+        self._validar_todos_los_campos()
         if self.tiene_errores_formulario:
             return
 
         if not self.empresa_seleccionada:
-            self.mostrar_mensaje("No hay empresa seleccionada para actualizar", "error")
+            self.mostrar_mensaje("No hay empresa seleccionada", "error")
             return
 
         self.saving = True
         try:
-            # Preparar datos usando helper (maneja normalización automáticamente)
             update_data = self._preparar_empresa_desde_formulario(es_actualizacion=True)
+            empresa_actualizada = await empresa_service.actualizar(
+                self.empresa_seleccionada.id, update_data
+            )
 
-            # Actualizar la empresa
-            empresa_actualizada = await empresa_service.actualizar(self.empresa_seleccionada.id, update_data)
-
-            # Cerrar modal y recargar lista
             self.cerrar_modal_empresa()
             await self.cargar_empresas()
 
-            # Mostrar toast de éxito (modal ya cerrado)
             return rx.toast.success(
-                f"Empresa '{empresa_actualizada.nombre_comercial}' actualizada exitosamente",
+                f"Empresa '{empresa_actualizada.nombre_comercial}' actualizada",
                 position="top-center",
                 duration=4000
             )
-
         except Exception as e:
-            # Manejo centralizado de errores
             self._manejar_error(e, "actualizar empresa")
-            return  # NO cerrar modal
         finally:
             self.saving = False
-    
+
     async def cambiar_estatus_empresa(self, empresa_id: int, nuevo_estatus: EstatusEmpresa):
         """Cambiar estatus de una empresa"""
         try:
             await empresa_service.cambiar_estatus(empresa_id, nuevo_estatus)
             await self.cargar_empresas()
-
-            return rx.toast.success(
-                f"Estatus cambiado a {nuevo_estatus.value}",
-                position="top-center",
-                duration=3000
-            )
-
+            return rx.toast.success(f"Estatus cambiado a {nuevo_estatus.value}")
         except Exception as e:
-            # Manejo centralizado de errores
             self._manejar_error(e, "cambiar estatus")
-    
+
     # ========================
     # OPERACIONES DE MODALES
     # ========================
     def abrir_modal_crear(self):
-        """Abrir modal unificado en modo crear"""
-        self.limpiar_formulario()
+        """Abrir modal en modo crear"""
+        self._limpiar_formulario()
         self.limpiar_mensajes()
         self.modo_modal_empresa = "crear"
         self.mostrar_modal_empresa = True
 
     async def abrir_modal_editar(self, empresa_id: int):
-        """Abrir modal unificado en modo editar"""
+        """Abrir modal en modo editar"""
         try:
             self.limpiar_mensajes()
-            self.mostrar_modal_detalle = False  # Cerrar modal de detalle si está abierto
+            self.mostrar_modal_detalle = False
 
             empresa = await empresa_service.obtener_por_id(empresa_id)
-
-            # Cargar datos en el formulario
-            self.form_nombre_comercial = empresa.nombre_comercial
-            self.form_razon_social = empresa.razon_social
-            self.form_tipo_empresa = str(empresa.tipo_empresa)
-            self.form_rfc = empresa.rfc
-            self.form_direccion = empresa.direccion or ""
-            self.form_codigo_postal = empresa.codigo_postal or ""
-            self.form_telefono = empresa.telefono or ""
-            self.form_email = empresa.email or ""
-            self.form_pagina_web = empresa.pagina_web or ""
-            self.form_estatus = str(empresa.estatus)
-            self.form_notas = empresa.notas or ""
-            # Datos IMSS
-            self.form_registro_patronal = empresa.registro_patronal or ""
-            self.form_prima_riesgo = str(empresa.get_prima_riesgo_porcentaje()) if empresa.prima_riesgo else ""
+            self._cargar_empresa_en_formulario(empresa)
 
             self.empresa_seleccionada = empresa
             self.modo_modal_empresa = "editar"
             self.mostrar_modal_empresa = True
-
         except Exception as e:
-            # Manejo centralizado de errores
             self._manejar_error(e, "abrir modal de edición")
 
     def cerrar_modal_empresa(self):
-        """Cerrar modal unificado (crear/editar)"""
+        """Cerrar modal crear/editar"""
         self.mostrar_modal_empresa = False
         self.modo_modal_empresa = ""
         self.empresa_seleccionada = None
-        self.limpiar_formulario()
+        self._limpiar_formulario()
         self.limpiar_mensajes()
 
     async def abrir_modal_detalle(self, empresa_id: int):
-        """Abrir modal con detalles de la empresa"""
+        """Abrir modal de detalles"""
         try:
             self.empresa_seleccionada = await empresa_service.obtener_por_id(empresa_id)
             self.mostrar_modal_detalle = True
-
         except Exception as e:
-            # Manejo centralizado de errores
             self._manejar_error(e, "abrir detalles")
 
     def cerrar_modal_detalle(self):
         """Cerrar modal de detalles"""
         self.mostrar_modal_detalle = False
         self.empresa_seleccionada = None
-    
+
     # ========================
     # OPERACIONES DE FILTROS
     # ========================
     async def aplicar_filtros(self):
-        """Aplicar filtros de búsqueda"""
         await self.cargar_empresas()
-    
+
     async def limpiar_filtros(self):
-        """Limpiar todos los filtros"""
         self.filtro_tipo = ""
         self.filtro_busqueda = ""
         self.solo_activas = False
         await self.cargar_empresas()
-    
+
     # ========================
-    # VALIDACIONES EN TIEMPO REAL
+    # VALIDACIÓN - Métodos individuales para on_blur
     # ========================
     def validar_nombre_comercial_campo(self):
-        """Validar nombre comercial en tiempo real"""
-        self.error_nombre_comercial = validar_nombre_comercial(self.form_nombre_comercial)
+        self._validar_campo("nombre_comercial")
 
     def validar_razon_social_campo(self):
-        """Validar razón social en tiempo real"""
-        self.error_razon_social = validar_razon_social(self.form_razon_social)
+        self._validar_campo("razon_social")
 
     def validar_rfc_campo(self):
-        """Validar RFC en tiempo real"""
-        self.error_rfc = validar_rfc(self.form_rfc)
+        self._validar_campo("rfc")
 
     def validar_email_campo(self):
-        """Validar email en tiempo real"""
-        self.error_email = validar_email(self.form_email)
+        self._validar_campo("email")
 
     def validar_codigo_postal_campo(self):
-        """Validar código postal en tiempo real"""
-        self.error_codigo_postal = validar_codigo_postal(self.form_codigo_postal)
+        self._validar_campo("codigo_postal")
 
     def validar_telefono_campo(self):
-        """Validar teléfono en tiempo real"""
-        self.error_telefono = validar_telefono(self.form_telefono)
+        self._validar_campo("telefono")
 
     def validar_registro_patronal_campo(self):
-        """Validar registro patronal en tiempo real"""
-        self.error_registro_patronal = validar_registro_patronal(self.form_registro_patronal)
+        self._validar_campo("registro_patronal")
 
     def validar_prima_riesgo_campo(self):
-        """Validar prima de riesgo en tiempo real"""
-        self.error_prima_riesgo = validar_prima_riesgo(self.form_prima_riesgo)
+        self._validar_campo("prima_riesgo")
 
-    def validar_todos_los_campos(self):
-        """Validar todos los campos del formulario (para submit)"""
-        self.validar_nombre_comercial_campo()
-        self.validar_razon_social_campo()
-        self.validar_rfc_campo()
-        self.validar_email_campo()
-        self.validar_codigo_postal_campo()
-        self.validar_telefono_campo()
-        self.validar_registro_patronal_campo()
-        self.validar_prima_riesgo_campo()    
+    def _validar_campo(self, campo: str):
+        """Valida un campo usando el diccionario de validadores"""
+        if campo in CAMPOS_VALIDACION:
+            valor = getattr(self, f"form_{campo}")
+            error = CAMPOS_VALIDACION[campo](valor)
+            setattr(self, f"error_{campo}", error)
+
+    def _validar_todos_los_campos(self):
+        """Valida todos los campos del formulario"""
+        for campo in CAMPOS_VALIDACION:
+            self._validar_campo(campo)
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
-        """Verifica si hay errores de validación en el formulario"""
-        return bool(
-            self.error_nombre_comercial or
-            self.error_razon_social or
-            self.error_rfc or
-            self.error_email or
-            self.error_codigo_postal or
-            self.error_telefono or
-            self.error_registro_patronal or  
-            self.error_prima_riesgo          
+        """Verifica si hay errores de validación"""
+        return any(
+            getattr(self, f"error_{campo}")
+            for campo in CAMPOS_VALIDACION
         )
 
     @rx.var
     def tiene_filtros_activos(self) -> bool:
-        """Verifica si hay filtros activos"""
-        return bool(
-            self.filtro_busqueda or
-            self.filtro_tipo or
-            self.solo_activas
-        )
+        return bool(self.filtro_busqueda or self.filtro_tipo or self.solo_activas)
 
     @rx.var
     def cantidad_filtros_activos(self) -> int:
-        """Cuenta la cantidad de filtros activos"""
-        count = 0
-        if self.filtro_busqueda: count += 1
-        if self.filtro_tipo: count += 1
-        if self.solo_activas: count += 1
-        return count
+        return sum([
+            bool(self.filtro_busqueda),
+            bool(self.filtro_tipo),
+            self.solo_activas
+        ])
 
     # ========================
     # MÉTODOS HELPER PRIVADOS
     # ========================
     def _manejar_error(self, error: Exception, operacion: str = "") -> None:
-        """
-        Maneja errores de forma centralizada y muestra mensajes apropiados.
-
-        Args:
-            error: Excepción capturada
-            operacion: Descripción de la operación (opcional)
-        """
+        """Maneja errores de forma centralizada"""
         contexto = f" al {operacion}" if operacion else ""
 
         if isinstance(error, NotFoundError):
-            self.mostrar_mensaje(f"Empresa no encontrada{contexto}: {str(error)}", "error")
+            self.mostrar_mensaje(f"Empresa no encontrada{contexto}", "error")
         elif isinstance(error, DuplicateError):
-            self.mostrar_mensaje(f"RFC duplicado: {error.field} ya existe en el sistema", "error")
+            self.mostrar_mensaje(f"RFC duplicado: ya existe en el sistema", "error")
         elif isinstance(error, ValidationError):
-            self.mostrar_mensaje(f"Error de validación{contexto}: {str(error)}", "error")
+            self.mostrar_mensaje(f"Error de validación{contexto}: {error}", "error")
         elif isinstance(error, DatabaseError):
-            self.mostrar_mensaje(f"Error de base de datos{contexto}: {str(error)}", "error")
+            self.mostrar_mensaje(f"Error de base de datos{contexto}", "error")
         else:
-            self.mostrar_mensaje(f"Error inesperado{contexto}: {str(error)}", "error")
+            self.mostrar_mensaje(f"Error inesperado{contexto}: {error}", "error")
 
-    @staticmethod
-    def _normalizar_texto(texto: str) -> str:
-        """
-        Normaliza texto: elimina espacios y convierte a mayúsculas.
-        Usa función centralizada de app/core/text_utils.py
+    def _limpiar_formulario(self):
+        """Limpia campos del formulario usando diccionario de defaults"""
+        for campo, default in FORM_DEFAULTS.items():
+            setattr(self, f"form_{campo}", default)
+        self._limpiar_errores()
 
-        Args:
-            texto: Texto a normalizar
+    def _limpiar_errores(self):
+        """Limpia todos los errores de validación"""
+        for campo in CAMPOS_VALIDACION:
+            setattr(self, f"error_{campo}", "")
 
-        Returns:
-            Texto normalizado o None si está vacío
-        """
-        normalizado = normalizar_mayusculas(texto)
-        return normalizado if normalizado else None
+    def _cargar_empresa_en_formulario(self, empresa: Empresa):
+        """Carga datos de empresa en el formulario"""
+        self.form_nombre_comercial = empresa.nombre_comercial
+        self.form_razon_social = empresa.razon_social
+        self.form_tipo_empresa = str(empresa.tipo_empresa)
+        self.form_rfc = empresa.rfc
+        self.form_direccion = empresa.direccion or ""
+        self.form_codigo_postal = empresa.codigo_postal or ""
+        self.form_telefono = empresa.telefono or ""
+        self.form_email = empresa.email or ""
+        self.form_pagina_web = empresa.pagina_web or ""
+        self.form_estatus = str(empresa.estatus)
+        self.form_notas = empresa.notas or ""
+        self.form_registro_patronal = empresa.registro_patronal or ""
+        self.form_prima_riesgo = str(empresa.get_prima_riesgo_porcentaje()) if empresa.prima_riesgo else ""
 
     def _preparar_empresa_desde_formulario(self, es_actualizacion: bool = False) -> EmpresaCreate | EmpresaUpdate:
-        """
-        Prepara objeto Empresa desde los campos del formulario con normalización.
-
-        Args:
-            es_actualizacion: Si True, retorna EmpresaUpdate; si False, EmpresaCreate
-
-        Returns:
-            EmpresaCreate o EmpresaUpdate con datos normalizados
-        """
-        # Normalizar campos de texto
-        nombre_comercial = self._normalizar_texto(self.form_nombre_comercial)
-        razon_social = self._normalizar_texto(self.form_razon_social)
-        rfc = self._normalizar_texto(self.form_rfc)
-        direccion = self.form_direccion.strip() or None
-        codigo_postal = self.form_codigo_postal.strip() or None
-        telefono = self.form_telefono.strip() or None
-        email = self.form_email.strip() or None
-        pagina_web = self.form_pagina_web.strip() or None
-        notas = self.form_notas.strip() or None
-        registro_patronal = self.form_registro_patronal.strip() or None
-        prima_riesgo = Decimal(self.form_prima_riesgo) if self.form_prima_riesgo.strip() else None
-
-        # Datos comunes
-        datos_comunes = {
+        """Prepara objeto Empresa desde formulario"""
+        datos = {
+            "nombre_comercial": normalizar_mayusculas(self.form_nombre_comercial) or None,
+            "razon_social": normalizar_mayusculas(self.form_razon_social) or None,
+            "rfc": normalizar_mayusculas(self.form_rfc) or None,
             "tipo_empresa": TipoEmpresa(self.form_tipo_empresa) if self.form_tipo_empresa else None,
-            "direccion": direccion,
-            "codigo_postal": codigo_postal,
-            "telefono": telefono,
-            "email": email,
-            "pagina_web": pagina_web,
+            "direccion": self.form_direccion.strip() or None,
+            "codigo_postal": self.form_codigo_postal.strip() or None,
+            "telefono": self.form_telefono.strip() or None,
+            "email": self.form_email.strip() or None,
+            "pagina_web": self.form_pagina_web.strip() or None,
             "estatus": EstatusEmpresa(self.form_estatus) if self.form_estatus else None,
-            "notas": notas,
-            "registro_patronal": registro_patronal,  # NUEVO
-            "prima_riesgo": prima_riesgo,            # NUEVO
+            "notas": self.form_notas.strip() or None,
+            "registro_patronal": self.form_registro_patronal.strip() or None,
+            "prima_riesgo": Decimal(self.form_prima_riesgo) if self.form_prima_riesgo.strip() else None,
         }
 
         if es_actualizacion:
-            # Para actualización: todos los campos son opcionales
-            return EmpresaUpdate(
-                nombre_comercial=nombre_comercial,
-                razon_social=razon_social,
-                rfc=rfc,
-                **datos_comunes
-            )
-        else:
-            # Para creación: nombre, razón social y RFC son requeridos
-            return EmpresaCreate(
-                nombre_comercial=nombre_comercial,
-                razon_social=razon_social,
-                rfc=rfc,
-                **datos_comunes
-            )
+            return EmpresaUpdate(**datos)
+        return EmpresaCreate(**datos)
 
     # ========================
-    # UTILIDADES
+    # COMPATIBILIDAD (métodos públicos usados por otros módulos)
     # ========================
     def limpiar_formulario(self):
-        """Limpiar campos del formulario"""
-        self.form_nombre_comercial = ""
-        self.form_razon_social = ""
-        self.form_tipo_empresa = TipoEmpresa.NOMINA.value
-        self.form_rfc = ""
-        self.form_direccion = ""
-        self.form_codigo_postal = ""
-        self.form_telefono = ""
-        self.form_email = ""
-        self.form_pagina_web = ""
-        self.form_estatus = EstatusEmpresa.ACTIVO.value
-        self.form_notas = ""
-        # Limpiar errores de validación
-        self.limpiar_errores_validacion()
-        # Datos IMSS
-        self.form_registro_patronal = ""
-        self.form_prima_riesgo = ""
+        """Alias público para compatibilidad"""
+        self._limpiar_formulario()
 
     def limpiar_errores_validacion(self):
-        """Limpiar todos los errores de validación del formulario"""
-        self.error_nombre_comercial = ""
-        self.error_razon_social = ""
-        self.error_rfc = ""
-        self.error_email = ""
-        self.error_codigo_postal = ""
-        self.error_telefono = ""
-        self.error_registro_patronal = ""
-        self.error_prima_riesgo = ""
+        """Alias público para compatibilidad"""
+        self._limpiar_errores()
 
-    # ========================
-    # MANEJO DE EVENTOS DE TECLADO
-    # ========================
+    def validar_todos_los_campos(self):
+        """Alias público para compatibilidad"""
+        self._validar_todos_los_campos()
+
     async def handle_key_down(self, key):
-        """Manejar tecla Enter en el campo de búsqueda"""
+        """Manejar Enter en búsqueda"""
         if key == "Enter":
             await self.aplicar_filtros()

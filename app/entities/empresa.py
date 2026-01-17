@@ -13,6 +13,8 @@ from app.core.enums import TipoEmpresa, EstatusEmpresa
 from app.core.validation import (
     validar_rfc_detallado,
     formatear_registro_patronal,
+    pydantic_field,
+    campo_validador,
     # Configuraciones de campos
     CAMPO_NOMBRE_COMERCIAL,
     CAMPO_RAZON_SOCIAL,
@@ -27,7 +29,6 @@ from app.core.validation import (
     CODIGO_CORTO_LEN,
     CODIGO_CORTO_PATTERN,
 )
-from app.core.validation.pydantic_helpers import pydantic_field, campo_validador
 from app.core.catalogs import LimitesValidacion
 from app.core.error_messages import (
     MSG_PRIMA_RIESGO_RANGO,

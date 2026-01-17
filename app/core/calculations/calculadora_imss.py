@@ -10,9 +10,10 @@ Responsabilidades:
 - Aplicación del Art. 36 LSS (absorción de cuota obrera en salario mínimo)
 
 Fecha: 2025-12-31 (Fase 2 de refactorización)
+Actualizado: 2026-01-17 (Migración a catálogos)
 """
 
-from app.core.fiscales import ConstantesFiscales
+from app.core.catalogs import CatalogoUMA, CatalogoIMSS
 
 
 class CalculadoraIMSS:
@@ -22,15 +23,6 @@ class CalculadoraIMSS:
     Maneja tanto cuotas patronales como obreras, incluyendo
     el caso especial del Art. 36 LSS para salario mínimo.
     """
-
-    def __init__(self, constantes: type[ConstantesFiscales] = ConstantesFiscales):
-        """
-        Inicializa calculadora con constantes fiscales.
-
-        Args:
-            constantes: Clase con constantes fiscales (default: ConstantesFiscales)
-        """
-        self.const = constantes
 
     def calcular_patronal(
         self,
@@ -71,26 +63,26 @@ class CalculadoraIMSS:
                 "riesgo_trabajo": float
             }
         """
-        uma = self.const.UMA_DIARIO
-        tres_uma = self.const.TRES_UMA
+        uma = float(CatalogoUMA.DIARIO)
+        tres_uma = float(CatalogoUMA.TRES_UMA)
         excedente_base = max(0, sbc_diario - tres_uma)
 
         return {
             # Enfermedad y Maternidad
-            "cuota_fija": uma * self.const.IMSS_CUOTA_FIJA * dias,
-            "excedente": excedente_base * self.const.IMSS_EXCEDENTE_PAT * dias,
-            "prest_dinero": sbc_diario * self.const.IMSS_PREST_DINERO_PAT * dias,
-            "gastos_med": sbc_diario * self.const.IMSS_GASTOS_MED_PENS_PAT * dias,
+            "cuota_fija": uma * float(CatalogoIMSS.CUOTA_FIJA) * dias,
+            "excedente": excedente_base * float(CatalogoIMSS.EXCEDENTE_PATRONAL) * dias,
+            "prest_dinero": sbc_diario * float(CatalogoIMSS.PREST_DINERO_PATRONAL) * dias,
+            "gastos_med": sbc_diario * float(CatalogoIMSS.GASTOS_MED_PATRONAL) * dias,
 
             # Invalidez y Vida
-            "invalidez_vida": sbc_diario * self.const.IMSS_INVALIDEZ_VIDA_PAT * dias,
+            "invalidez_vida": sbc_diario * float(CatalogoIMSS.INVALIDEZ_VIDA_PATRONAL) * dias,
 
             # Guarderías
-            "guarderias": sbc_diario * self.const.IMSS_GUARDERIAS * dias,
+            "guarderias": sbc_diario * float(CatalogoIMSS.GUARDERIAS) * dias,
 
             # Retiro, Cesantía y Vejez
-            "retiro": sbc_diario * self.const.IMSS_RETIRO * dias,
-            "cesantia_vejez": sbc_diario * self.const.IMSS_CESANTIA_VEJEZ_PAT * dias,
+            "retiro": sbc_diario * float(CatalogoIMSS.RETIRO) * dias,
+            "cesantia_vejez": sbc_diario * float(CatalogoIMSS.CESANTIA_VEJEZ_PATRONAL) * dias,
 
             # Riesgo de Trabajo (variable por empresa)
             "riesgo_trabajo": sbc_diario * prima_riesgo * dias,
@@ -135,7 +127,7 @@ class CalculadoraIMSS:
             >>> cuotas, absorbido = calc.calcular_obrero(500.0, 30, False, True)
             >>> # Trabajador normal: cuotas con valores, absorbido = 0
         """
-        tres_uma = self.const.TRES_UMA
+        tres_uma = float(CatalogoUMA.TRES_UMA)
         excedente_base = max(0, sbc_diario - tres_uma)
 
         if es_salario_minimo and aplicar_art_36:
@@ -145,11 +137,11 @@ class CalculadoraIMSS:
             # El patrón paga la cuota que le tocaría al trabajador
             # Trabajador NO tiene descuento IMSS
             imss_obrero_absorbido = (
-                excedente_base * self.const.IMSS_EXCEDENTE_OBR * dias +
-                sbc_diario * self.const.IMSS_PREST_DINERO_OBR * dias +
-                sbc_diario * self.const.IMSS_GASTOS_MED_PENS_OBR * dias +
-                sbc_diario * self.const.IMSS_INVALIDEZ_VIDA_OBR * dias +
-                sbc_diario * self.const.IMSS_CESANTIA_VEJEZ_OBR * dias
+                excedente_base * float(CatalogoIMSS.EXCEDENTE_OBRERO) * dias +
+                sbc_diario * float(CatalogoIMSS.PREST_DINERO_OBRERO) * dias +
+                sbc_diario * float(CatalogoIMSS.GASTOS_MED_OBRERO) * dias +
+                sbc_diario * float(CatalogoIMSS.INVALIDEZ_VIDA_OBRERO) * dias +
+                sbc_diario * float(CatalogoIMSS.CESANTIA_VEJEZ_OBRERO) * dias
             )
 
             # Cuotas obreras en cero (no se descuentan al trabajador)
@@ -167,11 +159,11 @@ class CalculadoraIMSS:
             imss_obrero_absorbido = 0.0
 
             cuotas = {
-                "excedente": excedente_base * self.const.IMSS_EXCEDENTE_OBR * dias,
-                "prest_dinero": sbc_diario * self.const.IMSS_PREST_DINERO_OBR * dias,
-                "gastos_med": sbc_diario * self.const.IMSS_GASTOS_MED_PENS_OBR * dias,
-                "invalidez_vida": sbc_diario * self.const.IMSS_INVALIDEZ_VIDA_OBR * dias,
-                "cesantia_vejez": sbc_diario * self.const.IMSS_CESANTIA_VEJEZ_OBR * dias,
+                "excedente": excedente_base * float(CatalogoIMSS.EXCEDENTE_OBRERO) * dias,
+                "prest_dinero": sbc_diario * float(CatalogoIMSS.PREST_DINERO_OBRERO) * dias,
+                "gastos_med": sbc_diario * float(CatalogoIMSS.GASTOS_MED_OBRERO) * dias,
+                "invalidez_vida": sbc_diario * float(CatalogoIMSS.INVALIDEZ_VIDA_OBRERO) * dias,
+                "cesantia_vejez": sbc_diario * float(CatalogoIMSS.CESANTIA_VEJEZ_OBRERO) * dias,
             }
 
         return cuotas, imss_obrero_absorbido

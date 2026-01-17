@@ -24,10 +24,6 @@ class EstatusEmpresa(str, Enum):
     SUSPENDIDO = 'SUSPENDIDO'
 
 
-# Alias para compatibilidad
-EstatusTipoServicio = Estatus
-
-
 # =============================================================================
 # ENUMS DE TIPO
 # =============================================================================

@@ -9,7 +9,6 @@ Este módulo exporta todas las entidades de negocio para facilitar imports:
 from app.core.enums import (
     Estatus,
     EstatusEmpresa,
-    EstatusTipoServicio,  # Alias de Estatus (compatibilidad)
     TipoEmpresa,
 )
 
@@ -43,7 +42,6 @@ __all__ = [
     # Enums
     "Estatus",
     "EstatusEmpresa",
-    "EstatusTipoServicio",  # Alias de Estatus
     "TipoEmpresa",
     # Empresa
     "Empresa",
