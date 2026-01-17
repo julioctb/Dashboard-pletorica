@@ -17,6 +17,12 @@ from app.repositories.tipo_servicio_repository import (
     SupabaseTipoServicioRepository,
 )
 
+# Categoría de Puesto
+from app.repositories.categoria_puesto_repository import (
+    ICategoriaPuestoRepository,
+    SupabaseCategoriaPuestoRepository,
+)
+
 
 __all__ = [
     # Empresa
@@ -25,4 +31,7 @@ __all__ = [
     # Tipo de Servicio
     "ITipoServicioRepository",
     "SupabaseTipoServicioRepository",
+    # Categoría de Puesto
+    "ICategoriaPuestoRepository",
+    "SupabaseCategoriaPuestoRepository",
 ]

@@ -4,7 +4,7 @@ import reflex as rx
 from app.presentation.components.shared.base_state import BaseState
 from app.entities.costo_patronal import ConfiguracionEmpresa, Trabajador
 from app.core.calculations import CalculadoraCostoPatronal
-from app.core.catalogos import obtener_clave_estado
+from app.core.ui_options import obtener_clave_estado
 from app.core.catalogs import CatalogoPrestaciones
 
 

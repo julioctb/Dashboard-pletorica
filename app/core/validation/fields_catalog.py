@@ -26,7 +26,7 @@ from .constants import (
     CODIGO_POSTAL_PATTERN,
     TELEFONO_PATTERN,
     REGISTRO_PATRONAL_LIMPIO_PATTERN,
-    CLAVE_TIPO_SERVICIO_PATTERN,
+    CLAVE_CATALOGO_PATTERN,
     # Longitudes - Empresas
     NOMBRE_COMERCIAL_MIN,
     NOMBRE_COMERCIAL_MAX,
@@ -40,12 +40,12 @@ from .constants import (
     TELEFONO_DIGITOS,
     REGISTRO_PATRONAL_LEN,
     PAGINA_WEB_MAX,
-    # Longitudes - Tipo de Servicio
-    CLAVE_TIPO_MIN,
-    CLAVE_TIPO_MAX,
-    NOMBRE_TIPO_MIN,
-    NOMBRE_TIPO_MAX,
-    DESCRIPCION_TIPO_MAX,
+    # Longitudes - Catálogos (tipo_servicio, categoria_puesto, etc.)
+    CLAVE_CATALOGO_MIN,
+    CLAVE_CATALOGO_MAX,
+    NOMBRE_CATALOGO_MIN,
+    NOMBRE_CATALOGO_MAX,
+    DESCRIPCION_CATALOGO_MAX,
 )
 from app.core.error_messages import (
     MSG_EMAIL_FORMATO_INVALIDO,
@@ -256,46 +256,46 @@ CAMPO_NOTAS = FieldConfig(
 
 
 # =============================================================================
-# CAMPOS DE TIPO DE SERVICIO
+# CAMPOS DE CATÁLOGOS (tipo_servicio, categoria_puesto, etc.)
 # =============================================================================
 
-CAMPO_CLAVE_TIPO_SERVICIO = FieldConfig(
+CAMPO_CLAVE_CATALOGO = FieldConfig(
     nombre='Clave',
     requerido=True,
-    min_len=CLAVE_TIPO_MIN,
-    max_len=CLAVE_TIPO_MAX,
-    patron=CLAVE_TIPO_SERVICIO_PATTERN,
+    min_len=CLAVE_CATALOGO_MIN,
+    max_len=CLAVE_CATALOGO_MAX,
+    patron=CLAVE_CATALOGO_PATTERN,
     patron_error=MSG_CLAVE_SOLO_LETRAS,
     transformar=str.upper,
     # UI
     label='Clave *',
-    placeholder='Ej: JAR, LIM, MTO',
-    hint=f'{CLAVE_TIPO_MIN}-{CLAVE_TIPO_MAX} letras mayúsculas',
+    placeholder='Ej: JAR, OPE, SUP',
+    hint=f'{CLAVE_CATALOGO_MIN}-{CLAVE_CATALOGO_MAX} letras mayúsculas',
     input_type=InputType.TEXT,
     order=1,
 )
 
-CAMPO_NOMBRE_TIPO_SERVICIO = FieldConfig(
+CAMPO_NOMBRE_CATALOGO = FieldConfig(
     nombre='Nombre',
     requerido=True,
-    min_len=NOMBRE_TIPO_MIN,
-    max_len=NOMBRE_TIPO_MAX,
+    min_len=NOMBRE_CATALOGO_MIN,
+    max_len=NOMBRE_CATALOGO_MAX,
     transformar=str.upper,
     # UI
     label='Nombre *',
-    placeholder='Nombre del tipo de servicio',
+    placeholder='Nombre del elemento',
     input_type=InputType.TEXT,
     order=2,
 )
 
-CAMPO_DESCRIPCION_TIPO_SERVICIO = FieldConfig(
+CAMPO_DESCRIPCION_CATALOGO = FieldConfig(
     nombre='Descripción',
     requerido=False,
-    max_len=DESCRIPCION_TIPO_MAX,
+    max_len=DESCRIPCION_CATALOGO_MAX,
     # UI
     label='Descripción',
-    placeholder='Descripción detallada del servicio...',
-    hint=f'Máximo {DESCRIPCION_TIPO_MAX} caracteres',
+    placeholder='Descripción detallada...',
+    hint=f'Máximo {DESCRIPCION_CATALOGO_MAX} caracteres',
     input_type=InputType.TEXTAREA,
     order=3,
     rows=3,
@@ -443,10 +443,10 @@ CAMPOS_EMPRESA = {
     'notas': CAMPO_NOTAS,
 }
 
-CAMPOS_TIPO_SERVICIO = {
-    'clave': CAMPO_CLAVE_TIPO_SERVICIO,
-    'nombre': CAMPO_NOMBRE_TIPO_SERVICIO,
-    'descripcion': CAMPO_DESCRIPCION_TIPO_SERVICIO,
+CAMPOS_CATALOGO = {
+    'clave': CAMPO_CLAVE_CATALOGO,
+    'nombre': CAMPO_NOMBRE_CATALOGO,
+    'descripcion': CAMPO_DESCRIPCION_CATALOGO,
 }
 
 CAMPOS_SIMULADOR = {

@@ -1,12 +1,12 @@
 """
-Página principal de Tipos de Servicio.
-Muestra una tabla con los tipos y acciones CRUD.
+Página principal de Categorías de Puesto.
+Muestra una tabla con las categorías y acciones CRUD.
 """
 import reflex as rx
-from app.presentation.pages.tipo_servicio.tipo_servicio_state import TipoServicioState
+from app.presentation.pages.categorias_puesto.categorias_puesto_state import CategoriasPuestoState
 from app.presentation.components.ui.headers import page_header
-from app.presentation.components.tipo_servicio.tipo_servicio_modals import (
-    modal_tipo_servicio,
+from app.presentation.components.categorias_puesto.categorias_puesto_modals import (
+    modal_categoria_puesto,
     modal_confirmar_eliminar,
 )
 
@@ -46,62 +46,59 @@ def boton_accion(
     )
 
 
-def fila_tipo(tipo: dict) -> rx.Component:
-    """Fila de la tabla para un tipo"""
+def fila_categoria(categoria: dict) -> rx.Component:
+    """Fila de la tabla para una categoría"""
     return rx.table.row(
+        
         # Clave
         rx.table.cell(
-            rx.text(tipo["clave"], weight="bold"),
+            rx.text(categoria["clave"], weight="bold"),
         ),
-        # Nombre (click navega a categorías de puesto)
+        # Nombre
         rx.table.cell(
-            rx.link(
-                rx.text(
-                    tipo["nombre"],
-                    _hover={"text_decoration": "underline"},
-                ),
-                href="/categorias-puesto?tipo=" + tipo["id"].to(str),
-                color="inherit",
-                underline="none",
-            ),
+            rx.text(categoria["nombre"]),
+        ),
+        # Orden
+        rx.table.cell(
+            rx.text(categoria["orden"].to(str), size="2"),
         ),
         # Descripción
         rx.table.cell(
             rx.text(
                 rx.cond(
-                    tipo["descripcion"],
-                    tipo["descripcion"],
+                    categoria["descripcion"],
+                    categoria["descripcion"],
                     "-"
                 ),
                 color="gray",
                 size="2",
             ),
-            max_width="300px",
+            max_width="200px",
         ),
         # Estatus
         rx.table.cell(
-            estatus_badge(tipo["estatus"]),
+            estatus_badge(categoria["estatus"]),
         ),
         # Acciones
         rx.table.cell(
             rx.hstack(
                 boton_accion(
                     icon="pencil",
-                    on_click=lambda: TipoServicioState.abrir_modal_editar(tipo),
+                    on_click=lambda: CategoriasPuestoState.abrir_modal_editar(categoria),
                     tooltip="Editar",
                     color_scheme="blue",
                 ),
                 rx.cond(
-                    tipo["estatus"] == "ACTIVO",
+                    categoria["estatus"] == "ACTIVO",
                     boton_accion(
                         icon="trash-2",
-                        on_click=lambda: TipoServicioState.abrir_confirmar_eliminar(tipo),
+                        on_click=lambda: CategoriasPuestoState.abrir_confirmar_eliminar(categoria),
                         tooltip="Eliminar",
                         color_scheme="red",
                     ),
                     boton_accion(
                         icon="rotate-ccw",
-                        on_click=lambda: TipoServicioState.activar_tipo(tipo),
+                        on_click=lambda: CategoriasPuestoState.activar_categoria(categoria),
                         tooltip="Reactivar",
                         color_scheme="green",
                     ),
@@ -112,22 +109,24 @@ def fila_tipo(tipo: dict) -> rx.Component:
     )
 
 
-def tabla_tipos() -> rx.Component:
-    """Tabla de tipos de servicio"""
+def tabla_categorias() -> rx.Component:
+    """Tabla de categorías de puesto"""
     return rx.table.root(
         rx.table.header(
             rx.table.row(
-                rx.table.column_header_cell("Clave", width="100px"),
-                rx.table.column_header_cell("Nombre", width="200px"),
+                
+                rx.table.column_header_cell("Clave", width="80px"),
+                rx.table.column_header_cell("Nombre", width="180px"),
+                rx.table.column_header_cell("Orden", width="60px"),
                 rx.table.column_header_cell("Descripción"),
-                rx.table.column_header_cell("Estatus", width="100px"),
-                rx.table.column_header_cell("Acciones", width="100px"),
+                rx.table.column_header_cell("Estatus", width="80px"),
+                rx.table.column_header_cell("Acciones", width="80px"),
             ),
         ),
         rx.table.body(
             rx.foreach(
-                TipoServicioState.tipos,
-                fila_tipo
+                CategoriasPuestoState.categorias,
+                fila_categoria
             ),
         ),
         width="100%",
@@ -136,19 +135,19 @@ def tabla_tipos() -> rx.Component:
 
 
 def tabla_vacia() -> rx.Component:
-    """Mensaje cuando no hay tipos"""
+    """Mensaje cuando no hay categorías"""
     return rx.center(
         rx.vstack(
             rx.icon("inbox", size=48, color="gray"),
             rx.text(
-                "No hay tipos de servicio registrados",
+                "No hay categorías de puesto registradas",
                 color="gray",
                 size="3"
             ),
             rx.button(
                 rx.icon("plus", size=16),
-                "Crear primer tipo",
-                on_click=TipoServicioState.abrir_modal_crear,
+                "Crear primera categoría",
+                on_click=CategoriasPuestoState.abrir_modal_crear,
                 color_scheme="blue",
             ),
             spacing="3",
@@ -167,14 +166,14 @@ def barra_herramientas() -> rx.Component:
         rx.hstack(
             rx.input(
                 placeholder="Buscar...",
-                value=TipoServicioState.filtro_busqueda,
-                on_change=TipoServicioState.set_filtro_busqueda,
-                on_key_down=TipoServicioState.handle_key_down,
+                value=CategoriasPuestoState.filtro_busqueda,
+                on_change=CategoriasPuestoState.set_filtro_busqueda,
+                on_key_down=CategoriasPuestoState.handle_key_down,
                 width="180px",
             ),
             rx.icon_button(
                 rx.icon("search", size=16),
-                on_click=TipoServicioState.buscar_tipos,
+                on_click=CategoriasPuestoState.buscar_categorias,
                 variant="soft",
             ),
             spacing="2",
@@ -183,8 +182,8 @@ def barra_herramientas() -> rx.Component:
         # Toggle inactivas
         rx.checkbox(
             "Inactivas",
-            checked=TipoServicioState.incluir_inactivas,
-            on_change=TipoServicioState.toggle_inactivas,
+            checked=CategoriasPuestoState.incluir_inactivas,
+            on_change=CategoriasPuestoState.toggle_inactivas,
             size="2",
         ),
 
@@ -193,8 +192,8 @@ def barra_herramientas() -> rx.Component:
         # Botón crear
         rx.button(
             rx.icon("plus", size=16),
-            "Nuevo Tipo",
-            on_click=TipoServicioState.abrir_modal_crear,
+            "Nueva Categoría",
+            on_click=CategoriasPuestoState.abrir_modal_crear,
             color_scheme="blue",
         ),
 
@@ -209,8 +208,8 @@ def contador_registros() -> rx.Component:
     """Contador de registros"""
     return rx.text(
         rx.cond(
-            TipoServicioState.total_tipos > 0,
-            f"Mostrando {TipoServicioState.total_tipos} tipo(s)",
+            CategoriasPuestoState.total_categorias > 0,
+            f"Mostrando {CategoriasPuestoState.total_categorias} categoría(s)",
             "No hay resultados"
         ),
         size="2",
@@ -218,37 +217,89 @@ def contador_registros() -> rx.Component:
     )
 
 
+def breadcrumbs() -> rx.Component:
+    """Breadcrumbs de navegación"""
+    return rx.hstack(
+        rx.link(
+            rx.hstack(
+                rx.icon("home", size=14),
+                rx.text("Inicio", size="2"),
+                spacing="1",
+            ),
+            href="/",
+            color="gray",
+            underline="none",
+            _hover={"color": "blue"},
+        ),
+        rx.text("/", color="gray", size="2"),
+        rx.link(
+            rx.text("Tipos de Servicio", size="2"),
+            href="/tipos-servicio",
+            color="gray",
+            underline="none",
+            _hover={"color": "blue"},
+        ),
+        rx.cond(
+            CategoriasPuestoState.filtro_tipo_servicio_id != "0",
+            rx.hstack(
+                rx.text("/", color="gray", size="2"),
+                rx.text(
+                    CategoriasPuestoState.nombre_tipo_filtrado,
+                    size="2",
+                    weight="medium",
+                ),
+                spacing="1",
+            ),
+            rx.hstack(
+                rx.text("/", color="gray", size="2"),
+                rx.text("Categorías", size="2", weight="medium"),
+                spacing="1",
+            ),
+        ),
+        spacing="1",
+        align="center",
+        padding_bottom="2",
+    )
+
+
 def contenido_principal() -> rx.Component:
     """Contenido principal de la página"""
     return rx.vstack(
+        # Breadcrumbs
+        breadcrumbs(),
+
         # Encabezado
-       rx.hstack(
+        rx.hstack(
             page_header(
-                icono="folder-cog",
-                titulo="Tipos de Servicio",
-                subtitulo="Administre los tipos de servicio del sistema"
+                icono="users",
+                titulo="Categorías de Puesto",
+                subtitulo="Administre las categorías de puesto por tipo de servicio"
             ),
-       ),
+        ),
+
         # Barra de herramientas
         barra_herramientas(),
 
+        # Contador
+        #contador_registros(),
+
         # Contenido: tabla o mensaje vacío
         rx.cond(
-            TipoServicioState.loading,
+            CategoriasPuestoState.loading,
             rx.center(
                 rx.spinner(size="3"),
                 width="100%",
                 min_height="200px",
             ),
             rx.cond(
-                TipoServicioState.total_tipos > 0,
-                tabla_tipos(),
+                CategoriasPuestoState.total_categorias > 0,
+                tabla_categorias(),
                 tabla_vacia(),
             ),
         ),
 
         # Modales
-        modal_tipo_servicio(),
+        modal_categoria_puesto(),
         modal_confirmar_eliminar(),
 
         spacing="4",
@@ -257,11 +308,11 @@ def contenido_principal() -> rx.Component:
     )
 
 
-def tipo_servicio_page() -> rx.Component:
-    """Página de Tipos de Servicio"""
+def categorias_puesto_page() -> rx.Component:
+    """Página de Categorías de Puesto"""
     return rx.box(
         contenido_principal(),
         width="100%",
         min_height="100vh",
-        on_mount=TipoServicioState.cargar_tipos,
+        on_mount=CategoriasPuestoState.cargar_datos_iniciales,
     )

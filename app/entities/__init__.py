@@ -27,6 +27,13 @@ from app.entities.tipo_servicio import (
     TipoServicioUpdate,
 )
 
+# Categoría de Puesto
+from app.entities.categoria_puesto import (
+    CategoriaPuesto,
+    CategoriaPuestoCreate,
+    CategoriaPuestoUpdate,
+)
+
 # Costo Patronal (si existe)
 try:
     from app.entities.costo_patronal import (
@@ -52,6 +59,10 @@ __all__ = [
     "TipoServicio",
     "TipoServicioCreate",
     "TipoServicioUpdate",
+    # Categoría de Puesto
+    "CategoriaPuesto",
+    "CategoriaPuestoCreate",
+    "CategoriaPuestoUpdate",
     # Costo Patronal
     "ConfiguracionEmpresa",
     "Trabajador",

@@ -2,7 +2,7 @@ import reflex as rx
 from app.presentation.pages.simulador.simulador_state import SimuladorState
 from app.presentation.components.ui.headers import page_header
 from app.presentation.components.ui.form_field import form_field, form_section
-from app.core.catalogos import ESTADOS_DISPLAY, TIPO_SALARIO_CALCULO
+from app.core.ui_options import ESTADOS_DISPLAY, TIPO_SALARIO_CALCULO
 from app.core.validation import (
     CAMPO_SIM_ESTADO,
     CAMPO_SIM_PRIMA_RIESGO,

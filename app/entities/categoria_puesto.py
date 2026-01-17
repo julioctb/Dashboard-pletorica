@@ -7,22 +7,21 @@ tener cada tipo de servicio: Jardinero A, Jardinero B, Supervisor, etc.
 Cada categoría pertenece a UN tipo de servicio específico.
 La clave es única DENTRO del mismo tipo de servicio.
 
-TODO: Completar esta entidad e integrar con FieldConfig para validación.
+Reutiliza FieldConfigs de tipo_servicio para clave, nombre y descripción.
 """
-
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.core.enums import Estatus
 from app.core.validation import (
-    CLAVE_TIPO_SERVICIO_PATTERN,
-    CLAVE_TIPO_MIN,
-    CLAVE_TIPO_MAX,
-    NOMBRE_TIPO_MIN,
-    NOMBRE_TIPO_MAX,
-    DESCRIPCION_TIPO_MAX,
+    CAMPO_CLAVE_CATALOGO,
+    CAMPO_NOMBRE_CATALOGO,
+    CAMPO_DESCRIPCION_CATALOGO,
+    pydantic_field,
+    campo_validador,
 )
+from app.core.error_messages import msg_entidad_ya_estado
 
 
 class CategoriaPuesto(BaseModel):
@@ -37,8 +36,6 @@ class CategoriaPuesto(BaseModel):
         - JARB: Jardinero B
         - OFIA: Oficial A
         - SUP: Supervisor
-
-    TODO: Implementar validadores con FieldConfig cuando la entidad esté completa.
     """
 
     model_config = ConfigDict(
@@ -50,45 +47,91 @@ class CategoriaPuesto(BaseModel):
 
     # Identificación
     id: Optional[int] = None
+    tipo_servicio_id: int = Field(..., description="FK a tipo_servicio")
 
-    # Relación con tipo de servicio
-    tipo_servicio_id: int = Field(
-        description="ID del tipo de servicio al que pertenece"
-    )
+    # Información básica - reutilizando FieldConfigs de tipo_servicio
+    clave: str = pydantic_field(CAMPO_CLAVE_CATALOGO)
+    nombre: str = pydantic_field(CAMPO_NOMBRE_CATALOGO)
+    descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_CATALOGO)
 
-    # Información básica
-    clave: str = Field(
-        min_length=CLAVE_TIPO_MIN,
-        max_length=CLAVE_TIPO_MAX,
-        pattern=CLAVE_TIPO_SERVICIO_PATTERN,
-        description="Clave única dentro del tipo (2-5 letras mayúsculas)"
-    )
-    nombre: str = Field(
-        min_length=NOMBRE_TIPO_MIN,
-        max_length=NOMBRE_TIPO_MAX,
-        description="Nombre de la categoría de puesto"
-    )
-    descripcion: Optional[str] = Field(
-        None,
-        max_length=DESCRIPCION_TIPO_MAX,
-        description="Descripción detallada de la categoría"
-    )
+    # Ordenamiento
+    orden: int = Field(default=0, ge=0, description="Orden de visualización")
 
     # Control de estado
-    estatus: Estatus = Field(
-        default=Estatus.ACTIVO,
-        description="Estado actual de la categoría"
-    )
+    estatus: Estatus = Field(default=Estatus.ACTIVO)
 
     # Auditoría
-    fecha_creacion: Optional[datetime] = Field(
-        None,
-        description="Fecha de registro en el sistema"
-    )
+    fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None
 
-    # TODO: Agregar validadores con FieldConfig
-    # TODO: Agregar métodos de negocio
+    # =========================================================================
+    # VALIDADORES - Generados desde FieldConfig
+    # =========================================================================
+
+    validar_clave = campo_validador('clave', CAMPO_CLAVE_CATALOGO)
+    validar_nombre = campo_validador('nombre', CAMPO_NOMBRE_CATALOGO)
+
+    # =========================================================================
+    # MÉTODOS DE NEGOCIO
+    # =========================================================================
+
+    def esta_activo(self) -> bool:
+        """Verifica si la categoría está activa"""
+        return self.estatus == Estatus.ACTIVO
+
+    def desactivar(self) -> None:
+        """Desactiva la categoría de puesto"""
+        if self.estatus == Estatus.INACTIVO:
+            raise ValueError(msg_entidad_ya_estado("La categoría", "inactiva"))
+        self.estatus = Estatus.INACTIVO
+
+    def activar(self) -> None:
+        """Activa la categoría de puesto"""
+        if self.estatus == Estatus.ACTIVO:
+            raise ValueError(msg_entidad_ya_estado("La categoría", "activa"))
+        self.estatus = Estatus.ACTIVO
 
     def __str__(self) -> str:
         return f"{self.clave} - {self.nombre}"
+
+
+class CategoriaPuestoCreate(BaseModel):
+    """Modelo para crear una nueva categoría de puesto"""
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        str_strip_whitespace=True,
+        validate_assignment=True
+    )
+
+    tipo_servicio_id: int = Field(..., description="FK a tipo_servicio")
+    clave: str = pydantic_field(CAMPO_CLAVE_CATALOGO)
+    nombre: str = pydantic_field(CAMPO_NOMBRE_CATALOGO)
+    descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_CATALOGO)
+    orden: int = Field(default=0, ge=0)
+    estatus: Estatus = Field(default=Estatus.ACTIVO)
+
+    # Validadores
+    validar_clave = campo_validador('clave', CAMPO_CLAVE_CATALOGO)
+    validar_nombre = campo_validador('nombre', CAMPO_NOMBRE_CATALOGO)
+
+
+class CategoriaPuestoUpdate(BaseModel):
+    """Modelo para actualizar una categoría existente (campos opcionales)"""
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        str_strip_whitespace=True,
+        validate_assignment=True
+    )
+
+    tipo_servicio_id: Optional[int] = None
+    clave: Optional[str] = pydantic_field(CAMPO_CLAVE_CATALOGO, default=None)
+    nombre: Optional[str] = pydantic_field(CAMPO_NOMBRE_CATALOGO, default=None)
+    descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_CATALOGO)
+    orden: Optional[int] = Field(default=None, ge=0)
+    estatus: Optional[Estatus] = None
+
+    # Validadores
+    validar_clave = campo_validador('clave', CAMPO_CLAVE_CATALOGO)
+    validar_nombre = campo_validador('nombre', CAMPO_NOMBRE_CATALOGO)

@@ -55,11 +55,11 @@ CODIGO_CORTO_PATTERN = r'^[A-Z0-9]{3}$'
 
 
 # =============================================================================
-# PATRONES DE TIPO DE SERVICIO
+# PATRONES DE CATÁLOGOS (tipo_servicio, categoria_puesto, etc.)
 # =============================================================================
 
-# Clave de tipo de servicio (2-5 letras mayúsculas)
-CLAVE_TIPO_SERVICIO_PATTERN = r'^[A-Z]{2,5}$'
+# Clave de catálogo (2-5 letras mayúsculas)
+CLAVE_CATALOGO_PATTERN = r'^[A-Z]{2,5}$'
 
 
 # =============================================================================
@@ -84,11 +84,11 @@ PAGINA_WEB_MAX = 100
 
 
 # =============================================================================
-# CONSTANTES DE LONGITUD - TIPO DE SERVICIO
+# CONSTANTES DE LONGITUD - CATÁLOGOS (tipo_servicio, categoria_puesto, etc.)
 # =============================================================================
 
-CLAVE_TIPO_MIN = 2
-CLAVE_TIPO_MAX = 5
-NOMBRE_TIPO_MIN = 2
-NOMBRE_TIPO_MAX = 50
-DESCRIPCION_TIPO_MAX = 500
+CLAVE_CATALOGO_MIN = 2
+CLAVE_CATALOGO_MAX = 5
+NOMBRE_CATALOGO_MIN = 2
+NOMBRE_CATALOGO_MAX = 50
+DESCRIPCION_CATALOGO_MAX = 500

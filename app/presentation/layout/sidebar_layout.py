@@ -59,7 +59,21 @@ def sidebar_items() -> rx.Component:
                 variant='ghost',
                 width="100%",
             ),
-            sidebar_item('Servicios','folder-cog', '/tipos-servicio' ),
+            rx.accordion.root(
+                rx.accordion.item(
+                    header=rx.hstack(
+                        rx.icon('settings-2'),
+                        rx.text('Catálogos', size='4'),
+                    ),
+                    content=rx.vstack(
+                        sidebar_item('Tipos Servicio', 'folder-cog', '/tipos-servicio'),
+                        sidebar_item('Categorías Puesto', 'users', '/categorias-puesto'),
+                    )
+                ),
+                collapsible=True,
+                variant='ghost',
+                width="100%",
+            ),
             sidebar_item('Sedes','map-pin-house', '/#' ),
             sidebar_item('Personal','users', '/#' ),
             sidebar_item('Mensajes','mail', '/#' ),

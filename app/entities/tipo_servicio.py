@@ -15,9 +15,9 @@ from pydantic import BaseModel, Field, ConfigDict
 
 from app.core.enums import Estatus
 from app.core.validation import (
-    CAMPO_CLAVE_TIPO_SERVICIO,
-    CAMPO_NOMBRE_TIPO_SERVICIO,
-    CAMPO_DESCRIPCION_TIPO_SERVICIO,
+    CAMPO_CLAVE_CATALOGO,
+    CAMPO_NOMBRE_CATALOGO,
+    CAMPO_DESCRIPCION_CATALOGO,
     pydantic_field,
     campo_validador,
 )
@@ -50,9 +50,9 @@ class TipoServicio(BaseModel):
     id: Optional[int] = None
 
     # Información básica - usando pydantic_field()
-    clave: str = pydantic_field(CAMPO_CLAVE_TIPO_SERVICIO)
-    nombre: str = pydantic_field(CAMPO_NOMBRE_TIPO_SERVICIO)
-    descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_TIPO_SERVICIO)
+    clave: str = pydantic_field(CAMPO_CLAVE_CATALOGO)
+    nombre: str = pydantic_field(CAMPO_NOMBRE_CATALOGO)
+    descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_CATALOGO)
 
     # Control de estado
     estatus: Estatus = Field(default=Estatus.ACTIVO)
@@ -65,8 +65,8 @@ class TipoServicio(BaseModel):
     # VALIDADORES - Generados desde FieldConfig
     # =========================================================================
 
-    validar_clave = campo_validador('clave', CAMPO_CLAVE_TIPO_SERVICIO)
-    validar_nombre = campo_validador('nombre', CAMPO_NOMBRE_TIPO_SERVICIO)
+    validar_clave = campo_validador('clave', CAMPO_CLAVE_CATALOGO)
+    validar_nombre = campo_validador('nombre', CAMPO_NOMBRE_CATALOGO)
 
     # =========================================================================
     # MÉTODOS DE NEGOCIO
@@ -105,14 +105,14 @@ class TipoServicioCreate(BaseModel):
         validate_assignment=True
     )
 
-    clave: str = pydantic_field(CAMPO_CLAVE_TIPO_SERVICIO)
-    nombre: str = pydantic_field(CAMPO_NOMBRE_TIPO_SERVICIO)
-    descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_TIPO_SERVICIO)
+    clave: str = pydantic_field(CAMPO_CLAVE_CATALOGO)
+    nombre: str = pydantic_field(CAMPO_NOMBRE_CATALOGO)
+    descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_CATALOGO)
     estatus: Estatus = Field(default=Estatus.ACTIVO)
 
     # Validadores
-    validar_clave = campo_validador('clave', CAMPO_CLAVE_TIPO_SERVICIO)
-    validar_nombre = campo_validador('nombre', CAMPO_NOMBRE_TIPO_SERVICIO)
+    validar_clave = campo_validador('clave', CAMPO_CLAVE_CATALOGO)
+    validar_nombre = campo_validador('nombre', CAMPO_NOMBRE_CATALOGO)
 
 
 class TipoServicioUpdate(BaseModel):
@@ -124,11 +124,11 @@ class TipoServicioUpdate(BaseModel):
         validate_assignment=True
     )
 
-    clave: Optional[str] = pydantic_field(CAMPO_CLAVE_TIPO_SERVICIO, default=None)
-    nombre: Optional[str] = pydantic_field(CAMPO_NOMBRE_TIPO_SERVICIO, default=None)
-    descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_TIPO_SERVICIO)
+    clave: Optional[str] = pydantic_field(CAMPO_CLAVE_CATALOGO, default=None)
+    nombre: Optional[str] = pydantic_field(CAMPO_NOMBRE_CATALOGO, default=None)
+    descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_CATALOGO)
     estatus: Optional[Estatus] = None
 
     # Validadores
-    validar_clave = campo_validador('clave', CAMPO_CLAVE_TIPO_SERVICIO)
-    validar_nombre = campo_validador('nombre', CAMPO_NOMBRE_TIPO_SERVICIO)
+    validar_clave = campo_validador('clave', CAMPO_CLAVE_CATALOGO)
+    validar_nombre = campo_validador('nombre', CAMPO_NOMBRE_CATALOGO)

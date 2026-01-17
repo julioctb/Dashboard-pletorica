@@ -114,6 +114,11 @@ class TipoServicioState(BaseState):
         tiene_datos = bool(self.form_clave and self.form_nombre)
         return tiene_datos and not self.tiene_errores_formulario and not self.saving
 
+    @rx.var
+    def tiene_filtros_activos(self) -> bool:
+        """Indica si hay algún filtro aplicado"""
+        return bool(self.filtro_busqueda.strip()) or self.incluir_inactivas
+
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
@@ -160,6 +165,12 @@ class TipoServicioState(BaseState):
         """Alternar mostrar/ocultar inactivas y recargar"""
         self.incluir_inactivas = not self.incluir_inactivas
         return TipoServicioState.cargar_tipos
+
+    async def limpiar_filtros(self):
+        """Limpiar todos los filtros y recargar"""
+        self.filtro_busqueda = ""
+        self.incluir_inactivas = False
+        await self.cargar_tipos()
 
     # ========================
     # OPERACIONES CRUD

@@ -17,6 +17,12 @@ from app.services.tipo_servicio_service import (
     tipo_servicio_service,
 )
 
+# Categoría de Puesto
+from app.services.categoria_puesto_service import (
+    CategoriaPuestoService,
+    categoria_puesto_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -25,4 +31,7 @@ __all__ = [
     # Tipo de Servicio
     "TipoServicioService",
     "tipo_servicio_service",
+    # Categoría de Puesto
+    "CategoriaPuestoService",
+    "categoria_puesto_service",
 ]

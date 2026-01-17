@@ -4,6 +4,7 @@ from .presentation.pages.empresas import empresas_page
 
 from .presentation.pages.simulador.simulador_page import simulador_page
 from .presentation.pages.tipo_servicio import tipo_servicio_page
+from .presentation.pages.categorias_puesto import categorias_puesto_page
 
 from .presentation.layout.sidebar_layout import sidebar
 
@@ -42,3 +43,4 @@ app.add_page(lambda: index(empresas_page()), route="/empresas")
 
 app.add_page(lambda: index(simulador_page()), route="/simulador")
 app.add_page(lambda: index(tipo_servicio_page()), route="/tipos-servicio")
+app.add_page(lambda: index(categorias_puesto_page()), route="/categorias-puesto")
