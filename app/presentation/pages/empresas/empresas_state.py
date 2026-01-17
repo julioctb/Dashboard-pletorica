@@ -180,6 +180,15 @@ class EmpresasState(BaseState):
         self.form_prima_riesgo = value
 
     # ========================
+    # SETTERS DE MODALES (Reflex v0.8.9+ requiere explícitos)
+    # ========================
+    def set_mostrar_modal_empresa(self, value: bool):
+        self.mostrar_modal_empresa = value
+
+    def set_mostrar_modal_detalle(self, value: bool):
+        self.mostrar_modal_detalle = value
+
+    # ========================
     # OPERACIONES PRINCIPALES
     # ========================
     async def cargar_empresas(self):
