@@ -6,6 +6,7 @@ import reflex as rx
 from typing import List, Optional
 
 from app.core.text_utils import normalizar_mayusculas
+from app.core.utils import generar_codigo_nivel1
 from app.entities.categoria_puesto import (
     CategoriaPuesto,
     CategoriaPuestoCreate,
@@ -87,6 +88,11 @@ class CategoriasPuestoState(BaseState):
 
     def set_form_nombre(self, value: str):
         self.form_nombre = normalizar_mayusculas(value)
+        # Auto-sugerir clave si está vacía y no es edición
+        if not self.form_clave and not self.es_edicion and value:
+            clave_sugerida = generar_codigo_nivel1(value)
+            if clave_sugerida:
+                self.form_clave = clave_sugerida[:5]  # Máximo 5 caracteres
 
     def set_form_descripcion(self, value: str):
         self.form_descripcion = value
