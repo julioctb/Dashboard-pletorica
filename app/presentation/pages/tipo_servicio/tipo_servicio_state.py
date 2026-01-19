@@ -30,14 +30,12 @@ class TipoServicioState(BaseState):
     # ========================
     # ESTADO DE UI
     # ========================
-    loading: bool = False
-    saving: bool = False
+    # loading, saving, filtro_busqueda vienen de BaseState
     mostrar_modal_tipo: bool = False
     mostrar_modal_confirmar_eliminar: bool = False
     es_edicion: bool = False
 
-    # Filtros
-    filtro_busqueda: str = ""
+    # Filtros (filtro_busqueda viene de BaseState)
     incluir_inactivas: bool = False
 
     # ========================
@@ -55,8 +53,12 @@ class TipoServicioState(BaseState):
     # ========================
     # SETTERS EXPLÍCITOS (Reflex 0.8.9+)
     # ========================
-    def set_filtro_busqueda(self, value: str):
+    # set_filtro_busqueda viene de BaseState
+
+    async def on_change_busqueda(self, value: str):
+        """Actualizar filtro y buscar automáticamente"""
         self.filtro_busqueda = value
+        await self.cargar_tipos()
 
     def set_incluir_inactivas(self, value: bool):
         self.incluir_inactivas = value
@@ -119,6 +121,11 @@ class TipoServicioState(BaseState):
         """Indica si hay algún filtro aplicado"""
         return bool(self.filtro_busqueda.strip()) or self.incluir_inactivas
 
+    @rx.var
+    def mostrar_tabla(self) -> bool:
+        """Muestra tabla si hay tipos O si hay filtro activo (para mantener el input visible)"""
+        return self.total_tipos > 0 or bool(self.filtro_busqueda.strip())
+
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
@@ -161,15 +168,23 @@ class TipoServicioState(BaseState):
         if key == "Enter":
             return TipoServicioState.buscar_tipos
 
-    def toggle_inactivas(self):
+    def toggle_inactivas(self, value: bool = None):
         """Alternar mostrar/ocultar inactivas y recargar"""
-        self.incluir_inactivas = not self.incluir_inactivas
+        if value is not None:
+            self.incluir_inactivas = value
+        else:
+            self.incluir_inactivas = not self.incluir_inactivas
         return TipoServicioState.cargar_tipos
 
     async def limpiar_filtros(self):
         """Limpiar todos los filtros y recargar"""
         self.filtro_busqueda = ""
         self.incluir_inactivas = False
+        await self.cargar_tipos()
+
+    async def limpiar_busqueda(self):
+        """Limpiar solo el campo de búsqueda y recargar"""
+        self.filtro_busqueda = ""
         await self.cargar_tipos()
 
     # ========================

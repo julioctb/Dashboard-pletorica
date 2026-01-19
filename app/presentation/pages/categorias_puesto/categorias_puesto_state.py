@@ -40,14 +40,12 @@ class CategoriasPuestoState(BaseState):
     # ========================
     # ESTADO DE UI
     # ========================
-    loading: bool = False
-    saving: bool = False
+    # loading, saving, filtro_busqueda vienen de BaseState
     mostrar_modal_categoria: bool = False
     mostrar_modal_confirmar_eliminar: bool = False
     es_edicion: bool = False
 
-    # Filtros
-    filtro_busqueda: str = ""
+    # Filtros (filtro_busqueda viene de BaseState)
     filtro_tipo_servicio_id: str = "0"  # "0" = todos, string para rx.select
     incluir_inactivas: bool = False
 
@@ -70,8 +68,12 @@ class CategoriasPuestoState(BaseState):
     # ========================
     # SETTERS EXPLÍCITOS (Reflex 0.8.9+)
     # ========================
-    def set_filtro_busqueda(self, value: str):
+    # set_filtro_busqueda viene de BaseState
+
+    async def on_change_busqueda(self, value: str):
+        """Actualizar filtro y buscar automáticamente"""
         self.filtro_busqueda = value
+        await self.cargar_categorias()
 
     def set_filtro_tipo_servicio_id(self, value: str):
         self.filtro_tipo_servicio_id = value if value else "0"
@@ -161,6 +163,11 @@ class CategoriasPuestoState(BaseState):
         )
 
     @rx.var
+    def mostrar_tabla(self) -> bool:
+        """Muestra tabla si hay categorías O si hay filtro activo"""
+        return self.total_categorias > 0 or bool(self.filtro_busqueda.strip())
+
+    @rx.var
     def nombre_tipo_filtrado(self) -> str:
         """Nombre del tipo de servicio seleccionado en el filtro"""
         if self.filtro_tipo_servicio_id == "0":
@@ -234,8 +241,24 @@ class CategoriasPuestoState(BaseState):
         if key == "Enter":
             return CategoriasPuestoState.buscar_categorias
 
-    def toggle_inactivas(self):
-        self.incluir_inactivas = not self.incluir_inactivas
+    def toggle_inactivas(self, value: bool = None):
+        """Toggle o establecer el estado de incluir inactivas"""
+        if value is not None:
+            self.incluir_inactivas = value
+        else:
+            self.incluir_inactivas = not self.incluir_inactivas
+        return CategoriasPuestoState.cargar_categorias
+
+    def limpiar_busqueda(self):
+        """Limpia el campo de búsqueda y recarga"""
+        self.filtro_busqueda = ""
+        return CategoriasPuestoState.cargar_categorias
+
+    def limpiar_filtros(self):
+        """Limpia todos los filtros y recarga"""
+        self.filtro_busqueda = ""
+        self.filtro_tipo_servicio_id = "0"
+        self.incluir_inactivas = False
         return CategoriasPuestoState.cargar_categorias
 
     async def filtrar_por_tipo(self):

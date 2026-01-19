@@ -9,31 +9,15 @@ from app.presentation.components.empresas.empresa_grid import empresas_grid
 def empresas_page() -> rx.Component:
     """Página principal de gestión de empresas"""
     return rx.vstack(
-        # Header
-        rx.hstack(
-            page_header(
-                icono="building-2",
-                titulo="Gestión de empresas",
-                subtitulo="Administre las empresas del sistema"
-            ),
-
-            rx.spacer(),
-
-            rx.hstack(
-                rx.button(
-                    rx.icon("plus", size=16),
-                    "Nueva Empresa",
-                    size="2",
-                    on_click=EmpresasState.abrir_modal_crear
-                ),
-                
-            ),
-
-            width="100%",
-            align="center"
+        # Header con botón integrado
+        page_header(
+            icono="building-2",
+            titulo="Gestión de empresas",
+            subtitulo="Administre las empresas del sistema",
+            icono_boton="plus",
+            texto_boton="Nueva Empresa",
+            onclick=EmpresasState.abrir_modal_crear,
         ),
-
-
 
         # Filtros
         empresa_filters(EmpresasState),

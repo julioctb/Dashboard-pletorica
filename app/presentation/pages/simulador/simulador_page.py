@@ -62,6 +62,7 @@ def formulario_empresa() -> rx.Component:
             spacing="2",
             width="100%",
         ),
+        bg=rx.color('white'),
         width="100%",
     )
 

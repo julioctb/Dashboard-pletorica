@@ -19,7 +19,7 @@ def sidebar_item(
     return rx.link(
         rx.hstack(
             rx.icon(icon),
-            rx.text(text, size="4"),
+            rx.text(text, size="2"),
             width="100%",
             padding_x="0.5rem",
             padding_y="0.75rem",
@@ -41,46 +41,22 @@ def sidebar_item(
 
 def sidebar_items() -> rx.Component:
     return rx.vstack(
+        
+        # TODO arreglar o definir si es necesario tener colapsables
+            
+            
             sidebar_item('Dashboard','layout-dashboard', '/#' ),
-            rx.accordion.root(
-                rx.accordion.item(
-                    header= rx.hstack(
-                        rx.icon('building-2'),
-                        rx.text('Empresas', size= '4'),
-                        
-                    ),
-                    content= rx.vstack(
-                        sidebar_item('Listado','building-2', '/empresas' ),
-                        sidebar_item('Simulador','Calculator', '/simulador' )
-                        )
-                ),
-                
-                collapsible=True,
-                variant='ghost',
-                width="100%",
-            ),
-            rx.accordion.root(
-                rx.accordion.item(
-                    header=rx.hstack(
-                        rx.icon('settings-2'),
-                        rx.text('Catálogos', size='4'),
-                    ),
-                    content=rx.vstack(
-                        sidebar_item('Tipos Servicio', 'folder-cog', '/tipos-servicio'),
-                        sidebar_item('Categorías Puesto', 'users', '/categorias-puesto'),
-                    )
-                ),
-                collapsible=True,
-                variant='ghost',
-                width="100%",
-            ),
+            sidebar_item('Listado','building-2', '/empresas' ),
+            sidebar_item('Simulador','Calculator', '/simulador' ),
+            sidebar_item('Servicios', 'briefcase', '/tipos-servicio'),
+            sidebar_item('Categorías Puesto', 'users', '/categorias-puesto'),
             sidebar_item('Sedes','map-pin-house', '/#' ),
             sidebar_item('Personal','users', '/#' ),
             sidebar_item('Mensajes','mail', '/#' ),
             spacing='1',
             width='100%'
-         
     )
+         
 
 def sidebar() -> rx.Component:
     return rx.box(

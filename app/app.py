@@ -14,6 +14,7 @@ def index(content: rx.Component) -> rx.Component:
         sidebar(),
         rx.box(
             content,
+            background_color = 'var(--gray-2)',
             width="100%",
             flex="1",
             overflow_y="auto",
@@ -33,7 +34,8 @@ app= rx.App(
         appearance= "light",
         has_background=True,
         radius="medium",
-        scaling="100%"
+        scaling="100%",
+        accent_color='indigo'
     )
 )
 

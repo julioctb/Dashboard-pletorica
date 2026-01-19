@@ -4,46 +4,21 @@ Muestra una tabla con los tipos y acciones CRUD.
 """
 import reflex as rx
 from app.presentation.pages.tipo_servicio.tipo_servicio_state import TipoServicioState
-from app.presentation.components.ui.headers import page_header
+from app.presentation.components.ui import (
+    page_header,
+    acciones_crud,
+    estatus_badge,
+    tabla_vacia,
+    tabla,
+    skeleton_tabla,
+)
+
+
 from app.presentation.components.tipo_servicio.tipo_servicio_modals import (
     modal_tipo_servicio,
     modal_confirmar_eliminar,
 )
 
-
-def estatus_badge(estatus: str) -> rx.Component:
-    """Badge de estatus con color"""
-    return rx.badge(
-        estatus,
-        color_scheme=rx.cond(
-            estatus == "ACTIVO",
-            "green",
-            "red"
-        ),
-        size="1",
-    )
-
-
-def boton_accion(
-    icon: str,
-    on_click: callable,
-    tooltip: str,
-    color_scheme: str = "gray",
-    disabled: bool = False,
-) -> rx.Component:
-    """Botón de acción con icono y tooltip"""
-    return rx.tooltip(
-        rx.icon_button(
-            rx.icon(icon, size=16),
-            size="1",
-            variant="ghost",
-            color_scheme=color_scheme,
-            on_click=on_click,
-            disabled=disabled,
-            cursor="pointer",
-        ),
-        content=tooltip,
-    )
 
 
 def fila_tipo(tipo: dict) -> rx.Component:
@@ -84,33 +59,22 @@ def fila_tipo(tipo: dict) -> rx.Component:
         ),
         # Acciones
         rx.table.cell(
-            rx.hstack(
-                boton_accion(
-                    icon="pencil",
-                    on_click=lambda: TipoServicioState.abrir_modal_editar(tipo),
-                    tooltip="Editar",
-                    color_scheme="blue",
-                ),
-                rx.cond(
-                    tipo["estatus"] == "ACTIVO",
-                    boton_accion(
-                        icon="trash-2",
-                        on_click=lambda: TipoServicioState.abrir_confirmar_eliminar(tipo),
-                        tooltip="Eliminar",
-                        color_scheme="red",
-                    ),
-                    boton_accion(
-                        icon="rotate-ccw",
-                        on_click=lambda: TipoServicioState.activar_tipo(tipo),
-                        tooltip="Reactivar",
-                        color_scheme="green",
-                    ),
-                ),
-                spacing="1",
+            acciones_crud(
+                item=tipo,
+                on_editar=TipoServicioState.abrir_modal_editar,
+                on_eliminar=TipoServicioState.abrir_confirmar_eliminar,
+                on_reactivar=TipoServicioState.activar_tipo,
             ),
         ),
     )
 
+ENCABEZADOS_TIP = [
+    { 'nombre': 'Clave', 'ancho': '100px'},
+    { 'nombre': 'Nombre', 'ancho': '200px'},
+    { 'nombre': 'Descripción' },
+    { 'nombre': 'Estatus', 'ancho': '100px'},
+    { 'nombre': 'Acciones', 'ancho': '100px'},
+]
 
 def tabla_tipos() -> rx.Component:
     """Tabla de tipos de servicio"""
@@ -135,115 +99,38 @@ def tabla_tipos() -> rx.Component:
     )
 
 
-def tabla_vacia() -> rx.Component:
-    """Mensaje cuando no hay tipos"""
-    return rx.center(
-        rx.vstack(
-            rx.icon("inbox", size=48, color="gray"),
-            rx.text(
-                "No hay tipos de servicio registrados",
-                color="gray",
-                size="3"
-            ),
-            rx.button(
-                rx.icon("plus", size=16),
-                "Crear primer tipo",
-                on_click=TipoServicioState.abrir_modal_crear,
-                color_scheme="blue",
-            ),
-            spacing="3",
-            align="center",
-            padding="8",
-        ),
-        width="100%",
-        min_height="200px",
-    )
-
-
-def barra_herramientas() -> rx.Component:
-    """Barra de herramientas con filtros y acciones"""
-    return rx.hstack(
-        # Búsqueda
-        rx.hstack(
-            rx.input(
-                placeholder="Buscar...",
-                value=TipoServicioState.filtro_busqueda,
-                on_change=TipoServicioState.set_filtro_busqueda,
-                on_key_down=TipoServicioState.handle_key_down,
-                width="180px",
-            ),
-            rx.icon_button(
-                rx.icon("search", size=16),
-                on_click=TipoServicioState.buscar_tipos,
-                variant="soft",
-            ),
-            spacing="2",
-        ),
-
-        # Toggle inactivas
-        rx.checkbox(
-            "Inactivas",
-            checked=TipoServicioState.incluir_inactivas,
-            on_change=TipoServicioState.toggle_inactivas,
-            size="2",
-        ),
-
-        rx.spacer(),
-
-        # Botón crear
-        rx.button(
-            rx.icon("plus", size=16),
-            "Nuevo Tipo",
-            on_click=TipoServicioState.abrir_modal_crear,
-            color_scheme="blue",
-        ),
-
-        spacing="4",
-        width="100%",
-        padding="4",
-        align="center",
-    )
-
-
-def contador_registros() -> rx.Component:
-    """Contador de registros"""
-    return rx.text(
-        rx.cond(
-            TipoServicioState.total_tipos > 0,
-            f"Mostrando {TipoServicioState.total_tipos} tipo(s)",
-            "No hay resultados"
-        ),
-        size="2",
-        color="gray",
-    )
-
 
 def contenido_principal() -> rx.Component:
     """Contenido principal de la página"""
     return rx.vstack(
         # Encabezado
-       rx.hstack(
-            page_header(
-                icono="folder-cog",
-                titulo="Tipos de Servicio",
-                subtitulo="Administre los tipos de servicio del sistema"
-            ),
-       ),
-        # Barra de herramientas
-        barra_herramientas(),
+        page_header(
+            icono="briefcase",
+            titulo="Servicios",
+            subtitulo="Administre los tipos de servicio del sistema",
+        ),
 
-        # Contenido: tabla o mensaje vacío
+        # Contenido: skeleton, tabla o mensaje vacío
         rx.cond(
             TipoServicioState.loading,
-            rx.center(
-                rx.spinner(size="3"),
-                width="100%",
-                min_height="200px",
-            ),
+            skeleton_tabla(columnas=ENCABEZADOS_TIP, filas=5),
             rx.cond(
-                TipoServicioState.total_tipos > 0,
-                tabla_tipos(),
-                tabla_vacia(),
+                TipoServicioState.mostrar_tabla,
+                tabla(
+                    columnas=ENCABEZADOS_TIP,
+                    lista=TipoServicioState.tipos,
+                    filas=fila_tipo,
+                    filtro_busqueda=TipoServicioState.filtro_busqueda,
+                    on_change_busqueda=TipoServicioState.on_change_busqueda,
+                    on_clear_busqueda=TipoServicioState.limpiar_busqueda,
+                    boton_derecho=rx.button(
+                        rx.icon("plus", size=16),
+                        "Nuevo Servicio",
+                        on_click=TipoServicioState.abrir_modal_crear,
+                        color_scheme="blue",
+                    ),
+                ),
+                tabla_vacia(onclick=TipoServicioState.abrir_modal_crear),
             ),
         ),
 

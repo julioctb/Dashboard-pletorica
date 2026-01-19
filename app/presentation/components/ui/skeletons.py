@@ -79,6 +79,57 @@ def skeleton_empresa_card() -> rx.Component:
     )
 
 
+def skeleton_tabla_fila(columnas: list[dict]) -> rx.Component:
+    """
+    Genera una fila skeleton para tabla.
+
+    Args:
+        columnas: Lista de columnas con 'nombre' y opcionalmente 'ancho'
+    """
+    return rx.table.row(
+        *[
+            rx.table.cell(
+                rx.skeleton(
+                    rx.box(
+                        height="16px",
+                        width=col.get("ancho", "100%") if col.get("ancho") else "80%",
+                    ),
+                    loading=True,
+                ),
+            )
+            for col in columnas
+        ],
+    )
+
+
+def skeleton_tabla(columnas: list[dict], filas: int = 5) -> rx.Component:
+    """
+    Skeleton para tablas. Muestra headers reales y filas skeleton.
+
+    Args:
+        columnas: Lista de columnas con 'nombre' y opcionalmente 'ancho'
+        filas: Número de filas skeleton a mostrar (default 5)
+    """
+    return rx.table.root(
+        rx.table.header(
+            rx.table.row(
+                *[
+                    rx.table.column_header_cell(
+                        col["nombre"],
+                        width=col.get("ancho", "auto"),
+                    )
+                    for col in columnas
+                ],
+            ),
+        ),
+        rx.table.body(
+            *[skeleton_tabla_fila(columnas) for _ in range(filas)],
+        ),
+        width="100%",
+        variant="surface",
+    )
+
+
 def skeleton_empresa_grid(count: int = 6) -> rx.Component:
     """
     Grid de skeletons para empresas.
