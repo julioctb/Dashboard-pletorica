@@ -6,6 +6,7 @@ import reflex as rx
 from typing import List, Optional
 
 from app.core.text_utils import normalizar_mayusculas
+from app.core.utils import generar_candidatos_codigo
 from app.entities import TipoServicio, TipoServicioCreate, TipoServicioUpdate
 from app.services import tipo_servicio_service
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
@@ -67,9 +68,17 @@ class TipoServicioState(BaseState):
         """Set clave con auto-conversión a mayúsculas"""
         self.form_clave = normalizar_mayusculas(value)
 
-    def set_form_nombre(self, value: str):
-        """Set nombre con auto-conversión a mayúsculas"""
+    async def set_form_nombre(self, value: str):
+        """Set nombre con auto-conversión a mayúsculas y auto-sugerir clave única"""
         self.form_nombre = normalizar_mayusculas(value)
+        # Auto-sugerir clave si está vacía y no es edición
+        if not self.form_clave and not self.es_edicion and value:
+            candidatos = generar_candidatos_codigo(value)
+            for clave in candidatos[:10]:  # Probar máximo 10 candidatos
+                clave_corta = clave[:5]  # Máximo 5 caracteres
+                if not await tipo_servicio_service.existe_clave(clave_corta):
+                    self.form_clave = clave_corta
+                    break
 
     def set_form_descripcion(self, value: str):
         self.form_descripcion = value

@@ -3,69 +3,7 @@ Componentes de modal para Tipos de Servicio.
 """
 import reflex as rx
 from app.presentation.pages.tipo_servicio.tipo_servicio_state import TipoServicioState
-
-
-def form_input(
-    placeholder: str,
-    value: rx.Var,
-    on_change: callable,
-    on_blur: callable = None,
-    error: rx.Var = None,
-    max_length: int = None,
-    **props
-) -> rx.Component:
-    """Input de formulario con manejo de errores"""
-    return rx.vstack(
-        rx.input(
-            placeholder=placeholder,
-            value=value,
-            on_change=on_change,
-            on_blur=on_blur,
-            max_length=max_length,
-            width="100%",
-            **props
-        ),
-        rx.cond(
-            error,
-            rx.text(error, color="red", size="1"),
-            rx.text("", size="1")  # Espacio reservado
-        ),
-        spacing="1",
-        width="100%",
-        align_items="stretch"
-    )
-
-
-def form_textarea(
-    placeholder: str,
-    value: rx.Var,
-    on_change: callable,
-    on_blur: callable = None,
-    error: rx.Var = None,
-    max_length: int = None,
-    **props
-) -> rx.Component:
-    """Textarea de formulario con manejo de errores"""
-    return rx.vstack(
-        rx.text_area(
-            placeholder=placeholder,
-            value=value,
-            on_change=on_change,
-            on_blur=on_blur,
-            max_length=max_length,
-            width="100%",
-            rows="3",
-            **props
-        ),
-        rx.cond(
-            error,
-            rx.text(error, color="red", size="1"),
-            rx.text("", size="1")
-        ),
-        spacing="1",
-        width="100%",
-        align_items="stretch"
-    )
+from app.presentation.components.ui.form_input import form_input, form_textarea
 
 
 def modal_tipo_servicio() -> rx.Component:
@@ -81,28 +19,7 @@ def modal_tipo_servicio() -> rx.Component:
             ),
             rx.dialog.description(
                 rx.vstack(
-                    # Campo: Clave
-                    rx.vstack(
-                        rx.text("Clave *", size="2", weight="medium"),
-                        form_input(
-                            placeholder="Ej: JAR, LIM, MTO",
-                            value=TipoServicioState.form_clave,
-                            on_change=TipoServicioState.set_form_clave,
-                            on_blur=TipoServicioState.validar_clave_campo,
-                            error=TipoServicioState.error_clave,
-                            max_length=5,
-                        ),
-                        rx.text(
-                            "2-5 letras mayúsculas",
-                            size="1",
-                            color="gray"
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
-                    ),
-
-                    # Campo: Nombre
+                    # Campo: Nombre (primero para auto-generar clave)
                     rx.vstack(
                         rx.text("Nombre *", size="2", weight="medium"),
                         form_input(
@@ -112,6 +29,27 @@ def modal_tipo_servicio() -> rx.Component:
                             on_blur=TipoServicioState.validar_nombre_campo,
                             error=TipoServicioState.error_nombre,
                             max_length=50,
+                        ),
+                        spacing="1",
+                        width="100%",
+                        align_items="stretch"
+                    ),
+
+                    # Campo: Clave (auto-generada, editable)
+                    rx.vstack(
+                        rx.text("Clave", size="2", weight="medium"),
+                        form_input(
+                            placeholder="Se genera automáticamente",
+                            value=TipoServicioState.form_clave,
+                            on_change=TipoServicioState.set_form_clave,
+                            on_blur=TipoServicioState.validar_clave_campo,
+                            error=TipoServicioState.error_clave,
+                            max_length=5,
+                        ),
+                        rx.text(
+                            "Auto-generada desde el nombre (editable)",
+                            size="1",
+                            color="gray"
                         ),
                         spacing="1",
                         width="100%",

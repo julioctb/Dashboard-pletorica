@@ -1,125 +1,109 @@
+"""Componentes de formulario reutilizables."""
 import reflex as rx
-
 from typing import Optional, Any, List
 
 
 def form_input(
-        placeholder: str,
-        value: Any,
-        on_change: Any,
-        on_blur: Optional[Any] = None,
-        error: Any = ''
-
+    placeholder: str,
+    value: rx.Var,
+    on_change: callable,
+    on_blur: callable = None,
+    error: rx.Var = None,
+    max_length: int = None,
+    **props
 ) -> rx.Component:
-    '''
-    Entrada de datos para formulario con opcion de validación.
-
-    Args:
-        placeholder: texto que se muestra dentro del campo
-        value: recibe la información del campo en el formulario
-        on_change: maneja cuando el campo del formulario cambia
-        on_blur: Función de validación que se ejecuta al perder el foco (opcional)
-        error: Mensaje de error a mostrar debajo del input (opcional)
-
-    Returns:
-        Componente rx.vstack conteniendo un input y, si existe error,
-        un mensaje de error en texto rojo debajo del input.
-    
-    '''
+    """Input de formulario con manejo de errores."""
     return rx.vstack(
         rx.input(
             placeholder=placeholder,
             value=value,
             on_change=on_change,
             on_blur=on_blur,
-            size="2",
-            width="100%"
+            max_length=max_length,
+            width="100%",
+            **props
         ),
         rx.cond(
-            error != "",
-            rx.text(
-                error,
-                color="red",
-                size="1"
-            )
+            error,
+            rx.text(error, color="red", size="1"),
+            rx.text("", size="1")  # Espacio reservado
         ),
         spacing="1",
-        width="100%"
-    )
-
-def form_select(
-        label: str,
-        options: List[str],
-        value: Any,
-        on_change: Any
-) -> rx.Component:
-    '''
-    Campo de entrada tipo select con opciones
-
-    Args:
-        label: texto de guia para la etiqueta del campo,
-        options: listado de valores a seleccionar,
-        value: recibe la informacion del campo en el formulario,
-        on_change: Función callback ejecutada al cambiar el valor
-
-    Returns:
-        Componente rx.vstack con label arriba y rx.Select con lista de valores
-
-    '''
-    return rx.vstack(
-        rx.text(
-            label,
-            size="2",
-            weight="medium"
-        ),
-        rx.select(
-            options,
-            value=value,
-            on_change=on_change,
-            size="2",
-            width="100%"
-        ),
-        align="start",
-        spacing="1",
-        width="100%"
+        width="100%",
+        align_items="stretch"
     )
 
 
 def form_textarea(
-        label: str,
-        placeholder: str,
-        value: Any,
-        on_change: Any,
-        rows: int = 4
+    placeholder: str,
+    value: rx.Var,
+    on_change: callable,
+    on_blur: callable = None,
+    error: rx.Var = None,
+    max_length: int = None,
+    rows: str = "3",
+    **props
 ) -> rx.Component:
-    '''
-    Entrada de texto multilínea para formulario con label.
-
-    Args:
-        label: Texto de etiqueta visible arriba del campo
-        placeholder: Texto que se muestra dentro del campo
-        value: Recibe la información del campo en el formulario
-        on_change: Maneja cuando el campo del formulario cambia
-        rows: Número de filas visibles (default 4)
-
-    Returns:
-        Componente rx.vstack conteniendo label y textarea
-    '''
+    """Textarea de formulario con manejo de errores."""
     return rx.vstack(
-        rx.text(
-            label,
-            size="2",
-            weight="medium"
-        ),
         rx.text_area(
             placeholder=placeholder,
             value=value,
             on_change=on_change,
-            size="2",
+            on_blur=on_blur,
+            max_length=max_length,
             width="100%",
-            rows=str(rows)
+            rows=rows,
+            **props
+        ),
+        rx.cond(
+            error,
+            rx.text(error, color="red", size="1"),
+            rx.text("", size="1")
         ),
         spacing="1",
         width="100%",
-        align="start"
+        align_items="stretch"
+    )
+
+
+def form_select(
+    placeholder: str,
+    value: rx.Var,
+    on_change: callable,
+    options: list,
+    error: rx.Var = None,
+    **props
+) -> rx.Component:
+    """
+    Select de formulario con manejo de errores.
+
+    Args:
+        placeholder: Texto placeholder del select
+        value: Variable de estado con el valor seleccionado
+        on_change: Callback al cambiar selección
+        options: Lista de dicts [{"label": "Texto", "value": "valor"}, ...]
+        error: Variable con mensaje de error (opcional)
+    """
+    return rx.vstack(
+        rx.select.root(
+            rx.select.trigger(placeholder=placeholder, width="100%"),
+            rx.select.content(
+                rx.foreach(
+                    options,
+                    lambda opt: rx.select.item(opt["label"], value=opt["value"])
+                ),
+            ),
+            value=value,
+            on_change=on_change,
+            **props
+        ),
+        rx.cond(
+            error,
+            rx.text(error, color="red", size="1"),
+            rx.text("", size="1")
+        ),
+        spacing="1",
+        width="100%",
+        align_items="stretch"
     )

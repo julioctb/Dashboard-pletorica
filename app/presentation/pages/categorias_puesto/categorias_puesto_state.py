@@ -6,7 +6,7 @@ import reflex as rx
 from typing import List, Optional
 
 from app.core.text_utils import normalizar_mayusculas
-from app.core.utils import generar_codigo_nivel1
+from app.core.utils import generar_candidatos_codigo
 from app.entities.categoria_puesto import (
     CategoriaPuesto,
     CategoriaPuestoCreate,
@@ -88,13 +88,18 @@ class CategoriasPuestoState(BaseState):
     def set_form_clave(self, value: str):
         self.form_clave = normalizar_mayusculas(value)
 
-    def set_form_nombre(self, value: str):
+    async def set_form_nombre(self, value: str):
+        """Set nombre con auto-conversión a mayúsculas y auto-sugerir clave única"""
         self.form_nombre = normalizar_mayusculas(value)
-        # Auto-sugerir clave si está vacía y no es edición
-        if not self.form_clave and not self.es_edicion and value:
-            clave_sugerida = generar_codigo_nivel1(value)
-            if clave_sugerida:
-                self.form_clave = clave_sugerida[:5]  # Máximo 5 caracteres
+        # Auto-sugerir clave si está vacía, no es edición y hay tipo seleccionado
+        if not self.form_clave and not self.es_edicion and value and self.form_tipo_servicio_id:
+            candidatos = generar_candidatos_codigo(value)
+            tipo_id = int(self.form_tipo_servicio_id)
+            for clave in candidatos[:10]:  # Probar máximo 10 candidatos
+                clave_corta = clave[:5]  # Máximo 5 caracteres
+                if not await categoria_puesto_service.existe_clave_en_tipo(tipo_id, clave_corta):
+                    self.form_clave = clave_corta
+                    break
 
     def set_form_descripcion(self, value: str):
         self.form_descripcion = value
@@ -271,6 +276,9 @@ class CategoriasPuestoState(BaseState):
     def abrir_modal_crear(self):
         self._limpiar_formulario()
         self.es_edicion = False
+        # Auto-seleccionar tipo si hay filtro activo
+        if self.filtro_tipo_servicio_id and self.filtro_tipo_servicio_id != "0":
+            self.form_tipo_servicio_id = self.filtro_tipo_servicio_id
         self.mostrar_modal_categoria = True
 
     def abrir_modal_editar(self, categoria: dict):

@@ -3,102 +3,7 @@ Componentes de modal para Categorías de Puesto.
 """
 import reflex as rx
 from app.presentation.pages.categorias_puesto.categorias_puesto_state import CategoriasPuestoState
-
-
-def form_input(
-    placeholder: str,
-    value: rx.Var,
-    on_change: callable,
-    on_blur: callable = None,
-    error: rx.Var = None,
-    max_length: int = None,
-    **props
-) -> rx.Component:
-    """Input de formulario con manejo de errores"""
-    return rx.vstack(
-        rx.input(
-            placeholder=placeholder,
-            value=value,
-            on_change=on_change,
-            on_blur=on_blur,
-            max_length=max_length,
-            width="100%",
-            **props
-        ),
-        rx.cond(
-            error,
-            rx.text(error, color="red", size="1"),
-            rx.text("", size="1")
-        ),
-        spacing="1",
-        width="100%",
-        align_items="stretch"
-    )
-
-
-def form_textarea(
-    placeholder: str,
-    value: rx.Var,
-    on_change: callable,
-    on_blur: callable = None,
-    error: rx.Var = None,
-    max_length: int = None,
-    **props
-) -> rx.Component:
-    """Textarea de formulario con manejo de errores"""
-    return rx.vstack(
-        rx.text_area(
-            placeholder=placeholder,
-            value=value,
-            on_change=on_change,
-            on_blur=on_blur,
-            max_length=max_length,
-            width="100%",
-            rows="3",
-            **props
-        ),
-        rx.cond(
-            error,
-            rx.text(error, color="red", size="1"),
-            rx.text("", size="1")
-        ),
-        spacing="1",
-        width="100%",
-        align_items="stretch"
-    )
-
-
-def form_select(
-    placeholder: str,
-    value: rx.Var,
-    on_change: callable,
-    options: list,
-    error: rx.Var = None,
-    **props
-) -> rx.Component:
-    """Select de formulario con manejo de errores"""
-    return rx.vstack(
-        rx.select.root(
-            rx.select.trigger(placeholder=placeholder, width="100%"),
-            rx.select.content(
-                rx.foreach(
-                    options,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"])
-                ),
-            ),
-            value=value,  # Ya es string, no necesita conversión
-            on_change=on_change,
-            **props
-        ),
-        rx.cond(
-            error,
-            rx.text(error, color="red", size="1"),
-            rx.text("", size="1")
-        ),
-        spacing="1",
-        width="100%",
-        align_items="stretch"
-    )
+from app.presentation.components.ui.form_input import form_input, form_textarea, form_select
 
 
 def modal_categoria_puesto() -> rx.Component:
@@ -114,7 +19,7 @@ def modal_categoria_puesto() -> rx.Component:
             ),
             rx.dialog.description(
                 rx.vstack(
-                    # Campo: Tipo de Servicio
+                    # Campo: Tipo de Servicio (primero para verificar duplicados)
                     rx.vstack(
                         rx.text("Tipo de Servicio *", size="2", weight="medium"),
                         form_select(
@@ -123,6 +28,23 @@ def modal_categoria_puesto() -> rx.Component:
                             on_change=CategoriasPuestoState.set_form_tipo_servicio_id,
                             options=CategoriasPuestoState.opciones_tipo_servicio,
                             error=CategoriasPuestoState.error_tipo_servicio_id,
+                            disabled=True,
+                        ),
+                        spacing="1",
+                        width="100%",
+                        align_items="stretch"
+                    ),
+
+                    # Campo: Nombre (genera clave automáticamente)
+                    rx.vstack(
+                        rx.text("Nombre *", size="2", weight="medium"),
+                        form_input(
+                            placeholder="Ej: OPERATIVO, SUPERVISOR",
+                            value=CategoriasPuestoState.form_nombre,
+                            on_change=CategoriasPuestoState.set_form_nombre,
+                            on_blur=CategoriasPuestoState.validar_nombre_campo,
+                            error=CategoriasPuestoState.error_nombre,
+                            max_length=50,
                         ),
                         spacing="1",
                         width="100%",
@@ -131,11 +53,11 @@ def modal_categoria_puesto() -> rx.Component:
 
                     # Fila: Clave y Orden
                     rx.hstack(
-                        # Campo: Clave
+                        # Campo: Clave (auto-generada)
                         rx.vstack(
-                            rx.text("Clave *", size="2", weight="medium"),
+                            rx.text("Clave", size="2", weight="medium"),
                             form_input(
-                                placeholder="Ej: OPE, SUP, GER",
+                                placeholder="Se genera automáticamente",
                                 value=CategoriasPuestoState.form_clave,
                                 on_change=CategoriasPuestoState.set_form_clave,
                                 on_blur=CategoriasPuestoState.validar_clave_campo,
@@ -143,7 +65,7 @@ def modal_categoria_puesto() -> rx.Component:
                                 max_length=5,
                             ),
                             rx.text(
-                                "2-5 letras mayúsculas",
+                                "Auto-generada (editable)",
                                 size="1",
                                 color="gray"
                             ),
@@ -174,22 +96,6 @@ def modal_categoria_puesto() -> rx.Component:
                         ),
                         spacing="4",
                         width="100%",
-                    ),
-
-                    # Campo: Nombre
-                    rx.vstack(
-                        rx.text("Nombre *", size="2", weight="medium"),
-                        form_input(
-                            placeholder="Ej: OPERATIVO, SUPERVISOR",
-                            value=CategoriasPuestoState.form_nombre,
-                            on_change=CategoriasPuestoState.set_form_nombre,
-                            on_blur=CategoriasPuestoState.validar_nombre_campo,
-                            error=CategoriasPuestoState.error_nombre,
-                            max_length=50,
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
                     ),
 
                     # Campo: Descripción

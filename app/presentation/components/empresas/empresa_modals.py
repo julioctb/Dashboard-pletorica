@@ -81,10 +81,10 @@ def modal_empresa() -> rx.Component:
 
                     rx.hstack(
                         form_select(
-                            label="Tipo de empresa *",
-                            options=[tipo.value for tipo in TipoEmpresa],
+                            placeholder="Tipo de empresa *",
                             value=EmpresasState.form_tipo_empresa,
-                            on_change=EmpresasState.set_form_tipo_empresa
+                            on_change=EmpresasState.set_form_tipo_empresa,
+                            options=[{"label": tipo.value, "value": tipo.value} for tipo in TipoEmpresa],
                         ),
                         rx.box(width="100%"),  # Spacer
                         spacing="2",
@@ -186,10 +186,10 @@ def modal_empresa() -> rx.Component:
 
                     rx.hstack(
                         form_select(
-                            label="Estatus",
-                            options=[estatus.value for estatus in EstatusEmpresa],
+                            placeholder="Estatus",
                             value=EmpresasState.form_estatus,
                             on_change=EmpresasState.set_form_estatus,
+                            options=[{"label": estatus.value, "value": estatus.value} for estatus in EstatusEmpresa],
                         ),
                         rx.box(width="100%"),  # Spacer
                         spacing="2",
@@ -197,11 +197,10 @@ def modal_empresa() -> rx.Component:
                     ),
 
                     form_textarea(
-                        label="Notas Adicionales",
-                        placeholder="Información complementaria sobre la empresa...",
+                        placeholder="Notas adicionales (opcional)",
                         value=EmpresasState.form_notas,
                         on_change=EmpresasState.set_form_notas,
-                        rows=4
+                        rows="4",
                     ),
 
                     spacing="2",

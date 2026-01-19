@@ -1,10 +1,10 @@
 import reflex as rx
 from .presentation.pages.dashboard import dashboard_page
-from .presentation.pages.empresas import empresas_page
+from .presentation.pages.empresas.empresas_page import empresas_page
 
 from .presentation.pages.simulador.simulador_page import simulador_page
-from .presentation.pages.tipo_servicio import tipo_servicio_page
-from .presentation.pages.categorias_puesto import categorias_puesto_page
+from .presentation.pages.tipo_servicio.tipo_servicio_page import tipo_servicio_page
+from .presentation.pages.categorias_puesto.categorias_puesto_page import categorias_puesto_page
 
 from .presentation.layout.sidebar_layout import sidebar
 
