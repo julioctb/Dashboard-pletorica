@@ -12,16 +12,6 @@ IMPORTANTE: Cualquier cambio aquí afecta ambas capas de validación.
 # MENSAJES GENÉRICOS
 # =============================================================================
 
-def msg_min_caracteres(min_len: int) -> str:
-    """Mensaje para longitud mínima."""
-    return f"Debe tener al menos {min_len} caracteres"
-
-
-def msg_max_caracteres(max_len: int) -> str:
-    """Mensaje para longitud máxima."""
-    return f"Máximo {max_len} caracteres"
-
-
 def msg_campos_faltantes(campos: list[str]) -> str:
     """Mensaje para múltiples campos faltantes."""
     return f"Campos obligatorios faltantes: {', '.join(campos)}"
@@ -54,27 +44,10 @@ MSG_EMAIL_FORMATO_INVALIDO = "Formato de email inválido (ejemplo: usuario@domin
 
 
 # =============================================================================
-# MENSAJES DE TELÉFONO
-# =============================================================================
-
-MSG_TELEFONO_SOLO_NUMEROS = "Solo números (puede usar espacios, guiones o paréntesis)"
-
-
-def msg_telefono_digitos(esperado: int, actual: int) -> str:
-    """Mensaje para teléfono con dígitos incorrectos."""
-    return f"Debe tener {esperado} dígitos (tiene {actual})"
-
-
-# =============================================================================
-# MENSAJES DE CÓDIGO POSTAL
+# MENSAJES DE TELÉFONO Y CÓDIGO POSTAL
 # =============================================================================
 
 MSG_CP_SOLO_NUMEROS = "Solo números permitidos"
-
-
-def msg_cp_digitos(esperado: int, actual: int) -> str:
-    """Mensaje para código postal con dígitos incorrectos."""
-    return f"Debe tener {esperado} dígitos (tiene {actual})"
 
 
 # =============================================================================
@@ -100,29 +73,15 @@ MSG_PRIMA_RIESGO_RANGO = "Prima de riesgo debe estar entre 0.5% y 15%"
 
 
 # =============================================================================
-# MENSAJES DE CLAVE (TIPO SERVICIO)
+# MENSAJES DE CLAVE (CATÁLOGOS)
 # =============================================================================
 
-MSG_CLAVE_OBLIGATORIA = "La clave es obligatoria"
 MSG_CLAVE_SOLO_LETRAS = "Solo se permiten letras (sin números ni símbolos)"
-MSG_CLAVE_SOLO_MAYUSCULAS = "La clave solo puede contener letras mayúsculas"
 
 
 def msg_clave_longitud(min_len: int, max_len: int) -> str:
     """Mensaje para clave con longitud fuera de rango."""
     return f"La clave debe tener entre {min_len} y {max_len} caracteres"
-
-
-def msg_clave_longitud_actual(min_len: int, max_len: int, actual: int) -> str:
-    """Mensaje para clave con longitud fuera de rango (incluye actual)."""
-    return f"La clave debe tener entre {min_len} y {max_len} caracteres (tiene {actual})"
-
-
-# =============================================================================
-# MENSAJES DE NOMBRE (TIPO SERVICIO)
-# =============================================================================
-
-MSG_NOMBRE_OBLIGATORIO = "El nombre es obligatorio"
 
 
 # =============================================================================
@@ -132,3 +91,20 @@ MSG_NOMBRE_OBLIGATORIO = "El nombre es obligatorio"
 def msg_entidad_ya_estado(entidad: str, estado: str) -> str:
     """Mensaje genérico para entidad ya en cierto estado."""
     return f"{entidad} ya está {estado}"
+
+
+# =============================================================================
+# MENSAJES DE CONTRATO
+# =============================================================================
+
+MSG_FECHA_FIN_ANTERIOR = "La fecha de fin no puede ser anterior a la fecha de inicio"
+MSG_TIEMPO_DETERMINADO_SIN_FIN = "Los contratos de tiempo determinado deben tener fecha de fin"
+MSG_MONTO_MAX_MENOR_MIN = "El monto máximo no puede ser menor al monto mínimo"
+MSG_CONTRATO_YA_CANCELADO = "El contrato ya está cancelado"
+MSG_SOLO_SUSPENDER_ACTIVOS = "Solo se pueden suspender contratos activos"
+MSG_SOLO_VENCER_ACTIVOS = "Solo se pueden marcar como vencidos contratos activos"
+
+
+def msg_no_puede_activar(estado: str) -> str:
+    """Mensaje cuando no se puede activar un contrato."""
+    return f"No se puede activar un contrato en estado {estado}"

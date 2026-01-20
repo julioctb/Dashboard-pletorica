@@ -23,6 +23,24 @@ from app.repositories.categoria_puesto_repository import (
     SupabaseCategoriaPuestoRepository,
 )
 
+# Contrato
+from app.repositories.contrato_repository import (
+    IContratoRepository,
+    SupabaseContratoRepository,
+)
+
+# Pago
+from app.repositories.pago_repository import (
+    IPagoRepository,
+    SupabasePagoRepository,
+)
+
+# ContratoCategoria
+from app.repositories.contrato_categoria_repository import (
+    IContratoCategoriaRepository,
+    SupabaseContratoCategoriaRepository,
+)
+
 
 __all__ = [
     # Empresa
@@ -34,4 +52,13 @@ __all__ = [
     # Categoría de Puesto
     "ICategoriaPuestoRepository",
     "SupabaseCategoriaPuestoRepository",
+    # Contrato
+    "IContratoRepository",
+    "SupabaseContratoRepository",
+    # Pago
+    "IPagoRepository",
+    "SupabasePagoRepository",
+    # ContratoCategoria
+    "IContratoCategoriaRepository",
+    "SupabaseContratoCategoriaRepository",
 ]

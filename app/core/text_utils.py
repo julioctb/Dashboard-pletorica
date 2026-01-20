@@ -6,8 +6,8 @@ tanto en entities (Pydantic) como en validators (frontend).
 
 IMPORTANTE: Cualquier cambio aquí afecta ambas capas.
 """
-import re
-from typing import Optional
+from datetime import date, datetime
+from typing import Optional, Union
 
 
 def normalizar_mayusculas(texto: Optional[str]) -> str:
@@ -29,42 +29,89 @@ def normalizar_mayusculas(texto: Optional[str]) -> str:
     return texto.strip().upper()
 
 
-def normalizar_minusculas(texto: Optional[str]) -> str:
+def formatear_moneda(valor: Optional[str], con_simbolo: bool = True) -> str:
     """
-    Normaliza texto: strip + lowercase.
+    Formatea un valor como moneda con separadores de miles.
 
     Args:
-        texto: Texto a normalizar (puede ser None)
+        valor: Valor a formatear (puede contener $, comas, espacios)
+        con_simbolo: Si incluir "$ " al inicio
 
     Returns:
-        Texto normalizado en minúsculas, o string vacío si es None
+        Valor formateado con comas como separadores de miles
 
     Ejemplo:
-        >>> normalizar_minusculas("  HOLA@EMAIL.COM  ")
-        'hola@email.com'
+        >>> formatear_moneda("1234567.89")
+        '$ 1,234,567.89'
+        >>> formatear_moneda("$ 1,234.50")
+        '$ 1,234.50'
+        >>> formatear_moneda("1234", con_simbolo=False)
+        '1,234'
     """
-    if not texto:
+    if not valor:
         return ""
-    return texto.strip().lower()
+
+    # Limpiar: quitar $, comas y espacios
+    limpio = valor.replace(",", "").replace("$", "").replace(" ", "").strip()
+
+    if not limpio:
+        return ""
+
+    # Validar que sea número
+    if not limpio.replace(".", "").isdigit():
+        return limpio
+
+    # Separar parte entera y decimal
+    partes = limpio.split(".")
+    entero = int(partes[0])
+    decimal = partes[1] if len(partes) > 1 else ""
+
+    # Formatear con comas
+    formateado = f"{entero:,}"
+    if decimal:
+        formateado += f".{decimal}"
+
+    # Agregar símbolo si se requiere
+    if con_simbolo:
+        return f"$ {formateado}"
+    return formateado
 
 
-def limpiar_alfanumerico(texto: Optional[str]) -> str:
+def formatear_fecha(
+    fecha: Optional[Union[date, datetime, str]],
+    formato: str = "%d/%m/%Y",
+    valor_vacio: str = "-"
+) -> str:
     """
-    Limpia texto dejando solo letras y números en mayúsculas.
-    Útil para limpiar RFC, registros patronales, etc.
+    Formatea una fecha al formato especificado.
 
     Args:
-        texto: Texto a limpiar (puede ser None)
+        fecha: Fecha a formatear (date, datetime, string ISO, o None)
+        formato: Formato de salida (default: DD/MM/YYYY)
+        valor_vacio: Valor a retornar si fecha es None o inválida
 
     Returns:
-        Texto solo con caracteres alfanuméricos en mayúsculas
+        Fecha formateada o valor_vacio si es None
 
     Ejemplo:
-        >>> limpiar_alfanumerico("Y12-34567-10-1")
-        'Y1234567101'
+        >>> formatear_fecha(date(2025, 1, 20))
+        '20/01/2025'
+        >>> formatear_fecha("2025-01-20")
+        '20/01/2025'
+        >>> formatear_fecha(None)
+        '-'
     """
-    if not texto:
-        return ""
-    return re.sub(r'[^A-Z0-9]', '', texto.upper())
+    if not fecha:
+        return valor_vacio
+
+    try:
+        # Si es string, convertir a date
+        if isinstance(fecha, str):
+            fecha = date.fromisoformat(fecha)
+
+        # Si es datetime, usar directamente
+        return fecha.strftime(formato)
+    except (ValueError, TypeError, AttributeError):
+        return valor_vacio
 
 

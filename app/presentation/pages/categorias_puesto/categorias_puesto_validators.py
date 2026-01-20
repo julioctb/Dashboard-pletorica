@@ -2,12 +2,16 @@
 Validadores de formulario para Categorías de Puesto.
 
 Usa crear_validador() con FieldConfig para eliminar duplicación.
+Usa validadores centralizados de app.core.validation para operaciones comunes.
 """
 from app.core.validation import (
     crear_validador,
     CAMPO_CLAVE_CATALOGO,
     CAMPO_NOMBRE_CATALOGO,
     CAMPO_DESCRIPCION_CATALOGO,
+    # Validadores centralizados
+    validar_select_requerido,
+    validar_entero_rango,
 )
 
 
@@ -21,23 +25,13 @@ validar_descripcion = crear_validador(CAMPO_DESCRIPCION_CATALOGO)
 
 
 def validar_orden(valor: str) -> str:
-    """Validar campo orden"""
-    if not valor:
-        return ""  # Opcional
-    try:
-        num = int(valor)
-        if num < 0:
-            return "El orden debe ser mayor o igual a 0"
-        return ""
-    except ValueError:
-        return "El orden debe ser un número entero"
+    """Validar campo orden (opcional, >= 0)"""
+    return validar_entero_rango(valor, "orden", minimo=0, maximo=None, requerido=False)
 
 
 def validar_tipo_servicio_id(valor: str) -> str:
     """Validar que se haya seleccionado un tipo de servicio"""
-    if not valor or valor == "":
-        return "Debe seleccionar un tipo de servicio"
-    return ""
+    return validar_select_requerido(valor, "tipo de servicio")
 
 
 # ============================================================================

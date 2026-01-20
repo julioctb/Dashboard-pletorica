@@ -42,6 +42,31 @@ from .custom_validators import (
     limpiar_telefono,
 )
 
+# Validadores comunes reutilizables
+from .common_validators import (
+    # Utilidades
+    limpiar_moneda,
+    # Select/Dropdown
+    validar_select_requerido,
+    validar_select_opcional,
+    # Fechas
+    validar_fecha_requerida,
+    validar_fecha_no_futura,
+    validar_fecha_rango,
+    # Montos/Moneda
+    validar_monto_requerido,
+    validar_monto_opcional,
+    validar_montos_min_max,
+    # Enteros
+    validar_entero_requerido,
+    validar_entero_opcional,
+    validar_entero_rango,
+    validar_enteros_min_max,
+    # Texto
+    validar_texto_requerido,
+    validar_texto_opcional,
+)
+
 # Helpers para Pydantic
 from .pydantic_helpers import (
     pydantic_field,
@@ -69,6 +94,7 @@ from .fields_catalog import (
     CAMPOS_EMPRESA,
     CAMPOS_CATALOGO,
     CAMPOS_SIMULADOR,
+    CAMPOS_CONTRATO,
     # Secciones - Empresas
     SECCION_INFO_BASICA,
     SECCION_CONTACTO,
@@ -88,6 +114,19 @@ from .fields_catalog import (
     CAMPO_SIM_SALARIO_DIARIO,
     CAMPO_SIM_ANTIGUEDAD,
     CAMPO_SIM_DIAS_COTIZADOS,
+    # Secciones - Contratos
+    SECCION_CONTRATO_GENERAL,
+    SECCION_CONTRATO_VIGENCIA,
+    SECCION_CONTRATO_MONTOS,
+    SECCION_CONTRATO_ADICIONAL,
+    # Campos Contrato
+    CAMPO_CODIGO_CONTRATO,
+    CAMPO_FOLIO_BUAP,
+    CAMPO_DESCRIPCION_OBJETO,
+    CAMPO_ORIGEN_RECURSO,
+    CAMPO_SEGMENTO_ASIGNACION,
+    CAMPO_SEDE_CAMPUS,
+    CAMPO_POLIZA_DETALLE,
 )
 
 # Constantes (re-export para conveniencia)
@@ -125,6 +164,14 @@ from .constants import (
     NOMBRE_CATALOGO_MIN,
     NOMBRE_CATALOGO_MAX,
     DESCRIPCION_CATALOGO_MAX,
+    # Longitudes - Contratos
+    CODIGO_CONTRATO_MAX,
+    FOLIO_BUAP_MAX,
+    DESCRIPCION_OBJETO_MAX,
+    ORIGEN_RECURSO_MAX,
+    SEGMENTO_ASIGNACION_MAX,
+    SEDE_CAMPUS_MAX,
+    POLIZA_DETALLE_MAX,
 )
 
 __all__ = [
@@ -143,6 +190,22 @@ __all__ = [
     "validar_registro_patronal_detallado",
     "formatear_registro_patronal",
     "limpiar_telefono",
+    # Validadores comunes
+    "limpiar_moneda",
+    "validar_select_requerido",
+    "validar_select_opcional",
+    "validar_fecha_requerida",
+    "validar_fecha_no_futura",
+    "validar_fecha_rango",
+    "validar_monto_requerido",
+    "validar_monto_opcional",
+    "validar_montos_min_max",
+    "validar_entero_requerido",
+    "validar_entero_opcional",
+    "validar_entero_rango",
+    "validar_enteros_min_max",
+    "validar_texto_requerido",
+    "validar_texto_opcional",
     # Helpers para Pydantic
     "pydantic_field",
     "campo_validador",
@@ -166,6 +229,7 @@ __all__ = [
     "CAMPOS_EMPRESA",
     "CAMPOS_CATALOGO",
     "CAMPOS_SIMULADOR",
+    "CAMPOS_CONTRATO",
     # Secciones - Empresas
     "SECCION_INFO_BASICA",
     "SECCION_CONTACTO",
@@ -185,6 +249,19 @@ __all__ = [
     "CAMPO_SIM_SALARIO_DIARIO",
     "CAMPO_SIM_ANTIGUEDAD",
     "CAMPO_SIM_DIAS_COTIZADOS",
+    # Secciones - Contratos
+    "SECCION_CONTRATO_GENERAL",
+    "SECCION_CONTRATO_VIGENCIA",
+    "SECCION_CONTRATO_MONTOS",
+    "SECCION_CONTRATO_ADICIONAL",
+    # Campos - Contratos
+    "CAMPO_CODIGO_CONTRATO",
+    "CAMPO_FOLIO_BUAP",
+    "CAMPO_DESCRIPCION_OBJETO",
+    "CAMPO_ORIGEN_RECURSO",
+    "CAMPO_SEGMENTO_ASIGNACION",
+    "CAMPO_SEDE_CAMPUS",
+    "CAMPO_POLIZA_DETALLE",
     # Patrones
     "RFC_PATTERN",
     "RFC_PREFIX_PATTERN",
@@ -217,4 +294,12 @@ __all__ = [
     "NOMBRE_CATALOGO_MIN",
     "NOMBRE_CATALOGO_MAX",
     "DESCRIPCION_CATALOGO_MAX",
+    # Longitudes - Contratos
+    "CODIGO_CONTRATO_MAX",
+    "FOLIO_BUAP_MAX",
+    "DESCRIPCION_OBJETO_MAX",
+    "ORIGEN_RECURSO_MAX",
+    "SEGMENTO_ASIGNACION_MAX",
+    "SEDE_CAMPUS_MAX",
+    "POLIZA_DETALLE_MAX",
 ]

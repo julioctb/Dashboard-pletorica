@@ -15,6 +15,12 @@ from .filters import (
     barra_filtros,
 )
 from .barra_herramientas import barra_herramientas
+from .modals import (
+    modal_confirmar_eliminar,
+    modal_confirmar_accion,
+    modal_formulario,
+    modal_detalle,
+)
 
 __all__ = [
     'page_header',
@@ -37,4 +43,9 @@ __all__ = [
     'switch_inactivos',
     'barra_filtros',
     'barra_herramientas',
+    # modales
+    'modal_confirmar_eliminar',
+    'modal_confirmar_accion',
+    'modal_formulario',
+    'modal_detalle',
 ]

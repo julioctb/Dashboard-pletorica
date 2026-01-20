@@ -46,6 +46,14 @@ from .constants import (
     NOMBRE_CATALOGO_MIN,
     NOMBRE_CATALOGO_MAX,
     DESCRIPCION_CATALOGO_MAX,
+    # Longitudes - Contratos
+    CODIGO_CONTRATO_MAX,
+    FOLIO_BUAP_MAX,
+    DESCRIPCION_OBJETO_MAX,
+    ORIGEN_RECURSO_MAX,
+    SEGMENTO_ASIGNACION_MAX,
+    SEDE_CAMPUS_MAX,
+    POLIZA_DETALLE_MAX,
 )
 from app.core.error_messages import (
     MSG_EMAIL_FORMATO_INVALIDO,
@@ -459,4 +467,114 @@ CAMPOS_SIMULADOR = {
     'salario_diario': CAMPO_SIM_SALARIO_DIARIO,
     'antiguedad': CAMPO_SIM_ANTIGUEDAD,
     'dias_cotizados': CAMPO_SIM_DIAS_COTIZADOS,
+}
+
+
+# =============================================================================
+# CAMPOS DE CONTRATO
+# =============================================================================
+
+SECCION_CONTRATO_GENERAL = "contrato_general"
+SECCION_CONTRATO_VIGENCIA = "contrato_vigencia"
+SECCION_CONTRATO_MONTOS = "contrato_montos"
+SECCION_CONTRATO_ADICIONAL = "contrato_adicional"
+
+CAMPO_CODIGO_CONTRATO = FieldConfig(
+    nombre='Código',
+    requerido=True,
+    max_len=CODIGO_CONTRATO_MAX,
+    transformar=str.upper,
+    # UI
+    label='Código *',
+    placeholder='MAN-JAR-25001',
+    hint='Se genera automáticamente',
+    input_type=InputType.TEXT,
+    section=SECCION_CONTRATO_GENERAL,
+    order=1,
+)
+
+CAMPO_FOLIO_BUAP = FieldConfig(
+    nombre='Folio BUAP',
+    requerido=False,
+    max_len=FOLIO_BUAP_MAX,
+    # UI
+    label='Número de folio BUAP',
+    placeholder='Folio oficial asignado por BUAP',
+    input_type=InputType.TEXT,
+    section=SECCION_CONTRATO_GENERAL,
+    order=2,
+)
+
+CAMPO_DESCRIPCION_OBJETO = FieldConfig(
+    nombre='Descripción del objeto',
+    requerido=False,
+    max_len=DESCRIPCION_OBJETO_MAX,
+    # UI
+    label='Descripción del objeto',
+    placeholder='Descripción del objeto del contrato...',
+    hint=f'Máximo {DESCRIPCION_OBJETO_MAX} caracteres',
+    input_type=InputType.TEXTAREA,
+    section=SECCION_CONTRATO_GENERAL,
+    order=5,
+    rows=4,
+)
+
+CAMPO_ORIGEN_RECURSO = FieldConfig(
+    nombre='Origen del recurso',
+    requerido=False,
+    max_len=ORIGEN_RECURSO_MAX,
+    # UI
+    label='Origen del recurso',
+    placeholder='Artículo de ley, subsidio, etc.',
+    input_type=InputType.TEXT,
+    section=SECCION_CONTRATO_ADICIONAL,
+    order=1,
+)
+
+CAMPO_SEGMENTO_ASIGNACION = FieldConfig(
+    nombre='Segmento de asignación',
+    requerido=False,
+    max_len=SEGMENTO_ASIGNACION_MAX,
+    # UI
+    label='Segmento de asignación',
+    placeholder='Partida o segmento de BUAP',
+    input_type=InputType.TEXT,
+    section=SECCION_CONTRATO_ADICIONAL,
+    order=2,
+    width='half',
+)
+
+CAMPO_SEDE_CAMPUS = FieldConfig(
+    nombre='Sede/Campus',
+    requerido=False,
+    max_len=SEDE_CAMPUS_MAX,
+    # UI
+    label='Sede o campus',
+    placeholder='Sede o campus donde aplica',
+    input_type=InputType.TEXT,
+    section=SECCION_CONTRATO_ADICIONAL,
+    order=3,
+    width='half',
+)
+
+CAMPO_POLIZA_DETALLE = FieldConfig(
+    nombre='Detalle de póliza',
+    requerido=False,
+    max_len=POLIZA_DETALLE_MAX,
+    # UI
+    label='Detalles de póliza',
+    placeholder='Detalles de la póliza requerida',
+    input_type=InputType.TEXT,
+    section=SECCION_CONTRATO_ADICIONAL,
+    order=4,
+)
+
+CAMPOS_CONTRATO = {
+    'codigo': CAMPO_CODIGO_CONTRATO,
+    'numero_folio_buap': CAMPO_FOLIO_BUAP,
+    'descripcion_objeto': CAMPO_DESCRIPCION_OBJETO,
+    'origen_recurso': CAMPO_ORIGEN_RECURSO,
+    'segmento_asignacion': CAMPO_SEGMENTO_ASIGNACION,
+    'sede_campus': CAMPO_SEDE_CAMPUS,
+    'poliza_detalle': CAMPO_POLIZA_DETALLE,
 }

@@ -4,6 +4,7 @@ Componentes de modal para Tipos de Servicio.
 import reflex as rx
 from app.presentation.pages.tipo_servicio.tipo_servicio_state import TipoServicioState
 from app.presentation.components.ui.form_input import form_input, form_textarea
+from app.presentation.components.ui.modals import modal_confirmar_accion
 
 
 def modal_tipo_servicio() -> rx.Component:
@@ -116,71 +117,26 @@ def modal_tipo_servicio() -> rx.Component:
 
 
 def modal_confirmar_eliminar() -> rx.Component:
-    """Modal de confirmación para eliminar tipo"""
-    return rx.alert_dialog.root(
-        rx.alert_dialog.content(
-            rx.alert_dialog.title("Eliminar Tipo de Servicio"),
-            rx.alert_dialog.description(
-                rx.vstack(
-                    rx.text(
-                        "¿Estás seguro de que deseas eliminar este tipo?"
-                    ),
-                    rx.cond(
-                        TipoServicioState.tipo_seleccionado,
-                        rx.callout(
-                            rx.text(
-                                rx.text(
-                                    TipoServicioState.tipo_seleccionado["clave"],
-                                    weight="bold"
-                                ),
-                                " - ",
-                                TipoServicioState.tipo_seleccionado["nombre"],
-                            ),
-                            icon="info",
-                            color_scheme="blue",
-                        ),
-                        rx.text("")
-                    ),
-                    rx.text(
-                        "Esta acción desactivará el tipo. Podrás reactivarlo después.",
-                        size="2",
-                        color="gray"
-                    ),
-                    spacing="3",
-                    width="100%"
-                ),
-            ),
-            rx.hstack(
-                rx.alert_dialog.cancel(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=TipoServicioState.cerrar_confirmar_eliminar,
-                    ),
-                ),
-                rx.alert_dialog.action(
-                    rx.button(
-                        rx.cond(
-                            TipoServicioState.saving,
-                            rx.hstack(
-                                rx.spinner(size="1"),
-                                rx.text("Eliminando..."),
-                                spacing="2"
-                            ),
-                            rx.text("Eliminar")
-                        ),
-                        color_scheme="red",
-                        on_click=TipoServicioState.eliminar_tipo,
-                    ),
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-                padding_top="4",
-            ),
-            max_width="400px",
-        ),
+    """Modal de confirmación para eliminar tipo (usa componente genérico)"""
+    return modal_confirmar_accion(
         open=TipoServicioState.mostrar_modal_confirmar_eliminar,
-        on_open_change=TipoServicioState.set_mostrar_modal_confirmar_eliminar,
+        titulo="Eliminar Tipo de Servicio",
+        mensaje="¿Estás seguro de que deseas eliminar este tipo?",
+        detalle_contenido=rx.cond(
+            TipoServicioState.tipo_seleccionado,
+            rx.text(
+                rx.text(TipoServicioState.tipo_seleccionado["clave"], weight="bold"),
+                " - ",
+                TipoServicioState.tipo_seleccionado["nombre"],
+            ),
+            rx.text(""),
+        ),
+        nota_adicional="Esta acción desactivará el tipo. Podrás reactivarlo después.",
+        on_confirmar=TipoServicioState.eliminar_tipo,
+        on_cancelar=TipoServicioState.cerrar_confirmar_eliminar,
+        loading=TipoServicioState.saving,
+        texto_confirmar="Eliminar",
+        color_confirmar="red",
+        icono_detalle="info",
+        color_detalle="blue",
     )

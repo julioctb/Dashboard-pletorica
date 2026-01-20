@@ -92,3 +92,26 @@ CLAVE_CATALOGO_MAX = 5
 NOMBRE_CATALOGO_MIN = 2
 NOMBRE_CATALOGO_MAX = 50
 DESCRIPCION_CATALOGO_MAX = 500
+
+
+# =============================================================================
+# CONSTANTES DE LONGITUD - CONTRATOS
+# =============================================================================
+
+CODIGO_CONTRATO_MAX = 20
+FOLIO_BUAP_MAX = 50
+DESCRIPCION_OBJETO_MAX = 2000
+ORIGEN_RECURSO_MAX = 200
+SEGMENTO_ASIGNACION_MAX = 100
+SEDE_CAMPUS_MAX = 200
+POLIZA_DETALLE_MAX = 200
+
+
+# =============================================================================
+# CONSTANTES DE LONGITUD - PAGOS
+# =============================================================================
+
+CONCEPTO_PAGO_MAX = 500
+NUMERO_FACTURA_MAX = 50
+COMPROBANTE_MAX = 200
+NOTAS_PAGO_MAX = 1000

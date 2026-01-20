@@ -5,6 +5,7 @@ from .presentation.pages.empresas.empresas_page import empresas_page
 from .presentation.pages.simulador.simulador_page import simulador_page
 from .presentation.pages.tipo_servicio.tipo_servicio_page import tipo_servicio_page
 from .presentation.pages.categorias_puesto.categorias_puesto_page import categorias_puesto_page
+from .presentation.pages.contratos.contratos_page import contratos_page
 
 from .presentation.layout.sidebar_layout import sidebar
 
@@ -46,3 +47,4 @@ app.add_page(lambda: index(empresas_page()), route="/empresas")
 app.add_page(lambda: index(simulador_page()), route="/simulador")
 app.add_page(lambda: index(tipo_servicio_page()), route="/tipos-servicio")
 app.add_page(lambda: index(categorias_puesto_page()), route="/categorias-puesto")
+app.add_page(lambda: index(contratos_page()), route="/contratos")

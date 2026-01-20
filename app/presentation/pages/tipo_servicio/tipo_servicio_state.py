@@ -9,7 +9,7 @@ from app.core.text_utils import normalizar_mayusculas
 from app.core.utils import generar_candidatos_codigo
 from app.entities import TipoServicio, TipoServicioCreate, TipoServicioUpdate
 from app.services import tipo_servicio_service
-from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
+# Las excepciones se manejan centralizadamente en BaseState
 from app.presentation.components.shared.base_state import BaseState
 from app.presentation.pages.tipo_servicio.tipo_servicio_validators import (
     validar_clave,
@@ -159,14 +159,11 @@ class TipoServicioState(BaseState):
             self.tipos = [tipo.model_dump() for tipo in tipos]
             self.total_tipos = len(self.tipos)
 
-        except DatabaseError as e:
-            self.mostrar_mensaje(f"Error al cargar tipos: {str(e)}", "error")
-            self.tipos = []
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            self.manejar_error(e, "al cargar tipos")
             self.tipos = []
         finally:
-            self.loading = False
+            self.finalizar_carga()
 
     async def buscar_tipos(self):
         """Buscar tipos con el filtro actual"""
@@ -251,16 +248,15 @@ class TipoServicioState(BaseState):
             self.cerrar_modal_tipo()
             await self.cargar_tipos()
 
-        except DuplicateError as e:
-            self.error_clave = f"La clave '{self.form_clave}' ya existe"
-        except NotFoundError as e:
-            self.mostrar_mensaje(str(e), "error")
-        except DatabaseError as e:
-            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            self.manejar_error(
+                e,
+                "al guardar tipo",
+                campo_duplicado="error_clave",
+                valor_duplicado=self.form_clave
+            )
         finally:
-            self.saving = False
+            self.finalizar_guardado()
 
     async def _crear_tipo(self):
         """Crear nuevo tipo"""
@@ -318,16 +314,10 @@ class TipoServicioState(BaseState):
                 duration=3000
             )
 
-        except BusinessRuleError as e:
-            self.mostrar_mensaje(str(e), "error")
-        except NotFoundError as e:
-            self.mostrar_mensaje(str(e), "error")
-        except DatabaseError as e:
-            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            self.manejar_error(e, "al eliminar tipo")
         finally:
-            self.saving = False
+            self.finalizar_guardado()
             self.cerrar_confirmar_eliminar()
 
     async def activar_tipo(self, tipo: dict):
@@ -342,10 +332,8 @@ class TipoServicioState(BaseState):
                 duration=3000
             )
 
-        except BusinessRuleError as e:
-            self.mostrar_mensaje(str(e), "error")
         except Exception as e:
-            self.mostrar_mensaje(f"Error: {str(e)}", "error")
+            self.manejar_error(e, "al activar tipo")
 
     # ========================
     # HELPERS PRIVADOS

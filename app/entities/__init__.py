@@ -10,6 +10,11 @@ from app.core.enums import (
     Estatus,
     EstatusEmpresa,
     TipoEmpresa,
+    # Enums de Contrato
+    TipoContrato,
+    ModalidadAdjudicacion,
+    TipoDuracion,
+    EstatusContrato,
 )
 
 # Empresa
@@ -34,6 +39,32 @@ from app.entities.categoria_puesto import (
     CategoriaPuestoUpdate,
 )
 
+# Contrato
+from app.entities.contrato import (
+    Contrato,
+    ContratoCreate,
+    ContratoUpdate,
+    ContratoResumen,
+)
+
+# Pago
+from app.entities.pago import (
+    Pago,
+    PagoCreate,
+    PagoUpdate,
+    PagoResumen,
+    ResumenPagosContrato,
+)
+
+# ContratoCategoria
+from app.entities.contrato_categoria import (
+    ContratoCategoria,
+    ContratoCategoriaCreate,
+    ContratoCategoriaUpdate,
+    ContratoCategoriaResumen,
+    ResumenPersonalContrato,
+)
+
 # Costo Patronal (si existe)
 try:
     from app.entities.costo_patronal import (
@@ -50,6 +81,10 @@ __all__ = [
     "Estatus",
     "EstatusEmpresa",
     "TipoEmpresa",
+    "TipoContrato",
+    "ModalidadAdjudicacion",
+    "TipoDuracion",
+    "EstatusContrato",
     # Empresa
     "Empresa",
     "EmpresaCreate",
@@ -63,6 +98,23 @@ __all__ = [
     "CategoriaPuesto",
     "CategoriaPuestoCreate",
     "CategoriaPuestoUpdate",
+    # Contrato
+    "Contrato",
+    "ContratoCreate",
+    "ContratoUpdate",
+    "ContratoResumen",
+    # Pago
+    "Pago",
+    "PagoCreate",
+    "PagoUpdate",
+    "PagoResumen",
+    "ResumenPagosContrato",
+    # ContratoCategoria
+    "ContratoCategoria",
+    "ContratoCategoriaCreate",
+    "ContratoCategoriaUpdate",
+    "ContratoCategoriaResumen",
+    "ResumenPersonalContrato",
     # Costo Patronal
     "ConfiguracionEmpresa",
     "Trabajador",
