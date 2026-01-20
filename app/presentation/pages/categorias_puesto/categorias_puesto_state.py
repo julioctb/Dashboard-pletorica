@@ -179,7 +179,7 @@ class CategoriasPuestoState(BaseState):
             return "Todos"
         for t in self.tipos_servicio:
             if str(t["id"]) == self.filtro_tipo_servicio_id:
-                return t["clave"]
+                return t["nombre"]
         return "Todos"
 
     # ========================
