@@ -85,7 +85,7 @@ class EmpresasState(BaseState):
     # FILTROS Y BÚSQUEDA
     # ========================
     filtro_tipo: str = "TODOS"
-    filtro_busqueda: str = ""
+    search: str = ""  # Renombrado de filtro_busqueda para consistencia
     solo_activas: bool = False
 
     # ========================
@@ -134,13 +134,16 @@ class EmpresasState(BaseState):
     # SETTERS DE FILTROS
     # ========================
     def set_filtro_tipo(self, value):
-        self.filtro_tipo = value if value else ""
+        self.filtro_tipo = value if value else "TODOS"
 
-    def set_filtro_busqueda(self, value):
-        self.filtro_busqueda = value if value else ""
+    def set_search(self, value):
+        """Setter para búsqueda - consistente con otros módulos"""
+        self.search = value if value else ""
 
-    def set_solo_activas(self, value):
+    async def set_solo_activas(self, value):
+        """Cambia filtro de activas y recarga datos"""
         self.solo_activas = bool(value)
+        await self.cargar_empresas()
 
     # ========================
     # SETTERS DE VISTA (tabla/cards)
@@ -217,12 +220,14 @@ class EmpresasState(BaseState):
     # OPERACIONES PRINCIPALES
     # ========================
     async def cargar_empresas(self):
-        """Cargar empresas con filtros aplicados en BD"""
+        """Cargar empresas desde BD.
+        Los filtros (tipo, búsqueda) se aplican en memoria vía empresas_filtradas (reactivo).
+        """
         self.loading = True
         try:
             self.empresas = await empresa_service.buscar_con_filtros(
-                texto=self.filtro_busqueda or None,
-                tipo_empresa=self.filtro_tipo if self.filtro_tipo != "TODOS" else None,
+                texto=None,
+                tipo_empresa=None,  # Filtro se aplica en memoria
                 estatus="ACTIVO" if self.solo_activas else None,
                 incluir_inactivas=not self.solo_activas,
                 limite=100,
@@ -353,8 +358,9 @@ class EmpresasState(BaseState):
         await self.cargar_empresas()
 
     async def limpiar_filtros(self):
+        """Limpia todos los filtros incluyendo búsqueda"""
         self.filtro_tipo = "TODOS"
-        self.filtro_busqueda = ""
+        self.search = ""
         self.solo_activas = False
         await self.cargar_empresas()
 
@@ -406,13 +412,48 @@ class EmpresasState(BaseState):
         )
 
     @rx.var
+    def empresas_filtradas(self) -> List[dict]:
+        """Empresas filtradas por búsqueda y tipo (reactiva)"""
+        # Convertir a dict para consistencia con otros módulos
+        empresas_dict = [e.model_dump() if hasattr(e, 'model_dump') else e for e in self.empresas]
+
+        resultado = empresas_dict
+
+        # Filtrar por tipo (si no es TODOS)
+        if self.filtro_tipo and self.filtro_tipo != "TODOS":
+            resultado = [e for e in resultado if e.get("tipo_empresa") == self.filtro_tipo]
+
+        # Filtrar por búsqueda (código, nombre comercial, razón social, RFC)
+        if self.search:
+            termino = self.search.lower()
+            resultado = [
+                e for e in resultado
+                if termino in (e.get("nombre_comercial") or "").lower()
+                or termino in (e.get("razon_social") or "").lower()
+                or termino in (e.get("rfc") or "").lower()
+                or termino in (e.get("codigo_corto") or "").lower()
+            ]
+
+        return resultado
+
+    @rx.var
+    def tiene_empresas(self) -> bool:
+        """Indica si hay empresas cargadas"""
+        return len(self.empresas) > 0
+
+    @rx.var
+    def total_empresas(self) -> int:
+        """Total de empresas filtradas"""
+        return len(self.empresas_filtradas)
+
+    @rx.var
     def tiene_filtros_activos(self) -> bool:
-        return bool(self.filtro_busqueda or (self.filtro_tipo and self.filtro_tipo != "TODOS") or self.solo_activas)
+        return bool(self.search or (self.filtro_tipo and self.filtro_tipo != "TODOS") or self.solo_activas)
 
     @rx.var
     def cantidad_filtros_activos(self) -> int:
         return sum([
-            bool(self.filtro_busqueda),
+            bool(self.search),
             bool(self.filtro_tipo and self.filtro_tipo != "TODOS"),
             self.solo_activas
         ])

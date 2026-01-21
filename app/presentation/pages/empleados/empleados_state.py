@@ -80,6 +80,7 @@ class EmpleadosState(BaseState):
     # ========================
     # FORMULARIO
     # ========================
+    empleado_id_edicion: int = 0  # ID del empleado en edición
     form_empresa_id: str = ""
     form_curp: str = ""
     form_rfc: str = ""
@@ -472,11 +473,30 @@ class EmpleadosState(BaseState):
 
     def abrir_modal_editar(self, empleado: dict):
         """Abre el modal para editar un empleado existente"""
+        if not empleado or not isinstance(empleado, dict):
+            return
+        emp_id = empleado.get("id", 0)
+        if not emp_id:
+            return
         self._limpiar_formulario()
         self.es_edicion = True
         self.empleado_seleccionado = empleado
+        self.empleado_id_edicion = emp_id
+        self._llenar_formulario_desde_empleado(empleado)
+        self.mostrar_modal_empleado = True
 
-        # Llenar formulario con datos existentes
+    def abrir_modal_editar_desde_detalle(self):
+        """Abre el modal de edición usando el empleado_seleccionado actual"""
+        if not self.empleado_seleccionado:
+            return
+        self._limpiar_formulario()
+        self.es_edicion = True
+        self.empleado_id_edicion = self.empleado_seleccionado.get("id", 0)  # Guardar ID
+        self._llenar_formulario_desde_empleado(self.empleado_seleccionado)
+        self.mostrar_modal_empleado = True
+
+    def _llenar_formulario_desde_empleado(self, empleado: dict):
+        """Llena el formulario con datos del empleado"""
         self.form_empresa_id = str(empleado.get("empresa_id", ""))
         self.form_curp = empleado.get("curp", "")
         self.form_rfc = empleado.get("rfc", "")
@@ -492,10 +512,10 @@ class EmpleadosState(BaseState):
         self.form_contacto_emergencia = empleado.get("contacto_emergencia", "")
         self.form_notas = empleado.get("notas", "")
 
-        self.mostrar_modal_empleado = True
-
     def abrir_modal_detalle(self, empleado: dict):
         """Abre el modal de detalle de un empleado"""
+        if not empleado or not isinstance(empleado, dict):
+            return
         self.empleado_seleccionado = empleado
         self.pestaña_activa = "datos"
         self.mostrar_modal_detalle = True
@@ -529,6 +549,10 @@ class EmpleadosState(BaseState):
         if not self._validar_formulario():
             return rx.toast.error("Por favor corrija los errores del formulario")
 
+        # Validar que tenemos ID en modo edición
+        if self.es_edicion and not self.empleado_id_edicion:
+            return rx.toast.error("Error: No se encontró el ID del empleado a editar")
+
         self.saving = True
         try:
             if self.es_edicion:
@@ -550,7 +574,7 @@ class EmpleadosState(BaseState):
                 )
 
                 await empleado_service.actualizar(
-                    self.empleado_seleccionado["id"],
+                    self.empleado_id_edicion,  # Usar ID guardado
                     empleado_update
                 )
 
@@ -599,13 +623,17 @@ class EmpleadosState(BaseState):
         if not self.empleado_seleccionado:
             return rx.toast.error("No hay empleado seleccionado")
 
+        empleado_id = self.empleado_seleccionado.get("id") if isinstance(self.empleado_seleccionado, dict) else None
+        if not empleado_id:
+            return rx.toast.error("Error: No se pudo obtener el ID del empleado")
+
         if not self.form_motivo_baja:
             return rx.toast.error("Debe seleccionar un motivo de baja")
 
         self.saving = True
         try:
             await empleado_service.dar_de_baja(
-                empleado_id=self.empleado_seleccionado["id"],
+                empleado_id=empleado_id,
                 motivo=MotivoBaja(self.form_motivo_baja),
             )
 
@@ -624,9 +652,13 @@ class EmpleadosState(BaseState):
         if not self.empleado_seleccionado:
             return rx.toast.error("No hay empleado seleccionado")
 
+        empleado_id = self.empleado_seleccionado.get("id") if isinstance(self.empleado_seleccionado, dict) else None
+        if not empleado_id:
+            return rx.toast.error("Error: No se pudo obtener el ID del empleado")
+
         self.saving = True
         try:
-            await empleado_service.reactivar(self.empleado_seleccionado["id"])
+            await empleado_service.reactivar(empleado_id)
 
             self.cerrar_modal_detalle()
             await self.cargar_empleados()
@@ -642,9 +674,13 @@ class EmpleadosState(BaseState):
         if not self.empleado_seleccionado:
             return rx.toast.error("No hay empleado seleccionado")
 
+        empleado_id = self.empleado_seleccionado.get("id") if isinstance(self.empleado_seleccionado, dict) else None
+        if not empleado_id:
+            return rx.toast.error("Error: No se pudo obtener el ID del empleado")
+
         self.saving = True
         try:
-            await empleado_service.suspender(self.empleado_seleccionado["id"])
+            await empleado_service.suspender(empleado_id)
 
             self.cerrar_modal_detalle()
             await self.cargar_empleados()
@@ -717,6 +753,7 @@ class EmpleadosState(BaseState):
     # ========================
     def _limpiar_formulario(self):
         """Limpia el formulario"""
+        self.empleado_id_edicion = 0
         self.form_empresa_id = ""
         self.form_curp = ""
         self.form_rfc = ""

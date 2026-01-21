@@ -868,3 +868,78 @@ class SupabasePlazaRepository(IPlazaRepository):
         except Exception as e:
             logger.error(f"Error obteniendo empleados asignados: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def obtener_resumen_por_estatus(
+        self,
+        estatus: EstatusPlaza,
+        limite: int = 100
+    ) -> List[dict]:
+        """
+        Obtiene plazas por estatus con datos enriquecidos de contrato y categoría.
+
+        Args:
+            estatus: Estatus de las plazas a buscar
+            limite: Máximo de resultados
+
+        Returns:
+            Lista de dicts con datos de la plaza, contrato y categoría
+        """
+        try:
+            # Obtener plazas por estatus
+            result = self.supabase.table(self.tabla)\
+                .select('*')\
+                .eq('estatus', estatus.value)\
+                .limit(limite)\
+                .execute()
+
+            if not result.data:
+                return []
+
+            # Obtener IDs únicos de contrato_categoria
+            cc_ids = list(set(p['contrato_categoria_id'] for p in result.data))
+
+            # Obtener datos de contrato_categorias con sus relaciones
+            result_cc = self.supabase.table('contrato_categorias')\
+                .select(
+                    'id, contrato_id, categoria_puesto_id, '
+                    'contratos:contrato_id(id, codigo), '
+                    'categorias_puesto:categoria_puesto_id(id, clave, nombre)'
+                )\
+                .in_('id', cc_ids)\
+                .execute()
+
+            # Crear mapa de contrato_categoria -> datos
+            cc_map = {}
+            for cc in result_cc.data:
+                contrato = cc.get('contratos') or {}
+                cat_data = cc.get('categorias_puesto') or {}
+                cc_map[cc['id']] = {
+                    'contrato_id': cc['contrato_id'],
+                    'contrato_codigo': contrato.get('codigo', ''),
+                    'categoria_puesto_id': cc['categoria_puesto_id'],
+                    'categoria_clave': cat_data.get('clave', ''),
+                    'categoria_nombre': cat_data.get('nombre', ''),
+                }
+
+            # Construir resumen
+            resumen = []
+            for data in result.data:
+                cc_data = cc_map.get(data['contrato_categoria_id'], {})
+
+                item = {
+                    **data,
+                    'contrato_id': cc_data.get('contrato_id', 0),
+                    'contrato_codigo': cc_data.get('contrato_codigo', ''),
+                    'categoria_puesto_id': cc_data.get('categoria_puesto_id', 0),
+                    'categoria_clave': cc_data.get('categoria_clave', ''),
+                    'categoria_nombre': cc_data.get('categoria_nombre', ''),
+                    'empleado_nombre': '',
+                    'empleado_curp': '',
+                }
+                resumen.append(item)
+
+            return resumen
+
+        except Exception as e:
+            logger.error(f"Error obteniendo plazas por estatus {estatus}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")

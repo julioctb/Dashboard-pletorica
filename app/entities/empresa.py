@@ -271,6 +271,7 @@ class EmpresaResumen(BaseModel):
     codigo_corto: str
     nombre_comercial: str
     razon_social: str
+    rfc: str
     tipo_empresa: TipoEmpresa
     estatus: EstatusEmpresa
     contacto_principal: Optional[str]
@@ -287,6 +288,7 @@ class EmpresaResumen(BaseModel):
             codigo_corto=empresa.codigo_corto or "---",
             nombre_comercial=empresa.nombre_comercial,
             razon_social=empresa.razon_social,
+            rfc=empresa.rfc,
             tipo_empresa=empresa.tipo_empresa,
             estatus=empresa.estatus,
             contacto_principal=empresa.telefono,

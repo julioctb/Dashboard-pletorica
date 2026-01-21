@@ -11,6 +11,7 @@ from .presentation.pages.categorias_puesto.categorias_puesto_page import categor
 from .presentation.pages.contratos.contratos_page import contratos_page
 from .presentation.pages.plazas.plazas_page import plazas_page
 from .presentation.pages.empleados.empleados_page import empleados_page
+from .presentation.pages.historial_laboral.historial_laboral_page import historial_laboral_page
 
 from .presentation.layout.sidebar_layout import sidebar
 
@@ -56,3 +57,4 @@ app.add_page(lambda: index(categorias_puesto_page()), route="/categorias-puesto"
 app.add_page(lambda: index(contratos_page()), route="/contratos")
 app.add_page(lambda: index(plazas_page()), route="/plazas")
 app.add_page(lambda: index(empleados_page()), route="/empleados")
+app.add_page(lambda: index(historial_laboral_page()), route="/historial-laboral")

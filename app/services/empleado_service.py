@@ -5,6 +5,12 @@ Patrón de manejo de errores:
 - Las excepciones del repository se propagan (NotFoundError, DuplicateError, DatabaseError)
 - El servicio NO captura excepciones, las deja subir al State
 - Logging solo para debugging, NO para control de flujo
+
+IMPORTANTE: Este servicio registra automáticamente los movimientos en historial_laboral:
+- crear() -> registrar_alta()
+- dar_de_baja() -> registrar_baja()
+- reactivar() -> registrar_reactivacion()
+- suspender() -> registrar_suspension()
 """
 import logging
 from typing import List, Optional
@@ -26,6 +32,12 @@ from app.core.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _get_historial_service():
+    """Import diferido para evitar imports circulares"""
+    from app.services.historial_laboral_service import historial_laboral_service
+    return historial_laboral_service
 
 
 class EmpleadoService:
@@ -137,7 +149,22 @@ class EmpleadoService:
             estatus=EstatusEmpleado.ACTIVO,
         )
 
-        return await self.repository.crear(empleado)
+        empleado_creado = await self.repository.crear(empleado)
+
+        # Registrar alta en historial laboral (sin plaza = INACTIVO en historial)
+        try:
+            historial_service = _get_historial_service()
+            await historial_service.registrar_alta(
+                empleado_id=empleado_creado.id,
+                plaza_id=None,  # Nuevo empleado no tiene plaza asignada
+                fecha=empleado_creado.fecha_ingreso,
+                notas=f"Alta de empleado: {empleado_creado.nombre_completo}"
+            )
+        except Exception as e:
+            logger.warning(f"Error registrando alta en historial: {e}")
+            # No interrumpimos el flujo si falla el historial
+
+        return empleado_creado
 
     async def crear_con_clave_auto(
         self,
@@ -242,7 +269,20 @@ class EmpleadoService:
             raise BusinessRuleError("El empleado ya está dado de baja")
 
         empleado.dar_de_baja(motivo, fecha_baja)
-        return await self.repository.actualizar(empleado)
+        empleado_actualizado = await self.repository.actualizar(empleado)
+
+        # Registrar baja en historial laboral
+        try:
+            historial_service = _get_historial_service()
+            await historial_service.registrar_baja(
+                empleado_id=empleado_id,
+                fecha=fecha_baja,
+                notas=f"Baja por: {motivo.descripcion}"
+            )
+        except Exception as e:
+            logger.warning(f"Error registrando baja en historial: {e}")
+
+        return empleado_actualizado
 
     async def reactivar(self, empleado_id: int) -> Empleado:
         """
@@ -259,7 +299,20 @@ class EmpleadoService:
             raise BusinessRuleError("El empleado ya está activo")
 
         empleado.activar()
-        return await self.repository.actualizar(empleado)
+        empleado_actualizado = await self.repository.actualizar(empleado)
+
+        # Registrar reactivación en historial laboral
+        try:
+            historial_service = _get_historial_service()
+            await historial_service.registrar_reactivacion(
+                empleado_id=empleado_id,
+                plaza_id=None,  # Sin plaza asignada al reactivar
+                notas="Reactivación de empleado"
+            )
+        except Exception as e:
+            logger.warning(f"Error registrando reactivación en historial: {e}")
+
+        return empleado_actualizado
 
     async def suspender(self, empleado_id: int) -> Empleado:
         """
@@ -276,7 +329,19 @@ class EmpleadoService:
             raise BusinessRuleError("El empleado ya está suspendido")
 
         empleado.suspender()
-        return await self.repository.actualizar(empleado)
+        empleado_actualizado = await self.repository.actualizar(empleado)
+
+        # Registrar suspensión en historial laboral
+        try:
+            historial_service = _get_historial_service()
+            await historial_service.registrar_suspension(
+                empleado_id=empleado_id,
+                notas="Suspensión temporal"
+            )
+        except Exception as e:
+            logger.warning(f"Error registrando suspensión en historial: {e}")
+
+        return empleado_actualizado
 
     # =========================================================================
     # CAMBIO DE EMPRESA
@@ -430,6 +495,25 @@ class EmpleadoService:
             DatabaseError: Si hay error de BD
         """
         return await self.repository.contar(empresa_id, estatus)
+
+    async def obtener_disponibles_para_asignacion(
+        self,
+        limite: int = 100
+    ) -> List[EmpleadoResumen]:
+        """
+        Obtiene empleados disponibles para asignar a una plaza.
+
+        Un empleado está disponible si:
+        - Está activo (estatus = ACTIVO)
+        - No tiene una asignación activa en historial_laboral
+
+        Returns:
+            Lista de EmpleadoResumen de empleados disponibles
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        return await self.repository.obtener_disponibles_para_asignacion(limite)
 
     # =========================================================================
     # GENERACIÓN DE CLAVE

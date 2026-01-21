@@ -85,6 +85,49 @@ class PlazaService:
             incluir_canceladas
         )
 
+    async def obtener_por_estatus(
+        self,
+        estatus: EstatusPlaza,
+        limite: int = 100
+    ) -> List[PlazaResumen]:
+        """
+        Obtiene plazas por su estatus con datos enriquecidos.
+
+        Args:
+            estatus: Estatus de las plazas a buscar
+            limite: Máximo de resultados
+
+        Returns:
+            Lista de PlazaResumen con datos de categoría y contrato
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        resumen_data = await self.repository.obtener_resumen_por_estatus(estatus, limite)
+
+        return [
+            PlazaResumen(
+                id=item['id'],
+                contrato_categoria_id=item['contrato_categoria_id'],
+                numero_plaza=item['numero_plaza'],
+                codigo=item.get('codigo', ''),
+                empleado_id=item.get('empleado_id'),
+                fecha_inicio=item['fecha_inicio'],
+                fecha_fin=item.get('fecha_fin'),
+                salario_mensual=Decimal(str(item['salario_mensual'])),
+                estatus=EstatusPlaza(item['estatus']),
+                notas=item.get('notas'),
+                contrato_id=item.get('contrato_id', 0),
+                contrato_codigo=item.get('contrato_codigo', ''),
+                categoria_puesto_id=item.get('categoria_puesto_id', 0),
+                categoria_clave=item.get('categoria_clave', ''),
+                categoria_nombre=item.get('categoria_nombre', ''),
+                empleado_nombre=item.get('empleado_nombre', ''),
+                empleado_curp=item.get('empleado_curp', ''),
+            )
+            for item in resumen_data
+        ]
+
     async def obtener_vacantes_por_contrato_categoria(
         self,
         contrato_categoria_id: int

@@ -181,3 +181,51 @@ class MotivoBaja(str, Enum):
             'OTRO': 'Otro motivo'
         }
         return descripciones.get(self.value, self.value)
+
+
+# =============================================================================
+# ENUMS DE HISTORIAL LABORAL
+# =============================================================================
+
+class EstatusHistorial(str, Enum):
+    """Estados del empleado en historial laboral (refleja estatus del empleado)"""
+    ACTIVO = 'ACTIVO'
+    INACTIVO = 'INACTIVO'
+    SUSPENDIDO = 'SUSPENDIDO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del estatus"""
+        descripciones = {
+            'ACTIVO': 'Activo',
+            'INACTIVO': 'Inactivo',
+            'SUSPENDIDO': 'Suspendido'
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class TipoMovimiento(str, Enum):
+    """Tipos de movimiento en historial laboral"""
+    ALTA = 'ALTA'
+    ASIGNACION = 'ASIGNACION'
+    CAMBIO_PLAZA = 'CAMBIO_PLAZA'
+    SUSPENSION = 'SUSPENSION'
+    REACTIVACION = 'REACTIVACION'
+    BAJA = 'BAJA'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del tipo"""
+        descripciones = {
+            'ALTA': 'Alta en sistema',
+            'ASIGNACION': 'Asignación a plaza',
+            'CAMBIO_PLAZA': 'Cambio de plaza',
+            'SUSPENSION': 'Suspensión',
+            'REACTIVACION': 'Reactivación',
+            'BAJA': 'Baja del sistema'
+        }
+        return descripciones.get(self.value, self.value)
+
+
+# Alias para compatibilidad (deprecated)
+MotivoFinHistorial = TipoMovimiento

@@ -127,6 +127,10 @@ def fila_empresa(empresa: dict) -> rx.Component:
         rx.table.cell(
             acciones_empresa(empresa),
         ),
+            cursor='pointer',
+             _hover={"background": Colors.SURFACE_HOVER},
+             on_click= lambda: EmpresasState.abrir_modal_detalle(empresa['id'])
+            
     )
 
 
@@ -146,7 +150,7 @@ def tabla_empresas() -> rx.Component:
         EmpresasState.loading,
         skeleton_tabla(columnas=ENCABEZADOS_EMPRESAS, filas=5),
         rx.cond(
-            EmpresasState.empresas.length() > 0,
+            EmpresasState.tiene_empresas,
             rx.vstack(
                 rx.table.root(
                     rx.table.header(
@@ -162,7 +166,7 @@ def tabla_empresas() -> rx.Component:
                     ),
                     rx.table.body(
                         rx.foreach(
-                            EmpresasState.empresas,
+                            EmpresasState.empresas_filtradas,
                             fila_empresa,
                         ),
                     ),
@@ -171,7 +175,7 @@ def tabla_empresas() -> rx.Component:
                 ),
                 # Contador
                 rx.text(
-                    "Mostrando ", EmpresasState.empresas.length(), " empresa(s)",
+                    "Mostrando ", EmpresasState.total_empresas, " empresa(s)",
                     size="2",
                     color="gray",
                 ),
@@ -180,6 +184,7 @@ def tabla_empresas() -> rx.Component:
             ),
             tabla_vacia(onclick=EmpresasState.abrir_modal_crear),
         ),
+    
     )
 
 
@@ -248,11 +253,11 @@ def grid_empresas() -> rx.Component:
         EmpresasState.loading,
         rx.center(rx.spinner(size="3"), padding="8"),
         rx.cond(
-            EmpresasState.empresas.length() > 0,
+            EmpresasState.tiene_empresas,
             rx.vstack(
                 rx.box(
                     rx.foreach(
-                        EmpresasState.empresas,
+                        EmpresasState.empresas_filtradas,
                         card_empresa,
                     ),
                     display="grid",
@@ -262,7 +267,7 @@ def grid_empresas() -> rx.Component:
                 ),
                 # Contador
                 rx.text(
-                    "Mostrando ", EmpresasState.empresas.length(), " empresa(s)",
+                    "Mostrando ", EmpresasState.total_empresas, " empresa(s)",
                     size="2",
                     color="gray",
                 ),
@@ -283,7 +288,7 @@ def filtros_empresas() -> rx.Component:
     return rx.hstack(
         # Filtro por tipo
         rx.select.root(
-            rx.select.trigger(placeholder="Tipo", width="160px"),
+            rx.select.trigger(placeholder="Tipo empresa", width="180px"),
             rx.select.content(
                 rx.select.item("Todos", value="TODOS"),
                 rx.foreach(
@@ -304,17 +309,6 @@ def filtros_empresas() -> rx.Component:
             rx.text("Mostrar inactivas", size="2", color="gray"),
             spacing="2",
             align="center",
-        ),
-        # Boton limpiar filtros
-        rx.cond(
-            EmpresasState.tiene_filtros_activos,
-            rx.button(
-                rx.icon("x", size=14),
-                "Limpiar",
-                on_click=EmpresasState.limpiar_filtros,
-                variant="ghost",
-                size="2",
-            ),
         ),
         spacing="3",
         align="center",
@@ -341,10 +335,10 @@ def empresas_page() -> rx.Component:
                 ),
             ),
             toolbar=page_toolbar(
-                search_value=EmpresasState.filtro_busqueda,
+                search_value=EmpresasState.search,
                 search_placeholder="Buscar por nombre, RFC o codigo...",
-                on_search_change=EmpresasState.set_filtro_busqueda,
-                on_search_clear=lambda: EmpresasState.set_filtro_busqueda(""),
+                on_search_change=EmpresasState.set_search,
+                on_search_clear=lambda: EmpresasState.set_search(""),
                 filters=filtros_empresas(),
                 show_view_toggle=True,
                 current_view=EmpresasState.view_mode,

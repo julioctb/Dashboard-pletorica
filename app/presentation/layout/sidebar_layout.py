@@ -53,6 +53,7 @@ NAVIGATION_GROUPS = [
             {"text": "Plazas", "icon": "briefcase", "href": "/plazas"},
             {"text": "Empresas", "icon": "building-2", "href": "/empresas"},
             {"text": "Empleados", "icon": "users", "href": "/empleados"},
+            {"text": "Historial", "icon": "history", "href": "/historial-laboral"},
         ],
     },
     {

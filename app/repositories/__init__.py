@@ -53,6 +53,12 @@ from app.repositories.empleado_repository import (
     SupabaseEmpleadoRepository,
 )
 
+# Historial Laboral
+from app.repositories.historial_laboral_repository import (
+    IHistorialLaboralRepository,
+    SupabaseHistorialLaboralRepository,
+)
+
 
 __all__ = [
     # Empresa
@@ -79,4 +85,7 @@ __all__ = [
     # Empleado
     "IEmpleadoRepository",
     "SupabaseEmpleadoRepository",
+    # Historial Laboral
+    "IHistorialLaboralRepository",
+    "SupabaseHistorialLaboralRepository",
 ]

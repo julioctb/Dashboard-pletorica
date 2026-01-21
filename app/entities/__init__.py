@@ -21,6 +21,10 @@ from app.core.enums import (
     EstatusEmpleado,
     GeneroEmpleado,
     MotivoBaja,
+    # Enums de Historial Laboral
+    EstatusHistorial,
+    TipoMovimiento,
+    MotivoFinHistorial,  # Alias deprecated
 )
 
 # Empresa
@@ -89,6 +93,13 @@ from app.entities.empleado import (
     EmpleadoResumen,
 )
 
+# Historial Laboral
+from app.entities.historial_laboral import (
+    HistorialLaboral,
+    HistorialLaboralInterno,
+    HistorialLaboralResumen,
+)
+
 # Costo Patronal (si existe)
 try:
     from app.entities.costo_patronal import (
@@ -113,6 +124,9 @@ __all__ = [
     "EstatusEmpleado",
     "GeneroEmpleado",
     "MotivoBaja",
+    "EstatusHistorial",
+    "TipoMovimiento",
+    "MotivoFinHistorial",
     # Empresa
     "Empresa",
     "EmpresaCreate",
@@ -155,6 +169,10 @@ __all__ = [
     "EmpleadoCreate",
     "EmpleadoUpdate",
     "EmpleadoResumen",
+    # Historial Laboral
+    "HistorialLaboral",
+    "HistorialLaboralInterno",
+    "HistorialLaboralResumen",
     # Costo Patronal
     "ConfiguracionEmpresa",
     "Trabajador",

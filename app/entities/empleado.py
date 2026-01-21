@@ -379,3 +379,27 @@ class EmpleadoResumen(BaseModel):
             telefono=empleado.telefono,
             email=empleado.email,
         )
+
+    @classmethod
+    def from_empleado_dict(cls, data: dict, empresa_nombre: Optional[str] = None) -> 'EmpleadoResumen':
+        """Factory method para crear desde un diccionario de BD."""
+        # Construir nombre completo
+        nombre = data.get('nombre', '')
+        apellido_p = data.get('apellido_paterno', '')
+        apellido_m = data.get('apellido_materno', '')
+        nombre_completo = f"{nombre} {apellido_p}".strip()
+        if apellido_m:
+            nombre_completo = f"{nombre_completo} {apellido_m}"
+
+        return cls(
+            id=data['id'],
+            clave=data['clave'],
+            curp=data['curp'],
+            nombre_completo=nombre_completo,
+            empresa_id=data['empresa_id'],
+            empresa_nombre=empresa_nombre,
+            estatus=data['estatus'],
+            fecha_ingreso=data['fecha_ingreso'],
+            telefono=data.get('telefono'),
+            email=data.get('email'),
+        )

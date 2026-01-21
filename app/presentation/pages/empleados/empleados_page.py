@@ -824,7 +824,7 @@ def modal_detalle_empleado() -> rx.Component:
                         "Editar",
                         variant="soft",
                         color_scheme="blue",
-                        on_click=lambda: EmpleadosState.abrir_modal_editar(EmpleadosState.empleado_seleccionado),
+                        on_click=EmpleadosState.abrir_modal_editar_desde_detalle,
                     ),
                 ),
                 # Dar de baja (si activo)

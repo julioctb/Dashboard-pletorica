@@ -603,3 +603,61 @@ class SupabaseEmpleadoRepository(IEmpleadoRepository):
         except Exception as e:
             logger.error(f"Error obteniendo resumen de empleados: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def obtener_disponibles_para_asignacion(
+        self,
+        limite: int = 100
+    ) -> List[EmpleadoResumen]:
+        """
+        Obtiene empleados disponibles para asignar a una plaza.
+
+        Un empleado está disponible si:
+        - Está activo (estatus = ACTIVO)
+        - No tiene una asignación activa en historial_laboral
+
+        Returns:
+            Lista de EmpleadoResumen de empleados disponibles
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        try:
+            # Obtener IDs de empleados con asignación activa
+            result_historial = self.supabase.table('historial_laboral')\
+                .select('empleado_id')\
+                .eq('estatus', 'ACTIVA')\
+                .execute()
+
+            empleados_asignados = set(
+                h['empleado_id'] for h in result_historial.data
+                if h.get('empleado_id') is not None
+            )
+
+            # Obtener empleados activos
+            query = self.supabase.table(self.tabla)\
+                .select('*, empresas(nombre_comercial)')\
+                .eq('estatus', 'ACTIVO')\
+                .order('apellido_paterno')\
+                .limit(limite)
+
+            result = query.execute()
+
+            # Filtrar empleados que no están asignados
+            empleados_disponibles = []
+            for data in result.data:
+                if data['id'] in empleados_asignados:
+                    continue  # Saltar empleados ya asignados
+
+                empresa_nombre = None
+                if data.get('empresas'):
+                    empresa_nombre = data['empresas'].get('nombre_comercial')
+
+                empleados_disponibles.append(
+                    EmpleadoResumen.from_empleado_dict(data, empresa_nombre)
+                )
+
+            return empleados_disponibles
+
+        except Exception as e:
+            logger.error(f"Error obteniendo empleados disponibles: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
