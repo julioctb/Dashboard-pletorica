@@ -47,6 +47,12 @@ from app.repositories.plaza_repository import (
     SupabasePlazaRepository,
 )
 
+# Empleado
+from app.repositories.empleado_repository import (
+    IEmpleadoRepository,
+    SupabaseEmpleadoRepository,
+)
+
 
 __all__ = [
     # Empresa
@@ -70,4 +76,7 @@ __all__ = [
     # Plaza
     "IPlazaRepository",
     "SupabasePlazaRepository",
+    # Empleado
+    "IEmpleadoRepository",
+    "SupabaseEmpleadoRepository",
 ]

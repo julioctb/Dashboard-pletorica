@@ -47,6 +47,12 @@ from app.services.plaza_service import (
     plaza_service,
 )
 
+# Empleado
+from app.services.empleado_service import (
+    EmpleadoService,
+    empleado_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -70,4 +76,7 @@ __all__ = [
     # Plaza
     "PlazaService",
     "plaza_service",
+    # Empleado
+    "EmpleadoService",
+    "empleado_service",
 ]

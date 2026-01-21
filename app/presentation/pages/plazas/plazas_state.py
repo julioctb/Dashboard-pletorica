@@ -71,7 +71,13 @@ class PlazasState(BaseState):
     mostrar_modal_detalle: bool = False
     mostrar_modal_confirmar_cancelar: bool = False
     mostrar_modal_crear_lote: bool = False
+    mostrar_modal_asignar_empleado: bool = False
     es_edicion: bool = False
+
+    # Estado para asignación de empleado
+    empleados_disponibles: List[dict] = []
+    empleado_seleccionado_id: str = ""
+    cargando_empleados: bool = False
 
     # ========================
     # FILTROS
@@ -178,6 +184,9 @@ class PlazasState(BaseState):
 
     def set_form_prefijo_codigo(self, value):
         self.form_prefijo_codigo = value.upper() if value else ""
+
+    def set_empleado_seleccionado_id(self, value):
+        self.empleado_seleccionado_id = value if value else ""
 
     def set_contrato_seleccionado_id(self, value):
         """Al seleccionar un contrato, limpiar y disparar carga de categorías"""
@@ -331,6 +340,22 @@ class PlazasState(BaseState):
             for c in self.categorias_contrato
         ]
 
+    @rx.var
+    def opciones_empleados(self) -> List[dict]:
+        """Opciones para el select de empleados disponibles"""
+        return [
+            {
+                "value": str(e.get("id")),
+                "label": f"{e.get('clave', '')} - {e.get('nombre_completo', '')}"
+            }
+            for e in self.empleados_disponibles
+        ]
+
+    @rx.var
+    def puede_asignar_empleado(self) -> bool:
+        """Verifica si se puede asignar el empleado seleccionado"""
+        return bool(self.empleado_seleccionado_id) and not self.saving
+
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
@@ -367,18 +392,19 @@ class PlazasState(BaseState):
             self.loading = False
 
     async def cargar_plazas_de_categoria(self, contrato_categoria_id: int):
-        """Cargar plazas de una categoría específica"""
+        """Cargar plazas de una categoría específica con datos del empleado"""
         self.loading = True
         self.contrato_categoria_id = contrato_categoria_id
 
         try:
-            plazas = await plaza_service.obtener_por_contrato_categoria(
+            # Usar obtener_resumen_de_categoria que incluye datos del empleado
+            plazas_resumen = await plaza_service.obtener_resumen_de_categoria(
                 contrato_categoria_id,
                 incluir_canceladas=True
             )
 
             self.plazas = []
-            for plaza in plazas:
+            for plaza in plazas_resumen:
                 plaza_dict = plaza.model_dump(mode='json')
                 plaza_dict["fecha_inicio_fmt"] = formatear_fecha(plaza.fecha_inicio)
                 plaza_dict["fecha_fin_fmt"] = formatear_fecha(plaza.fecha_fin) if plaza.fecha_fin else "-"
@@ -628,6 +654,77 @@ class PlazasState(BaseState):
         self.mostrar_modal_confirmar_cancelar = False
         self.plaza_seleccionada = None
 
+    async def abrir_asignar_empleado(self, plaza: dict):
+        """Abrir modal para asignar empleado a una plaza"""
+        self.plaza_seleccionada = plaza
+        self.empleado_seleccionado_id = ""
+        self.cargando_empleados = True
+        self.mostrar_modal_asignar_empleado = True
+
+        try:
+            # Cargar empleados activos
+            from app.services import empleado_service
+            empleados = await empleado_service.obtener_resumen_empleados(
+                incluir_inactivos=False
+            )
+
+            # Obtener IDs de empleados ya asignados a plazas ocupadas
+            empleados_asignados = await plaza_service.obtener_empleados_asignados()
+            empleados_asignados_set = set(empleados_asignados)
+
+            # Filtrar solo empleados disponibles (no asignados a otra plaza)
+            self.empleados_disponibles = [
+                {
+                    "id": e.id,
+                    "clave": e.clave,
+                    "nombre_completo": e.nombre_completo,
+                }
+                for e in empleados
+                if e.id not in empleados_asignados_set
+            ]
+        except Exception as e:
+            self.manejar_error(e, "cargar empleados")
+            self.empleados_disponibles = []
+            return rx.toast.error(f"Error al cargar empleados: {e}")
+        finally:
+            self.cargando_empleados = False
+
+    def cerrar_modal_asignar_empleado(self):
+        """Cerrar modal de asignación de empleado"""
+        self.mostrar_modal_asignar_empleado = False
+        self.plaza_seleccionada = None
+        self.empleado_seleccionado_id = ""
+        self.empleados_disponibles = []
+
+    async def confirmar_asignar_empleado(self):
+        """Confirmar y ejecutar la asignación del empleado a la plaza"""
+        if not self.plaza_seleccionada or not self.empleado_seleccionado_id:
+            return rx.toast.error("Seleccione un empleado")
+
+        self.saving = True
+        try:
+            plaza_id = self.plaza_seleccionada["id"]
+            empleado_id = int(self.empleado_seleccionado_id)
+
+            await plaza_service.asignar_empleado(plaza_id, empleado_id)
+
+            self.cerrar_modal_asignar_empleado()
+
+            # Recargar plazas
+            if self.contrato_categoria_id:
+                await self.cargar_plazas_de_categoria(self.contrato_categoria_id)
+            elif self.contrato_id:
+                await self.cargar_plazas_de_contrato(self.contrato_id)
+
+            return rx.toast.success("Empleado asignado a la plaza")
+
+        except BusinessRuleError as e:
+            return rx.toast.error(str(e))
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "asignar empleado")
+        finally:
+            self.saving = False
+
     async def guardar_plaza(self):
         """Guardar plaza (crear o actualizar)"""
         if not self.puede_guardar:
@@ -859,6 +956,11 @@ class PlazasState(BaseState):
         self.cargando_contratos = False
         self.cargando_categorias = False
 
+        # Asignación de empleado
+        self.empleados_disponibles = []
+        self.empleado_seleccionado_id = ""
+        self.cargando_empleados = False
+
         # Contadores
         self.plazas_vacantes = 0
         self.plazas_ocupadas = 0
@@ -873,6 +975,7 @@ class PlazasState(BaseState):
         self.mostrar_modal_detalle = False
         self.mostrar_modal_confirmar_cancelar = False
         self.mostrar_modal_crear_lote = False
+        self.mostrar_modal_asignar_empleado = False
 
         # Formulario
         self._limpiar_formulario()

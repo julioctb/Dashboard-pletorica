@@ -21,6 +21,7 @@ from app.presentation.components.plazas.plazas_modals import (
     modal_detalle_plaza,
     modal_confirmar_cancelar,
     modal_crear_lote,
+    modal_asignar_empleado,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Radius
 
@@ -66,8 +67,7 @@ def acciones_plaza(plaza: dict) -> rx.Component:
                     size="1",
                     variant="ghost",
                     color_scheme="green",
-                    # TODO: Implementar asignación de empleado
-                    # on_click=lambda: PlazasState.abrir_asignar_empleado(plaza),
+                    on_click=lambda: PlazasState.abrir_asignar_empleado(plaza),
                 ),
                 content="Asignar empleado",
             ),
@@ -786,6 +786,7 @@ def plazas_page() -> rx.Component:
                 modal_detalle_plaza(),
                 modal_confirmar_cancelar(),
                 modal_crear_lote(),
+                modal_asignar_empleado(),
 
                 spacing="4",
                 width="100%",

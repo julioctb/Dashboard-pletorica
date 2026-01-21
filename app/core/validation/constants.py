@@ -12,7 +12,8 @@ IMPORTANTE: Cualquier cambio aquí afecta ambas capas de validación.
 # =============================================================================
 
 # RFC completo: 3-4 letras + 6 dígitos (fecha) + 3 caracteres (homoclave)
-RFC_PATTERN = r'^[A-Z&Ñ]{3,4}[0-9]{6}[A-V1-9][A-Z1-9][0-9A]$'
+# Homoclave: 2 caracteres alfanuméricos + 1 dígito verificador (0-9 o A)
+RFC_PATTERN = r'^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{2}[0-9A]$'
 
 # Prefijo RFC (primeras 3-4 letras)
 RFC_PREFIX_PATTERN = r'^[A-Z&Ñ]{3,4}'

@@ -352,6 +352,127 @@ def modal_confirmar_cancelar() -> rx.Component:
     )
 
 
+def modal_asignar_empleado() -> rx.Component:
+    """Modal para asignar un empleado a una plaza vacante"""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Asignar Empleado"),
+            rx.dialog.description(
+                rx.vstack(
+                    # Info de la plaza
+                    rx.cond(
+                        PlazasState.plaza_seleccionada,
+                        rx.callout(
+                            rx.hstack(
+                                rx.text("Plaza #", weight="medium"),
+                                rx.text(
+                                    PlazasState.plaza_seleccionada["numero_plaza"],
+                                    weight="bold"
+                                ),
+                                rx.cond(
+                                    PlazasState.plaza_seleccionada["codigo"],
+                                    rx.text(
+                                        " (",
+                                        PlazasState.plaza_seleccionada["codigo"],
+                                        ")"
+                                    ),
+                                ),
+                                spacing="1",
+                            ),
+                            icon="briefcase",
+                            size="1",
+                            width="100%",
+                        ),
+                    ),
+
+                    # Selector de empleado
+                    rx.vstack(
+                        rx.text("Seleccionar empleado *", size="2", weight="medium"),
+                        rx.cond(
+                            PlazasState.cargando_empleados,
+                            rx.hstack(
+                                rx.spinner(size="1"),
+                                rx.text("Cargando empleados...", size="2", color="gray"),
+                                spacing="2",
+                                padding="2",
+                            ),
+                            rx.select.root(
+                                rx.select.trigger(
+                                    placeholder="Buscar empleado...",
+                                    width="100%",
+                                ),
+                                rx.select.content(
+                                    rx.cond(
+                                        PlazasState.empleados_disponibles.length() > 0,
+                                        rx.foreach(
+                                            PlazasState.opciones_empleados,
+                                            lambda opt: rx.select.item(
+                                                opt["label"],
+                                                value=opt["value"],
+                                            ),
+                                        ),
+                                        rx.select.item(
+                                            "No hay empleados disponibles",
+                                            value="empty",
+                                            disabled=True,
+                                        ),
+                                    ),
+                                ),
+                                value=PlazasState.empleado_seleccionado_id,
+                                on_change=PlazasState.set_empleado_seleccionado_id,
+                            ),
+                        ),
+                        spacing="1",
+                        width="100%",
+                        align_items="stretch",
+                    ),
+
+                    spacing="4",
+                    width="100%",
+                    padding_y="4",
+                ),
+            ),
+
+            # Botones de acción
+            rx.hstack(
+                rx.dialog.close(
+                    rx.button(
+                        "Cancelar",
+                        variant="soft",
+                        color_scheme="gray",
+                        on_click=PlazasState.cerrar_modal_asignar_empleado,
+                    ),
+                ),
+                rx.button(
+                    rx.cond(
+                        PlazasState.saving,
+                        rx.hstack(
+                            rx.spinner(size="1"),
+                            rx.text("Asignando..."),
+                            spacing="2"
+                        ),
+                        rx.hstack(
+                            rx.icon("user-check", size=14),
+                            rx.text("Asignar"),
+                            spacing="2"
+                        )
+                    ),
+                    on_click=PlazasState.confirmar_asignar_empleado,
+                    disabled=~PlazasState.puede_asignar_empleado,
+                    color_scheme="green",
+                ),
+                spacing="3",
+                justify="end",
+                width="100%",
+                padding_top="4",
+            ),
+
+            max_width="450px",
+        ),
+        open=PlazasState.mostrar_modal_asignar_empleado,
+    )
+
+
 def modal_crear_lote() -> rx.Component:
     """Modal para crear plazas"""
     return rx.dialog.root(

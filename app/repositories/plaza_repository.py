@@ -449,7 +449,7 @@ class SupabasePlazaRepository(IPlazaRepository):
 
     async def obtener_resumen_por_contrato(self, contrato_id: int) -> List[dict]:
         """
-        Obtiene resumen con datos de contrato y categoría incluidos (JOIN).
+        Obtiene resumen con datos de contrato, categoría y empleado incluidos (JOIN).
 
         Returns:
             Lista de dicts con datos de la plaza y datos enriquecidos
@@ -497,9 +497,35 @@ class SupabasePlazaRepository(IPlazaRepository):
 
             contrato_codigo = result_contrato.data[0]['codigo'] if result_contrato.data else ''
 
+            # Obtener IDs de empleados únicos (no nulos)
+            empleado_ids = list(set(
+                p['empleado_id'] for p in result.data
+                if p.get('empleado_id') is not None
+            ))
+
+            # Obtener datos de empleados en una sola consulta
+            empleados_map = {}
+            if empleado_ids:
+                result_emp = self.supabase.table('empleados')\
+                    .select('id, nombre, apellido_paterno, apellido_materno, curp')\
+                    .in_('id', empleado_ids)\
+                    .execute()
+
+                for emp in result_emp.data:
+                    nombre = emp.get('nombre', '')
+                    apellido_p = emp.get('apellido_paterno', '')
+                    apellido_m = emp.get('apellido_materno', '')
+                    empleados_map[emp['id']] = {
+                        'nombre': f"{nombre} {apellido_p} {apellido_m}".strip(),
+                        'curp': emp.get('curp', ''),
+                    }
+
             resumen = []
             for data in result.data:
                 cc_data = cc_map.get(data['contrato_categoria_id'], {})
+                empleado_id = data.get('empleado_id')
+                empleado_data = empleados_map.get(empleado_id, {}) if empleado_id else {}
+
                 item = {
                     **data,
                     'contrato_id': contrato_id,
@@ -507,6 +533,8 @@ class SupabasePlazaRepository(IPlazaRepository):
                     'categoria_puesto_id': cc_data.get('categoria_puesto_id', 0),
                     'categoria_clave': cc_data.get('categoria_clave', ''),
                     'categoria_nombre': cc_data.get('categoria_nombre', ''),
+                    'empleado_nombre': empleado_data.get('nombre', ''),
+                    'empleado_curp': empleado_data.get('curp', ''),
                 }
                 resumen.append(item)
 
@@ -514,6 +542,75 @@ class SupabasePlazaRepository(IPlazaRepository):
 
         except Exception as e:
             logger.error(f"Error obteniendo resumen del contrato {contrato_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def obtener_resumen_por_contrato_categoria(
+        self,
+        contrato_categoria_id: int,
+        incluir_canceladas: bool = False
+    ) -> List[dict]:
+        """
+        Obtiene plazas de una categoría con datos del empleado incluidos.
+
+        Returns:
+            Lista de dicts con datos de la plaza y empleado
+        """
+        try:
+            # Obtener las plazas
+            query = self.supabase.table(self.tabla)\
+                .select('*')\
+                .eq('contrato_categoria_id', contrato_categoria_id)
+
+            if not incluir_canceladas:
+                query = query.neq('estatus', EstatusPlaza.CANCELADA.value)
+
+            query = query.order('numero_plaza', desc=False)
+
+            result = query.execute()
+
+            if not result.data:
+                return []
+
+            # Obtener IDs de empleados únicos (no nulos)
+            empleado_ids = list(set(
+                p['empleado_id'] for p in result.data
+                if p.get('empleado_id') is not None
+            ))
+
+            # Obtener datos de empleados en una sola consulta
+            empleados_map = {}
+            if empleado_ids:
+                result_emp = self.supabase.table('empleados')\
+                    .select('id, nombre, apellido_paterno, apellido_materno, curp')\
+                    .in_('id', empleado_ids)\
+                    .execute()
+
+                for emp in result_emp.data:
+                    nombre = emp.get('nombre', '')
+                    apellido_p = emp.get('apellido_paterno', '')
+                    apellido_m = emp.get('apellido_materno', '')
+                    empleados_map[emp['id']] = {
+                        'nombre': f"{nombre} {apellido_p} {apellido_m}".strip(),
+                        'curp': emp.get('curp', ''),
+                    }
+
+            # Construir resumen con datos de empleado
+            resumen = []
+            for data in result.data:
+                empleado_id = data.get('empleado_id')
+                empleado_data = empleados_map.get(empleado_id, {}) if empleado_id else {}
+
+                item = {
+                    **data,
+                    'empleado_nombre': empleado_data.get('nombre', ''),
+                    'empleado_curp': empleado_data.get('curp', ''),
+                }
+                resumen.append(item)
+
+            return resumen
+
+        except Exception as e:
+            logger.error(f"Error obteniendo resumen de contrato_categoria {contrato_categoria_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_totales_por_contrato(self, contrato_id: int) -> dict:
@@ -744,4 +841,30 @@ class SupabasePlazaRepository(IPlazaRepository):
 
         except Exception as e:
             logger.error(f"Error obteniendo contratos con plazas pendientes: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def obtener_empleados_asignados(self) -> List[int]:
+        """
+        Obtiene los IDs de empleados que están asignados a plazas ocupadas.
+
+        Returns:
+            Lista de IDs de empleados únicos
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('empleado_id')\
+                .eq('estatus', EstatusPlaza.OCUPADA.value)\
+                .not_.is_('empleado_id', 'null')\
+                .execute()
+
+            # Extraer IDs únicos
+            empleado_ids = list(set(
+                p['empleado_id'] for p in result.data
+                if p.get('empleado_id') is not None
+            ))
+
+            return empleado_ids
+
+        except Exception as e:
+            logger.error(f"Error obteniendo empleados asignados: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")

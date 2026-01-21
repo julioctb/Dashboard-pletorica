@@ -122,3 +122,62 @@ class EstatusPlaza(str, Enum):
     def es_asignable(self) -> bool:
         """Indica si la plaza puede ser asignada a un empleado"""
         return self == EstatusPlaza.VACANTE
+
+
+# =============================================================================
+# ENUMS DE EMPLEADO
+# =============================================================================
+
+class EstatusEmpleado(str, Enum):
+    """Estados posibles de un empleado"""
+    ACTIVO = 'ACTIVO'
+    INACTIVO = 'INACTIVO'
+    SUSPENDIDO = 'SUSPENDIDO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del estatus"""
+        descripciones = {
+            'ACTIVO': 'Activo',
+            'INACTIVO': 'Inactivo',
+            'SUSPENDIDO': 'Suspendido'
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class GeneroEmpleado(str, Enum):
+    """Género del empleado"""
+    MASCULINO = 'MASCULINO'
+    FEMENINO = 'FEMENINO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del género"""
+        descripciones = {
+            'MASCULINO': 'Masculino',
+            'FEMENINO': 'Femenino'
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class MotivoBaja(str, Enum):
+    """Motivos de baja de empleado"""
+    RENUNCIA = 'RENUNCIA'
+    DESPIDO = 'DESPIDO'
+    FIN_CONTRATO = 'FIN_CONTRATO'
+    JUBILACION = 'JUBILACION'
+    FALLECIMIENTO = 'FALLECIMIENTO'
+    OTRO = 'OTRO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del motivo"""
+        descripciones = {
+            'RENUNCIA': 'Renuncia voluntaria',
+            'DESPIDO': 'Despido',
+            'FIN_CONTRATO': 'Fin de contrato',
+            'JUBILACION': 'Jubilación',
+            'FALLECIMIENTO': 'Fallecimiento',
+            'OTRO': 'Otro motivo'
+        }
+        return descripciones.get(self.value, self.value)

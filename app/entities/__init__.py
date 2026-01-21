@@ -17,6 +17,10 @@ from app.core.enums import (
     EstatusContrato,
     # Enums de Plaza
     EstatusPlaza,
+    # Enums de Empleado
+    EstatusEmpleado,
+    GeneroEmpleado,
+    MotivoBaja,
 )
 
 # Empresa
@@ -77,6 +81,14 @@ from app.entities.plaza import (
     ResumenPlazasCategoria,
 )
 
+# Empleado
+from app.entities.empleado import (
+    Empleado,
+    EmpleadoCreate,
+    EmpleadoUpdate,
+    EmpleadoResumen,
+)
+
 # Costo Patronal (si existe)
 try:
     from app.entities.costo_patronal import (
@@ -98,6 +110,9 @@ __all__ = [
     "TipoDuracion",
     "EstatusContrato",
     "EstatusPlaza",
+    "EstatusEmpleado",
+    "GeneroEmpleado",
+    "MotivoBaja",
     # Empresa
     "Empresa",
     "EmpresaCreate",
@@ -135,6 +150,11 @@ __all__ = [
     "PlazaResumen",
     "ResumenPlazasContrato",
     "ResumenPlazasCategoria",
+    # Empleado
+    "Empleado",
+    "EmpleadoCreate",
+    "EmpleadoUpdate",
+    "EmpleadoResumen",
     # Costo Patronal
     "ConfiguracionEmpresa",
     "Trabajador",

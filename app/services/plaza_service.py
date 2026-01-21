@@ -126,6 +126,42 @@ class PlazaService:
                 categoria_puesto_id=item.get('categoria_puesto_id', 0),
                 categoria_clave=item.get('categoria_clave', ''),
                 categoria_nombre=item.get('categoria_nombre', ''),
+                empleado_nombre=item.get('empleado_nombre', ''),
+                empleado_curp=item.get('empleado_curp', ''),
+            )
+            for item in resumen_data
+        ]
+
+    async def obtener_resumen_de_categoria(
+        self,
+        contrato_categoria_id: int,
+        incluir_canceladas: bool = False
+    ) -> List[PlazaResumen]:
+        """
+        Obtiene resumen de plazas de una categoría con datos del empleado.
+
+        Returns:
+            Lista de PlazaResumen ordenada por número de plaza
+        """
+        resumen_data = await self.repository.obtener_resumen_por_contrato_categoria(
+            contrato_categoria_id,
+            incluir_canceladas
+        )
+
+        return [
+            PlazaResumen(
+                id=item['id'],
+                contrato_categoria_id=item['contrato_categoria_id'],
+                numero_plaza=item['numero_plaza'],
+                codigo=item.get('codigo', ''),
+                empleado_id=item.get('empleado_id'),
+                fecha_inicio=item['fecha_inicio'],
+                fecha_fin=item.get('fecha_fin'),
+                salario_mensual=Decimal(str(item['salario_mensual'])),
+                estatus=EstatusPlaza(item['estatus']),
+                notas=item.get('notas'),
+                empleado_nombre=item.get('empleado_nombre', ''),
+                empleado_curp=item.get('empleado_curp', ''),
             )
             for item in resumen_data
         ]
@@ -166,6 +202,15 @@ class PlazaService:
             Lista de dicts con datos del contrato
         """
         return await self.repository.obtener_contratos_con_plazas_pendientes()
+
+    async def obtener_empleados_asignados(self) -> List[int]:
+        """
+        Obtiene los IDs de empleados que ya están asignados a una plaza ocupada.
+
+        Returns:
+            Lista de IDs de empleados asignados
+        """
+        return await self.repository.obtener_empleados_asignados()
 
     async def calcular_totales_categoria(
         self,

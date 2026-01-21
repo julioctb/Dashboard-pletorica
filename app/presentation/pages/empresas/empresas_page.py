@@ -4,6 +4,7 @@ Muestra una tabla o cards con las empresas y acciones CRUD.
 """
 import reflex as rx
 from app.presentation.pages.empresas.empresas_state import EmpresasState
+from app.core.enums import TipoEmpresa
 from app.presentation.layout import (
     page_layout,
     page_header,
@@ -89,8 +90,8 @@ def tipo_empresa_badge(tipo: str) -> rx.Component:
     """Badge para tipo de empresa"""
     return rx.match(
         tipo,
-        ("NOMINA", rx.badge("Nomina", color_scheme="blue", size="1")),
-        ("CLIENTE", rx.badge("Cliente", color_scheme="green", size="1")),
+        ("NOMINA", rx.badge("NOMINA", color_scheme="blue", size="1")),
+        ("MANTENIMIENTO", rx.badge("MANTENIMIENTO", color_scheme="green", size="1")),
         rx.badge(tipo, color_scheme="gray", size="1"),
     )
 
@@ -282,11 +283,13 @@ def filtros_empresas() -> rx.Component:
     return rx.hstack(
         # Filtro por tipo
         rx.select.root(
-            rx.select.trigger(placeholder="Tipo", width="140px"),
+            rx.select.trigger(placeholder="Tipo", width="160px"),
             rx.select.content(
                 rx.select.item("Todos", value="TODOS"),
-                rx.select.item("Nomina", value="NOMINA"),
-                rx.select.item("Cliente", value="CLIENTE"),
+                rx.foreach(
+                    [e.value for e in TipoEmpresa],
+                    lambda v: rx.select.item(v, value=v)
+                )
             ),
             value=EmpresasState.filtro_tipo,
             on_change=EmpresasState.set_filtro_tipo,
