@@ -7,10 +7,7 @@ from typing import List, Optional, Callable
 from decimal import Decimal, InvalidOperation
 from datetime import date
 
-from app.presentation.components.shared.base_state import (
-    BaseState,
-    crear_setter,
-)
+from app.presentation.components.shared.base_state import BaseState
 from app.services import contrato_service, empresa_service, tipo_servicio_service, pago_service
 from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
 
@@ -118,6 +115,11 @@ class ContratosState(BaseState):
     es_edicion: bool = False
 
     # ========================
+    # ESTADO DE VISTA (tabla/cards)
+    # ========================
+    view_mode: str = "table"
+
+    # ========================
     # FILTROS
     # ========================
     filtro_empresa_id: str = "0"
@@ -197,28 +199,79 @@ class ContratosState(BaseState):
         self.incluir_inactivos = value
         return ContratosState.cargar_contratos
 
-    # --- Formulario: setters simples (generados con helpers) ---
-    set_form_empresa_id = crear_setter("form_empresa_id")
-    set_form_tipo_servicio_id = crear_setter("form_tipo_servicio_id")
-    set_form_codigo = crear_setter("form_codigo", normalizar_mayusculas)
-    set_form_folio_buap = crear_setter("form_folio_buap")
-    set_form_modalidad_adjudicacion = crear_setter("form_modalidad_adjudicacion")
-    set_form_fecha_inicio = crear_setter("form_fecha_inicio")
-    set_form_fecha_fin = crear_setter("form_fecha_fin")
-    set_form_descripcion_objeto = crear_setter("form_descripcion_objeto")
-    set_form_incluye_iva = crear_setter("form_incluye_iva")
-    set_form_origen_recurso = crear_setter("form_origen_recurso")
-    set_form_segmento_asignacion = crear_setter("form_segmento_asignacion")
-    set_form_sede_campus = crear_setter("form_sede_campus")
-    set_form_requiere_poliza = crear_setter("form_requiere_poliza")
-    set_form_poliza_detalle = crear_setter("form_poliza_detalle")
-    set_form_tiene_personal = crear_setter("form_tiene_personal")
-    set_form_estatus = crear_setter("form_estatus")
-    set_form_notas = crear_setter("form_notas")
+    # --- Vista (tabla/cards) ---
+    def set_view_table(self):
+        self.view_mode = "table"
+
+    def set_view_cards(self):
+        self.view_mode = "cards"
+
+    def toggle_view(self):
+        self.view_mode = "cards" if self.view_mode == "table" else "table"
+
+    @rx.var
+    def is_table_view(self) -> bool:
+        return self.view_mode == "table"
+
+    @rx.var
+    def is_cards_view(self) -> bool:
+        return self.view_mode == "cards"
+
+    # --- Formulario: setters simples ---
+    def set_form_empresa_id(self, value):
+        self.form_empresa_id = value if value else ""
+
+    def set_form_tipo_servicio_id(self, value):
+        self.form_tipo_servicio_id = value if value else ""
+
+    def set_form_codigo(self, value):
+        self.form_codigo = normalizar_mayusculas(value) if value else ""
+
+    def set_form_folio_buap(self, value):
+        self.form_folio_buap = value if value else ""
+
+    def set_form_modalidad_adjudicacion(self, value):
+        self.form_modalidad_adjudicacion = value if value else ""
+
+    def set_form_fecha_inicio(self, value):
+        self.form_fecha_inicio = value if value else ""
+
+    def set_form_fecha_fin(self, value):
+        self.form_fecha_fin = value if value else ""
+
+    def set_form_descripcion_objeto(self, value):
+        self.form_descripcion_objeto = value if value else ""
+
+    def set_form_incluye_iva(self, value):
+        self.form_incluye_iva = bool(value)
+
+    def set_form_origen_recurso(self, value):
+        self.form_origen_recurso = value if value else ""
+
+    def set_form_segmento_asignacion(self, value):
+        self.form_segmento_asignacion = value if value else ""
+
+    def set_form_sede_campus(self, value):
+        self.form_sede_campus = value if value else ""
+
+    def set_form_requiere_poliza(self, value):
+        self.form_requiere_poliza = bool(value)
+
+    def set_form_poliza_detalle(self, value):
+        self.form_poliza_detalle = value if value else ""
+
+    def set_form_tiene_personal(self, value):
+        self.form_tiene_personal = bool(value)
+
+    def set_form_estatus(self, value):
+        self.form_estatus = value if value else ""
+
+    def set_form_notas(self, value):
+        self.form_notas = value if value else ""
 
     # --- Formulario: setters con lógica de negocio (mantener explícitos) ---
-    def set_form_tipo_contrato(self, value: str):
-        self.form_tipo_contrato = value
+    def set_form_tipo_contrato(self, value):
+        self.form_tipo_contrato = value if value else ""
         # Auto-configurar campos según tipo de contrato
         if value == TipoContrato.ADQUISICION.value:
             # ADQUISICION: no lleva tipo servicio, tipo duración, ni personal
@@ -236,8 +289,8 @@ class ContratosState(BaseState):
             # SERVICIOS: restaurar defaults
             self.form_tiene_personal = True
 
-    def set_form_tipo_duracion(self, value: str):
-        self.form_tipo_duracion = value
+    def set_form_tipo_duracion(self, value):
+        self.form_tipo_duracion = value if value else ""
         # Si es tiempo indefinido u obra determinada, limpiar fecha fin
         if value in [TipoDuracion.TIEMPO_INDEFINIDO.value, TipoDuracion.OBRA_DETERMINADA.value]:
             self.form_fecha_fin = ""
@@ -259,10 +312,15 @@ class ContratosState(BaseState):
             if tiene_min and tiene_max:
                 self.form_requiere_poliza = True
 
-    # --- Modales (generados con helpers) ---
-    set_mostrar_modal_contrato = crear_setter("mostrar_modal_contrato")
-    set_mostrar_modal_detalle = crear_setter("mostrar_modal_detalle")
-    set_mostrar_modal_confirmar_cancelar = crear_setter("mostrar_modal_confirmar_cancelar")
+    # --- Modales ---
+    def set_mostrar_modal_contrato(self, value: bool):
+        self.mostrar_modal_contrato = value
+
+    def set_mostrar_modal_detalle(self, value: bool):
+        self.mostrar_modal_detalle = value
+
+    def set_mostrar_modal_confirmar_cancelar(self, value: bool):
+        self.mostrar_modal_confirmar_cancelar = value
 
     # ========================
     # VALIDACIÓN EN TIEMPO REAL
@@ -966,7 +1024,7 @@ class ContratosState(BaseState):
         self.form_folio_buap = contrato.get("numero_folio_buap", "") or ""
         self.form_tipo_contrato = contrato.get("tipo_contrato", "")
         self.form_modalidad_adjudicacion = contrato.get("modalidad_adjudicacion", "")
-        self.form_tipo_duracion = contrato.get("tipo_duracion", "")
+        self.form_tipo_duracion = contrato.get("tipo_duracion", "") or ""
 
         # Fechas
         fecha_inicio = contrato.get("fecha_inicio")

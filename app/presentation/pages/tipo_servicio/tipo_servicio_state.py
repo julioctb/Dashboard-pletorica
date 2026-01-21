@@ -36,6 +36,9 @@ class TipoServicioState(BaseState):
     mostrar_modal_confirmar_eliminar: bool = False
     es_edicion: bool = False
 
+    # Vista (tabla/cards)
+    view_mode: str = "table"
+
     # Filtros (filtro_busqueda viene de BaseState)
     incluir_inactivas: bool = False
 
@@ -63,6 +66,24 @@ class TipoServicioState(BaseState):
 
     def set_incluir_inactivas(self, value: bool):
         self.incluir_inactivas = value
+
+    # --- Vista (tabla/cards) ---
+    def set_view_table(self):
+        self.view_mode = "table"
+
+    def set_view_cards(self):
+        self.view_mode = "cards"
+
+    def toggle_view(self):
+        self.view_mode = "cards" if self.view_mode == "table" else "table"
+
+    @rx.var
+    def is_table_view(self) -> bool:
+        return self.view_mode == "table"
+
+    @rx.var
+    def is_cards_view(self) -> bool:
+        return self.view_mode == "cards"
 
     def set_form_clave(self, value: str):
         """Set clave con auto-conversión a mayúsculas"""

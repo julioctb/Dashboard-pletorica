@@ -6,11 +6,7 @@ import reflex as rx
 from typing import List, Optional
 from decimal import Decimal, InvalidOperation
 
-from app.presentation.components.shared.base_state import (
-    BaseState,
-    crear_setter,
-    crear_setter_numerico,
-)
+from app.presentation.components.shared.base_state import BaseState
 from app.services import contrato_categoria_service, categoria_puesto_service
 from app.core.text_utils import formatear_moneda
 
@@ -82,13 +78,24 @@ class ContratoCategoriaState(BaseState):
     error_notas: str = ""
 
     # ========================
-    # SETTERS (generados con helpers para reducir código repetitivo)
+    # SETTERS
     # ========================
-    set_form_categoria_puesto_id = crear_setter("form_categoria_puesto_id")
-    set_form_cantidad_minima = crear_setter_numerico("form_cantidad_minima")
-    set_form_cantidad_maxima = crear_setter_numerico("form_cantidad_maxima")
-    set_form_costo_unitario = crear_setter("form_costo_unitario", formatear_moneda)
-    set_form_notas = crear_setter("form_notas")
+    def set_form_categoria_puesto_id(self, value):
+        self.form_categoria_puesto_id = value if value else ""
+
+    def set_form_cantidad_minima(self, value):
+        # Solo permitir dígitos
+        self.form_cantidad_minima = ''.join(c for c in str(value) if c.isdigit()) if value else ""
+
+    def set_form_cantidad_maxima(self, value):
+        # Solo permitir dígitos
+        self.form_cantidad_maxima = ''.join(c for c in str(value) if c.isdigit()) if value else ""
+
+    def set_form_costo_unitario(self, value):
+        self.form_costo_unitario = formatear_moneda(value) if value else ""
+
+    def set_form_notas(self, value):
+        self.form_notas = value if value else ""
 
     # ========================
     # VALIDACIÓN EN TIEMPO REAL

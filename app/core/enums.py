@@ -94,3 +94,31 @@ class EstatusContrato(str, Enum):
     VENCIDO = 'VENCIDO'
     CANCELADO = 'CANCELADO'
     CERRADO = 'CERRADO'  # Contrato pagado y finalizado
+
+
+# =============================================================================
+# ENUMS DE PLAZA
+# =============================================================================
+
+class EstatusPlaza(str, Enum):
+    """Estados posibles de una plaza"""
+    VACANTE = 'VACANTE'
+    OCUPADA = 'OCUPADA'
+    SUSPENDIDA = 'SUSPENDIDA'
+    CANCELADA = 'CANCELADA'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del estatus"""
+        descripciones = {
+            'VACANTE': 'Vacante',
+            'OCUPADA': 'Ocupada',
+            'SUSPENDIDA': 'Suspendida',
+            'CANCELADA': 'Cancelada'
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def es_asignable(self) -> bool:
+        """Indica si la plaza puede ser asignada a un empleado"""
+        return self == EstatusPlaza.VACANTE

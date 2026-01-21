@@ -1,95 +1,274 @@
 """
-Página principal de Categorías de Puesto.
-Muestra una tabla con las categorías y acciones CRUD.
+Pagina principal de Categorias de Puesto.
+Muestra una tabla o cards con las categorias y acciones CRUD.
 """
 import reflex as rx
 from app.presentation.pages.categorias_puesto.categorias_puesto_state import CategoriasPuestoState
-from app.presentation.components.ui import (
+from app.presentation.layout import (
+    page_layout,
     page_header,
-    acciones_crud,
-    estatus_badge,
+    page_toolbar,
+)
+from app.presentation.components.ui import (
+    status_badge_reactive,
     tabla_vacia,
-    tabla,
     skeleton_tabla,
 )
+from app.presentation.theme import Colors, Spacing, Shadows
 from app.presentation.components.categorias_puesto.categorias_puesto_modals import (
     modal_categoria_puesto,
     modal_confirmar_eliminar,
 )
 
-ENCABEZADOS_CAT = [
-    { 'nombre': 'Clave', 'ancho': '80px'},
-    { 'nombre': 'Nombre', 'ancho': '180px'},
-    { 'nombre': 'Orden', 'ancho': '60px'},
-    { 'nombre': 'Descripción' },
-    { 'nombre': 'Estatus', 'ancho': '80px'},
-    { 'nombre': 'Acciones', 'ancho': '80px'},
-]
 
+# =============================================================================
+# ACCIONES
+# =============================================================================
+
+def acciones_categoria(categoria: dict) -> rx.Component:
+    """Acciones para cada categoria"""
+    return rx.hstack(
+        # Editar
+        rx.cond(
+            categoria["estatus"] == "ACTIVO",
+            rx.tooltip(
+                rx.icon_button(
+                    rx.icon("pencil", size=14),
+                    size="1",
+                    variant="ghost",
+                    color_scheme="blue",
+                    on_click=lambda: CategoriasPuestoState.abrir_modal_editar(categoria),
+                ),
+                content="Editar",
+            ),
+        ),
+        # Reactivar (si inactivo)
+        rx.cond(
+            categoria["estatus"] == "INACTIVO",
+            rx.tooltip(
+                rx.icon_button(
+                    rx.icon("rotate-ccw", size=14),
+                    size="1",
+                    variant="ghost",
+                    color_scheme="green",
+                    on_click=lambda: CategoriasPuestoState.activar_categoria(categoria),
+                ),
+                content="Reactivar",
+            ),
+        ),
+        # Eliminar (si activo)
+        rx.cond(
+            categoria["estatus"] == "ACTIVO",
+            rx.tooltip(
+                rx.icon_button(
+                    rx.icon("trash-2", size=14),
+                    size="1",
+                    variant="ghost",
+                    color_scheme="red",
+                    on_click=lambda: CategoriasPuestoState.abrir_confirmar_eliminar(categoria),
+                ),
+                content="Eliminar",
+            ),
+        ),
+        spacing="1",
+    )
+
+
+# =============================================================================
+# TABLA
+# =============================================================================
 
 def fila_categoria(categoria: dict) -> rx.Component:
-    """Fila de la tabla para una categoría"""
+    """Fila de la tabla para una categoria"""
     return rx.table.row(
-        
         # Clave
         rx.table.cell(
-            rx.text(categoria["clave"], weight="bold"),
+            rx.text(categoria["clave"], weight="bold", size="2"),
         ),
         # Nombre
         rx.table.cell(
-            rx.text(categoria["nombre"]),
+            rx.text(categoria["nombre"], size="2"),
         ),
         # Orden
         rx.table.cell(
             rx.text(categoria["orden"].to(str), size="2"),
         ),
-        # Descripción
+        # Descripcion
         rx.table.cell(
-            rx.text(
-                rx.cond(
-                    categoria["descripcion"],
-                    categoria["descripcion"],
-                    "-"
-                ),
-                color="gray",
-                size="2",
+            rx.cond(
+                categoria["descripcion"],
+                rx.text(categoria["descripcion"], size="2", color="gray"),
+                rx.text("-", size="2", color="gray"),
             ),
-            max_width="200px",
         ),
         # Estatus
         rx.table.cell(
-            estatus_badge(categoria["estatus"]),
+            status_badge_reactive(categoria["estatus"], show_icon=True),
         ),
         # Acciones
         rx.table.cell(
-            acciones_crud(
-                item=categoria,
-                on_editar=CategoriasPuestoState.abrir_modal_editar,
-                on_eliminar=CategoriasPuestoState.abrir_confirmar_eliminar,
-                on_reactivar=CategoriasPuestoState.activar_categoria,
-            ),
+            acciones_categoria(categoria),
         ),
     )
 
 
+ENCABEZADOS_CATEGORIAS = [
+    {"nombre": "Clave", "ancho": "80px"},
+    {"nombre": "Nombre", "ancho": "180px"},
+    {"nombre": "Orden", "ancho": "60px"},
+    {"nombre": "Descripcion", "ancho": "auto"},
+    {"nombre": "Estatus", "ancho": "100px"},
+    {"nombre": "Acciones", "ancho": "100px"},
+]
 
 
-
-
-
-
-
-def filtro_tipo_servicio() -> rx.Component:
-    """Select para filtrar por tipo de servicio"""
-    return rx.hstack(
-        rx.text("Tipo:", size="2", color="gray"),
-        rx.select.root(
-            rx.select.trigger(
-                placeholder="Todos los tipos",
-                width="180px",
+def tabla_categorias() -> rx.Component:
+    """Vista de tabla de categorias"""
+    return rx.cond(
+        CategoriasPuestoState.loading,
+        skeleton_tabla(columnas=ENCABEZADOS_CATEGORIAS, filas=5),
+        rx.cond(
+            CategoriasPuestoState.total_categorias > 0,
+            rx.vstack(
+                rx.table.root(
+                    rx.table.header(
+                        rx.table.row(
+                            rx.foreach(
+                                ENCABEZADOS_CATEGORIAS,
+                                lambda col: rx.table.column_header_cell(
+                                    col["nombre"],
+                                    width=col["ancho"],
+                                ),
+                            ),
+                        ),
+                    ),
+                    rx.table.body(
+                        rx.foreach(
+                            CategoriasPuestoState.categorias,
+                            fila_categoria,
+                        ),
+                    ),
+                    width="100%",
+                    variant="surface",
+                ),
+                # Contador
+                rx.text(
+                    "Mostrando ", CategoriasPuestoState.total_categorias, " categoria(s)",
+                    size="2",
+                    color="gray",
+                ),
+                width="100%",
+                spacing="3",
             ),
+            tabla_vacia(onclick=CategoriasPuestoState.abrir_modal_crear),
+        ),
+    )
+
+
+# =============================================================================
+# VISTA DE CARDS
+# =============================================================================
+
+def card_categoria(categoria: dict) -> rx.Component:
+    """Card individual para una categoria"""
+    return rx.card(
+        rx.vstack(
+            # Header con clave y estatus
+            rx.hstack(
+                rx.hstack(
+                    rx.badge(categoria["clave"], variant="outline", size="2"),
+                    rx.badge(
+                        rx.hstack(rx.icon("hash", size=12), categoria["orden"].to(str), spacing="1"),
+                        variant="soft",
+                        size="1",
+                    ),
+                    spacing="2",
+                ),
+                rx.spacer(),
+                status_badge_reactive(categoria["estatus"], show_icon=True),
+                width="100%",
+                align="center",
+            ),
+
+            # Nombre
+            rx.text(categoria["nombre"], weight="bold", size="3"),
+
+            # Descripcion
+            rx.cond(
+                categoria["descripcion"],
+                rx.text(
+                    categoria["descripcion"],
+                    size="2",
+                    color=Colors.TEXT_SECONDARY,
+                    style={"max_width": "100%", "overflow": "hidden", "text_overflow": "ellipsis"},
+                ),
+            ),
+
+            # Acciones
+            rx.hstack(
+                acciones_categoria(categoria),
+                width="100%",
+                justify="end",
+            ),
+
+            spacing="3",
+            width="100%",
+        ),
+        width="100%",
+        style={
+            "transition": "all 0.2s ease",
+            "_hover": {
+                "box_shadow": Shadows.MD,
+                "border_color": Colors.BORDER_STRONG,
+            },
+        },
+    )
+
+
+def grid_categorias() -> rx.Component:
+    """Vista de cards de categorias"""
+    return rx.cond(
+        CategoriasPuestoState.loading,
+        rx.center(rx.spinner(size="3"), padding="8"),
+        rx.cond(
+            CategoriasPuestoState.total_categorias > 0,
+            rx.vstack(
+                rx.box(
+                    rx.foreach(
+                        CategoriasPuestoState.categorias,
+                        card_categoria,
+                    ),
+                    display="grid",
+                    grid_template_columns="repeat(auto-fill, minmax(280px, 1fr))",
+                    gap=Spacing.MD,
+                    width="100%",
+                ),
+                # Contador
+                rx.text(
+                    "Mostrando ", CategoriasPuestoState.total_categorias, " categoria(s)",
+                    size="2",
+                    color="gray",
+                ),
+                width="100%",
+                spacing="3",
+            ),
+            tabla_vacia(onclick=CategoriasPuestoState.abrir_modal_crear),
+        ),
+    )
+
+
+# =============================================================================
+# FILTROS
+# =============================================================================
+
+def filtros_categorias() -> rx.Component:
+    """Filtros para categorias"""
+    return rx.hstack(
+        # Filtro por tipo de servicio
+        rx.select.root(
+            rx.select.trigger(placeholder="Tipo de servicio", width="200px"),
             rx.select.content(
-                rx.select.item("Todos", value="0"),
+                rx.select.item("Todos los tipos", value="0"),
                 rx.foreach(
                     CategoriasPuestoState.opciones_tipo_servicio,
                     lambda opt: rx.select.item(opt["label"], value=opt["value"]),
@@ -98,20 +277,31 @@ def filtro_tipo_servicio() -> rx.Component:
             value=CategoriasPuestoState.filtro_tipo_servicio_id,
             on_change=CategoriasPuestoState.set_filtro_tipo_servicio_id,
         ),
-        spacing="2",
+        # Boton limpiar filtros
+        rx.cond(
+            CategoriasPuestoState.tiene_filtros_activos,
+            rx.button(
+                rx.icon("x", size=14),
+                "Limpiar",
+                on_click=CategoriasPuestoState.limpiar_filtros,
+                variant="ghost",
+                size="2",
+            ),
+        ),
+        spacing="3",
         align="center",
     )
 
 
+# =============================================================================
+# BREADCRUMBS
+# =============================================================================
+
 def breadcrumbs() -> rx.Component:
-    """Breadcrumbs de navegación"""
+    """Breadcrumbs de navegacion"""
     return rx.hstack(
         rx.link(
-            rx.hstack(
-                rx.icon("home", size=14),
-                rx.text("Inicio", size="2"),
-                spacing="1",
-            ),
+            rx.hstack(rx.icon("home", size=14), rx.text("Inicio", size="2"), spacing="1"),
             href="/",
             color="gray",
             underline="none",
@@ -129,16 +319,12 @@ def breadcrumbs() -> rx.Component:
             CategoriasPuestoState.filtro_tipo_servicio_id != "0",
             rx.hstack(
                 rx.text("/", color="gray", size="2"),
-                rx.text(
-                    CategoriasPuestoState.nombre_tipo_filtrado,
-                    size="2",
-                    weight="medium",
-                ),
+                rx.text(CategoriasPuestoState.nombre_tipo_filtrado, size="2", weight="medium"),
                 spacing="1",
             ),
             rx.hstack(
                 rx.text("/", color="gray", size="2"),
-                rx.text("Categorías", size="2", weight="medium"),
+                rx.text("Categorias", size="2", weight="medium"),
                 spacing="1",
             ),
         ),
@@ -148,56 +334,55 @@ def breadcrumbs() -> rx.Component:
     )
 
 
-def contenido_principal() -> rx.Component:
-    """Contenido principal de la página"""
-    return rx.vstack(
-        # Encabezado
-        page_header(
-            icono="users",
-            titulo="Categorías de Puesto",
-            subtitulo="Administre las categorías de puesto por tipo de servicio",
-        ),
-        # Breadcrumbs
-        breadcrumbs(),
-
-        # Contenido: skeleton, tabla o mensaje vacío
-        rx.cond(
-            CategoriasPuestoState.loading,
-            skeleton_tabla(columnas=ENCABEZADOS_CAT, filas=5),
-            rx.cond(
-                CategoriasPuestoState.mostrar_tabla,
-                tabla(
-                    columnas=ENCABEZADOS_CAT,
-                    lista=CategoriasPuestoState.categorias,
-                    filas=fila_categoria,
-                    filtro_busqueda=CategoriasPuestoState.filtro_busqueda,
-                    on_change_busqueda=CategoriasPuestoState.on_change_busqueda,
-                    on_clear_busqueda=CategoriasPuestoState.limpiar_busqueda,
-                    boton_derecho=rx.button(
-                        rx.icon("plus", size=16),
-                        "Nueva Categoría",
-                        on_click=CategoriasPuestoState.abrir_modal_crear,
-                        color_scheme="blue",
-                    ),
-                ),
-                tabla_vacia(onclick=CategoriasPuestoState.abrir_modal_crear),
-            ),
-        ),
-
-        # Modales
-        modal_categoria_puesto(),
-        modal_confirmar_eliminar(),
-
-        spacing="4",
-        width="100%",
-        padding="6",
-    )
-
+# =============================================================================
+# PAGINA PRINCIPAL
+# =============================================================================
 
 def categorias_puesto_page() -> rx.Component:
-    """Página de Categorías de Puesto"""
+    """Pagina de Categorias de Puesto usando el nuevo layout"""
     return rx.box(
-        contenido_principal(),
+        page_layout(
+            header=page_header(
+                titulo="Categorias de Puesto",
+                subtitulo="Administre las categorias de puesto por tipo de servicio",
+                icono="folder",
+                accion_principal=rx.button(
+                    rx.icon("plus", size=16),
+                    "Nueva Categoria",
+                    on_click=CategoriasPuestoState.abrir_modal_crear,
+                    color_scheme="blue",
+                ),
+            ),
+            toolbar=page_toolbar(
+                search_value=CategoriasPuestoState.filtro_busqueda,
+                search_placeholder="Buscar por clave o nombre...",
+                on_search_change=CategoriasPuestoState.on_change_busqueda,
+                on_search_clear=CategoriasPuestoState.limpiar_busqueda,
+                filters=filtros_categorias(),
+                show_view_toggle=True,
+                current_view=CategoriasPuestoState.view_mode,
+                on_view_table=CategoriasPuestoState.set_view_table,
+                on_view_cards=CategoriasPuestoState.set_view_cards,
+            ),
+            content=rx.vstack(
+                # Breadcrumbs
+                breadcrumbs(),
+
+                # Contenido segun vista
+                rx.cond(
+                    CategoriasPuestoState.is_table_view,
+                    tabla_categorias(),
+                    grid_categorias(),
+                ),
+
+                # Modales
+                modal_categoria_puesto(),
+                modal_confirmar_eliminar(),
+
+                spacing="4",
+                width="100%",
+            ),
+        ),
         width="100%",
         min_height="100vh",
         on_mount=CategoriasPuestoState.cargar_datos_iniciales,

@@ -1,4 +1,7 @@
 import reflex as rx
+
+from app.presentation.theme import GLOBAL_STYLES
+
 from .presentation.pages.dashboard import dashboard_page
 from .presentation.pages.empresas.empresas_page import empresas_page
 
@@ -6,6 +9,7 @@ from .presentation.pages.simulador.simulador_page import simulador_page
 from .presentation.pages.tipo_servicio.tipo_servicio_page import tipo_servicio_page
 from .presentation.pages.categorias_puesto.categorias_puesto_page import categorias_puesto_page
 from .presentation.pages.contratos.contratos_page import contratos_page
+from .presentation.pages.plazas.plazas_page import plazas_page
 
 from .presentation.layout.sidebar_layout import sidebar
 
@@ -36,8 +40,9 @@ app= rx.App(
         has_background=True,
         radius="medium",
         scaling="100%",
-        accent_color='indigo'
-    )
+        accent_color='blue'
+    ),
+    style=GLOBAL_STYLES
 )
 
 #definicion de rutas
@@ -48,3 +53,4 @@ app.add_page(lambda: index(simulador_page()), route="/simulador")
 app.add_page(lambda: index(tipo_servicio_page()), route="/tipos-servicio")
 app.add_page(lambda: index(categorias_puesto_page()), route="/categorias-puesto")
 app.add_page(lambda: index(contratos_page()), route="/contratos")
+app.add_page(lambda: index(plazas_page()), route="/plazas")

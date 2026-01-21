@@ -6,5 +6,10 @@ config = rx.Config(
     plugins=[
         rx.plugins.SitemapPlugin(),
         rx.plugins.TailwindV4Plugin(),
-    ]
+    ],
+    # Google Fonts:
+    stylesheets=[
+        "https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;500;600;700&display=swap",
+    ],
+
 )

@@ -84,7 +84,7 @@ class EmpresasState(BaseState):
     # ========================
     # FILTROS Y BÚSQUEDA
     # ========================
-    filtro_tipo: str = ""
+    filtro_tipo: str = "TODOS"
     filtro_busqueda: str = ""
     solo_activas: bool = False
 
@@ -95,6 +95,11 @@ class EmpresasState(BaseState):
     modo_modal_empresa: str = ""  # "crear" | "editar" | ""
     mostrar_modal_detalle: bool = False
     saving: bool = False
+
+    # ========================
+    # ESTADO DE VISTA (tabla/cards)
+    # ========================
+    view_mode: str = "table"
 
     # ========================
     # FORMULARIO DE EMPRESA (Reflex requiere declaración explícita)
@@ -128,56 +133,76 @@ class EmpresasState(BaseState):
     # ========================
     # SETTERS DE FILTROS
     # ========================
-    def set_filtro_tipo(self, value: str):
-        self.filtro_tipo = value
+    def set_filtro_tipo(self, value):
+        self.filtro_tipo = value if value else ""
 
-    def set_filtro_busqueda(self, value: str):
-        self.filtro_busqueda = value
+    def set_filtro_busqueda(self, value):
+        self.filtro_busqueda = value if value else ""
 
-    def set_solo_activas(self, value: bool):
-        self.solo_activas = value
+    def set_solo_activas(self, value):
+        self.solo_activas = bool(value)
+
+    # ========================
+    # SETTERS DE VISTA (tabla/cards)
+    # ========================
+    def set_view_table(self):
+        self.view_mode = "table"
+
+    def set_view_cards(self):
+        self.view_mode = "cards"
+
+    def toggle_view(self):
+        self.view_mode = "cards" if self.view_mode == "table" else "table"
+
+    @rx.var
+    def is_table_view(self) -> bool:
+        return self.view_mode == "table"
+
+    @rx.var
+    def is_cards_view(self) -> bool:
+        return self.view_mode == "cards"
 
     # ========================
     # SETTERS DE FORMULARIO (Reflex v0.8.9+ requiere explícitos)
     # ========================
-    def set_form_nombre_comercial(self, value: str):
-        self.form_nombre_comercial = value
+    def set_form_nombre_comercial(self, value):
+        self.form_nombre_comercial = value if value else ""
 
-    def set_form_razon_social(self, value: str):
-        self.form_razon_social = value
+    def set_form_razon_social(self, value):
+        self.form_razon_social = value if value else ""
 
-    def set_form_tipo_empresa(self, value: str):
-        self.form_tipo_empresa = value
+    def set_form_tipo_empresa(self, value):
+        self.form_tipo_empresa = value if value else ""
 
-    def set_form_rfc(self, value: str):
+    def set_form_rfc(self, value):
         self.form_rfc = value.upper() if value else ""
 
-    def set_form_direccion(self, value: str):
-        self.form_direccion = value
+    def set_form_direccion(self, value):
+        self.form_direccion = value if value else ""
 
-    def set_form_codigo_postal(self, value: str):
-        self.form_codigo_postal = value
+    def set_form_codigo_postal(self, value):
+        self.form_codigo_postal = value if value else ""
 
-    def set_form_telefono(self, value: str):
-        self.form_telefono = value
+    def set_form_telefono(self, value):
+        self.form_telefono = value if value else ""
 
-    def set_form_email(self, value: str):
-        self.form_email = value
+    def set_form_email(self, value):
+        self.form_email = value if value else ""
 
-    def set_form_pagina_web(self, value: str):
-        self.form_pagina_web = value
+    def set_form_pagina_web(self, value):
+        self.form_pagina_web = value if value else ""
 
-    def set_form_estatus(self, value: str):
-        self.form_estatus = value
+    def set_form_estatus(self, value):
+        self.form_estatus = value if value else ""
 
-    def set_form_notas(self, value: str):
-        self.form_notas = value
+    def set_form_notas(self, value):
+        self.form_notas = value if value else ""
 
-    def set_form_registro_patronal(self, value: str):
-        self.form_registro_patronal = value
+    def set_form_registro_patronal(self, value):
+        self.form_registro_patronal = value if value else ""
 
-    def set_form_prima_riesgo(self, value: str):
-        self.form_prima_riesgo = value
+    def set_form_prima_riesgo(self, value):
+        self.form_prima_riesgo = value if value else ""
 
     # ========================
     # SETTERS DE MODALES (Reflex v0.8.9+ requiere explícitos)
@@ -197,7 +222,7 @@ class EmpresasState(BaseState):
         try:
             self.empresas = await empresa_service.buscar_con_filtros(
                 texto=self.filtro_busqueda or None,
-                tipo_empresa=self.filtro_tipo or None,
+                tipo_empresa=self.filtro_tipo if self.filtro_tipo != "TODOS" else None,
                 estatus="ACTIVO" if self.solo_activas else None,
                 incluir_inactivas=not self.solo_activas,
                 limite=100,
@@ -328,7 +353,7 @@ class EmpresasState(BaseState):
         await self.cargar_empresas()
 
     async def limpiar_filtros(self):
-        self.filtro_tipo = ""
+        self.filtro_tipo = "TODOS"
         self.filtro_busqueda = ""
         self.solo_activas = False
         await self.cargar_empresas()
@@ -382,13 +407,13 @@ class EmpresasState(BaseState):
 
     @rx.var
     def tiene_filtros_activos(self) -> bool:
-        return bool(self.filtro_busqueda or self.filtro_tipo or self.solo_activas)
+        return bool(self.filtro_busqueda or (self.filtro_tipo and self.filtro_tipo != "TODOS") or self.solo_activas)
 
     @rx.var
     def cantidad_filtros_activos(self) -> int:
         return sum([
             bool(self.filtro_busqueda),
-            bool(self.filtro_tipo),
+            bool(self.filtro_tipo and self.filtro_tipo != "TODOS"),
             self.solo_activas
         ])
 

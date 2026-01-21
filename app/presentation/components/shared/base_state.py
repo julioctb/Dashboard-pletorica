@@ -2,13 +2,14 @@
 Estado base para todos los módulos.
 
 Incluye helpers para:
-- Generar setters de forma declarativa
 - Manejo centralizado de errores
 - Reducir código repetitivo en los states de Reflex
+
+Nota: Los setters deben definirse explícitamente en cada state.
+Reflex no reconoce funciones asignadas dinámicamente como event handlers.
 """
 import reflex as rx
-from typing import Callable, Optional, Any, Dict, Type
-from contextlib import contextmanager
+from typing import Optional
 
 # Importar excepciones para manejo centralizado
 from app.core.exceptions import (
@@ -19,119 +20,6 @@ from app.core.exceptions import (
     DatabaseError,
     BusinessRuleError,
 )
-
-
-# ============================================================================
-# HELPERS PARA GENERAR SETTERS
-# ============================================================================
-
-def crear_setter(campo: str, transformacion: Optional[Callable[[Any], Any]] = None):
-    """
-    Crea un setter simple para un campo de estado.
-
-    Args:
-        campo: Nombre del campo (sin prefijo 'form_')
-        transformacion: Función opcional para transformar el valor antes de asignar
-
-    Returns:
-        Función setter que puede asignarse a una clase
-
-    Ejemplo:
-        class MiState(BaseState):
-            form_nombre: str = ""
-            form_monto: str = ""
-
-            # Setters generados
-            set_form_nombre = crear_setter("form_nombre")
-            set_form_monto = crear_setter("form_monto", formatear_moneda)
-    """
-    def setter(self, value):
-        if transformacion:
-            value = transformacion(value)
-        setattr(self, campo, value)
-    return setter
-
-
-def crear_setter_con_callback(
-    campo: str,
-    callback: Callable,
-    transformacion: Optional[Callable[[Any], Any]] = None
-):
-    """
-    Crea un setter que asigna el valor y retorna un event handler.
-
-    Útil para filtros que deben recargar datos automáticamente.
-
-    Args:
-        campo: Nombre del campo
-        callback: Event handler a retornar después de asignar
-        transformacion: Función opcional para transformar el valor
-
-    Returns:
-        Función setter que retorna el callback
-
-    Ejemplo:
-        class MiState(BaseState):
-            filtro_empresa: str = ""
-
-            set_filtro_empresa = crear_setter_con_callback(
-                "filtro_empresa",
-                lambda: MiState.cargar_datos,
-                lambda v: v if v else "0"
-            )
-    """
-    def setter(self, value):
-        if transformacion:
-            value = transformacion(value)
-        setattr(self, campo, value)
-        return callback()
-    return setter
-
-
-def crear_setter_upper(campo: str):
-    """
-    Crea un setter que convierte el valor a mayúsculas.
-
-    Args:
-        campo: Nombre del campo
-
-    Ejemplo:
-        set_form_codigo = crear_setter_upper("form_codigo")
-    """
-    def setter(self, value):
-        setattr(self, campo, value.upper() if value else "")
-    return setter
-
-
-def crear_setter_strip(campo: str):
-    """
-    Crea un setter que limpia espacios del valor.
-
-    Args:
-        campo: Nombre del campo
-
-    Ejemplo:
-        set_form_nombre = crear_setter_strip("form_nombre")
-    """
-    def setter(self, value):
-        setattr(self, campo, value.strip() if value else "")
-    return setter
-
-
-def crear_setter_numerico(campo: str):
-    """
-    Crea un setter que solo permite dígitos.
-
-    Args:
-        campo: Nombre del campo
-
-    Ejemplo:
-        set_form_cantidad = crear_setter_numerico("form_cantidad")
-    """
-    def setter(self, value):
-        limpio = ''.join(c for c in str(value) if c.isdigit())
-        setattr(self, campo, limpio)
-    return setter
 
 
 # ============================================================================

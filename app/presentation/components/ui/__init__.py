@@ -22,6 +22,28 @@ from .modals import (
     modal_detalle,
 )
 
+from .status_badge import (
+    status_badge,
+    status_badge_contrato,
+    status_badge_entidad,
+    status_badge_plaza,
+    status_badge_reactive,
+    status_dot,
+)
+
+from .view_toggle import (
+    view_toggle,
+    view_toggle_with_label,
+    view_toggle_segmented,
+)
+
+from .breadcrumb import (
+    breadcrumb,
+    breadcrumb_dynamic,
+    breadcrumb_item,
+)
+
+
 __all__ = [
     'page_header',
     'form_input',
@@ -48,4 +70,20 @@ __all__ = [
     'modal_confirmar_accion',
     'modal_formulario',
     'modal_detalle',
+     # Status badges
+    "status_badge",
+    "status_badge_contrato",
+    "status_badge_entidad",
+    "status_badge_plaza",
+    "status_badge_reactive",
+    "status_dot",
+    
+    # View toggle
+    "view_toggle",
+    "view_toggle_with_label",
+    "view_toggle_segmented",
+    # Breadcrumb
+    "breadcrumb",
+    "breadcrumb_dynamic",
+    "breadcrumb_item",
 ]

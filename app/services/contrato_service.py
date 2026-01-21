@@ -232,6 +232,40 @@ class ContratoService:
         )
         return [ContratoResumen.from_contrato(c) for c in contratos]
 
+    async def obtener_con_personal(
+        self,
+        solo_activos: bool = True,
+        limite: int = 50
+    ) -> List[ContratoResumen]:
+        """
+        Obtiene contratos que tienen personal (tiene_personal = True).
+
+        Útil para el módulo de Plazas donde se necesita seleccionar
+        un contrato para asignar plazas.
+
+        Args:
+            solo_activos: Si True, solo retorna contratos ACTIVOS o BORRADOR
+            limite: Número máximo de resultados
+
+        Returns:
+            Lista de resúmenes de contratos con personal
+        """
+        contratos = await self.repository.obtener_todos(
+            incluir_inactivos=not solo_activos,
+            limite=limite
+        )
+
+        # Filtrar por tiene_personal = True
+        contratos_con_personal = [
+            c for c in contratos
+            if c.tiene_personal and (
+                not solo_activos or
+                c.estatus in [EstatusContrato.ACTIVO, EstatusContrato.BORRADOR]
+            )
+        ]
+
+        return [ContratoResumen.from_contrato(c) for c in contratos_con_personal]
+
     # ==========================================
     # OPERACIONES DE CREACIÓN
     # ==========================================

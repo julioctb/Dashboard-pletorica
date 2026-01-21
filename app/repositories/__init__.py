@@ -41,6 +41,12 @@ from app.repositories.contrato_categoria_repository import (
     SupabaseContratoCategoriaRepository,
 )
 
+# Plaza
+from app.repositories.plaza_repository import (
+    IPlazaRepository,
+    SupabasePlazaRepository,
+)
+
 
 __all__ = [
     # Empresa
@@ -61,4 +67,7 @@ __all__ = [
     # ContratoCategoria
     "IContratoCategoriaRepository",
     "SupabaseContratoCategoriaRepository",
+    # Plaza
+    "IPlazaRepository",
+    "SupabasePlazaRepository",
 ]

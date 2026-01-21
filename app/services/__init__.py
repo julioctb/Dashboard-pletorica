@@ -41,6 +41,12 @@ from app.services.contrato_categoria_service import (
     contrato_categoria_service,
 )
 
+# Plaza
+from app.services.plaza_service import (
+    PlazaService,
+    plaza_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -61,4 +67,7 @@ __all__ = [
     # ContratoCategoria
     "ContratoCategoriaService",
     "contrato_categoria_service",
+    # Plaza
+    "PlazaService",
+    "plaza_service",
 ]

@@ -7,11 +7,7 @@ from typing import List, Optional
 from decimal import Decimal, InvalidOperation
 from datetime import date
 
-from app.presentation.components.shared.base_state import (
-    BaseState,
-    crear_setter,
-    crear_setter_upper,
-)
+from app.presentation.components.shared.base_state import BaseState
 from app.services import pago_service, contrato_service
 from app.core.text_utils import formatear_moneda, formatear_fecha
 
@@ -87,14 +83,25 @@ class PagosState(BaseState):
     error_notas: str = ""
 
     # ========================
-    # SETTERS (generados con helpers para reducir código repetitivo)
+    # SETTERS
     # ========================
-    set_form_fecha_pago = crear_setter("form_fecha_pago")
-    set_form_monto = crear_setter("form_monto", formatear_moneda)
-    set_form_concepto = crear_setter("form_concepto")
-    set_form_numero_factura = crear_setter_upper("form_numero_factura")
-    set_form_comprobante = crear_setter("form_comprobante")
-    set_form_notas = crear_setter("form_notas")
+    def set_form_fecha_pago(self, value):
+        self.form_fecha_pago = value if value else ""
+
+    def set_form_monto(self, value):
+        self.form_monto = formatear_moneda(value) if value else ""
+
+    def set_form_concepto(self, value):
+        self.form_concepto = value if value else ""
+
+    def set_form_numero_factura(self, value):
+        self.form_numero_factura = value.upper() if value else ""
+
+    def set_form_comprobante(self, value):
+        self.form_comprobante = value if value else ""
+
+    def set_form_notas(self, value):
+        self.form_notas = value if value else ""
 
     # ========================
     # VALIDACIÓN EN TIEMPO REAL
@@ -257,7 +264,7 @@ class PagosState(BaseState):
             return rx.toast.success(mensaje, position="top-center")
 
         except Exception as e:
-            self.manejar_error(e, "al guardar pago")
+            return self.manejar_error_con_toast(e, "al guardar pago")
         finally:
             self.finalizar_guardado()
 
@@ -317,7 +324,7 @@ class PagosState(BaseState):
             return rx.toast.success("Pago eliminado", position="top-center")
 
         except Exception as e:
-            self.manejar_error(e, "al eliminar pago")
+            return self.manejar_error_con_toast(e, "al eliminar pago")
         finally:
             self.finalizar_guardado()
 
@@ -341,7 +348,7 @@ class PagosState(BaseState):
             )
 
         except Exception as e:
-            self.manejar_error(e, "al cerrar contrato")
+            return self.manejar_error_con_toast(e, "al cerrar contrato")
         finally:
             self.finalizar_guardado()
 
