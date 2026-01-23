@@ -541,11 +541,12 @@ class SupabaseContratoRepository(IContratoRepository):
         try:
             query = self.supabase.table(self.tabla).select('*')
 
-            # Filtro de texto
+            # Filtro de texto (busca en código, folio BUAP y descripción/concepto)
             if texto and texto.strip():
                 query = query.or_(
                     f"codigo.ilike.%{texto}%,"
-                    f"numero_folio_buap.ilike.%{texto}%"
+                    f"numero_folio_buap.ilike.%{texto}%,"
+                    f"descripcion_objeto.ilike.%{texto}%"
                 )
 
             # Filtros exactos

@@ -12,9 +12,7 @@ from app.presentation.layout import (
     page_header,
     page_toolbar,
 )
-from app.presentation.components.ui import (
-    tabla_vacia,
-    skeleton_tabla,
+from app.presentation.components.ui import (skeleton_tabla,
 )
 from app.presentation.theme import Colors, Spacing, Shadows
 from app.presentation.pages.historial_laboral.historial_laboral_modals import modal_detalle
@@ -184,10 +182,7 @@ def tabla_historial() -> rx.Component:
                 width="100%",
                 spacing="3",
             ),
-            tabla_vacia(
-                mensaje="No hay registros de historial",
-                submensaje="Los movimientos se registran automáticamente al crear, suspender, reactivar o dar de baja empleados.",
-            ),
+            
         ),
     )
 
@@ -313,10 +308,7 @@ def grid_historial() -> rx.Component:
                 width="100%",
                 spacing="3",
             ),
-            tabla_vacia(
-                mensaje="No hay registros de historial",
-                submensaje="Los movimientos se registran automáticamente al crear, suspender, reactivar o dar de baja empleados.",
-            ),
+            
         ),
     )
 

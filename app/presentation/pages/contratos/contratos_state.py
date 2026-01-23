@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import date
 
 from app.presentation.components.shared.base_state import BaseState
-from app.services import contrato_service, empresa_service, tipo_servicio_service, pago_service
+from app.services import contrato_service, empresa_service, tipo_servicio_service, pago_service, categoria_puesto_service
 from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
 
 from app.entities import (
@@ -70,6 +70,7 @@ CAMPOS_VALIDACION: dict[str, Callable[[str], str]] = {
 FORM_DEFAULTS = {
     "empresa_id": "",
     "tipo_servicio_id": "",
+    "categoria_puesto_id": "",
     "codigo": "",
     "folio_buap": "",
     "tipo_contrato": "",
@@ -105,6 +106,7 @@ class ContratosState(BaseState):
     # Listas para dropdowns
     empresas: List[dict] = []
     tipos_servicio: List[dict] = []
+    categorias_puesto: List[dict] = []
 
     # ========================
     # ESTADO DE UI
@@ -126,6 +128,8 @@ class ContratosState(BaseState):
     filtro_tipo_servicio_id: str = "0"
     filtro_estatus: str = "TODOS"
     filtro_modalidad: str = ""
+    filtro_fecha_desde: str = ""
+    filtro_fecha_hasta: str = ""
     incluir_inactivos: bool = False
 
     # ========================
@@ -133,6 +137,7 @@ class ContratosState(BaseState):
     # ========================
     form_empresa_id: str = ""
     form_tipo_servicio_id: str = ""
+    form_categoria_puesto_id: str = ""
     form_codigo: str = ""
     form_folio_buap: str = ""
     form_tipo_contrato: str = ""
@@ -199,6 +204,14 @@ class ContratosState(BaseState):
         self.incluir_inactivos = value
         return ContratosState.cargar_contratos
 
+    def set_filtro_fecha_desde(self, value: str):
+        self.filtro_fecha_desde = value if value else ""
+        return ContratosState.cargar_contratos
+
+    def set_filtro_fecha_hasta(self, value: str):
+        self.filtro_fecha_hasta = value if value else ""
+        return ContratosState.cargar_contratos
+
     # --- Vista (tabla/cards) ---
     def set_view_table(self):
         self.view_mode = "table"
@@ -223,6 +236,15 @@ class ContratosState(BaseState):
 
     def set_form_tipo_servicio_id(self, value):
         self.form_tipo_servicio_id = value if value else ""
+        # Limpiar categoría seleccionada al cambiar tipo de servicio
+        self.form_categoria_puesto_id = ""
+        self.categorias_puesto = []
+        # Cargar categorías del nuevo tipo de servicio
+        if value:
+            return ContratosState.cargar_categorias_puesto
+
+    def set_form_categoria_puesto_id(self, value):
+        self.form_categoria_puesto_id = value if value else ""
 
     def set_form_codigo(self, value):
         self.form_codigo = normalizar_mayusculas(value) if value else ""
@@ -485,6 +507,8 @@ class ContratosState(BaseState):
             self.filtro_tipo_servicio_id != "0" or
             (self.filtro_estatus != "TODOS" and bool(self.filtro_estatus)) or
             bool(self.filtro_modalidad) or
+            bool(self.filtro_fecha_desde) or
+            bool(self.filtro_fecha_hasta) or
             bool(self.filtro_busqueda.strip()) or
             self.incluir_inactivos
         )
@@ -503,6 +527,11 @@ class ContratosState(BaseState):
     def opciones_tipo_servicio(self) -> List[dict]:
         """Opciones formateadas para el select de tipo de servicio"""
         return [{"value": str(t["id"]), "label": f"{t['clave']} - {t['nombre']}"} for t in self.tipos_servicio]
+
+    @rx.var
+    def opciones_categoria_puesto(self) -> List[dict]:
+        """Opciones formateadas para el select de categoría de puesto"""
+        return [{"value": str(c["id"]), "label": f"{c['clave']} - {c['nombre']}"} for c in self.categorias_puesto]
 
     @rx.var
     def opciones_modalidad(self) -> List[dict]:
@@ -604,7 +633,9 @@ class ContratosState(BaseState):
         """Cargar empresas, tipos de servicio y contratos"""
         await self.cargar_empresas()
         await self.cargar_tipos_servicio()
-        await self.cargar_contratos()
+        # cargar_contratos es un generador async, iteramos sobre él
+        async for _ in self.cargar_contratos():
+            yield
 
     async def cargar_empresas(self):
         """Cargar empresas para el dropdown"""
@@ -625,13 +656,38 @@ class ContratosState(BaseState):
             self.mostrar_mensaje(f"Error al cargar tipos de servicio: {str(e)}", "error")
             self.tipos_servicio = []
 
+    async def cargar_categorias_puesto(self):
+        """Cargar categorías de puesto según el tipo de servicio seleccionado"""
+        if not self.form_tipo_servicio_id:
+            self.categorias_puesto = []
+            return
+        try:
+            tipo_servicio_id = int(self.form_tipo_servicio_id)
+            categorias = await categoria_puesto_service.obtener_por_tipo_servicio(
+                tipo_servicio_id,
+                incluir_inactivas=False
+            )
+            self.categorias_puesto = [c.model_dump() for c in categorias]
+        except Exception as e:
+            self.mostrar_mensaje(f"Error al cargar categorías: {str(e)}", "error")
+            self.categorias_puesto = []
+
     async def cargar_contratos(self):
         """Cargar la lista de contratos con filtros"""
         self.loading = True
+        yield  # Forzar actualización de UI para mostrar skeleton
         try:
             # Preparar filtros
             empresa_id = int(self.filtro_empresa_id) if self.filtro_empresa_id != "0" else None
             tipo_servicio_id = int(self.filtro_tipo_servicio_id) if self.filtro_tipo_servicio_id != "0" else None
+
+            # Preparar filtros de fecha
+            fecha_desde = None
+            fecha_hasta = None
+            if self.filtro_fecha_desde:
+                fecha_desde = date.fromisoformat(self.filtro_fecha_desde)
+            if self.filtro_fecha_hasta:
+                fecha_hasta = date.fromisoformat(self.filtro_fecha_hasta)
 
             contratos = await contrato_service.buscar_con_filtros(
                 texto=self.filtro_busqueda or None,
@@ -639,12 +695,24 @@ class ContratosState(BaseState):
                 tipo_servicio_id=tipo_servicio_id,
                 estatus=None if self.filtro_estatus == "TODOS" else (self.filtro_estatus or None),
                 modalidad=self.filtro_modalidad or None,
+                fecha_inicio_desde=fecha_desde,
+                fecha_inicio_hasta=fecha_hasta,
                 incluir_inactivos=self.incluir_inactivos,
                 limite=100,
                 offset=0
             )
 
-            # Enriquecer con nombres de empresa y tipo de servicio
+            # Obtener saldos pendientes en batch (1 query en lugar de N)
+            contratos_info = [
+                {"id": c.id, "monto_maximo": c.monto_maximo}
+                for c in contratos
+            ]
+            try:
+                saldos_pendientes = await pago_service.obtener_saldos_pendientes_batch(contratos_info)
+            except Exception:
+                saldos_pendientes = {}
+
+            # Enriquecer con nombres de empresa, tipo de servicio y saldos
             self.contratos = []
             for c in contratos:
                 contrato_dict = c.model_dump()
@@ -664,14 +732,24 @@ class ContratosState(BaseState):
                 # Formatear monto máximo como moneda
                 contrato_dict["monto_maximo_fmt"] = formatear_moneda(str(c.monto_maximo)) if c.monto_maximo else "-"
 
-                # Obtener saldo pendiente de pagos
-                try:
-                    resumen_pagos = await pago_service.obtener_resumen_pagos_contrato(c.id)
-                    contrato_dict["saldo_pendiente_fmt"] = formatear_moneda(str(resumen_pagos.saldo_pendiente))
-                except Exception:
-                    contrato_dict["saldo_pendiente_fmt"] = "-"
+                # Obtener saldo pendiente del batch (ya calculado)
+                saldo = saldos_pendientes.get(c.id)
+                contrato_dict["saldo_pendiente_fmt"] = formatear_moneda(str(saldo)) if saldo is not None else "-"
 
                 self.contratos.append(contrato_dict)
+
+            # Filtro adicional por nombre de empresa (búsqueda in-memory)
+            if self.filtro_busqueda and self.filtro_busqueda.strip():
+                termino = self.filtro_busqueda.strip().lower()
+                self.contratos = [
+                    c for c in self.contratos
+                    if (
+                        termino in c.get("codigo", "").lower() or
+                        termino in (c.get("numero_folio_buap") or "").lower() or
+                        termino in (c.get("descripcion_objeto") or "").lower() or
+                        termino in (c.get("nombre_empresa") or "").lower()
+                    )
+                ]
 
             self.total_contratos = len(self.contratos)
 
@@ -687,11 +765,13 @@ class ContratosState(BaseState):
     async def on_change_busqueda(self, value: str):
         """Actualizar filtro y buscar automáticamente"""
         self.filtro_busqueda = value
-        await self.cargar_contratos()
+        async for _ in self.cargar_contratos():
+            yield
 
     async def aplicar_filtros(self):
         """Aplicar filtros y recargar"""
-        await self.cargar_contratos()
+        async for _ in self.cargar_contratos():
+            yield
 
     def limpiar_filtros(self):
         """Limpia todos los filtros"""
@@ -700,6 +780,8 @@ class ContratosState(BaseState):
         self.filtro_tipo_servicio_id = "0"
         self.filtro_estatus = "TODOS"
         self.filtro_modalidad = ""
+        self.filtro_fecha_desde = ""
+        self.filtro_fecha_hasta = ""
         self.incluir_inactivos = False
         return ContratosState.cargar_contratos
 
@@ -796,13 +878,16 @@ class ContratosState(BaseState):
                     errores.append(f"Fecha fin: {self.error_fecha_fin}")
 
             mensaje_errores = "; ".join(errores) if errores else "Verifique los campos del formulario"
-            return rx.toast.error(
+            yield rx.toast.error(
                 mensaje_errores,
                 position="top-center",
                 duration=5000
             )
+            return  # Salir sin continuar
 
         self.saving = True
+        yield  # Forzar actualización de UI para mostrar spinner
+
         try:
             if self.es_edicion:
                 mensaje = await self._actualizar_contrato()
@@ -810,9 +895,10 @@ class ContratosState(BaseState):
                 mensaje = await self._crear_contrato()
 
             self.cerrar_modal_contrato()
-            await self.cargar_contratos()
+            async for _ in self.cargar_contratos():
+                yield
 
-            return rx.toast.success(
+            yield rx.toast.success(
                 mensaje,
                 position="top-center",
                 duration=3000
@@ -820,14 +906,15 @@ class ContratosState(BaseState):
 
         except DuplicateError:
             self.error_codigo = f"El código '{self.form_codigo}' ya existe"
+            yield rx.toast.error("El código ya existe", position="top-center", duration=4000)
         except NotFoundError as e:
-            self.mostrar_mensaje(str(e), "error")
+            yield rx.toast.error(str(e), position="top-center", duration=4000)
         except BusinessRuleError as e:
-            self.mostrar_mensaje(str(e), "error")
+            yield rx.toast.error(str(e), position="top-center", duration=4000)
         except DatabaseError as e:
-            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
+            yield rx.toast.error(f"Error de base de datos: {str(e)}", position="top-center", duration=4000)
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            yield rx.toast.error(f"Error inesperado: {str(e)}", position="top-center", duration=4000)
         finally:
             self.saving = False
 
@@ -920,78 +1007,114 @@ class ContratosState(BaseState):
         contrato_id = self.contrato_seleccionado["id"]
 
         self.saving = True
+
+        yield rx.toast.info(
+            f"Cancelando contrato '{codigo}'...",
+            position="top-center",
+            duration=2000
+        )
+
         try:
             await contrato_service.cancelar(contrato_id)
             self.cerrar_confirmar_cancelar()
-            await self.cargar_contratos()
+            async for _ in self.cargar_contratos():
+                yield
 
-            return rx.toast.success(
-                f"Contrato '{codigo}' cancelado",
+            yield rx.toast.success(
+                f"Contrato '{codigo}' cancelado exitosamente",
                 position="top-center",
                 duration=3000
             )
 
         except BusinessRuleError as e:
-            self.mostrar_mensaje(str(e), "error")
+            yield rx.toast.error(str(e), position="top-center", duration=4000)
         except NotFoundError as e:
-            self.mostrar_mensaje(str(e), "error")
+            yield rx.toast.error(str(e), position="top-center", duration=4000)
         except DatabaseError as e:
-            self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
+            yield rx.toast.error(f"Error de base de datos: {str(e)}", position="top-center", duration=4000)
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            yield rx.toast.error(f"Error inesperado: {str(e)}", position="top-center", duration=4000)
         finally:
             self.saving = False
 
     async def activar_contrato(self, contrato: dict):
         """Activar un contrato en borrador"""
+        codigo = contrato["codigo"]
+
+        # Mostrar toast de proceso
+        yield rx.toast.info(
+            f"Activando contrato '{codigo}'...",
+            position="top-center",
+            duration=2000
+        )
+
         try:
             await contrato_service.activar(contrato["id"])
-            await self.cargar_contratos()
+            async for _ in self.cargar_contratos():
+                yield
 
-            return rx.toast.success(
-                f"Contrato '{contrato['codigo']}' activado",
+            yield rx.toast.success(
+                f"Contrato '{codigo}' activado exitosamente",
                 position="top-center",
                 duration=3000
             )
 
         except BusinessRuleError as e:
-            self.mostrar_mensaje(str(e), "error")
+            yield rx.toast.error(str(e), position="top-center", duration=4000)
         except Exception as e:
-            self.mostrar_mensaje(f"Error: {str(e)}", "error")
+            yield rx.toast.error(f"Error: {str(e)}", position="top-center", duration=4000)
 
     async def suspender_contrato(self, contrato: dict):
         """Suspender un contrato activo"""
+        codigo = contrato["codigo"]
+
+        yield rx.toast.info(
+            f"Suspendiendo contrato '{codigo}'...",
+            position="top-center",
+            duration=2000
+        )
+
         try:
             await contrato_service.suspender(contrato["id"])
-            await self.cargar_contratos()
+            async for _ in self.cargar_contratos():
+                yield
 
-            return rx.toast.success(
-                f"Contrato '{contrato['codigo']}' suspendido",
+            yield rx.toast.success(
+                f"Contrato '{codigo}' suspendido exitosamente",
                 position="top-center",
                 duration=3000
             )
 
         except BusinessRuleError as e:
-            self.mostrar_mensaje(str(e), "error")
+            yield rx.toast.error(str(e), position="top-center", duration=4000)
         except Exception as e:
-            self.mostrar_mensaje(f"Error: {str(e)}", "error")
+            yield rx.toast.error(f"Error: {str(e)}", position="top-center", duration=4000)
 
     async def reactivar_contrato(self, contrato: dict):
         """Reactivar un contrato suspendido"""
+        codigo = contrato["codigo"]
+
+        yield rx.toast.info(
+            f"Reactivando contrato '{codigo}'...",
+            position="top-center",
+            duration=2000
+        )
+
         try:
             await contrato_service.reactivar(contrato["id"])
-            await self.cargar_contratos()
+            async for _ in self.cargar_contratos():
+                yield
 
-            return rx.toast.success(
-                f"Contrato '{contrato['codigo']}' reactivado",
+            yield rx.toast.success(
+                f"Contrato '{codigo}' reactivado exitosamente",
                 position="top-center",
                 duration=3000
             )
 
         except BusinessRuleError as e:
-            self.mostrar_mensaje(str(e), "error")
+            yield rx.toast.error(str(e), position="top-center", duration=4000)
         except Exception as e:
-            self.mostrar_mensaje(f"Error: {str(e)}", "error")
+            yield rx.toast.error(f"Error: {str(e)}", position="top-center", duration=4000)
 
     # ========================
     # HELPERS

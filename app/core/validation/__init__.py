@@ -131,17 +131,37 @@ from .fields_catalog import (
 
 # Constantes (re-export para conveniencia)
 from .constants import (
-    # Patrones
+    # Patrones - RFC
     RFC_PATTERN,
+    RFC_PERSONA_PATTERN,
+    RFC_MORAL_PATTERN,
     RFC_PREFIX_PATTERN,
     RFC_FECHA_PATTERN,
+    # Patrones - Contacto
     EMAIL_PATTERN,
     CODIGO_POSTAL_PATTERN,
     TELEFONO_PATTERN,
+    # Patrones - IMSS
     REGISTRO_PATRONAL_PATTERN,
     REGISTRO_PATRONAL_LIMPIO_PATTERN,
+    # Patrones - Empleados
+    CURP_PATTERN,
+    NSS_PATTERN,
+    CLAVE_EMPLEADO_PATTERN,
+    # Patrones - Empresa
     CODIGO_CORTO_PATTERN,
     CLAVE_CATALOGO_PATTERN,
+    # Longitudes - Empleados
+    CURP_LEN,
+    RFC_PERSONA_LEN,
+    NSS_LEN,
+    CLAVE_EMPLEADO_MAX,
+    NOMBRE_EMPLEADO_MIN,
+    NOMBRE_EMPLEADO_MAX,
+    APELLIDO_MIN,
+    APELLIDO_MAX,
+    CONTACTO_EMERGENCIA_MAX,
+    NOTAS_MAX,
     # Longitudes - Empresas
     NOMBRE_COMERCIAL_MIN,
     NOMBRE_COMERCIAL_MAX,
@@ -262,18 +282,38 @@ __all__ = [
     "CAMPO_SEGMENTO_ASIGNACION",
     "CAMPO_SEDE_CAMPUS",
     "CAMPO_POLIZA_DETALLE",
-    # Patrones
+    # Patrones - RFC
     "RFC_PATTERN",
+    "RFC_PERSONA_PATTERN",
+    "RFC_MORAL_PATTERN",
     "RFC_PREFIX_PATTERN",
     "RFC_FECHA_PATTERN",
+    # Patrones - Contacto
     "EMAIL_PATTERN",
     "CODIGO_POSTAL_PATTERN",
     "TELEFONO_PATTERN",
+    # Patrones - IMSS
     "REGISTRO_PATRONAL_PATTERN",
     "REGISTRO_PATRONAL_LIMPIO_PATTERN",
+    # Patrones - Empleados
+    "CURP_PATTERN",
+    "NSS_PATTERN",
+    "CLAVE_EMPLEADO_PATTERN",
+    # Patrones - Empresa
     "CODIGO_CORTO_PATTERN",
     "CLAVE_CATALOGO_PATTERN",
-    # Longitudes
+    # Longitudes - Empleados
+    "CURP_LEN",
+    "RFC_PERSONA_LEN",
+    "NSS_LEN",
+    "CLAVE_EMPLEADO_MAX",
+    "NOMBRE_EMPLEADO_MIN",
+    "NOMBRE_EMPLEADO_MAX",
+    "APELLIDO_MIN",
+    "APELLIDO_MAX",
+    "CONTACTO_EMERGENCIA_MAX",
+    "NOTAS_MAX",
+    # Longitudes - Empresas
     "NOMBRE_COMERCIAL_MIN",
     "NOMBRE_COMERCIAL_MAX",
     "RAZON_SOCIAL_MIN",

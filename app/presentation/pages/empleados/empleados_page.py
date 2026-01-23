@@ -364,9 +364,9 @@ def modal_empleado() -> rx.Component:
             rx.dialog.description("Complete los datos del empleado"),
 
             rx.vstack(
-                # Empresa (obligatorio)
+                # Empresa 
                 rx.vstack(
-                    rx.text("Empresa *", size="2", weight="medium"),
+                    rx.text("Empresa", size="2", weight="medium"),
                     rx.select.root(
                         rx.select.trigger(
                             placeholder="Seleccionar empresa...",

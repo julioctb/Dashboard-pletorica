@@ -11,19 +11,27 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.core.enums import EstatusEmpleado, GeneroEmpleado, MotivoBaja
 from app.core.error_messages import msg_entidad_ya_estado
-
-# Patrón de validación CURP
-CURP_PATTERN = r'^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]$'
-
-# Patrón de validación RFC persona física (13 caracteres)
-# Homoclave: 2 caracteres alfanuméricos + 1 dígito verificador (0-9 o A)
-RFC_PERSONA_PATTERN = r'^[A-Z&Ñ]{4}[0-9]{6}[A-Z0-9]{2}[0-9A]$'
-
-# Patrón de validación NSS (11 dígitos)
-NSS_PATTERN = r'^[0-9]{11}$'
-
-# Patrón de clave de empleado
-CLAVE_EMPLEADO_PATTERN = r'^B[0-9]{2}-[0-9]{5}$'
+from app.core.validation import (
+    # Patrones
+    CURP_PATTERN,
+    RFC_PERSONA_PATTERN,
+    NSS_PATTERN,
+    CLAVE_EMPLEADO_PATTERN,
+    # Constantes de longitud
+    CURP_LEN,
+    RFC_PERSONA_LEN,
+    NSS_LEN,
+    CLAVE_EMPLEADO_MAX,
+    NOMBRE_EMPLEADO_MIN,
+    NOMBRE_EMPLEADO_MAX,
+    APELLIDO_MIN,
+    APELLIDO_MAX,
+    CONTACTO_EMERGENCIA_MAX,
+    NOTAS_MAX,
+    EMAIL_MAX,
+    TELEFONO_DIGITOS,
+    DIRECCION_MAX,
+)
 
 
 class Empleado(BaseModel):
@@ -45,45 +53,45 @@ class Empleado(BaseModel):
     # Identificación interna
     id: Optional[int] = None
     clave: str = Field(
-        max_length=10,
+        max_length=CLAVE_EMPLEADO_MAX,
         pattern=CLAVE_EMPLEADO_PATTERN,
         description="Clave permanente única: B25-00001"
     )
-    empresa_id: int = Field(description="ID del proveedor actual")
+    empresa_id: Optional[int] = Field(None, description="ID del proveedor actual")
 
     # Identificación oficial
     curp: str = Field(
-        min_length=18,
-        max_length=18,
+        min_length=CURP_LEN,
+        max_length=CURP_LEN,
         description="CURP - Identificador único del gobierno mexicano"
     )
     rfc: Optional[str] = Field(
         None,
-        min_length=13,
-        max_length=13,
+        min_length=RFC_PERSONA_LEN,
+        max_length=RFC_PERSONA_LEN,
         description="RFC persona física (13 caracteres)"
     )
     nss: Optional[str] = Field(
         None,
-        min_length=11,
-        max_length=11,
+        min_length=NSS_LEN,
+        max_length=NSS_LEN,
         description="Número de Seguro Social IMSS"
     )
 
     # Datos personales
-    nombre: str = Field(min_length=2, max_length=100)
-    apellido_paterno: str = Field(min_length=2, max_length=100)
-    apellido_materno: Optional[str] = Field(None, max_length=100)
+    nombre: str = Field(min_length=NOMBRE_EMPLEADO_MIN, max_length=NOMBRE_EMPLEADO_MAX)
+    apellido_paterno: str = Field(min_length=APELLIDO_MIN, max_length=APELLIDO_MAX)
+    apellido_materno: Optional[str] = Field(None, max_length=APELLIDO_MAX)
     fecha_nacimiento: Optional[date] = None
     genero: Optional[GeneroEmpleado] = None
 
     # Contacto
-    telefono: Optional[str] = Field(None, max_length=10)
-    email: Optional[str] = Field(None, max_length=100)
-    direccion: Optional[str] = Field(None, max_length=500)
+    telefono: Optional[str] = Field(None, max_length=TELEFONO_DIGITOS)
+    email: Optional[str] = Field(None, max_length=EMAIL_MAX)
+    direccion: Optional[str] = Field(None, max_length=DIRECCION_MAX)
     contacto_emergencia: Optional[str] = Field(
         None,
-        max_length=200,
+        max_length=CONTACTO_EMERGENCIA_MAX,
         description="Nombre y teléfono de contacto de emergencia"
     )
 
@@ -94,7 +102,7 @@ class Empleado(BaseModel):
     motivo_baja: Optional[MotivoBaja] = None
 
     # Notas
-    notas: Optional[str] = Field(None, max_length=1000)
+    notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
 
     # Auditoría
     fecha_creacion: Optional[datetime] = None
@@ -110,8 +118,8 @@ class Empleado(BaseModel):
         """Valida formato de CURP."""
         if v:
             v = v.upper().strip()
-            if len(v) != 18:
-                raise ValueError(f'CURP debe tener 18 caracteres (tiene {len(v)})')
+            if len(v) != CURP_LEN:
+                raise ValueError(f'CURP debe tener {CURP_LEN} caracteres (tiene {len(v)})')
             if not re.match(CURP_PATTERN, v):
                 raise ValueError('CURP con formato inválido')
         return v
@@ -122,8 +130,8 @@ class Empleado(BaseModel):
         """Valida formato de RFC persona física."""
         if v:
             v = v.upper().strip()
-            if len(v) != 13:
-                raise ValueError(f'RFC debe tener 13 caracteres (tiene {len(v)})')
+            if len(v) != RFC_PERSONA_LEN:
+                raise ValueError(f'RFC debe tener {RFC_PERSONA_LEN} caracteres (tiene {len(v)})')
             if not re.match(RFC_PERSONA_PATTERN, v):
                 raise ValueError('RFC con formato inválido')
         return v
@@ -162,8 +170,8 @@ class Empleado(BaseModel):
         """Valida teléfono (solo 10 dígitos)."""
         if v:
             v = re.sub(r'[^0-9]', '', v)
-            if len(v) != 10:
-                raise ValueError('Teléfono debe tener 10 dígitos')
+            if len(v) != TELEFONO_DIGITOS:
+                raise ValueError(f'Teléfono debe tener {TELEFONO_DIGITOS} dígitos')
         return v
 
     @field_validator('fecha_baja', mode='after')
@@ -283,21 +291,21 @@ class EmpleadoCreate(BaseModel):
         validate_assignment=True
     )
 
-    empresa_id: int
-    curp: str = Field(min_length=18, max_length=18)
-    rfc: Optional[str] = Field(None, max_length=13)
-    nss: Optional[str] = Field(None, max_length=11)
-    nombre: str = Field(min_length=2, max_length=100)
-    apellido_paterno: str = Field(min_length=2, max_length=100)
-    apellido_materno: Optional[str] = Field(None, max_length=100)
+    empresa_id: Optional[int] = None
+    curp: str = Field(min_length=CURP_LEN, max_length=CURP_LEN)
+    rfc: Optional[str] = Field(None, max_length=RFC_PERSONA_LEN)
+    nss: Optional[str] = Field(None, max_length=NSS_LEN)
+    nombre: str = Field(min_length=NOMBRE_EMPLEADO_MIN, max_length=NOMBRE_EMPLEADO_MAX)
+    apellido_paterno: str = Field(min_length=APELLIDO_MIN, max_length=APELLIDO_MAX)
+    apellido_materno: Optional[str] = Field(None, max_length=APELLIDO_MAX)
     fecha_nacimiento: Optional[date] = None
     genero: Optional[GeneroEmpleado] = None
-    telefono: Optional[str] = Field(None, max_length=10)
-    email: Optional[str] = Field(None, max_length=100)
-    direccion: Optional[str] = Field(None, max_length=500)
-    contacto_emergencia: Optional[str] = Field(None, max_length=200)
+    telefono: Optional[str] = Field(None, max_length=TELEFONO_DIGITOS)
+    email: Optional[str] = Field(None, max_length=EMAIL_MAX)
+    direccion: Optional[str] = Field(None, max_length=DIRECCION_MAX)
+    contacto_emergencia: Optional[str] = Field(None, max_length=CONTACTO_EMERGENCIA_MAX)
     fecha_ingreso: Optional[date] = None
-    notas: Optional[str] = Field(None, max_length=1000)
+    notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
 
     # Validadores reutilizados
     validar_curp = field_validator('curp', mode='before')(Empleado.validar_curp.__func__)
@@ -325,21 +333,21 @@ class EmpleadoUpdate(BaseModel):
 
     # CURP NO se puede cambiar - no incluido
 
-    rfc: Optional[str] = Field(None, max_length=13)
-    nss: Optional[str] = Field(None, max_length=11)
-    nombre: Optional[str] = Field(None, min_length=2, max_length=100)
-    apellido_paterno: Optional[str] = Field(None, min_length=2, max_length=100)
-    apellido_materno: Optional[str] = Field(None, max_length=100)
+    rfc: Optional[str] = Field(None, max_length=RFC_PERSONA_LEN)
+    nss: Optional[str] = Field(None, max_length=NSS_LEN)
+    nombre: Optional[str] = Field(None, min_length=NOMBRE_EMPLEADO_MIN, max_length=NOMBRE_EMPLEADO_MAX)
+    apellido_paterno: Optional[str] = Field(None, min_length=APELLIDO_MIN, max_length=APELLIDO_MAX)
+    apellido_materno: Optional[str] = Field(None, max_length=APELLIDO_MAX)
     fecha_nacimiento: Optional[date] = None
     genero: Optional[GeneroEmpleado] = None
-    telefono: Optional[str] = Field(None, max_length=10)
-    email: Optional[str] = Field(None, max_length=100)
-    direccion: Optional[str] = Field(None, max_length=500)
-    contacto_emergencia: Optional[str] = Field(None, max_length=200)
+    telefono: Optional[str] = Field(None, max_length=TELEFONO_DIGITOS)
+    email: Optional[str] = Field(None, max_length=EMAIL_MAX)
+    direccion: Optional[str] = Field(None, max_length=DIRECCION_MAX)
+    contacto_emergencia: Optional[str] = Field(None, max_length=CONTACTO_EMERGENCIA_MAX)
     estatus: Optional[EstatusEmpleado] = None
     fecha_baja: Optional[date] = None
     motivo_baja: Optional[MotivoBaja] = None
-    notas: Optional[str] = Field(None, max_length=1000)
+    notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
 
 
 class EmpleadoResumen(BaseModel):
@@ -357,7 +365,7 @@ class EmpleadoResumen(BaseModel):
     clave: str
     curp: str
     nombre_completo: str
-    empresa_id: int
+    empresa_id: Optional[int] = None
     empresa_nombre: Optional[str] = None
     estatus: EstatusEmpleado
     fecha_ingreso: date

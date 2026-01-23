@@ -15,11 +15,32 @@ IMPORTANTE: Cualquier cambio aquí afecta ambas capas de validación.
 # Homoclave: 2 caracteres alfanuméricos + 1 dígito verificador (0-9 o A)
 RFC_PATTERN = r'^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{2}[0-9A]$'
 
+# RFC persona física (13 caracteres): 4 letras + 6 dígitos + 3 homoclave
+RFC_PERSONA_PATTERN = r'^[A-Z&Ñ]{4}[0-9]{6}[A-Z0-9]{2}[0-9A]$'
+
+# RFC persona moral (12 caracteres): 3 letras + 6 dígitos + 3 homoclave
+RFC_MORAL_PATTERN = r'^[A-Z&Ñ]{3}[0-9]{6}[A-Z0-9]{2}[0-9A]$'
+
 # Prefijo RFC (primeras 3-4 letras)
 RFC_PREFIX_PATTERN = r'^[A-Z&Ñ]{3,4}'
 
 # Fecha en RFC (6 dígitos)
 RFC_FECHA_PATTERN = r'^[0-9]{6}$'
+
+
+# =============================================================================
+# PATRONES DE EMPLEADOS
+# =============================================================================
+
+# CURP: 18 caracteres
+# 4 letras + 6 dígitos (fecha) + H/M (sexo) + 2 letras (estado) + 3 consonantes + homoclave + dígito
+CURP_PATTERN = r'^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]$'
+
+# NSS (Número de Seguro Social IMSS): 11 dígitos
+NSS_PATTERN = r'^[0-9]{11}$'
+
+# Clave de empleado: B25-00001 (B + 2 dígitos año + guión + 5 dígitos consecutivo)
+CLAVE_EMPLEADO_PATTERN = r'^B[0-9]{2}-[0-9]{5}$'
 
 
 # =============================================================================
@@ -82,6 +103,22 @@ CODIGO_CORTO_LEN = 3
 REGISTRO_PATRONAL_LEN = 11
 REGISTRO_PATRONAL_MAX = 15
 PAGINA_WEB_MAX = 100
+
+
+# =============================================================================
+# CONSTANTES DE LONGITUD - EMPLEADOS
+# =============================================================================
+
+CURP_LEN = 18
+RFC_PERSONA_LEN = 13
+NSS_LEN = 11
+CLAVE_EMPLEADO_MAX = 10
+NOMBRE_EMPLEADO_MIN = 2
+NOMBRE_EMPLEADO_MAX = 100
+APELLIDO_MIN = 2
+APELLIDO_MAX = 100
+CONTACTO_EMERGENCIA_MAX = 200
+NOTAS_MAX = 1000
 
 
 # =============================================================================

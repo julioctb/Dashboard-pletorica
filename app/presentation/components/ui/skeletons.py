@@ -90,11 +90,10 @@ def skeleton_tabla_fila(columnas: list[dict]) -> rx.Component:
         *[
             rx.table.cell(
                 rx.skeleton(
-                    rx.box(
-                        height="16px",
-                        width=col.get("ancho", "100%") if col.get("ancho") else "80%",
-                    ),
+                    rx.text("Cargando...", color="transparent"),
                     loading=True,
+                    width=col.get("ancho", "80px"),
+                    height="16px",
                 ),
             )
             for col in columnas

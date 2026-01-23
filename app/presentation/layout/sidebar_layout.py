@@ -50,18 +50,25 @@ NAVIGATION_GROUPS = [
         "label": "Operación",
         "items": [
             {"text": "Contratos", "icon": "file-text", "href": "/contratos"},
-            {"text": "Plazas", "icon": "briefcase", "href": "/plazas"},
+            {"text": "Pagos", "icon": "credit-card", "href": "/pagos"},
             {"text": "Empresas", "icon": "building-2", "href": "/empresas"},
+            {"text": "Sedes", "icon": "map-pin-house", "href": "/sedes"},
+            
+        ],
+    },
+    {
+        "label": "Personal",
+        "items":[
             {"text": "Empleados", "icon": "users", "href": "/empleados"},
             {"text": "Historial", "icon": "history", "href": "/historial-laboral"},
-        ],
+        ]
     },
     {
         "label": "Catálogos",
         "items": [
             {"text": "Tipos de Servicio", "icon": "briefcase", "href": "/tipos-servicio"},
             {"text": "Categorías Puesto", "icon": "folder", "href": "/categorias-puesto"},
-            {"text": "Sedes", "icon": "map-pin-house", "href": "/sedes"},
+            {"text": "Plazas", "icon": "briefcase", "href": "/plazas"},
         ],
     },
     {

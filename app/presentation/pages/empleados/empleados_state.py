@@ -349,7 +349,7 @@ class EmpleadosState(BaseState):
             # Obtener nombres de empresas
             empresas_cache = {}
             for emp in empleados:
-                if emp.empresa_id not in empresas_cache:
+                if emp.empresa_id is not None and emp.empresa_id not in empresas_cache:
                     try:
                         empresa = await empresa_service.obtener_por_id(emp.empresa_id)
                         empresas_cache[emp.empresa_id] = empresa.nombre_comercial
@@ -367,7 +367,7 @@ class EmpleadosState(BaseState):
                     "apellido_paterno": emp.apellido_paterno,
                     "apellido_materno": emp.apellido_materno or "",
                     "empresa_id": emp.empresa_id,
-                    "empresa_nombre": empresas_cache.get(emp.empresa_id, "N/A"),
+                    "empresa_nombre": empresas_cache.get(emp.empresa_id, "N/A") if emp.empresa_id is not None else "Sin asignar",
                     "estatus": emp.estatus,
                     "fecha_ingreso": formatear_fecha(emp.fecha_ingreso) if emp.fecha_ingreso else "",
                     "telefono": emp.telefono or "",
@@ -417,12 +417,13 @@ class EmpleadosState(BaseState):
             empleado = await empleado_service.obtener_por_id(empleado_id)
 
             # Obtener nombre de empresa
-            empresa_nombre = "N/A"
-            try:
-                empresa = await empresa_service.obtener_por_id(empleado.empresa_id)
-                empresa_nombre = empresa.nombre_comercial
-            except NotFoundError:
-                pass
+            empresa_nombre = "Sin asignar"
+            if empleado.empresa_id is not None:
+                try:
+                    empresa = await empresa_service.obtener_por_id(empleado.empresa_id)
+                    empresa_nombre = empresa.nombre_comercial
+                except NotFoundError:
+                    empresa_nombre = "N/A"
 
             self.empleado_seleccionado = {
                 "id": empleado.id,
@@ -497,7 +498,8 @@ class EmpleadosState(BaseState):
 
     def _llenar_formulario_desde_empleado(self, empleado: dict):
         """Llena el formulario con datos del empleado"""
-        self.form_empresa_id = str(empleado.get("empresa_id", ""))
+        empresa_id = empleado.get("empresa_id")
+        self.form_empresa_id = str(empresa_id) if empresa_id else ""
         self.form_curp = empleado.get("curp", "")
         self.form_rfc = empleado.get("rfc", "")
         self.form_nss = empleado.get("nss", "")
@@ -585,7 +587,7 @@ class EmpleadosState(BaseState):
             else:
                 # Crear nuevo empleado
                 empleado_create = EmpleadoCreate(
-                    empresa_id=int(self.form_empresa_id),
+                    empresa_id=int(self.form_empresa_id) if self.form_empresa_id else None,
                     curp=self.form_curp,
                     rfc=self.form_rfc or None,
                     nss=self.form_nss or None,
@@ -786,10 +788,7 @@ class EmpleadosState(BaseState):
         self._limpiar_errores()
         es_valido = True
 
-        # Empresa obligatoria
-        if not self.form_empresa_id:
-            self.error_empresa_id = "Debe seleccionar una empresa"
-            es_valido = False
+        # Empresa es opcional - no se valida
 
         # CURP obligatorio (solo en creación)
         if not self.es_edicion:

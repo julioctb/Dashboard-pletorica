@@ -99,10 +99,9 @@ def acciones_contrato(contrato: dict) -> rx.Component:
                 content="Pagos",
             ),
         ),
-        # Editar (solo si puede modificarse)
+        # Editar (solo si está en BORRADOR o SUSPENDIDO - contratos ACTIVOS no se pueden editar)
         rx.cond(
             (contrato["estatus"] == "BORRADOR") |
-            (contrato["estatus"] == "ACTIVO") |
             (contrato["estatus"] == "SUSPENDIDO"),
             rx.tooltip(
                 rx.icon_button(
@@ -410,46 +409,34 @@ def grid_contratos() -> rx.Component:
 # =============================================================================
 
 def filtros_contratos() -> rx.Component:
-    """Filtros avanzados para contratos"""
+    """Filtros para contratos"""
     return rx.hstack(
-        # Filtro por empresa
-        rx.select.root(
-            rx.select.trigger(placeholder="Empresa", width="180px"),
-            rx.select.content(
-                rx.select.item("Todas", value="0"),
-                rx.foreach(
-                    ContratosState.opciones_empresa,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"])
+        # Filtro de fecha inicio (rango)
+        rx.hstack(
+            rx.vstack(
+                rx.text("Desde", size="1", color="gray"),
+                rx.input(
+                    type="date",
+                    value=ContratosState.filtro_fecha_desde,
+                    on_change=ContratosState.set_filtro_fecha_desde,
+                    width="140px",
+                    size="2",
                 ),
+                spacing="1",
             ),
-            value=ContratosState.filtro_empresa_id,
-            on_change=ContratosState.set_filtro_empresa_id,
-        ),
-        # Filtro por tipo de servicio
-        rx.select.root(
-            rx.select.trigger(placeholder="Tipo servicio", width="180px"),
-            rx.select.content(
-                rx.select.item("Todos", value="0"),
-                rx.foreach(
-                    ContratosState.opciones_tipo_servicio,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"])
+            rx.vstack(
+                rx.text("Hasta", size="1", color="gray"),
+                rx.input(
+                    type="date",
+                    value=ContratosState.filtro_fecha_hasta,
+                    on_change=ContratosState.set_filtro_fecha_hasta,
+                    width="140px",
+                    size="2",
                 ),
+                spacing="1",
             ),
-            value=ContratosState.filtro_tipo_servicio_id,
-            on_change=ContratosState.set_filtro_tipo_servicio_id,
-        ),
-        # Filtro por estatus
-        rx.select.root(
-            rx.select.trigger(placeholder="Estatus", width="140px"),
-            rx.select.content(
-                rx.select.item("Todos", value="TODOS"),
-                rx.foreach(
-                    ContratosState.opciones_estatus,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"])
-                ),
-            ),
-            value=ContratosState.filtro_estatus,
-            on_change=ContratosState.set_filtro_estatus,
+            spacing="2",
+            align="end",
         ),
         # Switch inactivos
         switch_inactivos(
@@ -495,7 +482,7 @@ def contratos_page() -> rx.Component:
             ),
             toolbar=page_toolbar(
                 search_value=ContratosState.filtro_busqueda,
-                search_placeholder="Buscar por código o concepto...",
+                search_placeholder="Buscar por folio, empresa o concepto...",
                 on_search_change=ContratosState.on_change_busqueda,
                 on_search_clear=lambda: ContratosState.set_filtro_busqueda(""),
                 filters=filtros_contratos(),

@@ -205,6 +205,40 @@ class PagoService:
             ultimo_pago=ultimo_pago.fecha_pago if ultimo_pago else None
         )
 
+    async def obtener_saldos_pendientes_batch(
+        self,
+        contratos_info: List[dict]
+    ) -> dict[int, Decimal]:
+        """
+        Obtiene los saldos pendientes de múltiples contratos en una sola query.
+
+        Args:
+            contratos_info: Lista de dicts con {id, monto_maximo}
+
+        Returns:
+            Diccionario {contrato_id: saldo_pendiente}
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        if not contratos_info:
+            return {}
+
+        contrato_ids = [c['id'] for c in contratos_info]
+        montos_maximos = {c['id']: Decimal(str(c.get('monto_maximo') or 0)) for c in contratos_info}
+
+        # Una sola query para todos los totales pagados
+        totales_pagados = await self.repository.obtener_totales_por_contratos(contrato_ids)
+
+        # Calcular saldos pendientes
+        saldos = {}
+        for cid in contrato_ids:
+            monto_maximo = montos_maximos.get(cid, Decimal("0"))
+            total_pagado = totales_pagados.get(cid, Decimal("0"))
+            saldos[cid] = max(monto_maximo - total_pagado, Decimal("0"))
+
+        return saldos
+
     async def verificar_contrato_pagado(self, contrato_id: int) -> bool:
         """
         Verifica si un contrato está completamente pagado.

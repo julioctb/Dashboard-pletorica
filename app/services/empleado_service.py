@@ -121,8 +121,9 @@ class EmpleadoService:
                 value=empleado_create.curp
             )
 
-        # Verificar que la empresa existe y es válida
-        await self._validar_empresa(empleado_create.empresa_id)
+        # Verificar que la empresa existe y es válida (solo si se proporciona)
+        if empleado_create.empresa_id is not None:
+            await self._validar_empresa(empleado_create.empresa_id)
 
         # Generar clave automática
         anio = date.today().year

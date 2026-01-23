@@ -2,16 +2,28 @@
 Validadores de formulario para empleados.
 
 Validación frontend sincronizada con las reglas de la entidad Empleado.
+Usa patrones y constantes centralizados de app.core.validation.
 """
 import re
 
-# Patrones de validación (sincronizados con app/entities/empleado.py)
-CURP_PATTERN = r'^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]$'
-# Homoclave: 2 caracteres alfanuméricos + 1 dígito verificador (0-9 o A)
-RFC_PERSONA_PATTERN = r'^[A-Z&Ñ]{4}[0-9]{6}[A-Z0-9]{2}[0-9A]$'
-NSS_PATTERN = r'^[0-9]{11}$'
-EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-TELEFONO_PATTERN = r'^[0-9]{10}$'
+from app.core.validation import (
+    # Patrones
+    CURP_PATTERN,
+    RFC_PERSONA_PATTERN,
+    NSS_PATTERN,
+    EMAIL_PATTERN,
+    TELEFONO_PATTERN,
+    # Constantes de longitud
+    CURP_LEN,
+    RFC_PERSONA_LEN,
+    NSS_LEN,
+    NOMBRE_EMPLEADO_MIN,
+    NOMBRE_EMPLEADO_MAX,
+    APELLIDO_MIN,
+    APELLIDO_MAX,
+    EMAIL_MAX,
+    TELEFONO_DIGITOS,
+)
 
 
 def validar_curp(curp: str) -> str:
@@ -35,8 +47,8 @@ def validar_curp(curp: str) -> str:
 
     curp_limpio = curp.strip().upper()
 
-    if len(curp_limpio) != 18:
-        return f"CURP debe tener 18 caracteres (tiene {len(curp_limpio)})"
+    if len(curp_limpio) != CURP_LEN:
+        return f"CURP debe tener {CURP_LEN} caracteres (tiene {len(curp_limpio)})"
 
     if not re.match(CURP_PATTERN, curp_limpio):
         # Validaciones específicas para mejor feedback
@@ -78,8 +90,8 @@ def validar_rfc(rfc: str) -> str:
 
     rfc_limpio = rfc.strip().upper()
 
-    if len(rfc_limpio) != 13:
-        return f"RFC debe tener 13 caracteres (tiene {len(rfc_limpio)})"
+    if len(rfc_limpio) != RFC_PERSONA_LEN:
+        return f"RFC debe tener {RFC_PERSONA_LEN} caracteres (tiene {len(rfc_limpio)})"
 
     if not re.match(RFC_PERSONA_PATTERN, rfc_limpio):
         primeros_4 = rfc_limpio[:4]
@@ -110,8 +122,8 @@ def validar_nss(nss: str) -> str:
     nss_limpio = nss.strip()
 
     if not re.match(NSS_PATTERN, nss_limpio):
-        if len(nss_limpio) != 11:
-            return f"NSS debe tener 11 dígitos (tiene {len(nss_limpio)})"
+        if len(nss_limpio) != NSS_LEN:
+            return f"NSS debe tener {NSS_LEN} dígitos (tiene {len(nss_limpio)})"
         if not nss_limpio.isdigit():
             return "NSS debe contener solo números"
         return "NSS con formato inválido"
@@ -135,11 +147,11 @@ def validar_nombre(nombre: str) -> str:
 
     nombre_limpio = nombre.strip()
 
-    if len(nombre_limpio) < 2:
-        return "Nombre debe tener al menos 2 caracteres"
+    if len(nombre_limpio) < NOMBRE_EMPLEADO_MIN:
+        return f"Nombre debe tener al menos {NOMBRE_EMPLEADO_MIN} caracteres"
 
-    if len(nombre_limpio) > 100:
-        return "Nombre no puede exceder 100 caracteres"
+    if len(nombre_limpio) > NOMBRE_EMPLEADO_MAX:
+        return f"Nombre no puede exceder {NOMBRE_EMPLEADO_MAX} caracteres"
 
     return ""
 
@@ -160,11 +172,11 @@ def validar_apellido_paterno(apellido: str) -> str:
 
     apellido_limpio = apellido.strip()
 
-    if len(apellido_limpio) < 2:
-        return "Apellido paterno debe tener al menos 2 caracteres"
+    if len(apellido_limpio) < APELLIDO_MIN:
+        return f"Apellido paterno debe tener al menos {APELLIDO_MIN} caracteres"
 
-    if len(apellido_limpio) > 100:
-        return "Apellido paterno no puede exceder 100 caracteres"
+    if len(apellido_limpio) > APELLIDO_MAX:
+        return f"Apellido paterno no puede exceder {APELLIDO_MAX} caracteres"
 
     return ""
 
@@ -181,8 +193,8 @@ def validar_email(email: str) -> str:
 
     email_limpio = email.strip().lower()
 
-    if len(email_limpio) > 100:
-        return "Email no puede exceder 100 caracteres"
+    if len(email_limpio) > EMAIL_MAX:
+        return f"Email no puede exceder {EMAIL_MAX} caracteres"
 
     if not re.match(EMAIL_PATTERN, email_limpio):
         return "Email con formato inválido"
@@ -203,8 +215,8 @@ def validar_telefono(telefono: str) -> str:
     # Limpiar caracteres no numéricos
     telefono_limpio = re.sub(r'[^0-9]', '', telefono)
 
-    if len(telefono_limpio) != 10:
-        return f"Teléfono debe tener 10 dígitos (tiene {len(telefono_limpio)})"
+    if len(telefono_limpio) != TELEFONO_DIGITOS:
+        return f"Teléfono debe tener {TELEFONO_DIGITOS} dígitos (tiene {len(telefono_limpio)})"
 
     return ""
 
@@ -249,12 +261,9 @@ def validar_fecha_nacimiento(fecha: str) -> str:
 
 def validar_empresa_seleccionada(empresa_id: str) -> str:
     """
-    Valida que se haya seleccionado una empresa.
+    Valida empresa seleccionada (opcional).
 
     Returns:
-        Mensaje de error o string vacío si es válido
+        String vacío - empresa ya no es requerida
     """
-    if not empresa_id:
-        return "Debe seleccionar una empresa"
-
     return ""

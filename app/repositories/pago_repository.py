@@ -67,6 +67,14 @@ class IPagoRepository(ABC):
         """Cuenta los pagos de un contrato"""
         pass
 
+    @abstractmethod
+    async def obtener_totales_por_contratos(
+        self,
+        contrato_ids: List[int]
+    ) -> dict[int, Decimal]:
+        """Obtiene el total pagado para múltiples contratos en una sola query"""
+        pass
+
 
 class SupabasePagoRepository(IPagoRepository):
     """Implementación del repositorio usando Supabase"""
@@ -341,4 +349,41 @@ class SupabasePagoRepository(IPagoRepository):
             return [Pago(**data) for data in result.data]
         except Exception as e:
             logger.error(f"Error buscando pagos por fechas: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def obtener_totales_por_contratos(
+        self,
+        contrato_ids: List[int]
+    ) -> dict[int, Decimal]:
+        """
+        Obtiene el total pagado para múltiples contratos en una sola query.
+
+        Args:
+            contrato_ids: Lista de IDs de contratos
+
+        Returns:
+            Diccionario {contrato_id: total_pagado}
+
+        Raises:
+            DatabaseError: Si hay error de conexión
+        """
+        if not contrato_ids:
+            return {}
+
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('contrato_id, monto')\
+                .in_('contrato_id', contrato_ids)\
+                .execute()
+
+            # Agrupar por contrato_id y sumar
+            totales: dict[int, Decimal] = {cid: Decimal("0") for cid in contrato_ids}
+            for pago in result.data:
+                cid = pago['contrato_id']
+                if cid in totales:
+                    totales[cid] += Decimal(str(pago['monto']))
+
+            return totales
+        except Exception as e:
+            logger.error(f"Error obteniendo totales de pagos: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
