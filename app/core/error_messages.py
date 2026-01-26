@@ -108,3 +108,22 @@ MSG_SOLO_VENCER_ACTIVOS = "Solo se pueden marcar como vencidos contratos activos
 def msg_no_puede_activar(estado: str) -> str:
     """Mensaje cuando no se puede activar un contrato."""
     return f"No se puede activar un contrato en estado {estado}"
+
+
+# =============================================================================
+# MENSAJES DE REQUISICIÓN
+# =============================================================================
+
+MSG_REQUISICION_SIN_ITEMS = "La requisición debe tener al menos un item"
+MSG_REQUISICION_SIN_PARTIDAS = "La requisición debe tener al menos una partida presupuestal"
+MSG_SOLO_ELIMINAR_BORRADOR = "Solo se pueden eliminar requisiciones en estado BORRADOR"
+MSG_ADJUDICAR_SIN_EMPRESA = "Debe seleccionar una empresa para adjudicar"
+MSG_ADJUDICAR_SIN_FECHA = "Debe indicar fecha de adjudicación"
+MSG_CONTRATAR_SIN_CONTRATO = "Debe existir un contrato asociado para marcar como contratada"
+MSG_FECHA_ENTREGA_FIN_ANTERIOR = "La fecha de entrega fin no puede ser anterior a la fecha de entrega inicio"
+MSG_REQUISICION_NO_EDITABLE = "La requisición no puede editarse en su estado actual"
+
+
+def msg_transicion_invalida(estado_actual: str, estado_nuevo: str) -> str:
+    """Mensaje cuando una transición de estado no es válida."""
+    return f"No se puede cambiar de estado {estado_actual} a {estado_nuevo}"

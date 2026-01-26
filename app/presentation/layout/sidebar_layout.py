@@ -49,6 +49,7 @@ NAVIGATION_GROUPS = [
     {
         "label": "Operación",
         "items": [
+            {"text": "Requisiciones", "icon": "clipboard-list", "href": "/requisiciones"},
             {"text": "Contratos", "icon": "file-text", "href": "/contratos"},
             {"text": "Pagos", "icon": "credit-card", "href": "/pagos"},
             {"text": "Empresas", "icon": "building-2", "href": "/empresas"},

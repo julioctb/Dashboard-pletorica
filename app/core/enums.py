@@ -227,5 +227,73 @@ class TipoMovimiento(str, Enum):
         return descripciones.get(self.value, self.value)
 
 
+# =============================================================================
+# ENUMS DE REQUISICIÓN
+# =============================================================================
+
+class EstadoRequisicion(str, Enum):
+    """Estados posibles de una requisición"""
+    BORRADOR = 'BORRADOR'
+    ENVIADA = 'ENVIADA'
+    EN_REVISION = 'EN_REVISION'
+    APROBADA = 'APROBADA'
+    ADJUDICADA = 'ADJUDICADA'
+    CONTRATADA = 'CONTRATADA'
+    CANCELADA = 'CANCELADA'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del estado"""
+        descripciones = {
+            'BORRADOR': 'Borrador',
+            'ENVIADA': 'Enviada',
+            'EN_REVISION': 'En revisión',
+            'APROBADA': 'Aprobada',
+            'ADJUDICADA': 'Adjudicada',
+            'CONTRATADA': 'Contratada',
+            'CANCELADA': 'Cancelada',
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def es_estado_final(self) -> bool:
+        """Indica si el estado es final (no permite más transiciones)"""
+        return self in (EstadoRequisicion.CONTRATADA, EstadoRequisicion.CANCELADA)
+
+
+class TipoContratacion(str, Enum):
+    """Tipos de contratación para requisiciones"""
+    ADQUISICION = 'ADQUISICION'
+    ARRENDAMIENTO = 'ARRENDAMIENTO'
+    SERVICIO = 'SERVICIO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del tipo"""
+        descripciones = {
+            'ADQUISICION': 'Adquisición',
+            'ARRENDAMIENTO': 'Arrendamiento',
+            'SERVICIO': 'Servicio',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class GrupoConfiguracion(str, Enum):
+    """Grupos de configuración para valores default de requisiciones"""
+    AREA_REQUIRENTE = 'AREA_REQUIRENTE'
+    FIRMAS = 'FIRMAS'
+    ENTREGA = 'ENTREGA'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del grupo"""
+        descripciones = {
+            'AREA_REQUIRENTE': 'Área Requirente',
+            'FIRMAS': 'Firmas',
+            'ENTREGA': 'Entrega',
+        }
+        return descripciones.get(self.value, self.value)
+
+
 # Alias para compatibilidad (deprecated)
 MotivoFinHistorial = TipoMovimiento

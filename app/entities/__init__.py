@@ -25,6 +25,10 @@ from app.core.enums import (
     EstatusHistorial,
     TipoMovimiento,
     MotivoFinHistorial,  # Alias deprecated
+    # Enums de Requisicion
+    EstadoRequisicion,
+    TipoContratacion,
+    GrupoConfiguracion,
 )
 
 # Empresa
@@ -100,6 +104,25 @@ from app.entities.historial_laboral import (
     HistorialLaboralResumen,
 )
 
+# Requisicion
+from app.entities.requisicion import (
+    ConfiguracionRequisicion,
+    ConfiguracionRequisicionCreate,
+    ConfiguracionRequisicionUpdate,
+    Requisicion,
+    RequisicionCreate,
+    RequisicionUpdate,
+    RequisicionResumen,
+    RequisicionAdjudicar,
+    RequisicionItem,
+    RequisicionItemCreate,
+    RequisicionItemUpdate,
+    RequisicionPartida,
+    RequisicionPartidaCreate,
+    RequisicionPartidaUpdate,
+    TRANSICIONES_VALIDAS,
+)
+
 # Costo Patronal (si existe)
 try:
     from app.entities.costo_patronal import (
@@ -127,6 +150,9 @@ __all__ = [
     "EstatusHistorial",
     "TipoMovimiento",
     "MotivoFinHistorial",
+    "EstadoRequisicion",
+    "TipoContratacion",
+    "GrupoConfiguracion",
     # Empresa
     "Empresa",
     "EmpresaCreate",
@@ -173,6 +199,22 @@ __all__ = [
     "HistorialLaboral",
     "HistorialLaboralInterno",
     "HistorialLaboralResumen",
+    # Requisicion
+    "ConfiguracionRequisicion",
+    "ConfiguracionRequisicionCreate",
+    "ConfiguracionRequisicionUpdate",
+    "Requisicion",
+    "RequisicionCreate",
+    "RequisicionUpdate",
+    "RequisicionResumen",
+    "RequisicionAdjudicar",
+    "RequisicionItem",
+    "RequisicionItemCreate",
+    "RequisicionItemUpdate",
+    "RequisicionPartida",
+    "RequisicionPartidaCreate",
+    "RequisicionPartidaUpdate",
+    "TRANSICIONES_VALIDAS",
     # Costo Patronal
     "ConfiguracionEmpresa",
     "Trabajador",
