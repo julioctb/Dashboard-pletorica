@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import List, Callable
 
 from app.presentation.components.shared.base_state import BaseState
+from app.presentation.constants import FILTRO_TODOS
 from app.services import empresa_service
 from app.core.text_utils import normalizar_mayusculas
 
@@ -84,8 +85,8 @@ class EmpresasState(BaseState):
     # ========================
     # FILTROS Y BÚSQUEDA
     # ========================
-    filtro_tipo: str = "TODOS"
-    search: str = ""  # Renombrado de filtro_busqueda para consistencia
+    filtro_tipo: str = FILTRO_TODOS
+    # filtro_busqueda heredado de BaseState
     solo_activas: bool = False
 
     # ========================
@@ -134,11 +135,7 @@ class EmpresasState(BaseState):
     # SETTERS DE FILTROS
     # ========================
     def set_filtro_tipo(self, value):
-        self.filtro_tipo = value if value else "TODOS"
-
-    def set_search(self, value):
-        """Setter para búsqueda - consistente con otros módulos"""
-        self.search = value if value else ""
+        self.filtro_tipo = value if value else FILTRO_TODOS
 
     async def set_solo_activas(self, value):
         """Cambia filtro de activas y recarga datos"""
@@ -262,7 +259,7 @@ class EmpresasState(BaseState):
                 duration=4000
             )
         except Exception as e:
-            self._manejar_error(e, "crear empresa")
+            self.manejar_error(e, "al crear empresa")
         finally:
             self.saving = False
 
@@ -292,7 +289,7 @@ class EmpresasState(BaseState):
                 duration=4000
             )
         except Exception as e:
-            self._manejar_error(e, "actualizar empresa")
+            self.manejar_error(e, "al actualizar empresa")
         finally:
             self.saving = False
 
@@ -303,7 +300,7 @@ class EmpresasState(BaseState):
             await self.cargar_empresas()
             return rx.toast.success(f"Estatus cambiado a {nuevo_estatus.value}")
         except Exception as e:
-            self._manejar_error(e, "cambiar estatus")
+            self.manejar_error(e, "al cambiar estatus")
 
     # ========================
     # OPERACIONES DE MODALES
@@ -328,7 +325,7 @@ class EmpresasState(BaseState):
             self.modo_modal_empresa = "editar"
             self.mostrar_modal_empresa = True
         except Exception as e:
-            self._manejar_error(e, "abrir modal de edición")
+            self.manejar_error(e, "al abrir modal de edición")
 
     def cerrar_modal_empresa(self):
         """Cerrar modal crear/editar"""
@@ -344,7 +341,7 @@ class EmpresasState(BaseState):
             self.empresa_seleccionada = await empresa_service.obtener_por_id(empresa_id)
             self.mostrar_modal_detalle = True
         except Exception as e:
-            self._manejar_error(e, "abrir detalles")
+            self.manejar_error(e, "al abrir detalles")
 
     def cerrar_modal_detalle(self):
         """Cerrar modal de detalles"""
@@ -359,8 +356,8 @@ class EmpresasState(BaseState):
 
     async def limpiar_filtros(self):
         """Limpia todos los filtros incluyendo búsqueda"""
-        self.filtro_tipo = "TODOS"
-        self.search = ""
+        self.filtro_tipo = FILTRO_TODOS
+        self.filtro_busqueda = ""
         self.solo_activas = False
         await self.cargar_empresas()
 
@@ -420,12 +417,12 @@ class EmpresasState(BaseState):
         resultado = empresas_dict
 
         # Filtrar por tipo (si no es TODOS)
-        if self.filtro_tipo and self.filtro_tipo != "TODOS":
+        if self.filtro_tipo and self.filtro_tipo != FILTRO_TODOS:
             resultado = [e for e in resultado if e.get("tipo_empresa") == self.filtro_tipo]
 
         # Filtrar por búsqueda (código, nombre comercial, razón social, RFC)
-        if self.search:
-            termino = self.search.lower()
+        if self.filtro_busqueda:
+            termino = self.filtro_busqueda.lower()
             resultado = [
                 e for e in resultado
                 if termino in (e.get("nombre_comercial") or "").lower()
@@ -448,34 +445,19 @@ class EmpresasState(BaseState):
 
     @rx.var
     def tiene_filtros_activos(self) -> bool:
-        return bool(self.search or (self.filtro_tipo and self.filtro_tipo != "TODOS") or self.solo_activas)
+        return bool(self.filtro_busqueda or (self.filtro_tipo and self.filtro_tipo != FILTRO_TODOS) or self.solo_activas)
 
     @rx.var
     def cantidad_filtros_activos(self) -> int:
         return sum([
-            bool(self.search),
-            bool(self.filtro_tipo and self.filtro_tipo != "TODOS"),
+            bool(self.filtro_busqueda),
+            bool(self.filtro_tipo and self.filtro_tipo != FILTRO_TODOS),
             self.solo_activas
         ])
 
     # ========================
     # MÉTODOS HELPER PRIVADOS
     # ========================
-    def _manejar_error(self, error: Exception, operacion: str = "") -> None:
-        """Maneja errores de forma centralizada"""
-        contexto = f" al {operacion}" if operacion else ""
-
-        if isinstance(error, NotFoundError):
-            self.mostrar_mensaje(f"Empresa no encontrada{contexto}", "error")
-        elif isinstance(error, DuplicateError):
-            self.mostrar_mensaje(f"RFC duplicado: ya existe en el sistema", "error")
-        elif isinstance(error, ValidationError):
-            self.mostrar_mensaje(f"Error de validación{contexto}: {error}", "error")
-        elif isinstance(error, DatabaseError):
-            self.mostrar_mensaje(f"Error de base de datos{contexto}", "error")
-        else:
-            self.mostrar_mensaje(f"Error inesperado{contexto}: {error}", "error")
-
     def _limpiar_formulario(self):
         """Limpia campos del formulario usando diccionario de defaults"""
         for campo, default in FORM_DEFAULTS.items():

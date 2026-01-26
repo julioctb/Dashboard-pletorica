@@ -8,6 +8,7 @@ import reflex as rx
 from typing import List, Optional
 
 from app.presentation.components.shared.base_state import BaseState
+from app.presentation.constants import FILTRO_TODOS
 from app.services.historial_laboral_service import historial_laboral_service
 from app.core.enums import EstatusHistorial, TipoMovimiento
 from app.core.exceptions import DatabaseError
@@ -31,8 +32,8 @@ class HistorialLaboralState(BaseState):
     # ========================
     # FILTROS
     # ========================
-    search: str = ""
-    filtro_estatus: str = "TODOS"
+    # filtro_busqueda heredado de BaseState
+    filtro_estatus: str = FILTRO_TODOS
     filtro_empleado_id: str = ""
 
     # ========================
@@ -43,11 +44,8 @@ class HistorialLaboralState(BaseState):
     # ========================
     # SETTERS DE FILTROS
     # ========================
-    def set_search(self, value: str):
-        self.search = value if value else ""
-
     def set_filtro_estatus(self, value: str):
-        self.filtro_estatus = value if value else "TODOS"
+        self.filtro_estatus = value if value else FILTRO_TODOS
 
     def set_filtro_empleado_id(self, value: str):
         self.filtro_empleado_id = value if value else ""
@@ -71,10 +69,10 @@ class HistorialLaboralState(BaseState):
     @rx.var
     def historial_filtrado(self) -> List[dict]:
         """Filtra historial por búsqueda en memoria"""
-        if not self.search:
+        if not self.filtro_busqueda:
             return self.historial
 
-        termino = self.search.lower()
+        termino = self.filtro_busqueda.lower()
         return [
             h for h in self.historial
             if termino in (h.get("empleado_nombre") or "").lower()
@@ -96,7 +94,7 @@ class HistorialLaboralState(BaseState):
     @rx.var
     def opciones_estatus(self) -> List[dict]:
         return [
-            {"value": "TODOS", "label": "Todos"},
+            {"value": FILTRO_TODOS, "label": "Todos"},
             {"value": "ACTIVO", "label": "Activo"},
             {"value": "INACTIVO", "label": "Inactivo"},
             {"value": "SUSPENDIDO", "label": "Suspendido"},
@@ -122,7 +120,7 @@ class HistorialLaboralState(BaseState):
         try:
             # Preparar filtros
             empleado_id = int(self.filtro_empleado_id) if self.filtro_empleado_id else None
-            estatus = self.filtro_estatus if self.filtro_estatus != "TODOS" else None
+            estatus = self.filtro_estatus if self.filtro_estatus != FILTRO_TODOS else None
 
             # Obtener historial
             registros = await historial_laboral_service.obtener_todos(
@@ -151,8 +149,8 @@ class HistorialLaboralState(BaseState):
 
     async def limpiar_filtros(self):
         """Limpia todos los filtros"""
-        self.search = ""
-        self.filtro_estatus = "TODOS"
+        self.filtro_busqueda = ""
+        self.filtro_estatus = FILTRO_TODOS
         self.filtro_empleado_id = ""
         await self.cargar_historial()
 

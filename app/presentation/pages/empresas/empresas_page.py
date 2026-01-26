@@ -335,10 +335,10 @@ def empresas_page() -> rx.Component:
                 ),
             ),
             toolbar=page_toolbar(
-                search_value=EmpresasState.search,
+                search_value=EmpresasState.filtro_busqueda,
                 search_placeholder="Buscar por nombre, RFC o codigo...",
-                on_search_change=EmpresasState.set_search,
-                on_search_clear=lambda: EmpresasState.set_search(""),
+                on_search_change=EmpresasState.set_filtro_busqueda,
+                on_search_clear=lambda: EmpresasState.set_filtro_busqueda(""),
                 filters=filtros_empresas(),
                 show_view_toggle=True,
                 current_view=EmpresasState.view_mode,

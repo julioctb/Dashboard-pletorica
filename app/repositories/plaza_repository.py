@@ -153,10 +153,18 @@ class SupabasePlazaRepository(IPlazaRepository):
     async def obtener_por_contrato_categoria(
         self,
         contrato_categoria_id: int,
-        incluir_canceladas: bool = False
+        incluir_canceladas: bool = False,
+        limite: Optional[int] = None,
+        offset: int = 0,
     ) -> List[Plaza]:
         """
-        Obtiene todas las plazas de una ContratoCategoria.
+        Obtiene las plazas de una ContratoCategoria.
+
+        Args:
+            contrato_categoria_id: ID de la categoría del contrato
+            incluir_canceladas: Si True, incluye plazas canceladas
+            limite: Máximo de resultados (None = sin límite)
+            offset: Registros a saltar
 
         Returns:
             Lista ordenada por numero_plaza
@@ -171,6 +179,9 @@ class SupabasePlazaRepository(IPlazaRepository):
 
             query = query.order('numero_plaza', desc=False)
 
+            if limite is not None:
+                query = query.range(offset, offset + limite - 1)
+
             result = query.execute()
 
             return [Plaza(**data) for data in result.data]
@@ -182,12 +193,20 @@ class SupabasePlazaRepository(IPlazaRepository):
     async def obtener_por_contrato(
         self,
         contrato_id: int,
-        incluir_canceladas: bool = False
+        incluir_canceladas: bool = False,
+        limite: Optional[int] = None,
+        offset: int = 0,
     ) -> List[Plaza]:
         """
-        Obtiene todas las plazas de un contrato.
+        Obtiene las plazas de un contrato.
 
         Hace JOIN con contrato_categorias para obtener las plazas del contrato.
+
+        Args:
+            contrato_id: ID del contrato
+            incluir_canceladas: Si True, incluye plazas canceladas
+            limite: Máximo de resultados (None = sin límite)
+            offset: Registros a saltar
         """
         try:
             # Primero obtenemos los IDs de contrato_categorias del contrato
@@ -211,6 +230,9 @@ class SupabasePlazaRepository(IPlazaRepository):
 
             query = query.order('contrato_categoria_id', desc=False)\
                 .order('numero_plaza', desc=False)
+
+            if limite is not None:
+                query = query.range(offset, offset + limite - 1)
 
             result = query.execute()
 

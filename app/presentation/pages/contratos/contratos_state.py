@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import date
 
 from app.presentation.components.shared.base_state import BaseState
+from app.presentation.constants import FILTRO_TODOS, FILTRO_SIN_SELECCION
 from app.services import contrato_service, empresa_service, tipo_servicio_service, pago_service, categoria_puesto_service
 from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
 
@@ -107,6 +108,7 @@ class ContratosState(BaseState):
     empresas: List[dict] = []
     tipos_servicio: List[dict] = []
     categorias_puesto: List[dict] = []
+    cargando_categorias_puesto: bool = False
 
     # ========================
     # ESTADO DE UI
@@ -124,9 +126,9 @@ class ContratosState(BaseState):
     # ========================
     # FILTROS
     # ========================
-    filtro_empresa_id: str = "0"
-    filtro_tipo_servicio_id: str = "0"
-    filtro_estatus: str = "TODOS"
+    filtro_empresa_id: str = FILTRO_SIN_SELECCION
+    filtro_tipo_servicio_id: str = FILTRO_SIN_SELECCION
+    filtro_estatus: str = FILTRO_TODOS
     filtro_modalidad: str = ""
     filtro_fecha_desde: str = ""
     filtro_fecha_hasta: str = ""
@@ -185,11 +187,11 @@ class ContratosState(BaseState):
 
     # --- Filtros (retornan callback para recargar datos) ---
     def set_filtro_empresa_id(self, value: str):
-        self.filtro_empresa_id = value if value else "0"
+        self.filtro_empresa_id = value if value else FILTRO_SIN_SELECCION
         return ContratosState.cargar_contratos
 
     def set_filtro_tipo_servicio_id(self, value: str):
-        self.filtro_tipo_servicio_id = value if value else "0"
+        self.filtro_tipo_servicio_id = value if value else FILTRO_SIN_SELECCION
         return ContratosState.cargar_contratos
 
     def set_filtro_estatus(self, value: str):
@@ -503,9 +505,9 @@ class ContratosState(BaseState):
     def tiene_filtros_activos(self) -> bool:
         """Indica si hay algún filtro aplicado"""
         return (
-            self.filtro_empresa_id != "0" or
-            self.filtro_tipo_servicio_id != "0" or
-            (self.filtro_estatus != "TODOS" and bool(self.filtro_estatus)) or
+            self.filtro_empresa_id != FILTRO_SIN_SELECCION or
+            self.filtro_tipo_servicio_id != FILTRO_SIN_SELECCION or
+            (self.filtro_estatus != FILTRO_TODOS and bool(self.filtro_estatus)) or
             bool(self.filtro_modalidad) or
             bool(self.filtro_fecha_desde) or
             bool(self.filtro_fecha_hasta) or
@@ -661,6 +663,7 @@ class ContratosState(BaseState):
         if not self.form_tipo_servicio_id:
             self.categorias_puesto = []
             return
+        self.cargando_categorias_puesto = True
         try:
             tipo_servicio_id = int(self.form_tipo_servicio_id)
             categorias = await categoria_puesto_service.obtener_por_tipo_servicio(
@@ -671,6 +674,8 @@ class ContratosState(BaseState):
         except Exception as e:
             self.mostrar_mensaje(f"Error al cargar categorías: {str(e)}", "error")
             self.categorias_puesto = []
+        finally:
+            self.cargando_categorias_puesto = False
 
     async def cargar_contratos(self):
         """Cargar la lista de contratos con filtros"""
@@ -678,8 +683,8 @@ class ContratosState(BaseState):
         yield  # Forzar actualización de UI para mostrar skeleton
         try:
             # Preparar filtros
-            empresa_id = int(self.filtro_empresa_id) if self.filtro_empresa_id != "0" else None
-            tipo_servicio_id = int(self.filtro_tipo_servicio_id) if self.filtro_tipo_servicio_id != "0" else None
+            empresa_id = int(self.filtro_empresa_id) if self.filtro_empresa_id != FILTRO_SIN_SELECCION else None
+            tipo_servicio_id = int(self.filtro_tipo_servicio_id) if self.filtro_tipo_servicio_id != FILTRO_SIN_SELECCION else None
 
             # Preparar filtros de fecha
             fecha_desde = None
@@ -693,7 +698,7 @@ class ContratosState(BaseState):
                 texto=self.filtro_busqueda or None,
                 empresa_id=empresa_id,
                 tipo_servicio_id=tipo_servicio_id,
-                estatus=None if self.filtro_estatus == "TODOS" else (self.filtro_estatus or None),
+                estatus=None if self.filtro_estatus == FILTRO_TODOS else (self.filtro_estatus or None),
                 modalidad=self.filtro_modalidad or None,
                 fecha_inicio_desde=fecha_desde,
                 fecha_inicio_hasta=fecha_hasta,
@@ -776,9 +781,9 @@ class ContratosState(BaseState):
     def limpiar_filtros(self):
         """Limpia todos los filtros"""
         self.filtro_busqueda = ""
-        self.filtro_empresa_id = "0"
-        self.filtro_tipo_servicio_id = "0"
-        self.filtro_estatus = "TODOS"
+        self.filtro_empresa_id = FILTRO_SIN_SELECCION
+        self.filtro_tipo_servicio_id = FILTRO_SIN_SELECCION
+        self.filtro_estatus = FILTRO_TODOS
         self.filtro_modalidad = ""
         self.filtro_fecha_desde = ""
         self.filtro_fecha_hasta = ""
@@ -793,9 +798,9 @@ class ContratosState(BaseState):
         self._limpiar_formulario()
         self.es_edicion = False
         # Auto-seleccionar filtros activos
-        if self.filtro_empresa_id != "0":
+        if self.filtro_empresa_id != FILTRO_SIN_SELECCION:
             self.form_empresa_id = self.filtro_empresa_id
-        if self.filtro_tipo_servicio_id != "0":
+        if self.filtro_tipo_servicio_id != FILTRO_SIN_SELECCION:
             self.form_tipo_servicio_id = self.filtro_tipo_servicio_id
         # Establecer fecha de inicio con la fecha actual
         self.form_fecha_inicio = date.today().isoformat()
@@ -831,7 +836,7 @@ class ContratosState(BaseState):
             self.contrato_seleccionado = contrato_dict
             self.mostrar_modal_detalle = True
         except Exception as e:
-            self._manejar_error(e, "abrir detalles")
+            self.manejar_error(e, "al abrir detalles")
 
     def cerrar_modal_detalle(self):
         """Cerrar modal de detalles"""
@@ -904,17 +909,11 @@ class ContratosState(BaseState):
                 duration=3000
             )
 
-        except DuplicateError:
+        except DuplicateError as e:
             self.error_codigo = f"El código '{self.form_codigo}' ya existe"
-            yield rx.toast.error("El código ya existe", position="top-center", duration=4000)
-        except NotFoundError as e:
-            yield rx.toast.error(str(e), position="top-center", duration=4000)
-        except BusinessRuleError as e:
-            yield rx.toast.error(str(e), position="top-center", duration=4000)
-        except DatabaseError as e:
-            yield rx.toast.error(f"Error de base de datos: {str(e)}", position="top-center", duration=4000)
+            yield self.manejar_error_con_toast(e, "al guardar contrato")
         except Exception as e:
-            yield rx.toast.error(f"Error inesperado: {str(e)}", position="top-center", duration=4000)
+            yield self.manejar_error_con_toast(e, "al guardar contrato")
         finally:
             self.saving = False
 
@@ -1026,14 +1025,8 @@ class ContratosState(BaseState):
                 duration=3000
             )
 
-        except BusinessRuleError as e:
-            yield rx.toast.error(str(e), position="top-center", duration=4000)
-        except NotFoundError as e:
-            yield rx.toast.error(str(e), position="top-center", duration=4000)
-        except DatabaseError as e:
-            yield rx.toast.error(f"Error de base de datos: {str(e)}", position="top-center", duration=4000)
         except Exception as e:
-            yield rx.toast.error(f"Error inesperado: {str(e)}", position="top-center", duration=4000)
+            yield self.manejar_error_con_toast(e, "al cancelar contrato")
         finally:
             self.saving = False
 
@@ -1059,10 +1052,8 @@ class ContratosState(BaseState):
                 duration=3000
             )
 
-        except BusinessRuleError as e:
-            yield rx.toast.error(str(e), position="top-center", duration=4000)
         except Exception as e:
-            yield rx.toast.error(f"Error: {str(e)}", position="top-center", duration=4000)
+            yield self.manejar_error_con_toast(e, "al activar contrato")
 
     async def suspender_contrato(self, contrato: dict):
         """Suspender un contrato activo"""
@@ -1085,10 +1076,8 @@ class ContratosState(BaseState):
                 duration=3000
             )
 
-        except BusinessRuleError as e:
-            yield rx.toast.error(str(e), position="top-center", duration=4000)
         except Exception as e:
-            yield rx.toast.error(f"Error: {str(e)}", position="top-center", duration=4000)
+            yield self.manejar_error_con_toast(e, "al suspender contrato")
 
     async def reactivar_contrato(self, contrato: dict):
         """Reactivar un contrato suspendido"""
@@ -1111,10 +1100,8 @@ class ContratosState(BaseState):
                 duration=3000
             )
 
-        except BusinessRuleError as e:
-            yield rx.toast.error(str(e), position="top-center", duration=4000)
         except Exception as e:
-            yield rx.toast.error(f"Error: {str(e)}", position="top-center", duration=4000)
+            yield self.manejar_error_con_toast(e, "al reactivar contrato")
 
     # ========================
     # HELPERS
@@ -1235,23 +1222,6 @@ class ContratosState(BaseState):
             return Decimal(value.replace(",", "").replace("$", "").strip())
         except InvalidOperation:
             return None
-
-    def _manejar_error(self, error: Exception, operacion: str = "") -> None:
-        """Maneja errores de forma centralizada"""
-        contexto = f" al {operacion}" if operacion else ""
-
-        if isinstance(error, NotFoundError):
-            self.mostrar_mensaje(f"Contrato no encontrado{contexto}", "error")
-        elif isinstance(error, DuplicateError):
-            self.mostrar_mensaje(f"Código duplicado: ya existe en el sistema", "error")
-        elif isinstance(error, BusinessRuleError):
-            self.mostrar_mensaje(f"Error de negocio{contexto}: {error}", "error")
-        elif isinstance(error, ValidationError):
-            self.mostrar_mensaje(f"Error de validación{contexto}: {error}", "error")
-        elif isinstance(error, DatabaseError):
-            self.mostrar_mensaje(f"Error de base de datos{contexto}", "error")
-        else:
-            self.mostrar_mensaje(f"Error inesperado{contexto}: {error}", "error")
 
     def obtener_nombre_empresa(self, empresa_id: int) -> str:
         """Obtener nombre de empresa por ID"""

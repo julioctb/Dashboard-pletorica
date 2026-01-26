@@ -950,10 +950,10 @@ def empleados_page() -> rx.Component:
                 ),
             ),
             toolbar=page_toolbar(
-                search_value=EmpleadosState.search,
+                search_value=EmpleadosState.filtro_busqueda,
                 search_placeholder="Buscar por nombre, CURP o clave...",
-                on_search_change=EmpleadosState.set_search,
-                on_search_clear=lambda: EmpleadosState.set_search(""),
+                on_search_change=EmpleadosState.set_filtro_busqueda,
+                on_search_clear=lambda: EmpleadosState.set_filtro_busqueda(""),
                 filters=filtros_empleados(),
                 show_view_toggle=True,
                 current_view=EmpleadosState.view_mode,

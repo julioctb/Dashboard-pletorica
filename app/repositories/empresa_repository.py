@@ -264,7 +264,12 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
             return False
 
     async def existe_rfc(self, rfc: str, excluir_id: Optional[int] = None) -> bool:
-        """Verifica si existe un RFC en la base de datos"""
+        """
+        Verifica si existe un RFC en la base de datos.
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
         try:
             query = self.supabase.table(self.tabla).select('id').eq('rfc', rfc.upper())
             if excluir_id:
@@ -273,7 +278,7 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
             return len(result.data) > 0
         except Exception as e:
             logger.error(f"Error verificando RFC: {e}")
-            return False
+            raise DatabaseError(f"Error de base de datos al verificar RFC: {str(e)}")
 
     async def existe_codigo_corto(self, codigo: str) -> bool:
         """
@@ -293,7 +298,7 @@ class SupabaseEmpresaRepository(IEmpresaRepository):
             return len(result.data) > 0
         except Exception as e:
             logger.error(f"Error verificando código corto '{codigo}': {e}")
-            return True  # Por seguridad, asumir que existe si hay error
+            raise DatabaseError(f"Error de base de datos al verificar código corto: {str(e)}")
 
     async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[Empresa]:
         """

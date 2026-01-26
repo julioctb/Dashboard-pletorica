@@ -391,7 +391,8 @@ class SupabaseEmpleadoRepository(IEmpleadoRepository):
         self,
         texto: str,
         empresa_id: Optional[int] = None,
-        limite: int = 20
+        limite: int = 20,
+        offset: int = 0
     ) -> List[Empleado]:
         """
         Busca empleados por nombre, CURP o clave.
@@ -413,7 +414,7 @@ class SupabaseEmpleadoRepository(IEmpleadoRepository):
             if empresa_id:
                 query = query.eq('empresa_id', empresa_id)
 
-            query = query.limit(limite)
+            query = query.range(offset, offset + limite - 1)
 
             result = query.execute()
             return [Empleado(**data) for data in result.data]
@@ -507,6 +508,9 @@ class SupabaseEmpleadoRepository(IEmpleadoRepository):
 
         Returns:
             True si el CURP ya existe, False si está disponible
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
             query = self.supabase.table(self.tabla)\
@@ -521,7 +525,7 @@ class SupabaseEmpleadoRepository(IEmpleadoRepository):
 
         except Exception as e:
             logger.error(f"Error verificando CURP: {e}")
-            return True  # Por seguridad, asumir que existe si hay error
+            raise DatabaseError(f"Error de base de datos al verificar CURP: {str(e)}")
 
     async def existe_clave(self, clave: str) -> bool:
         """
@@ -529,6 +533,9 @@ class SupabaseEmpleadoRepository(IEmpleadoRepository):
 
         Returns:
             True si la clave ya existe, False si está disponible
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
             result = self.supabase.table(self.tabla)\
@@ -540,7 +547,7 @@ class SupabaseEmpleadoRepository(IEmpleadoRepository):
 
         except Exception as e:
             logger.error(f"Error verificando clave: {e}")
-            return True  # Por seguridad, asumir que existe si hay error
+            raise DatabaseError(f"Error de base de datos al verificar clave: {str(e)}")
 
     # =========================================================================
     # MÉTODOS DE RESUMEN

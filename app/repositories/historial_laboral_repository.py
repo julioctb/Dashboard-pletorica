@@ -4,6 +4,7 @@ Repositorio de Historial Laboral.
 Este repositorio es principalmente de LECTURA.
 Los registros se crean automaticamente desde el servicio.
 """
+from abc import ABC, abstractmethod
 from typing import List, Optional
 from datetime import date
 import logging
@@ -19,7 +20,63 @@ from app.core.exceptions import NotFoundError, DatabaseError
 logger = logging.getLogger(__name__)
 
 
-class SupabaseHistorialLaboralRepository:
+class IHistorialLaboralRepository(ABC):
+    """Interface del repositorio de historial laboral - define el contrato"""
+
+    @abstractmethod
+    async def obtener_por_id(self, historial_id: int) -> HistorialLaboral:
+        """Obtiene un registro por su ID"""
+        pass
+
+    @abstractmethod
+    async def obtener_por_empleado(
+        self, empleado_id: int, limite: int = 50
+    ) -> List[HistorialLaboralResumen]:
+        """Obtiene el historial de un empleado con datos enriquecidos"""
+        pass
+
+    @abstractmethod
+    async def obtener_todos(
+        self,
+        empleado_id: Optional[int] = None,
+        estatus: Optional[str] = None,
+        limite: int = 50,
+        offset: int = 0
+    ) -> List[HistorialLaboralResumen]:
+        """Obtiene registros con filtros opcionales"""
+        pass
+
+    @abstractmethod
+    async def obtener_registro_activo(self, empleado_id: int) -> Optional[HistorialLaboral]:
+        """Obtiene el registro activo (sin fecha_fin) de un empleado"""
+        pass
+
+    @abstractmethod
+    async def crear(self, datos: HistorialLaboralInterno) -> HistorialLaboral:
+        """Crea un nuevo registro de historial"""
+        pass
+
+    @abstractmethod
+    async def cerrar_registro(self, historial_id: int, fecha_fin: date) -> HistorialLaboral:
+        """Cierra un registro estableciendo fecha_fin"""
+        pass
+
+    @abstractmethod
+    async def cerrar_registro_activo(
+        self, empleado_id: int, fecha_fin: date
+    ) -> Optional[HistorialLaboral]:
+        """Cierra el registro activo de un empleado (si existe)"""
+        pass
+
+    @abstractmethod
+    async def contar(
+        self, empleado_id: Optional[int] = None, estatus: Optional[str] = None
+    ) -> int:
+        """Cuenta registros con filtros"""
+        pass
+
+
+class SupabaseHistorialLaboralRepository(IHistorialLaboralRepository):
     """Implementacion del repositorio usando Supabase"""
 
     def __init__(self, db_manager=None):
@@ -339,7 +396,3 @@ class SupabaseHistorialLaboralRepository:
         except Exception as e:
             logger.error(f"Error contando historial: {e}")
             return 0
-
-
-# Interface para compatibilidad
-IHistorialLaboralRepository = SupabaseHistorialLaboralRepository

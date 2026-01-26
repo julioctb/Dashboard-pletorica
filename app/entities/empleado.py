@@ -314,6 +314,8 @@ class EmpleadoCreate(BaseModel):
     normalizar_nombre = field_validator('nombre', 'apellido_paterno', 'apellido_materno', mode='before')(
         Empleado.normalizar_nombre.__func__
     )
+    validar_email_create = field_validator('email', mode='before')(Empleado.validar_email.__func__)
+    validar_telefono_create = field_validator('telefono', mode='before')(Empleado.validar_telefono.__func__)
 
 
 class EmpleadoUpdate(BaseModel):
@@ -348,6 +350,15 @@ class EmpleadoUpdate(BaseModel):
     fecha_baja: Optional[date] = None
     motivo_baja: Optional[MotivoBaja] = None
     notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
+
+    # Validadores reutilizados
+    validar_rfc_update = field_validator('rfc', mode='before')(Empleado.validar_rfc.__func__)
+    validar_nss_update = field_validator('nss', mode='before')(Empleado.validar_nss.__func__)
+    normalizar_nombre_update = field_validator(
+        'nombre', 'apellido_paterno', 'apellido_materno', mode='before'
+    )(Empleado.normalizar_nombre.__func__)
+    validar_email_update = field_validator('email', mode='before')(Empleado.validar_email.__func__)
+    validar_telefono_update = field_validator('telefono', mode='before')(Empleado.validar_telefono.__func__)
 
 
 class EmpleadoResumen(BaseModel):

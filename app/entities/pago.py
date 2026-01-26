@@ -170,7 +170,7 @@ class PagoResumen(BaseModel):
 class ResumenPagosContrato(BaseModel):
     """Resumen de pagos para un contrato específico"""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     contrato_id: int
     codigo_contrato: str

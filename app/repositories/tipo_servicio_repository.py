@@ -329,13 +329,14 @@ class SupabaseTipoServicioRepository(ITipoServicioRepository):
             logger.error(f"Error verificando clave {clave}: {e}")
             raise DatabaseError(f"Error de base de datos al verificar clave: {str(e)}")
 
-    async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[TipoServicio]:
+    async def buscar_por_texto(self, termino: str, limite: int = 10, offset: int = 0) -> List[TipoServicio]:
         """
         Busca tipos de servicio por nombre o clave.
 
         Args:
             termino: Término de búsqueda
             limite: Número máximo de resultados (default 10)
+            offset: Registros a saltar
 
         Returns:
             Lista de tipos que coinciden (vacía si no hay resultados)
@@ -353,7 +354,7 @@ class SupabaseTipoServicioRepository(ITipoServicioRepository):
                     f"nombre.ilike.%{termino_upper}%,"
                     f"clave.ilike.%{termino_upper}%"
                 )\
-                .limit(limite)\
+                .range(offset, offset + limite - 1)\
                 .execute()
 
             return [TipoServicio(**data) for data in result.data]

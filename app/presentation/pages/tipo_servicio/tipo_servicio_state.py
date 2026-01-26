@@ -17,6 +17,13 @@ from app.presentation.pages.tipo_servicio.tipo_servicio_validators import (
     validar_descripcion,
 )
 
+# Campos con sus valores por defecto para limpiar formulario
+FORM_DEFAULTS = {
+    "clave": "",
+    "nombre": "",
+    "descripcion": "",
+}
+
 
 class TipoServicioState(BaseState):
     """Estado para el módulo de Tipos de Servicio"""
@@ -361,9 +368,8 @@ class TipoServicioState(BaseState):
     # ========================
     def _limpiar_formulario(self):
         """Limpiar todos los campos del formulario"""
-        self.form_clave = ""
-        self.form_nombre = ""
-        self.form_descripcion = ""
+        for campo, default in FORM_DEFAULTS.items():
+            setattr(self, f"form_{campo}", default)
         self.error_clave = ""
         self.error_nombre = ""
         self.error_descripcion = ""

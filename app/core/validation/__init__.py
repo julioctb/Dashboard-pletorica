@@ -67,6 +67,12 @@ from .common_validators import (
     validar_texto_opcional,
 )
 
+# Conversores de Decimal
+from .decimal_converters import (
+    convertir_a_decimal,
+    convertir_a_decimal_opcional,
+)
+
 # Helpers para Pydantic
 from .pydantic_helpers import (
     pydantic_field,
@@ -226,6 +232,9 @@ __all__ = [
     "validar_enteros_min_max",
     "validar_texto_requerido",
     "validar_texto_opcional",
+    # Conversores de Decimal
+    "convertir_a_decimal",
+    "convertir_a_decimal_opcional",
     # Helpers para Pydantic
     "pydantic_field",
     "campo_validador",

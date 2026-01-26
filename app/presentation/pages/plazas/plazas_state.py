@@ -8,6 +8,7 @@ from decimal import Decimal
 from datetime import date
 
 from app.presentation.components.shared.base_state import BaseState
+from app.presentation.constants import FILTRO_TODOS
 from app.services import plaza_service, contrato_categoria_service, contrato_service
 from app.core.text_utils import formatear_moneda, formatear_fecha
 
@@ -25,6 +26,20 @@ from app.core.exceptions import (
     DatabaseError,
     BusinessRuleError,
 )
+
+# Campos con sus valores por defecto para limpiar formulario
+FORM_DEFAULTS = {
+    "numero_plaza": "",
+    "codigo": "",
+    "empleado_id": "",
+    "fecha_inicio": "",
+    "fecha_fin": "",
+    "salario_mensual": "",
+    "estatus": EstatusPlaza.VACANTE.value,
+    "notas": "",
+    "cantidad": "1",
+    "prefijo_codigo": "",
+}
 
 
 class PlazasState(BaseState):
@@ -82,8 +97,8 @@ class PlazasState(BaseState):
     # ========================
     # FILTROS
     # ========================
-    filtro_estatus: str = "TODOS"
-    search: str = ""
+    filtro_estatus: str = FILTRO_TODOS
+    # filtro_busqueda heredado de BaseState
 
     # ========================
     # ESTADO DEL FORMULARIO
@@ -148,9 +163,6 @@ class PlazasState(BaseState):
     # ========================
     # SETTERS
     # ========================
-    def set_search(self, value):
-        self.search = value if value else ""
-
     def set_filtro_estatus(self, value):
         self.filtro_estatus = value if value else ""
         return PlazasState.filtrar_plazas
@@ -234,7 +246,7 @@ class PlazasState(BaseState):
     def opciones_estatus(self) -> List[dict]:
         """Opciones para el select de estatus"""
         return [
-            {"value": "TODOS", "label": "Todos"},
+            {"value": FILTRO_TODOS, "label": "Todos"},
             {"value": EstatusPlaza.VACANTE.value, "label": "Vacante"},
             {"value": EstatusPlaza.OCUPADA.value, "label": "Ocupada"},
             {"value": EstatusPlaza.SUSPENDIDA.value, "label": "Suspendida"},
@@ -256,12 +268,12 @@ class PlazasState(BaseState):
         resultado = self.plazas
 
         # Filtrar por estatus
-        if self.filtro_estatus and self.filtro_estatus != "TODOS":
+        if self.filtro_estatus and self.filtro_estatus != FILTRO_TODOS:
             resultado = [p for p in resultado if p.get("estatus") == self.filtro_estatus]
 
         # Filtrar por búsqueda
-        if self.search:
-            termino = self.search.lower()
+        if self.filtro_busqueda:
+            termino = self.filtro_busqueda.lower()
             resultado = [
                 p for p in resultado
                 if termino in p.get("codigo", "").lower()
@@ -274,7 +286,7 @@ class PlazasState(BaseState):
     @rx.var
     def tiene_filtros_activos(self) -> bool:
         """Indica si hay algún filtro aplicado"""
-        return self.filtro_estatus != "TODOS" or bool(self.search.strip())
+        return self.filtro_estatus != FILTRO_TODOS or bool(self.filtro_busqueda.strip())
 
     @rx.var
     def puede_guardar(self) -> bool:
@@ -433,8 +445,8 @@ class PlazasState(BaseState):
 
     def limpiar_filtros(self):
         """Limpia todos los filtros"""
-        self.filtro_estatus = "TODOS"
-        self.search = ""
+        self.filtro_estatus = FILTRO_TODOS
+        self.filtro_busqueda = ""
 
     # ========================
     # CARGA DE CONTRATOS Y CATEGORÍAS
@@ -967,8 +979,8 @@ class PlazasState(BaseState):
         self.plazas_suspendidas = 0
 
         # Filtros
-        self.filtro_estatus = "TODOS"
-        self.search = ""
+        self.filtro_estatus = FILTRO_TODOS
+        self.filtro_busqueda = ""
 
         # UI
         self.mostrar_modal_plaza = False
@@ -982,16 +994,8 @@ class PlazasState(BaseState):
 
     def _limpiar_formulario(self):
         """Limpia campos del formulario"""
-        self.form_numero_plaza = ""
-        self.form_codigo = ""
-        self.form_empleado_id = ""
-        self.form_fecha_inicio = ""
-        self.form_fecha_fin = ""
-        self.form_salario_mensual = ""
-        self.form_estatus = EstatusPlaza.VACANTE.value
-        self.form_notas = ""
-        self.form_cantidad = "1"
-        self.form_prefijo_codigo = ""
+        for campo, default in FORM_DEFAULTS.items():
+            setattr(self, f"form_{campo}", default)
         self._limpiar_errores()
         self.plaza_seleccionada = None
         self.es_edicion = False

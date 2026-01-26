@@ -740,10 +740,10 @@ def plazas_page() -> rx.Component:
             toolbar=rx.cond(
                 PlazasState.tiene_contexto,
                 page_toolbar(
-                    search_value=PlazasState.search,
+                    search_value=PlazasState.filtro_busqueda,
                     search_placeholder="Buscar por código o número...",
-                    on_search_change=PlazasState.set_search,
-                    on_search_clear=lambda: PlazasState.set_search(""),
+                    on_search_change=PlazasState.set_filtro_busqueda,
+                    on_search_clear=lambda: PlazasState.set_filtro_busqueda(""),
                     filters=filtro_estatus(),
                     show_view_toggle=True,
                     current_view=PlazasState.view_mode,

@@ -17,6 +17,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from app.core.enums import EstatusPlaza
+from app.core.validation.decimal_converters import convertir_a_decimal, convertir_a_decimal_opcional
 
 
 class Plaza(BaseModel):
@@ -93,13 +94,7 @@ class Plaza(BaseModel):
     @classmethod
     def convertir_salario(cls, v):
         """Convierte el salario a Decimal si es necesario"""
-        if v is None:
-            return Decimal('0')
-        if isinstance(v, str):
-            v = v.replace(',', '').replace('$', '').strip()
-            if not v:
-                return Decimal('0')
-        return Decimal(str(v))
+        return convertir_a_decimal(v)
 
     @field_validator('codigo', mode='before')
     @classmethod
@@ -176,13 +171,7 @@ class PlazaCreate(BaseModel):
     @classmethod
     def convertir_salario(cls, v):
         """Convierte el salario a Decimal si es necesario"""
-        if v is None:
-            return Decimal('0')
-        if isinstance(v, str):
-            v = v.replace(',', '').replace('$', '').strip()
-            if not v:
-                return Decimal('0')
-        return Decimal(str(v))
+        return convertir_a_decimal(v)
 
     @field_validator('codigo', mode='before')
     @classmethod
@@ -213,13 +202,7 @@ class PlazaUpdate(BaseModel):
     @classmethod
     def convertir_salario(cls, v):
         """Convierte el salario a Decimal si es necesario"""
-        if v is None:
-            return None
-        if isinstance(v, str):
-            v = v.replace(',', '').replace('$', '').strip()
-            if not v:
-                return None
-        return Decimal(str(v))
+        return convertir_a_decimal_opcional(v)
 
     @field_validator('codigo', mode='before')
     @classmethod
@@ -305,7 +288,7 @@ class PlazaResumen(BaseModel):
 class ResumenPlazasContrato(BaseModel):
     """Resumen de totales de plazas para un contrato"""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     contrato_id: int
     total_plazas: int = 0

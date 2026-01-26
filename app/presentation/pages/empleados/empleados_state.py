@@ -7,6 +7,7 @@ from typing import List, Optional
 from datetime import date
 
 from app.presentation.components.shared.base_state import BaseState
+from app.presentation.constants import FILTRO_TODOS, FILTRO_TODAS
 from app.services import empleado_service, empresa_service
 from app.core.text_utils import formatear_fecha
 
@@ -64,9 +65,9 @@ class EmpleadosState(BaseState):
     # ========================
     # FILTROS
     # ========================
-    filtro_empresa_id: str = "TODAS"  # String para el select
-    filtro_estatus: str = "TODOS"
-    search: str = ""
+    filtro_empresa_id: str = FILTRO_TODAS  # String para el select
+    filtro_estatus: str = FILTRO_TODOS
+    # filtro_busqueda heredado de BaseState
 
     # ========================
     # ESTADO DE UI
@@ -125,14 +126,11 @@ class EmpleadosState(BaseState):
     # ========================
     # SETTERS DE FILTROS
     # ========================
-    def set_search(self, value: str):
-        self.search = value if value else ""
-
     def set_filtro_empresa_id(self, value: str):
-        self.filtro_empresa_id = value if value else "TODAS"
+        self.filtro_empresa_id = value if value else FILTRO_TODAS
 
     def set_filtro_estatus(self, value: str):
-        self.filtro_estatus = value if value else "TODOS"
+        self.filtro_estatus = value if value else FILTRO_TODOS
 
     # ========================
     # SETTERS DE FORMULARIO
@@ -225,7 +223,7 @@ class EmpleadosState(BaseState):
     def opciones_estatus(self) -> List[dict]:
         """Opciones para el select de estatus"""
         return [
-            {"value": "TODOS", "label": "Todos"},
+            {"value": FILTRO_TODOS, "label": "Todos"},
             {"value": "ACTIVO", "label": "Activo"},
             {"value": "INACTIVO", "label": "Inactivo"},
             {"value": "SUSPENDIDO", "label": "Suspendido"},
@@ -254,10 +252,10 @@ class EmpleadosState(BaseState):
     @rx.var
     def empleados_filtrados(self) -> List[dict]:
         """Empleados filtrados por búsqueda local (adicional al filtro de BD)"""
-        if not self.search:
+        if not self.filtro_busqueda:
             return self.empleados
 
-        termino = self.search.lower()
+        termino = self.filtro_busqueda.lower()
         return [
             e for e in self.empleados
             if termino in e.get("nombre_completo", "").lower()
@@ -314,21 +312,21 @@ class EmpleadosState(BaseState):
         try:
             # Determinar empresa_id para filtro
             empresa_id = None
-            if self.filtro_empresa_id and self.filtro_empresa_id not in ("", "TODAS"):
+            if self.filtro_empresa_id and self.filtro_empresa_id not in ("", FILTRO_TODAS):
                 empresa_id = int(self.filtro_empresa_id)
 
             # Determinar estatus para filtro
             estatus = None
             incluir_inactivos = False
-            if self.filtro_estatus == "TODOS":
+            if self.filtro_estatus == FILTRO_TODOS:
                 incluir_inactivos = True
             elif self.filtro_estatus:
                 estatus = self.filtro_estatus
 
             # Buscar empleados
-            if self.search and len(self.search) >= 2:
+            if self.filtro_busqueda and len(self.filtro_busqueda) >= 2:
                 empleados = await empleado_service.buscar(
-                    texto=self.search,
+                    texto=self.filtro_busqueda,
                     empresa_id=empresa_id,
                     limite=50
                 )
@@ -727,9 +725,9 @@ class EmpleadosState(BaseState):
 
     async def limpiar_filtros(self):
         """Limpia todos los filtros"""
-        self.search = ""
-        self.filtro_empresa_id = "TODAS"
-        self.filtro_estatus = "TODOS"
+        self.filtro_busqueda = ""
+        self.filtro_empresa_id = FILTRO_TODAS
+        self.filtro_estatus = FILTRO_TODOS
         self.pagina = 1
         await self.cargar_empleados()
 

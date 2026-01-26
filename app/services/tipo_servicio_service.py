@@ -122,7 +122,7 @@ class TipoServicioService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        if not termino or len(termino.strip()) < 1:
+        if not termino or len(termino.strip()) < 2:
             return []
 
         return await self.repository.buscar_por_texto(termino.strip(), limite)

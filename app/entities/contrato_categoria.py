@@ -15,6 +15,8 @@ from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
+from app.core.validation.decimal_converters import convertir_a_decimal_opcional
+
 
 class ContratoCategoria(BaseModel):
     """
@@ -84,13 +86,7 @@ class ContratoCategoria(BaseModel):
     @classmethod
     def convertir_costo(cls, v):
         """Convierte el costo a Decimal si es necesario"""
-        if v is None:
-            return None
-        if isinstance(v, str):
-            v = v.replace(',', '').replace('$', '').strip()
-            if not v:
-                return None
-        return Decimal(str(v))
+        return convertir_a_decimal_opcional(v)
 
     # =========================================================================
     # MÉTODOS DE NEGOCIO
@@ -141,13 +137,7 @@ class ContratoCategoriaCreate(BaseModel):
     @classmethod
     def convertir_costo(cls, v):
         """Convierte el costo a Decimal si es necesario"""
-        if v is None:
-            return None
-        if isinstance(v, str):
-            v = v.replace(',', '').replace('$', '').strip()
-            if not v:
-                return None
-        return Decimal(str(v))
+        return convertir_a_decimal_opcional(v)
 
 
 class ContratoCategoriaUpdate(BaseModel):
@@ -167,13 +157,7 @@ class ContratoCategoriaUpdate(BaseModel):
     @classmethod
     def convertir_costo(cls, v):
         """Convierte el costo a Decimal si es necesario"""
-        if v is None:
-            return None
-        if isinstance(v, str):
-            v = v.replace(',', '').replace('$', '').strip()
-            if not v:
-                return None
-        return Decimal(str(v))
+        return convertir_a_decimal_opcional(v)
 
 
 class ContratoCategoriaResumen(BaseModel):
@@ -232,7 +216,7 @@ class ContratoCategoriaResumen(BaseModel):
 class ResumenPersonalContrato(BaseModel):
     """Resumen de totales de personal para un contrato"""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     contrato_id: int
     cantidad_categorias: int = 0

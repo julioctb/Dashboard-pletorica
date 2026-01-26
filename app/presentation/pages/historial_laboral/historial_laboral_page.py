@@ -359,10 +359,10 @@ def historial_laboral_page() -> rx.Component:
                 # Sin botón de acción - es solo lectura
             ),
             toolbar=page_toolbar(
-                search_value=HistorialLaboralState.search,
+                search_value=HistorialLaboralState.filtro_busqueda,
                 search_placeholder="Buscar por empleado, plaza, empresa o movimiento...",
-                on_search_change=HistorialLaboralState.set_search,
-                on_search_clear=lambda: HistorialLaboralState.set_search(""),
+                on_search_change=HistorialLaboralState.set_filtro_busqueda,
+                on_search_clear=lambda: HistorialLaboralState.set_filtro_busqueda(""),
                 filters=filtros_historial(),
                 show_view_toggle=True,
                 current_view=HistorialLaboralState.view_mode,
