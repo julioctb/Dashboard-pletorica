@@ -1,6 +1,7 @@
 import reflex as rx
 
 from app.presentation.theme import GLOBAL_STYLES
+from app.api.main import api_app
 
 from .presentation.pages.dashboard import dashboard_page
 from .presentation.pages.empresas.empresas_page import empresas_page
@@ -37,6 +38,7 @@ def index(content: rx.Component) -> rx.Component:
 
 #se genera la aplicacion
 app= rx.App(
+    api_transformer=api_app,
     theme= rx.theme(
         appearance= "light",
         has_background=True,

@@ -3,22 +3,41 @@ from typing import Callable
 from .filters import input_busqueda
 
 
-def tabla_vacia(onclick: Callable) -> rx.Component:
-    """Mensaje cuando no hay registros"""
-    return rx.center(
-        rx.vstack(
-            rx.icon("inbox", size=48, color="gray"),
-            rx.text(
-                "No hay registros guardados",
-                color="gray",
-                size="3"
-            ),
+def tabla_vacia(
+    onclick: Callable = None,
+    mensaje: str = "No hay registros guardados",
+    submensaje: str = "",
+) -> rx.Component:
+    """Mensaje cuando no hay registros.
+
+    Args:
+        onclick: Callback para el botón de crear (si es None, no muestra botón)
+        mensaje: Texto principal
+        submensaje: Texto secundario debajo del mensaje
+    """
+    items = [
+        rx.icon("inbox", size=48, color="gray"),
+        rx.text(mensaje, color="gray", size="3"),
+    ]
+
+    if submensaje:
+        items.append(
+            rx.text(submensaje, color="gray", size="2", text_align="center", max_width="400px")
+        )
+
+    if onclick is not None:
+        items.append(
             rx.button(
                 rx.icon("plus", size=16),
                 "Crear primer registro",
                 on_click=onclick,
                 color_scheme="blue",
-            ),
+            )
+        )
+
+    return rx.center(
+        rx.vstack(
+            *items,
             spacing="3",
             align="center",
             padding="8",
