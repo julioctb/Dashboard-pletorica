@@ -10,7 +10,7 @@ import re
 import reflex as rx
 from typing import List
 
-from app.core.text_utils import normalizar_por_sufijo
+from app.core.text_utils import normalizar_por_sufijo, capitalizar_con_preposiciones
 from app.core.validation.constants import (
     EMAIL_PATTERN,
     TELEFONO_DIGITOS,
@@ -187,9 +187,14 @@ class ConfiguracionState(BaseState):
             self.error_nuevo_lugar = ""
 
     def validar_nuevo_lugar(self):
-        """Valida el campo de nuevo lugar al perder foco."""
+        """Normaliza y valida el campo de nuevo lugar al perder foco."""
         valor = self.nuevo_lugar.strip()
-        if valor and len(valor) > LUGAR_ENTREGA_MAX:
+        if not valor:
+            return
+        normalizado = capitalizar_con_preposiciones(valor)
+        if normalizado != self.nuevo_lugar:
+            self.nuevo_lugar = normalizado
+        if len(normalizado) > LUGAR_ENTREGA_MAX:
             self.error_nuevo_lugar = f"Maximo {LUGAR_ENTREGA_MAX} caracteres"
         else:
             self.error_nuevo_lugar = ""

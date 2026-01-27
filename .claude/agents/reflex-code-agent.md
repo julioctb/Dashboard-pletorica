@@ -111,33 +111,33 @@ rx.cond(
 )
 ```
 
-### 5. Label vs Placeholder en Inputs
+### 5. Inputs Sin Label
 
 ```python
-# ❌ INCORRECTO: Usar label
-rx.input(
-    label="Nombre comercial",  # NO es el patrón del proyecto
-    value=State.nombre,
-)
-
-# ✅ CORRECTO: Usar placeholder (patrón establecido)
-rx.input(
-    placeholder="Nombre comercial",
-    value=State.nombre,
-    on_change=State.set_nombre,
-)
-
-# ✅ MEJOR: Usar componentes existentes
-from app.presentation.components.ui import form_input
-
+# INCORRECTO: Sin label, nombre en placeholder
 form_input(
     placeholder="Nombre comercial *",
     value=State.form_nombre,
     on_change=State.set_form_nombre,
-    on_blur=State.validar_nombre_campo,
     error=State.error_nombre,
 )
+
+# CORRECTO: Label + placeholder de ejemplo + hint
+from app.presentation.components.ui import form_input
+
+form_input(
+    label="Nombre comercial",
+    required=True,
+    placeholder="Ej: ACME Corporation",
+    value=State.form_nombre,
+    on_change=State.set_form_nombre,
+    on_blur=State.validar_nombre,
+    error=State.error_nombre,
+    hint="Maximo 100 caracteres",
+)
 ```
+
+**IMPORTANTE**: `form_input` NO se puede usar dentro de `rx.foreach` porque su check Python `if not label:` falla cuando label es un Var. Para campos dinamicos en `rx.foreach`, usar patron inline con `rx.cond` (ver `configuracion_page.py`).
 
 ### 6. Variables de State
 
@@ -293,11 +293,11 @@ async def cargar_datos(self):
 # YA EXISTEN en app/presentation/components/ui/
 from app.presentation.components.ui import (
     # Formularios
-    form_input,          # Input con manejo de error
-    form_textarea,       # Textarea con manejo de error
-    form_select,         # Select con manejo de error
-    form_field,          # Campo completo desde FieldConfig
-    form_section,        # Agrupa campos con título
+    form_input,          # Input con label, error, hint
+    form_textarea,       # Textarea con label, error, hint
+    form_select,         # Select con label, error, hint
+    form_date,           # Input date con label, error
+    form_row,            # Fila de campos lado a lado
     
     # Tablas
     tabla,               # Tabla completa con búsqueda
@@ -344,6 +344,8 @@ from app.services import (
     contrato_categoria_service,
     plaza_service,
     empleado_service,
+    requisicion_service,
+    archivo_service,
 )
 
 # ✅ CORRECTO: Usar singleton
@@ -625,8 +627,8 @@ pytest tests/ -v
 
 2. **model_dump()**: Al pasar datos de entities a State, convertir con `entity.model_dump()`
 
-3. **Validadores**: Usar `FieldConfig` y `crear_validador()` de `app/core/validation/`
+3. **Validadores**: Validadores frontend en `{modulo}_validators.py`, backend en entities con Pydantic
 
-4. **Enums**: Todos centralizados en `app/core/enums.py`
+4. **Enums**: Centralizados en `app/core/enums.py`, excepto enums de archivo en `app/entities/archivo.py`
 
 5. **Excepciones**: Nunca crear excepciones nuevas, usar las de `app/core/exceptions.py`

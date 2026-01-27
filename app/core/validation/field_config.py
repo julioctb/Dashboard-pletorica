@@ -15,8 +15,14 @@ Uso:
             raise ValueError(error)
         return v
 
-    # En formulario (Reflex)
-    form_field(CAMPO_RFC, value=State.form_rfc, error=State.error_rfc)
+    # En formulario (Reflex) - usar form_input con los metadatos del FieldConfig
+    form_input(
+        label=CAMPO_RFC.label,
+        placeholder=CAMPO_RFC.placeholder,
+        hint=CAMPO_RFC.hint,
+        value=State.form_rfc,
+        error=State.error_rfc,
+    )
 """
 from dataclasses import dataclass, field
 from typing import Callable, Optional, List, Tuple

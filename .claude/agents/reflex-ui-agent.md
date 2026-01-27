@@ -221,9 +221,9 @@ from app.presentation.components.ui import (
     form_input,          # Input con error handling
     form_textarea,       # Textarea con error handling
     form_select,         # Select con error handling
-    form_field,          # Campo completo desde FieldConfig
-    form_section,        # Agrupa campos con título
-    
+    form_date,           # Date picker con error handling
+    form_row,            # Fila de campos en grid
+
     # === TABLAS ===
     tabla,               # Tabla completa con búsqueda
     tabla_vacia,         # Estado vacío
@@ -266,14 +266,17 @@ from app.presentation.components.ui import (
 )
 ```
 
-### Uso de form_input (Patrón Estándar)
+### Uso de form_input (Patron Estandar)
 
 ```python
-from app.presentation.components.ui import form_input
+from app.presentation.components.ui import form_input, form_select, form_date, form_row
 
-# ✅ CORRECTO: Usar componente existente
+# Input con label, ejemplo como placeholder, y hint
 form_input(
-    placeholder="Nombre comercial *",  # Usar placeholder, NO label
+    label="Nombre comercial",
+    required=True,                          # Agrega " *" al label
+    placeholder="Ej: ACME Corporation",     # Valor de ejemplo
+    hint="Se formatea automaticamente",     # Texto de ayuda
     value=State.form_nombre,
     on_change=State.set_form_nombre,
     on_blur=State.validar_nombre_campo,
@@ -281,33 +284,41 @@ form_input(
     max_length=100,
 )
 
-# ❌ INCORRECTO: Crear input desde cero
+# Select con label
+form_select(
+    label="Tipo de empresa",
+    required=True,
+    placeholder="Seleccione tipo",
+    options=State.opciones_tipo,
+    value=State.form_tipo,
+    on_change=State.set_form_tipo,
+    error=State.error_tipo,
+)
+
+# Date picker
+form_date(
+    label="Fecha de inicio",
+    required=True,
+    value=State.form_fecha,
+    on_change=State.set_form_fecha,
+    error=State.error_fecha,
+)
+
+# Fila de 2 campos lado a lado
+form_row(
+    form_input(label="Nombre", required=True, ...),
+    form_input(label="Apellido", required=True, ...),
+)
+
+# INCORRECTO: Crear input desde cero
 rx.vstack(
-    rx.text("Nombre comercial"),  # NO usar label separado
-    rx.input(
-        value=State.form_nombre,
-        on_change=State.set_form_nombre,
-    ),
+    rx.text("Nombre comercial"),
+    rx.input(value=State.form_nombre, on_change=State.set_form_nombre),
     rx.cond(State.error, rx.text(State.error)),  # Falta rama else!
 )
 ```
 
-### Uso de form_field (Con FieldConfig)
-
-```python
-from app.core.validation import CAMPO_RFC
-from app.presentation.components.ui import form_field
-
-# ✅ CORRECTO: Usar FieldConfig centralizado
-form_field(
-    config=CAMPO_RFC,
-    value=State.form_rfc,
-    on_change=State.set_form_rfc,
-    on_blur=State.validar_rfc_campo,
-    error=State.error_rfc,
-)
-# Automáticamente obtiene: label, placeholder, hint, validación
-```
+**IMPORTANTE**: `form_input` NO se puede usar dentro de `rx.foreach` porque su check Python `if not label:` falla cuando label es un Var. Para campos dinamicos en `rx.foreach`, usar patron inline con `rx.cond` (ver `configuracion_page.py`).
 
 ### Uso de status_badge
 
@@ -357,21 +368,27 @@ modal_confirmar_eliminar(
 
 ## 🚫 ANTI-PATRONES UI
 
-### 1. Label en lugar de Placeholder
+### 1. Input Sin Label
 
 ```python
-# ❌ INCORRECTO: Patrón no establecido
-rx.vstack(
-    rx.text("Nombre *", size="2"),  # Label separado
-    rx.input(value=State.nombre),
-)
-
-# ✅ CORRECTO: Usar placeholder
+# INCORRECTO: Sin label, nombre en placeholder
 form_input(
-    placeholder="Nombre *",
+    placeholder="Nombre comercial *",
     value=State.nombre,
     on_change=State.set_nombre,
     error=State.error_nombre,
+)
+
+# CORRECTO: Label + placeholder de ejemplo + hint
+form_input(
+    label="Nombre comercial",
+    required=True,
+    placeholder="Ej: ACME Corporation",
+    value=State.nombre,
+    on_change=State.set_nombre,
+    on_blur=State.validar_nombre,
+    error=State.error_nombre,
+    hint="Maximo 100 caracteres",
 )
 ```
 
@@ -587,13 +604,12 @@ from app.presentation.theme import (
 # 4️⃣ Componentes UI
 from app.presentation.components.ui import (
     form_input,
-    form_field,
+    form_select,
+    form_date,
+    form_row,
     status_badge,
     modal_formulario,
 )
-
-# 5️⃣ Validación (para form_field)
-from app.core.validation import CAMPO_RFC, CAMPO_EMAIL
 ```
 
 ---
@@ -611,19 +627,19 @@ from app.core.validation import CAMPO_RFC, CAMPO_EMAIL
 
 - [ ] Se reutilizan componentes de `app/presentation/components/ui/`
 - [ ] No se recrean componentes que ya existen
-- [ ] `form_input` usa `placeholder`, no `label`
+- [ ] `form_input` usa `label=` y `placeholder=` de ejemplo (Ej: ...)
 - [ ] Todos los `rx.cond` tienen ambas ramas
 
 ### Accesibilidad
 
 - [ ] Texto mínimo 16px para contenido principal
 - [ ] Errores muestran mensaje de texto (no solo color)
-- [ ] Inputs tienen `placeholder` descriptivo
+- [ ] Inputs tienen `label` descriptivo y `placeholder` de ejemplo
 - [ ] Botones tienen texto legible o `aria-label`
 
 ### Formularios
 
-- [ ] Campos requeridos marcados con `*` en placeholder
+- [ ] Campos requeridos usan `required=True`
 - [ ] Validación on_blur configurada
 - [ ] Errores se muestran bajo el campo
 - [ ] Espacio reservado para errores (`rx.text("")`)
@@ -685,14 +701,17 @@ def _modal_crear():
         puede_guardar=MiState.puede_guardar,
         contenido=rx.vstack(
             form_input(
-                placeholder="Nombre *",
+                label="Nombre",
+                required=True,
+                placeholder="Ej: Juan Perez",
                 value=MiState.form_nombre,
                 on_change=MiState.set_form_nombre,
                 on_blur=MiState.validar_nombre_campo,
                 error=MiState.error_nombre,
             ),
             form_input(
-                placeholder="Descripción",
+                label="Descripcion",
+                placeholder="Ej: Descripcion breve",
                 value=MiState.form_descripcion,
                 on_change=MiState.set_form_descripcion,
                 error=MiState.error_descripcion,

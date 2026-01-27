@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Dashboard application built with Reflex (v0.8.9) for managing dependency contracts in Mexico (empresas, empleados, sedes, nominas). Uses Supabase as backend. **Simplified to scalable layered architecture** (2025-10-06).
+Dashboard application built with Reflex (v0.8.21) for managing dependency contracts in Mexico (empresas, empleados, contratos, plazas, requisiciones, etc.). Uses Supabase as backend (DB + Storage). **Scalable layered architecture**.
 
 **Author**: Julio C Tello (julioc.tello@me.com)
 **Status**: Production - Scalable Layered Architecture
@@ -56,58 +56,96 @@ The application follows a **simple layered architecture** optimized for **scalab
 
 ```
 app/
-├── core/                        # ⚙️ Cross-cutting concerns
-│   ├── config.py               # Environment configuration
-│   └── calculations/           # Business calculations (IMSS, ISR, payroll)
+├── core/                        # Cross-cutting concerns
+│   ├── config/                 # Environment configuration
+│   ├── enums.py               # All enums (Estatus, TipoEmpresa, TipoEntidadArchivo, etc.)
+│   ├── exceptions.py          # Custom exceptions (ApplicationError hierarchy)
+│   ├── text_utils.py          # Text normalization (capitalizar, formatear_telefono, etc.)
+│   ├── validation/            # FieldConfig, constants, custom validators
+│   ├── calculations/          # Business calculations (IMSS, ISR, payroll)
+│   ├── compresores/           # Image (WebP) and PDF compression
+│   └── utils/                 # General utilities
 │
-├── entities/                    # 📦 Domain models (ALL in one place)
-│   ├── empresa.py              # Empresa, EmpresaCreate, EmpresaUpdate, EmpresaResumen
-│   ├── empleado.py             # (TODO: migrate)
-│   ├── sede.py                 # (TODO: migrate)
-│   └── nomina.py               # (TODO: migrate)
+├── entities/                    # Domain models (Pydantic)
+│   ├── empresa.py             # Empresa, EmpresaCreate, EmpresaUpdate, EmpresaResumen
+│   ├── empleado.py            # Empleado, EmpleadoCreate, EmpleadoUpdate
+│   ├── contrato.py            # Contrato, ContratoCreate, ContratoUpdate
+│   ├── plaza.py               # Plaza, PlazaCreate, PlazaUpdate
+│   ├── requisicion.py         # Requisicion, RequisicionItem, etc.
+│   ├── archivo.py             # ArchivoSistema, ArchivoSistemaCreate
+│   ├── categoria_puesto.py    # CategoriaPuesto
+│   ├── contrato_categoria.py  # ContratoCategoria
+│   ├── historial_laboral.py   # HistorialLaboral
+│   ├── pago.py                # Pago
+│   ├── tipo_servicio.py       # TipoServicio
+│   └── costo_patronal.py      # CostoPatronal
 │
-├── repositories/                # 💾 Data access layer (ALL in one place)
+├── repositories/                # Data access layer (Supabase)
 │   ├── empresa_repository.py  # IEmpresaRepository + SupabaseEmpresaRepository
-│   ├── empleado_repository.py # (TODO: migrate)
-│   └── sede_repository.py      # (TODO: migrate)
+│   ├── empleado_repository.py
+│   ├── contrato_repository.py
+│   ├── plaza_repository.py
+│   ├── requisicion_repository.py
+│   ├── archivo_repository.py  # Supabase Storage + DB
+│   ├── categoria_puesto_repository.py
+│   ├── contrato_categoria_repository.py
+│   ├── historial_laboral_repository.py
+│   ├── pago_repository.py
+│   └── tipo_servicio_repository.py
 │
-├── services/                    # 🔧 Business logic (ALL in one place)
-│   ├── empresa_service.py      # EmpresaService + empresa_service singleton
-│   ├── empleado_service.py     # (TODO: migrate)
-│   └── nomina_service.py       # (TODO: migrate)
+├── services/                    # Business logic (singletons)
+│   ├── empresa_service.py
+│   ├── empleado_service.py
+│   ├── contrato_service.py
+│   ├── plaza_service.py
+│   ├── requisicion_service.py
+│   ├── archivo_service.py     # File upload + compression pipeline
+│   ├── categoria_puesto_service.py
+│   ├── contrato_categoria_service.py
+│   ├── historial_laboral_service.py
+│   ├── pago_service.py
+│   └── tipo_servicio_service.py
 │
-├── database/                    # 🗄️ Infrastructure
+├── database/                    # Infrastructure
 │   └── connection.py           # Supabase singleton (db_manager)
 │
-├── presentation/                # 🎨 UI Layer (Reflex)
+├── presentation/                # UI Layer (Reflex)
 │   ├── pages/
-│   │   └── empresas/
-│   │       ├── empresas_page.py    # Main page component
-│   │       └── empresas_state.py   # Reflex state management
+│   │   ├── empresas/
+│   │   ├── empleados/
+│   │   ├── contratos/
+│   │   ├── plazas/
+│   │   ├── requisiciones/
+│   │   ├── configuracion/     # Default values for requisiciones
+│   │   ├── categorias_puesto/
+│   │   ├── historial_laboral/
+│   │   ├── tipo_servicio/
+│   │   ├── simulador/
+│   │   └── dashboard.py
 │   │
 │   ├── components/
-│   │   ├── empresas/           # Empresa-specific components
-│   │   │   ├── empresa_card.py
-│   │   │   └── empresa_modals.py
-│   │   ├── shared/             # Common state
-│   │   │   └── base_state.py
-│   │   └── ui/                 # Reusable UI components
-│   │       ├── cards.py
-│   │       ├── modals.py
-│   │       ├── filters.py
-│   │       └── toasts.py
+│   │   ├── ui/                # Reusable UI components
+│   │   │   ├── form_input.py  # form_input, form_select, form_textarea, form_date, form_row
+│   │   │   ├── tables.py     # tabla, tabla_vacia
+│   │   │   ├── modals.py     # modal_formulario, modal_confirmar_eliminar, etc.
+│   │   │   ├── filters.py    # input_busqueda, barra_filtros, etc.
+│   │   │   ├── status_badge.py
+│   │   │   ├── breadcrumb.py
+│   │   │   ├── view_toggle.py
+│   │   │   └── ...
+│   │   ├── common/            # Shared file uploader, etc.
+│   │   ├── empresas/
+│   │   ├── plazas/
+│   │   ├── requisiciones/
+│   │   └── shared/            # BaseState
 │   │
-│   └── layout/
-│       ├── sidebar_layout.py
-│       └── navbar_layout.py
+│   ├── layout/
+│   │   ├── sidebar_layout.py
+│   │   └── navbar_layout.py
+│   │
+│   └── theme/                 # Colors, Spacing, Typography tokens
 │
-├── tests/                       # 🧪 Unit tests
-│   ├── empresas/
-│   ├── empleados/
-│   ├── sedes/
-│   └── nominas/
-│
-└── app.py                       # Application entry point
+└── app.py                       # Application entry point + routes
 ```
 
 ### Architecture Benefits
@@ -189,9 +227,9 @@ resumen = await empresa_service.obtener_resumen_empresas()
 nueva = await empresa_service.crear(empresa_create)
 ```
 
-### 4. Reflex State Management (v0.8.9)
+### 4. Reflex State Management (v0.8.21)
 
-Reflex v0.8.9 requires **explicit setter methods**:
+Reflex v0.8.21 requires **explicit setter methods**:
 
 ```python
 from app.presentation.components.shared.base_state import BaseState
@@ -264,11 +302,14 @@ Configuration is validated on startup by `app/core/config.py`.
 
 ### Reflex-Specific Notes
 
-- **State setters**: Always explicit in v0.8.9+
-- **Conditional rendering**: `rx.cond(condition, if_true, if_false)`
+- **State setters**: Always explicit in v0.8.21+
+- **Conditional rendering**: `rx.cond(condition, if_true, if_false)` - always both branches
+- **Iteration**: `rx.foreach(list_var, render_fn)` - never Python `for` in render
+- **Boolean operators**: Use `&`, `|`, `~` with rx.Var (not `and`, `or`, `not`)
 - **Async methods**: Automatically awaited by Reflex
 - **Components**: Pure functions returning `rx.Component`
 - **Layout**: Shared sidebar/navbar in `app/presentation/layout/`
+- **rx.foreach + form_input**: Inside `rx.foreach`, dict values become Vars. `form_input` uses Python-level `if` checks that fail with Vars. Use inline `rx.cond` pattern instead of `form_input` for dynamic fields rendered via `rx.foreach`.
 
 ### Import Patterns
 
@@ -285,10 +326,71 @@ from app.services import empresa_service
 # Database
 from app.database import db_manager
 
+# UI Components
+from app.presentation.components.ui import (
+    form_input, form_select, form_textarea, form_date, form_row,
+    tabla, tabla_vacia, skeleton_tabla,
+    modal_formulario, modal_confirmar_eliminar,
+    status_badge, breadcrumb, view_toggle,
+    barra_herramientas, barra_filtros,
+)
+
+# Theme tokens
+from app.presentation.theme import Colors, Spacing, Typography
+
 # Presentation
 from app.presentation.pages.empresas import empresas_page, EmpresasState
 from app.presentation.components.shared.base_state import BaseState
 ```
+
+### Form Input Pattern (Standard)
+
+All form fields use `form_input` with `label=` parameter (not placeholder for field name):
+
+```python
+from app.presentation.components.ui import form_input, form_select, form_date, form_row
+
+# Standard input with label, example placeholder, and hint
+form_input(
+    label="Nombre comercial",
+    required=True,                          # Adds " *" to label
+    placeholder="Ej: ACME Corporation",     # Example value
+    hint="Se formatea automaticamente",     # Help text below field
+    value=State.form_nombre,
+    on_change=State.set_form_nombre,
+    on_blur=State.validar_nombre_campo,
+    error=State.error_nombre,
+    max_length=100,
+)
+
+# Select with label
+form_select(
+    label="Tipo de empresa",
+    required=True,
+    placeholder="Seleccione tipo",
+    options=State.opciones_tipo,
+    value=State.form_tipo,
+    on_change=State.set_form_tipo,
+    error=State.error_tipo,
+)
+
+# Date picker
+form_date(
+    label="Fecha de inicio",
+    required=True,
+    value=State.form_fecha_inicio,
+    on_change=State.set_form_fecha_inicio,
+    error=State.error_fecha_inicio,
+)
+
+# Row layout (2 fields side by side)
+form_row(
+    form_input(label="Nombre", ...),
+    form_input(label="Apellido", ...),
+)
+```
+
+**IMPORTANT**: `form_input` cannot be used inside `rx.foreach` because its Python-level `if not label:` check fails when label is a Var. For dynamic fields in `rx.foreach`, use inline `rx.cond` pattern instead (see `configuracion_page.py` for example).
 
 ### Validation Strategy (Defense in Depth)
 
@@ -374,12 +476,12 @@ All custom exceptions inherit from `ApplicationError` (`app/core/exceptions.py`)
 
 ```python
 from app.core.exceptions import (
+    ApplicationError,   # Base exception
     NotFoundError,      # Resource not found in database
     DuplicateError,     # Unique constraint violation (RFC, email, etc.)
     DatabaseError,      # Connection/infrastructure errors
     ValidationError,    # Data validation errors (Pydantic)
     BusinessRuleError,  # Business logic violations
-    AuthorizationError  # Permission denied
 )
 ```
 
@@ -481,7 +583,7 @@ When implementing a new module (empleados, nóminas, etc.):
 - [ ] Add business logic validation if needed (raise `BusinessRuleError`)
 
 **State (Presentation):**
-- [ ] Import exceptions: `from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, ValidationError`
+- [ ] Import exceptions: `from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, ValidationError, BusinessRuleError`
 - [ ] Catch specific exceptions in order of specificity
 - [ ] Show user-friendly messages (avoid technical jargon)
 - [ ] Handle UI state properly (loading, modals, etc.)
@@ -665,34 +767,46 @@ Mexican payroll calculations in `app/core/calculations/`:
 
 These are independent utilities used across modules.
 
-## Migration Status
+## Module Status
 
-### ✅ Completed
-- ✅ Simplified to flat layered architecture
-- ✅ All code for empresas migrated
-- ✅ Removed all nested/complex directory structures
-- ✅ Clean imports throughout
+### Implemented
+- Empresas (entity, repository, service, page, components)
+- Empleados (entity, repository, service, page)
+- Contratos (entity, repository, service, page)
+- Plazas (entity, repository, service, page, components)
+- Requisiciones (entity, repository, service, page, components, form)
+- Configuracion (page, state - default values for requisiciones)
+- Archivos (entity, repository, service, compresores - generic file upload with WebP compression, Supabase Storage)
+- Categorias de Puesto (entity, repository, service, page)
+- Tipos de Servicio (entity, repository, service, page)
+- Historial Laboral (entity, repository, service, page)
+- Pagos (entity, repository, service)
+- Contrato-Categoria (entity, repository, service)
+- Costos Patronales (entity)
+- Dashboard (page)
+- Simulador (page)
 
-### ⚠️ TODO
-- Migrate empleados module
-- Migrate sedes module
-- Migrate nominas module
-- Implement dashboard with new architecture
-- Add unit tests
+### Pending
+- Portal de Cliente
+- Sedes
 
 ## Important Files
 
 - **`app/app.py`**: Application entry point, routes
 - **`rxconfig.py`**: Reflex config (Sitemap, TailwindV4 plugins)
-- **`app/core/config.py`**: Environment configuration
-- **`app/database/connection.py`**: Database singleton
-- **`app/entities/empresa.py`**: Main business entity
+- **`app/core/config/`**: Environment configuration
+- **`app/core/enums.py`**: All enums (Estatus, TipoEmpresa, TipoEntidadArchivo, TipoArchivo, etc.)
+- **`app/core/exceptions.py`**: Custom exception hierarchy (ApplicationError base)
+- **`app/core/text_utils.py`**: Text normalization (normalizar_por_sufijo, capitalizar_con_preposiciones, formatear_telefono, etc.)
+- **`app/core/validation/`**: FieldConfig, constants, custom validators
+- **`app/database/connection.py`**: Database singleton (db_manager)
+- **`app/presentation/components/ui/form_input.py`**: form_input, form_select, form_textarea, form_date, form_row
+- **`app/presentation/theme/`**: Colors, Spacing, Typography, StatusColors tokens
 - **`pyproject.toml`**: Dependencies and project metadata
 
 ## Next Steps
 
-1. Migrate remaining modules (empleados, sedes, nominas) to new flat structure
-2. Each module = 1 entity file + 1 repository file + 1 service file
+1. Implement Portal de Cliente module
+2. Implement Sedes module
 3. Add comprehensive tests
-4. Implement dashboard
-5. Add API documentation
+4. Add API documentation
