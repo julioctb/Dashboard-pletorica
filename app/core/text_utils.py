@@ -6,8 +6,11 @@ tanto en entities (Pydantic) como en validators (frontend).
 
 IMPORTANTE: Cualquier cambio aquí afecta ambas capas.
 """
+import re
 from datetime import date, datetime
 from typing import Optional, Union
+
+from app.core.validation.custom_validators import limpiar_telefono
 
 
 def normalizar_mayusculas(texto: Optional[str]) -> str:
@@ -27,6 +30,163 @@ def normalizar_mayusculas(texto: Optional[str]) -> str:
     if not texto:
         return ""
     return texto.strip().upper()
+
+
+def capitalizar_palabras(texto: Optional[str]) -> str:
+    """
+    Title Case para texto general (nombres, ciudades, titulos, etc).
+
+    Args:
+        texto: Texto a capitalizar (puede ser None)
+
+    Returns:
+        Texto en Title Case, o string vacío si es None
+
+    Ejemplo:
+        >>> capitalizar_palabras("  juan perez  ")
+        'Juan Perez'
+    """
+    if not texto:
+        return ""
+    return " ".join(w.capitalize() for w in texto.strip().split())
+
+
+def capitalizar_con_preposiciones(texto: Optional[str]) -> str:
+    """
+    Title Case respetando preposiciones en español.
+
+    Util para cargos, direcciones, dependencias, etc.
+
+    Args:
+        texto: Texto a capitalizar (puede ser None)
+
+    Returns:
+        Texto en Title Case con preposiciones en minúsculas
+
+    Ejemplo:
+        >>> capitalizar_con_preposiciones("director de recursos humanos")
+        'Director de Recursos Humanos'
+    """
+    if not texto:
+        return ""
+    preposiciones = {"de", "del", "la", "las", "los", "el", "en", "y", "e"}
+    palabras = texto.strip().split()
+    resultado = []
+    for i, palabra in enumerate(palabras):
+        if i > 0 and palabra.lower() in preposiciones:
+            resultado.append(palabra.lower())
+        else:
+            resultado.append(palabra.capitalize())
+    return " ".join(resultado)
+
+
+def normalizar_email(texto: Optional[str]) -> str:
+    """
+    Normaliza email: minúsculas y sin espacios.
+
+    Args:
+        texto: Email a normalizar (puede ser None)
+
+    Returns:
+        Email en minúsculas sin espacios, o string vacío si es None
+
+    Ejemplo:
+        >>> normalizar_email("  Juan@Example.COM  ")
+        'juan@example.com'
+    """
+    if not texto:
+        return ""
+    return texto.strip().lower()
+
+
+def formatear_telefono(texto: Optional[str]) -> str:
+    """
+    Formatea teléfono mexicano: solo dígitos, formato XXX XXX XXXX.
+
+    Usa limpiar_telefono() de custom_validators para extraer dígitos.
+
+    Args:
+        texto: Teléfono a formatear (puede ser None)
+
+    Returns:
+        Teléfono formateado o solo dígitos si no tiene 10
+
+    Ejemplo:
+        >>> formatear_telefono("(222) 123-4567")
+        '222 123 4567'
+    """
+    if not texto:
+        return ""
+    digitos = limpiar_telefono(texto)
+    if len(digitos) == 10:
+        return f"{digitos[:3]} {digitos[3:6]} {digitos[6:]}"
+    return digitos
+
+
+def limpiar_espacios(texto: Optional[str]) -> str:
+    """
+    Trim y colapsar espacios múltiples.
+
+    Args:
+        texto: Texto a limpiar (puede ser None)
+
+    Returns:
+        Texto sin espacios extra, o string vacío si es None
+
+    Ejemplo:
+        >>> limpiar_espacios("  hola   mundo  ")
+        'hola mundo'
+    """
+    if not texto:
+        return ""
+    return " ".join(texto.split())
+
+
+# Claves exactas que usan MAYUSCULAS (prioridad sobre sufijo)
+_NORMALIZADORES_POR_CLAVE = {
+    "elabora_nombre": normalizar_mayusculas,
+    "solicita_nombre": normalizar_mayusculas,
+    "validacion_asesor": normalizar_mayusculas,
+    "elabora_cargo": normalizar_mayusculas,
+    "solicita_cargo": normalizar_mayusculas,
+}
+
+# Mapa de sufijos de clave → normalizador
+_NORMALIZADORES_POR_SUFIJO = {
+    "_nombre": capitalizar_palabras,
+    "_cargo": capitalizar_con_preposiciones,
+    "_email": normalizar_email,
+    "_telefono": formatear_telefono,
+}
+
+
+def normalizar_por_sufijo(clave: str, valor: str) -> str:
+    """
+    Aplica el normalizador adecuado según la clave.
+
+    Prioridad:
+      1. Clave exacta (ej: elabora_nombre → MAYUSCULAS)
+      2. Sufijo (ej: _nombre → capitalizar_palabras)
+      3. Fallback → limpiar_espacios
+
+    Args:
+        clave: Clave del campo (ej: "titular_nombre", "elabora_cargo")
+        valor: Valor a normalizar
+
+    Returns:
+        Valor normalizado
+    """
+    if not valor or not valor.strip():
+        return ""
+    # 1. Clave exacta
+    if clave in _NORMALIZADORES_POR_CLAVE:
+        return _NORMALIZADORES_POR_CLAVE[clave](valor)
+    # 2. Sufijo
+    for sufijo, fn in _NORMALIZADORES_POR_SUFIJO.items():
+        if clave.endswith(sufijo):
+            return fn(valor)
+    # 3. Fallback
+    return limpiar_espacios(valor)
 
 
 def formatear_moneda(valor: Optional[str], con_simbolo: bool = True) -> str:

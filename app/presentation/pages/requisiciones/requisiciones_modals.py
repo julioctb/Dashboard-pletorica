@@ -1,6 +1,6 @@
 """Modales para el modulo de Requisiciones (detalle, confirmar, adjudicar)."""
 import reflex as rx
-from app.presentation.components.ui.form_input import form_select
+from app.presentation.components.ui.form_input import form_select, form_date
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 from app.presentation.components.requisiciones.requisicion_estado_badge import estado_requisicion_badge
 
@@ -314,21 +314,18 @@ def modal_adjudicar_requisicion() -> rx.Component:
 
             rx.vstack(
                 form_select(
-                    placeholder="Empresa *",
+                    label="Empresa",
+                    required=True,
+                    placeholder="Seleccione empresa",
                     value=RequisicionesState.form_adjudicar_empresa_id,
                     on_change=RequisicionesState.set_form_adjudicar_empresa_id,
                     options=RequisicionesState.empresas_opciones,
                 ),
-                rx.vstack(
-                    rx.text("Fecha de adjudicacion *", size="2", color="gray"),
-                    rx.input(
-                        type="date",
-                        value=RequisicionesState.form_adjudicar_fecha,
-                        on_change=RequisicionesState.set_form_adjudicar_fecha,
-                        width="100%",
-                    ),
-                    spacing="1",
-                    width="100%",
+                form_date(
+                    label="Fecha de adjudicacion",
+                    required=True,
+                    value=RequisicionesState.form_adjudicar_fecha,
+                    on_change=RequisicionesState.set_form_adjudicar_fecha,
                 ),
                 spacing="3",
                 width="100%",

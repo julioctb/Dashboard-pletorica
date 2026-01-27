@@ -316,16 +316,19 @@ def sidebar_footer() -> rx.Component:
             ),
             rx.spacer(),
             rx.tooltip(
-                rx.icon_button(
-                    rx.icon("settings", size=18),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="gray",
-                    cursor="pointer",
+                rx.link(
+                    rx.icon_button(
+                        rx.icon("settings", size=18),
+                        size="1",
+                        variant="ghost",
+                        color_scheme="gray",
+                        cursor="pointer",
+                    ),
+                    href="/configuracion",
+                    underline="none",
                 ),
                 content="Configuración",
                 side=rx.cond(SidebarState.is_collapsed, "right", "top"),
-
             ),
             width="100%",
             padding=Spacing.MD,

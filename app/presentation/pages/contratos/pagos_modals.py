@@ -2,7 +2,7 @@
 Modales para el módulo de Pagos de Contratos.
 """
 import reflex as rx
-from app.presentation.components.ui.form_input import form_input, form_textarea
+from app.presentation.components.ui.form_input import form_input, form_textarea, form_date
 from app.presentation.components.ui.modals import modal_confirmar_eliminar as modal_eliminar_generico
 from app.presentation.pages.contratos.pagos_state import PagosState
 
@@ -259,96 +259,69 @@ def modal_pago_form() -> rx.Component:
             rx.vstack(
                 # Fecha y Monto
                 rx.hstack(
-                    rx.vstack(
-                        rx.text("Fecha de pago *", size="2", color="gray"),
-                        rx.input(
-                            type="date",
-                            value=PagosState.form_fecha_pago,
-                            on_change=PagosState.set_form_fecha_pago,
-                            on_blur=PagosState.validar_fecha_pago_campo,
-                            width="100%",
-                        ),
-                        rx.cond(
-                            PagosState.error_fecha_pago != "",
-                            rx.text(PagosState.error_fecha_pago, color="red", size="1"),
-                        ),
-                        width="50%",
-                        spacing="1",
+                    form_date(
+                        label="Fecha de pago",
+                        required=True,
+                        value=PagosState.form_fecha_pago,
+                        on_change=PagosState.set_form_fecha_pago,
+                        error=PagosState.error_fecha_pago,
                     ),
-                    rx.vstack(
-                        rx.text("Monto *", size="2", color="gray"),
-                        form_input(
-                            placeholder="$ 0.00",
-                            value=PagosState.form_monto,
-                            on_change=PagosState.set_form_monto,
-                            on_blur=PagosState.validar_monto_campo,
-                            error=PagosState.error_monto,
-                        ),
-                        width="50%",
-                        spacing="1",
+                    form_input(
+                        label="Monto",
+                        required=True,
+                        placeholder="Ej: 50,000.00",
+                        value=PagosState.form_monto,
+                        on_change=PagosState.set_form_monto,
+                        on_blur=PagosState.validar_monto_campo,
+                        error=PagosState.error_monto,
                     ),
                     spacing="3",
                     width="100%",
                 ),
 
                 # Concepto
-                rx.vstack(
-                    rx.text("Concepto *", size="2", color="gray"),
-                    form_textarea(
-                        placeholder="Descripción del pago...",
-                        value=PagosState.form_concepto,
-                        on_change=PagosState.set_form_concepto,
-                        on_blur=PagosState.validar_concepto_campo,
-                        error=PagosState.error_concepto,
-                        rows="2",
-                    ),
-                    width="100%",
-                    spacing="1",
+                form_textarea(
+                    label="Concepto",
+                    required=True,
+                    placeholder="Ej: Pago mensual por servicio de limpieza",
+                    value=PagosState.form_concepto,
+                    on_change=PagosState.set_form_concepto,
+                    on_blur=PagosState.validar_concepto_campo,
+                    error=PagosState.error_concepto,
+                    rows="2",
                 ),
 
                 # Número de Factura y Comprobante
                 rx.hstack(
-                    rx.vstack(
-                        rx.text("Número de Factura", size="2", color="gray"),
-                        form_input(
-                            placeholder="FAC-001",
-                            value=PagosState.form_numero_factura,
-                            on_change=PagosState.set_form_numero_factura,
-                            on_blur=PagosState.validar_numero_factura_campo,
-                            error=PagosState.error_numero_factura,
-                        ),
-                        width="100%",
-                        spacing="1",
+                    form_input(
+                        label="Numero de factura",
+                        placeholder="Ej: FAC-001",
+                        value=PagosState.form_numero_factura,
+                        on_change=PagosState.set_form_numero_factura,
+                        on_blur=PagosState.validar_numero_factura_campo,
+                        error=PagosState.error_numero_factura,
                     ),
-                    rx.vstack(
-                        rx.text("Comprobante/Referencia", size="2", color="gray"),
-                        form_input(
-                            placeholder="URL o referencia",
-                            value=PagosState.form_comprobante,
-                            on_change=PagosState.set_form_comprobante,
-                            on_blur=PagosState.validar_comprobante_campo,
-                            error=PagosState.error_comprobante,
-                        ),
-                        width="100%",
-                        spacing="1",
+                    form_input(
+                        label="Comprobante/Referencia",
+                        placeholder="Ej: REF-2026-001",
+                        value=PagosState.form_comprobante,
+                        on_change=PagosState.set_form_comprobante,
+                        on_blur=PagosState.validar_comprobante_campo,
+                        error=PagosState.error_comprobante,
                     ),
                     spacing="3",
                     width="100%",
                 ),
 
                 # Notas
-                rx.vstack(
-                    rx.text("Notas", size="2", color="gray"),
-                    form_textarea(
-                        placeholder="Observaciones adicionales...",
-                        value=PagosState.form_notas,
-                        on_change=PagosState.set_form_notas,
-                        on_blur=PagosState.validar_notas_campo,
-                        error=PagosState.error_notas,
-                        rows="2",
-                    ),
-                    width="100%",
-                    spacing="1",
+                form_textarea(
+                    label="Notas",
+                    placeholder="Ej: Observaciones adicionales del pago",
+                    value=PagosState.form_notas,
+                    on_change=PagosState.set_form_notas,
+                    on_blur=PagosState.validar_notas_campo,
+                    error=PagosState.error_notas,
+                    rows="2",
                 ),
 
                 spacing="4",

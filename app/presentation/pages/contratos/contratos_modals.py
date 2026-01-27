@@ -2,7 +2,7 @@
 Modales para el módulo de Contratos.
 """
 import reflex as rx
-from app.presentation.components.ui.form_input import form_input, form_select, form_textarea
+from app.presentation.components.ui.form_input import form_input, form_select, form_textarea, form_date
 from app.presentation.pages.contratos.contratos_state import ContratosState
 
 
@@ -14,14 +14,18 @@ def _seccion_info_basica() -> rx.Component:
         # Fila 1: Empresa y Tipo de Contrato
         rx.hstack(
             form_select(
-                placeholder="Empresa *",
+                label="Empresa",
+                required=True,
+                placeholder="Seleccione empresa",
                 value=ContratosState.form_empresa_id,
                 on_change=ContratosState.set_form_empresa_id,
                 options=ContratosState.opciones_empresa,
                 error=ContratosState.error_empresa_id,
             ),
             form_select(
-                placeholder="Tipo de contrato *",
+                label="Tipo de contrato",
+                required=True,
+                placeholder="Seleccione tipo",
                 value=ContratosState.form_tipo_contrato,
                 on_change=ContratosState.set_form_tipo_contrato,
                 options=ContratosState.opciones_tipo_contrato,
@@ -34,7 +38,9 @@ def _seccion_info_basica() -> rx.Component:
         # Fila 2: Modalidad y Tipo Duración
         rx.hstack(
             form_select(
-                placeholder="Modalidad de adjudicación *",
+                label="Modalidad de adjudicacion",
+                required=True,
+                placeholder="Seleccione modalidad",
                 value=ContratosState.form_modalidad_adjudicacion,
                 on_change=ContratosState.set_form_modalidad_adjudicacion,
                 options=ContratosState.opciones_modalidad,
@@ -44,7 +50,9 @@ def _seccion_info_basica() -> rx.Component:
             rx.cond(
                 ContratosState.es_servicios,
                 form_select(
-                    placeholder="Tipo de duración *",
+                    label="Tipo de duracion",
+                    required=True,
+                    placeholder="Seleccione duracion",
                     value=ContratosState.form_tipo_duracion,
                     on_change=ContratosState.set_form_tipo_duracion,
                     options=ContratosState.opciones_tipo_duracion,
@@ -56,7 +64,8 @@ def _seccion_info_basica() -> rx.Component:
         ),
 
         form_input(
-            placeholder="Folio BUAP (opcional)",
+            label="Folio BUAP",
+            placeholder="Ej: BUAP-2026-001",
             value=ContratosState.form_folio_buap,
             on_change=ContratosState.set_form_folio_buap,
             error=ContratosState.error_folio_buap,
@@ -78,40 +87,22 @@ def _contenido_detalles() -> rx.Component:
 
             rx.hstack(
                 # Fecha inicio (siempre requerida)
-                rx.vstack(
-                    rx.text("Fecha de inicio *", size="2", color="gray"),
-                    rx.input(
-                        type="date",
-                        value=ContratosState.form_fecha_inicio,
-                        on_change=ContratosState.set_form_fecha_inicio,
-                        on_blur=ContratosState.validar_fecha_inicio_campo,
-                        width="100%",
-                    ),
-                    rx.cond(
-                        ContratosState.error_fecha_inicio,
-                        rx.text(ContratosState.error_fecha_inicio, color="red", size="1"),
-                    ),
-                    spacing="1",
-                    width="100%",
+                form_date(
+                    label="Fecha de inicio",
+                    required=True,
+                    value=ContratosState.form_fecha_inicio,
+                    on_change=ContratosState.set_form_fecha_inicio,
+                    error=ContratosState.error_fecha_inicio,
                 ),
                 # Fecha fin (solo para SERVICIOS + TIEMPO_DETERMINADO)
                 rx.cond(
                     ContratosState.es_tiempo_determinado,
-                    rx.vstack(
-                        rx.text("Fecha de fin *", size="2", color="gray"),
-                        rx.input(
-                            type="date",
-                            value=ContratosState.form_fecha_fin,
-                            on_change=ContratosState.set_form_fecha_fin,
-                            on_blur=ContratosState.validar_fecha_fin_campo,
-                            width="100%",
-                        ),
-                        rx.cond(
-                            ContratosState.error_fecha_fin,
-                            rx.text(ContratosState.error_fecha_fin, color="red", size="1"),
-                        ),
-                        spacing="1",
-                        width="100%",
+                    form_date(
+                        label="Fecha de fin",
+                        required=True,
+                        value=ContratosState.form_fecha_fin,
+                        on_change=ContratosState.set_form_fecha_fin,
+                        error=ContratosState.error_fecha_fin,
                     ),
                 ),
                 spacing="2",
@@ -133,7 +124,8 @@ def _contenido_detalles() -> rx.Component:
                 rx.cond(
                     ContratosState.es_servicios,
                     form_input(
-                        placeholder="Monto mínimo",
+                        label="Monto minimo",
+                        placeholder="Ej: 100,000.00",
                         value=ContratosState.form_monto_minimo,
                         on_change=ContratosState.set_form_monto_minimo,
                         on_blur=ContratosState.validar_monto_minimo_campo,
@@ -142,7 +134,8 @@ def _contenido_detalles() -> rx.Component:
                 ),
                 # Monto máximo (siempre)
                 form_input(
-                    placeholder="Monto máximo",
+                    label="Monto maximo",
+                    placeholder="Ej: 500,000.00",
                     value=ContratosState.form_monto_maximo,
                     on_change=ContratosState.set_form_monto_maximo,
                     on_blur=ContratosState.validar_monto_maximo_campo,
@@ -173,7 +166,9 @@ def _contenido_detalles() -> rx.Component:
 
             # Descripción del objeto (obligatorio)
             form_textarea(
-                placeholder="Descripción del objeto del contrato *",
+                label="Descripcion del objeto",
+                required=True,
+                placeholder="Ej: Servicio de limpieza en instalaciones...",
                 value=ContratosState.form_descripcion_objeto,
                 on_change=ContratosState.set_form_descripcion_objeto,
                 on_blur=ContratosState.validar_descripcion_objeto_campo,
@@ -183,12 +178,14 @@ def _contenido_detalles() -> rx.Component:
 
             rx.hstack(
                 form_input(
-                    placeholder="Origen del recurso",
+                    label="Origen del recurso",
+                    placeholder="Ej: Recurso propio",
                     value=ContratosState.form_origen_recurso,
                     on_change=ContratosState.set_form_origen_recurso,
                 ),
                 form_input(
-                    placeholder="Segmento de asignación",
+                    label="Segmento de asignacion",
+                    placeholder="Ej: Operativo",
                     value=ContratosState.form_segmento_asignacion,
                     on_change=ContratosState.set_form_segmento_asignacion,
                 ),
@@ -197,7 +194,8 @@ def _contenido_detalles() -> rx.Component:
             ),
 
             form_input(
-                placeholder="Sede/Campus donde aplica",
+                label="Sede/Campus",
+                placeholder="Ej: Ciudad Universitaria",
                 value=ContratosState.form_sede_campus,
                 on_change=ContratosState.set_form_sede_campus,
             ),
@@ -243,7 +241,8 @@ def _contenido_detalles() -> rx.Component:
             rx.cond(
                 ContratosState.form_requiere_poliza,
                 form_input(
-                    placeholder="Detalles de la póliza requerida",
+                    label="Detalles de poliza",
+                    placeholder="Ej: Poliza de responsabilidad civil",
                     value=ContratosState.form_poliza_detalle,
                     on_change=ContratosState.set_form_poliza_detalle,
                 ),
@@ -253,7 +252,8 @@ def _contenido_detalles() -> rx.Component:
             rx.cond(
                 ContratosState.es_edicion,
                 form_select(
-                    placeholder="Estatus",
+                    label="Estatus",
+                    placeholder="Seleccione estatus",
                     value=ContratosState.form_estatus,
                     on_change=ContratosState.set_form_estatus,
                     options=ContratosState.opciones_estatus,
@@ -261,7 +261,8 @@ def _contenido_detalles() -> rx.Component:
             ),
 
             form_textarea(
-                placeholder="Notas adicionales",
+                label="Notas",
+                placeholder="Ej: Observaciones adicionales...",
                 value=ContratosState.form_notas,
                 on_change=ContratosState.set_form_notas,
                 rows="2",
@@ -293,7 +294,9 @@ def _tab_config_personal() -> rx.Component:
 
         # Tipo de servicio para configuración de personal
         form_select(
-            placeholder="Tipo de Servicio *",
+            label="Tipo de servicio",
+            required=True,
+            placeholder="Seleccione tipo de servicio",
             value=ContratosState.form_tipo_servicio_id,
             on_change=ContratosState.set_form_tipo_servicio_id,
             options=ContratosState.opciones_tipo_servicio,
@@ -303,7 +306,9 @@ def _tab_config_personal() -> rx.Component:
         rx.cond(
             ContratosState.form_tipo_servicio_id != "",
             form_select(
-                placeholder="Categoría de Puesto *",
+                label="Categoria de puesto",
+                required=True,
+                placeholder="Seleccione categoria",
                 value=ContratosState.form_categoria_puesto_id,
                 on_change=ContratosState.set_form_categoria_puesto_id,
                 options=ContratosState.opciones_categoria_puesto,

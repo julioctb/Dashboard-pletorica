@@ -3,7 +3,7 @@ Componentes de modal para Plazas.
 """
 import reflex as rx
 from app.presentation.pages.plazas.plazas_state import PlazasState
-from app.presentation.components.ui.form_input import form_input, form_textarea
+from app.presentation.components.ui.form_input import form_input, form_textarea, form_date, form_select
 from app.presentation.components.ui.modals import modal_confirmar_accion
 from app.presentation.components.ui import status_badge_reactive
 from app.presentation.theme import Colors
@@ -23,120 +23,62 @@ def modal_plaza() -> rx.Component:
             rx.dialog.description(
                 rx.vstack(
                     # Campo: Fecha de inicio
-                    rx.vstack(
-                        rx.text("Fecha de inicio *", size="2", weight="medium"),
-                        rx.input(
-                            type="date",
-                            value=PlazasState.form_fecha_inicio,
-                            on_change=PlazasState.set_form_fecha_inicio,
-                            width="100%",
-                        ),
-                        rx.cond(
-                            PlazasState.error_fecha_inicio,
-                            rx.text(
-                                PlazasState.error_fecha_inicio,
-                                size="1",
-                                color="red"
-                            ),
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_date(
+                        label="Fecha de inicio",
+                        required=True,
+                        value=PlazasState.form_fecha_inicio,
+                        on_change=PlazasState.set_form_fecha_inicio,
+                        error=PlazasState.error_fecha_inicio,
                     ),
 
                     # Campo: Fecha de fin (opcional)
-                    rx.vstack(
-                        rx.text("Fecha de fin", size="2", weight="medium"),
-                        rx.input(
-                            type="date",
-                            value=PlazasState.form_fecha_fin,
-                            on_change=PlazasState.set_form_fecha_fin,
-                            width="100%",
-                        ),
-                        rx.text(
-                            "Opcional - Dejar vacio para plaza indefinida",
-                            size="1",
-                            color="gray"
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_date(
+                        label="Fecha de fin",
+                        value=PlazasState.form_fecha_fin,
+                        on_change=PlazasState.set_form_fecha_fin,
+                        hint="Dejar vacio para plaza indefinida",
                     ),
 
                     # Campo: Salario mensual
-                    rx.vstack(
-                        rx.text("Salario mensual *", size="2", weight="medium"),
-                        form_input(
-                            placeholder="Ej: 15000.00",
-                            value=PlazasState.form_salario_mensual,
-                            on_change=PlazasState.set_form_salario_mensual,
-                            error=PlazasState.error_salario_mensual,
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_input(
+                        label="Salario mensual",
+                        required=True,
+                        placeholder="Ej: 15000.00",
+                        value=PlazasState.form_salario_mensual,
+                        on_change=PlazasState.set_form_salario_mensual,
+                        error=PlazasState.error_salario_mensual,
                     ),
 
                     # Campo: Codigo (opcional)
-                    rx.vstack(
-                        rx.text("Codigo", size="2", weight="medium"),
-                        form_input(
-                            placeholder="Ej: PLZ-001",
-                            value=PlazasState.form_codigo,
-                            on_change=PlazasState.set_form_codigo,
-                            error=PlazasState.error_codigo,
-                            max_length=20,
-                        ),
-                        rx.text(
-                            "Opcional - Identificador unico de la plaza",
-                            size="1",
-                            color="gray"
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_input(
+                        label="Codigo",
+                        placeholder="Ej: PLZ-001",
+                        value=PlazasState.form_codigo,
+                        on_change=PlazasState.set_form_codigo,
+                        error=PlazasState.error_codigo,
+                        max_length=20,
+                        hint="Identificador unico de la plaza",
                     ),
 
                     # Campo: Estatus (solo en edicion)
                     rx.cond(
                         PlazasState.es_edicion,
-                        rx.vstack(
-                            rx.text("Estatus", size="2", weight="medium"),
-                            rx.select.root(
-                                rx.select.trigger(
-                                    placeholder="Seleccionar estatus",
-                                    width="100%",
-                                ),
-                                rx.select.content(
-                                    rx.foreach(
-                                        PlazasState.opciones_estatus_form,
-                                        lambda opt: rx.select.item(
-                                            opt["label"],
-                                            value=opt["value"]
-                                        ),
-                                    ),
-                                ),
-                                value=PlazasState.form_estatus,
-                                on_change=PlazasState.set_form_estatus,
-                            ),
-                            spacing="1",
-                            width="100%",
-                            align_items="stretch"
+                        form_select(
+                            label="Estatus",
+                            placeholder="Seleccione estatus",
+                            value=PlazasState.form_estatus,
+                            on_change=PlazasState.set_form_estatus,
+                            options=PlazasState.opciones_estatus_form,
                         ),
                     ),
 
                     # Campo: Notas
-                    rx.vstack(
-                        rx.text("Notas", size="2", weight="medium"),
-                        form_textarea(
-                            placeholder="Notas adicionales (opcional)",
-                            value=PlazasState.form_notas,
-                            on_change=PlazasState.set_form_notas,
-                            max_length=500,
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_textarea(
+                        label="Notas",
+                        placeholder="Ej: Informacion adicional sobre la plaza",
+                        value=PlazasState.form_notas,
+                        on_change=PlazasState.set_form_notas,
+                        max_length=500,
                     ),
 
                     spacing="4",
@@ -526,17 +468,13 @@ def modal_crear_lote() -> rx.Component:
                     ),
 
                     # Campo: Salario trabajador
-                    rx.vstack(
-                        rx.text("Salario trabajador *", size="2", weight="medium"),
-                        form_input(
-                            placeholder="Ej: 15,000.00",
-                            value=PlazasState.form_salario_mensual,
-                            on_change=PlazasState.set_form_salario_mensual,
-                            error=PlazasState.error_salario_mensual,
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_input(
+                        label="Salario trabajador",
+                        required=True,
+                        placeholder="Ej: 15,000.00",
+                        value=PlazasState.form_salario_mensual,
+                        on_change=PlazasState.set_form_salario_mensual,
+                        error=PlazasState.error_salario_mensual,
                     ),
 
                     # Campo: Código (auto-generado)

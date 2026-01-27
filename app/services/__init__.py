@@ -60,6 +60,12 @@ from app.services.historial_laboral_service import (
 )
 
 
+# Archivo
+from app.services.archivo_service import (
+    ArchivoService,
+    archivo_service,
+)
+
 # Requisicion
 from app.services.requisicion_service import (
     RequisicionService,
@@ -95,6 +101,9 @@ __all__ = [
     # Historial Laboral
     "HistorialLaboralService",
     "historial_laboral_service",
+    # Archivo
+    "ArchivoService",
+    "archivo_service",
     # Requisicion
     "RequisicionService",
     "requisicion_service",

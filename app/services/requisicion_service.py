@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 
 from app.entities.requisicion import (
     ConfiguracionRequisicion,
+    LugarEntrega,
     Requisicion,
     RequisicionCreate,
     RequisicionUpdate,
@@ -135,18 +136,12 @@ class RequisicionService:
     async def crear(self, data: RequisicionCreate) -> Requisicion:
         """
         Crea una nueva requisición con número auto-generado.
+        Permite borradores sin items ni partidas.
 
         Raises:
-            BusinessRuleError: Si faltan items o partidas
             DuplicateError: Si el número ya existe
             DatabaseError: Si hay error de BD
         """
-        # Validar items y partidas
-        if not data.items:
-            raise BusinessRuleError(MSG_REQUISICION_SIN_ITEMS)
-        if not data.partidas:
-            raise BusinessRuleError(MSG_REQUISICION_SIN_PARTIDAS)
-
         # Generar número auto
         numero = await self.generar_numero_requisicion()
 
@@ -526,6 +521,23 @@ class RequisicionService:
             limite=limite,
             offset=offset,
         )
+
+
+    # ==========================================
+    # LUGARES DE ENTREGA
+    # ==========================================
+
+    async def obtener_lugares_entrega(self) -> List[LugarEntrega]:
+        """Obtiene todos los lugares de entrega activos."""
+        return await self.repository.obtener_lugares_entrega()
+
+    async def crear_lugar_entrega(self, nombre: str) -> LugarEntrega:
+        """Crea un nuevo lugar de entrega."""
+        return await self.repository.crear_lugar_entrega(nombre.strip())
+
+    async def eliminar_lugar_entrega(self, lugar_id: int) -> bool:
+        """Elimina (desactiva) un lugar de entrega."""
+        return await self.repository.eliminar_lugar_entrega(lugar_id)
 
 
 # Singleton

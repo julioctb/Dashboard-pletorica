@@ -60,6 +60,12 @@ from app.repositories.historial_laboral_repository import (
 )
 
 
+# Archivo
+from app.repositories.archivo_repository import (
+    IArchivoRepository,
+    SupabaseArchivoRepository,
+)
+
 # Requisicion
 from app.repositories.requisicion_repository import (
     IRequisicionRepository,
@@ -95,6 +101,9 @@ __all__ = [
     # Historial Laboral
     "IHistorialLaboralRepository",
     "SupabaseHistorialLaboralRepository",
+    # Archivo
+    "IArchivoRepository",
+    "SupabaseArchivoRepository",
     # Requisicion
     "IRequisicionRepository",
     "SupabaseRequisicionRepository",

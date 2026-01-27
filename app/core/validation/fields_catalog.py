@@ -11,10 +11,9 @@ Uso en validación:
     validar_rfc = crear_validador(CAMPO_RFC)
     error = validar_rfc("XAXX010101AB1")  # "" = válido
 
-Uso en formularios:
+Uso en formularios (labels y hints como referencia):
     from app.core.validation import CAMPO_RFC
-    from app.presentation.components.ui.form_field import form_field
-    form_field(CAMPO_RFC, value=State.form_rfc, error=State.error_rfc)
+    # label=CAMPO_RFC.label, placeholder=CAMPO_RFC.placeholder, hint=CAMPO_RFC.hint
 """
 import re
 

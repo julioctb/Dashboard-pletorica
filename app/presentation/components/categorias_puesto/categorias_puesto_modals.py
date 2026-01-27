@@ -20,98 +20,73 @@ def modal_categoria_puesto() -> rx.Component:
             rx.dialog.description(
                 rx.vstack(
                     # Campo: Tipo de Servicio (primero para verificar duplicados)
-                    rx.vstack(
-                        rx.text("Tipo de Servicio *", size="2", weight="medium"),
-                        form_select(
-                            placeholder="Seleccione un tipo de servicio",
-                            value=CategoriasPuestoState.form_tipo_servicio_id,
-                            on_change=CategoriasPuestoState.set_form_tipo_servicio_id,
-                            options=CategoriasPuestoState.opciones_tipo_servicio,
-                            error=CategoriasPuestoState.error_tipo_servicio_id,
-                            disabled=True,
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_select(
+                        label="Tipo de servicio",
+                        required=True,
+                        placeholder="Seleccione un tipo de servicio",
+                        value=CategoriasPuestoState.form_tipo_servicio_id,
+                        on_change=CategoriasPuestoState.set_form_tipo_servicio_id,
+                        options=CategoriasPuestoState.opciones_tipo_servicio,
+                        error=CategoriasPuestoState.error_tipo_servicio_id,
+                        disabled=True,
                     ),
 
                     # Campo: Nombre (genera clave automáticamente)
-                    rx.vstack(
-                        rx.text("Nombre *", size="2", weight="medium"),
-                        form_input(
-                            placeholder="Ej: OPERATIVO, SUPERVISOR",
-                            value=CategoriasPuestoState.form_nombre,
-                            on_change=CategoriasPuestoState.set_form_nombre,
-                            on_blur=CategoriasPuestoState.validar_nombre_campo,
-                            error=CategoriasPuestoState.error_nombre,
-                            max_length=50,
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_input(
+                        label="Nombre",
+                        required=True,
+                        placeholder="Ej: OPERATIVO, SUPERVISOR",
+                        value=CategoriasPuestoState.form_nombre,
+                        on_change=CategoriasPuestoState.set_form_nombre,
+                        on_blur=CategoriasPuestoState.validar_nombre_campo,
+                        error=CategoriasPuestoState.error_nombre,
+                        max_length=50,
                     ),
 
                     # Fila: Clave y Orden
                     rx.hstack(
                         # Campo: Clave (auto-generada)
-                        rx.vstack(
-                            rx.text("Clave", size="2", weight="medium"),
+                        rx.box(
                             form_input(
-                                placeholder="Se genera automáticamente",
+                                label="Clave",
+                                placeholder="Ej: OPER",
                                 value=CategoriasPuestoState.form_clave,
                                 on_change=CategoriasPuestoState.set_form_clave,
                                 on_blur=CategoriasPuestoState.validar_clave_campo,
                                 error=CategoriasPuestoState.error_clave,
                                 max_length=5,
+                                hint="Auto-generada (editable)",
                             ),
-                            rx.text(
-                                "Auto-generada (editable)",
-                                size="1",
-                                color="gray"
-                            ),
-                            spacing="1",
                             width="60%",
-                            align_items="stretch"
                         ),
 
                         # Campo: Orden
-                        rx.vstack(
-                            rx.text("Orden", size="2", weight="medium"),
+                        rx.box(
                             form_input(
-                                placeholder="0",
+                                label="Orden",
+                                placeholder="Ej: 1",
                                 value=CategoriasPuestoState.form_orden,
                                 on_change=CategoriasPuestoState.set_form_orden,
                                 on_blur=CategoriasPuestoState.validar_orden_campo,
                                 error=CategoriasPuestoState.error_orden,
                                 type="number",
+                                hint="Orden de visualizacion",
                             ),
-                            rx.text(
-                                "Orden de visualización",
-                                size="1",
-                                color="gray"
-                            ),
-                            spacing="1",
                             width="40%",
-                            align_items="stretch"
                         ),
                         spacing="4",
                         width="100%",
                     ),
 
                     # Campo: Descripción
-                    rx.vstack(
-                        rx.text("Descripción", size="2", weight="medium"),
-                        form_textarea(
-                            placeholder="Descripción de la categoría (opcional)",
-                            value=CategoriasPuestoState.form_descripcion,
-                            on_change=CategoriasPuestoState.set_form_descripcion,
-                            on_blur=CategoriasPuestoState.validar_descripcion_campo,
-                            error=CategoriasPuestoState.error_descripcion,
-                            max_length=500,
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_textarea(
+                        label="Descripcion",
+                        placeholder="Ej: Personal operativo de campo",
+                        value=CategoriasPuestoState.form_descripcion,
+                        on_change=CategoriasPuestoState.set_form_descripcion,
+                        on_blur=CategoriasPuestoState.validar_descripcion_campo,
+                        error=CategoriasPuestoState.error_descripcion,
+                        max_length=500,
                     ),
 
                     spacing="4",

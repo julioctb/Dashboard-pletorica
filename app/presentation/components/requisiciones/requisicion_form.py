@@ -1,9 +1,10 @@
 """Modal de formulario para crear/editar requisiciones."""
 import reflex as rx
-from app.presentation.components.ui.form_input import form_input, form_select, form_textarea
+from app.presentation.components.ui.form_input import form_input, form_select, form_textarea, form_date
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 from app.presentation.components.requisiciones.requisicion_items_form import requisicion_items_form
 from app.presentation.components.requisiciones.requisicion_partidas_form import requisicion_partidas_form
+from app.presentation.components.common.archivo_uploader import archivo_uploader
 
 
 # =============================================================================
@@ -15,33 +16,34 @@ def _tab_datos_generales() -> rx.Component:
     return rx.vstack(
         rx.hstack(
             form_select(
-                placeholder="Tipo de contratacion *",
+                label="Tipo de contratacion",
+                required=True,
+                placeholder="Seleccione tipo",
                 value=RequisicionesState.form_tipo_contratacion,
                 on_change=RequisicionesState.set_form_tipo_contratacion,
                 options=RequisicionesState.opciones_tipo_form,
             ),
-            rx.vstack(
-                rx.text("Fecha de elaboracion *", size="2", color="gray"),
-                rx.input(
-                    type="date",
-                    value=RequisicionesState.form_fecha_elaboracion,
-                    on_change=RequisicionesState.set_form_fecha_elaboracion,
-                    width="100%",
-                ),
-                spacing="1",
-                width="100%",
+            form_date(
+                label="Fecha de elaboracion",
+                required=True,
+                value=RequisicionesState.form_fecha_elaboracion,
+                on_change=RequisicionesState.set_form_fecha_elaboracion,
             ),
             spacing="2",
             width="100%",
         ),
         form_textarea(
-            placeholder="Objeto de la contratacion *",
+            label="Objeto de la contratacion",
+            required=True,
+            placeholder="Ej: Adquisicion de equipo de computo para laboratorio",
             value=RequisicionesState.form_objeto_contratacion,
             on_change=RequisicionesState.set_form_objeto_contratacion,
             rows="3",
         ),
         form_textarea(
-            placeholder="Justificacion de la solicitud *",
+            label="Justificacion",
+            required=True,
+            placeholder="Ej: Se requiere para dar continuidad al programa...",
             value=RequisicionesState.form_justificacion,
             on_change=RequisicionesState.set_form_justificacion,
             rows="3",
@@ -64,12 +66,15 @@ def _tab_area_requirente() -> rx.Component:
         rx.text("Dependencia Requirente", weight="bold", size="3"),
         rx.hstack(
             form_input(
-                placeholder="Dependencia requirente *",
+                label="Dependencia requirente",
+                required=True,
+                placeholder="Ej: Facultad de Ingenieria",
                 value=RequisicionesState.form_dependencia_requirente,
                 on_change=RequisicionesState.set_form_dependencia_requirente,
             ),
             form_input(
-                placeholder="Domicilio",
+                label="Domicilio",
+                placeholder="Ej: Av. San Claudio s/n, CU",
                 value=RequisicionesState.form_domicilio,
                 on_change=RequisicionesState.set_form_domicilio,
             ),
@@ -80,12 +85,15 @@ def _tab_area_requirente() -> rx.Component:
         rx.text("Titular", weight="bold", size="3"),
         rx.hstack(
             form_input(
-                placeholder="Nombre del titular *",
+                label="Nombre",
+                required=True,
+                placeholder="Ej: Juan Perez Lopez",
                 value=RequisicionesState.form_titular_nombre,
                 on_change=RequisicionesState.set_form_titular_nombre,
             ),
             form_input(
-                placeholder="Cargo del titular",
+                label="Cargo",
+                placeholder="Ej: Director de Facultad",
                 value=RequisicionesState.form_titular_cargo,
                 on_change=RequisicionesState.set_form_titular_cargo,
             ),
@@ -94,12 +102,14 @@ def _tab_area_requirente() -> rx.Component:
         ),
         rx.hstack(
             form_input(
-                placeholder="Telefono",
+                label="Telefono",
+                placeholder="Ej: 2221234567",
                 value=RequisicionesState.form_titular_telefono,
                 on_change=RequisicionesState.set_form_titular_telefono,
             ),
             form_input(
-                placeholder="Email",
+                label="Email",
+                placeholder="Ej: titular@correo.buap.mx",
                 value=RequisicionesState.form_titular_email,
                 on_change=RequisicionesState.set_form_titular_email,
             ),
@@ -110,17 +120,20 @@ def _tab_area_requirente() -> rx.Component:
         rx.text("Coordinador", weight="bold", size="3"),
         rx.hstack(
             form_input(
-                placeholder="Nombre del coordinador",
+                label="Nombre",
+                placeholder="Ej: Maria Garcia",
                 value=RequisicionesState.form_coordinador_nombre,
                 on_change=RequisicionesState.set_form_coordinador_nombre,
             ),
             form_input(
-                placeholder="Telefono",
+                label="Telefono",
+                placeholder="Ej: 2229876543",
                 value=RequisicionesState.form_coordinador_telefono,
                 on_change=RequisicionesState.set_form_coordinador_telefono,
             ),
             form_input(
-                placeholder="Email",
+                label="Email",
+                placeholder="Ej: coordinador@correo.buap.mx",
                 value=RequisicionesState.form_coordinador_email,
                 on_change=RequisicionesState.set_form_coordinador_email,
             ),
@@ -131,17 +144,20 @@ def _tab_area_requirente() -> rx.Component:
         rx.text("Asesor", weight="bold", size="3"),
         rx.hstack(
             form_input(
-                placeholder="Nombre del asesor",
+                label="Nombre",
+                placeholder="Ej: Carlos Martinez",
                 value=RequisicionesState.form_asesor_nombre,
                 on_change=RequisicionesState.set_form_asesor_nombre,
             ),
             form_input(
-                placeholder="Telefono",
+                label="Telefono",
+                placeholder="Ej: 2225551234",
                 value=RequisicionesState.form_asesor_telefono,
                 on_change=RequisicionesState.set_form_asesor_telefono,
             ),
             form_input(
-                placeholder="Email",
+                label="Email",
+                placeholder="Ej: asesor@correo.buap.mx",
                 value=RequisicionesState.form_asesor_email,
                 on_change=RequisicionesState.set_form_asesor_email,
             ),
@@ -158,39 +174,31 @@ def _tab_bien_servicio() -> rx.Component:
     return rx.vstack(
         # Lugar y fechas de entrega
         rx.text("Entrega", weight="bold", size="3"),
-        form_input(
-            placeholder="Lugar de entrega *",
+        form_select(
+            label="Lugar de entrega",
+            required=True,
+            placeholder="Seleccione lugar",
             value=RequisicionesState.form_lugar_entrega,
             on_change=RequisicionesState.set_form_lugar_entrega,
+            options=RequisicionesState.lugares_entrega_opciones,
         ),
         rx.hstack(
-            rx.vstack(
-                rx.text("Fecha entrega inicio", size="2", color="gray"),
-                rx.input(
-                    type="date",
-                    value=RequisicionesState.form_fecha_entrega_inicio,
-                    on_change=RequisicionesState.set_form_fecha_entrega_inicio,
-                    width="100%",
-                ),
-                spacing="1",
-                width="100%",
+            form_date(
+                label="Fecha entrega inicio",
+                value=RequisicionesState.form_fecha_entrega_inicio,
+                on_change=RequisicionesState.set_form_fecha_entrega_inicio,
             ),
-            rx.vstack(
-                rx.text("Fecha entrega fin", size="2", color="gray"),
-                rx.input(
-                    type="date",
-                    value=RequisicionesState.form_fecha_entrega_fin,
-                    on_change=RequisicionesState.set_form_fecha_entrega_fin,
-                    width="100%",
-                ),
-                spacing="1",
-                width="100%",
+            form_date(
+                label="Fecha entrega fin",
+                value=RequisicionesState.form_fecha_entrega_fin,
+                on_change=RequisicionesState.set_form_fecha_entrega_fin,
             ),
             spacing="2",
             width="100%",
         ),
         form_textarea(
-            placeholder="Condiciones de entrega",
+            label="Condiciones de entrega",
+            placeholder="Ej: Entrega en horario de 9:00 a 14:00",
             value=RequisicionesState.form_condiciones_entrega,
             on_change=RequisicionesState.set_form_condiciones_entrega,
             rows="2",
@@ -200,12 +208,14 @@ def _tab_bien_servicio() -> rx.Component:
         rx.text("Garantia", weight="bold", size="3"),
         rx.hstack(
             form_input(
-                placeholder="Tipo de garantia",
+                label="Tipo de garantia",
+                placeholder="Ej: Fianza, Carta compromiso",
                 value=RequisicionesState.form_tipo_garantia,
                 on_change=RequisicionesState.set_form_tipo_garantia,
             ),
             form_input(
-                placeholder="Vigencia de garantia",
+                label="Vigencia",
+                placeholder="Ej: 12 meses",
                 value=RequisicionesState.form_garantia_vigencia,
                 on_change=RequisicionesState.set_form_garantia_vigencia,
             ),
@@ -216,13 +226,15 @@ def _tab_bien_servicio() -> rx.Component:
         # Proveedor y pago
         rx.text("Proveedor y Pago", weight="bold", size="3"),
         form_textarea(
-            placeholder="Requisitos del proveedor",
+            label="Requisitos del proveedor",
+            placeholder="Ej: Experiencia minima de 2 anos...",
             value=RequisicionesState.form_requisitos_proveedor,
             on_change=RequisicionesState.set_form_requisitos_proveedor,
             rows="2",
         ),
         form_input(
-            placeholder="Forma de pago",
+            label="Forma de pago",
+            placeholder="Ej: Transferencia bancaria",
             value=RequisicionesState.form_forma_pago,
             on_change=RequisicionesState.set_form_forma_pago,
         ),
@@ -250,12 +262,14 @@ def _tab_bien_servicio() -> rx.Component:
         # Otros
         rx.text("Otros", weight="bold", size="3"),
         form_input(
-            placeholder="Existencia en almacen",
+            label="Existencia en almacen",
+            placeholder="Ej: 0 unidades",
             value=RequisicionesState.form_existencia_almacen,
             on_change=RequisicionesState.set_form_existencia_almacen,
         ),
         form_textarea(
-            placeholder="Observaciones",
+            label="Observaciones",
+            placeholder="Ej: Notas adicionales sobre la requisicion",
             value=RequisicionesState.form_observaciones,
             on_change=RequisicionesState.set_form_observaciones,
             rows="2",
@@ -285,25 +299,33 @@ def _tab_pdi() -> rx.Component:
             color_scheme="blue",
             size="1",
         ),
-        form_input(
-            placeholder="Eje del PDI",
+        form_textarea(
+            label="Eje del PDI",
+            placeholder="Ej: Eje 1 - Formacion integral",
             value=RequisicionesState.form_pdi_eje,
             on_change=RequisicionesState.set_form_pdi_eje,
+            rows="2",
         ),
-        form_input(
-            placeholder="Objetivo del PDI",
+        form_textarea(
+            label="Objetivo del PDI",
+            placeholder="Ej: Objetivo 1.1",
             value=RequisicionesState.form_pdi_objetivo,
             on_change=RequisicionesState.set_form_pdi_objetivo,
+            rows="2",
         ),
-        form_input(
-            placeholder="Estrategia del PDI",
+        form_textarea(
+            label="Estrategia del PDI",
+            placeholder="Ej: Estrategia 1.1.1",
             value=RequisicionesState.form_pdi_estrategia,
             on_change=RequisicionesState.set_form_pdi_estrategia,
+            rows="2",
         ),
-        form_input(
-            placeholder="Meta del PDI",
+        form_textarea(
+            label="Meta del PDI",
+            placeholder="Ej: Meta 1.1.1.1",
             value=RequisicionesState.form_pdi_meta,
             on_change=RequisicionesState.set_form_pdi_meta,
+            rows="2",
         ),
         spacing="3",
         width="100%",
@@ -322,7 +344,8 @@ def _tab_firmas() -> rx.Component:
         # Validacion
         rx.text("Validacion", weight="bold", size="3"),
         form_input(
-            placeholder="Validacion del asesor juridico",
+            label="Validacion del asesor tecnico",
+            placeholder="Ej: Nombre del asesor",
             value=RequisicionesState.form_validacion_asesor,
             on_change=RequisicionesState.set_form_validacion_asesor,
         ),
@@ -330,12 +353,15 @@ def _tab_firmas() -> rx.Component:
         rx.text("Elabora", weight="bold", size="3"),
         rx.hstack(
             form_input(
-                placeholder="Nombre de quien elabora *",
+                label="Nombre",
+                required=True,
+                placeholder="Ej: Juan Perez",
                 value=RequisicionesState.form_elabora_nombre,
                 on_change=RequisicionesState.set_form_elabora_nombre,
             ),
             form_input(
-                placeholder="Cargo",
+                label="Cargo",
+                placeholder="Ej: Jefe de Departamento",
                 value=RequisicionesState.form_elabora_cargo,
                 on_change=RequisicionesState.set_form_elabora_cargo,
             ),
@@ -346,17 +372,54 @@ def _tab_firmas() -> rx.Component:
         rx.text("Solicita", weight="bold", size="3"),
         rx.hstack(
             form_input(
-                placeholder="Nombre de quien solicita *",
+                label="Nombre",
+                required=True,
+                placeholder="Ej: Maria Lopez",
                 value=RequisicionesState.form_solicita_nombre,
                 on_change=RequisicionesState.set_form_solicita_nombre,
             ),
             form_input(
-                placeholder="Cargo",
+                label="Cargo",
+                placeholder="Ej: Director",
                 value=RequisicionesState.form_solicita_cargo,
                 on_change=RequisicionesState.set_form_solicita_cargo,
             ),
             spacing="2",
             width="100%",
+        ),
+        spacing="3",
+        width="100%",
+    )
+
+
+def _tab_archivos() -> rx.Component:
+    """Tab 8: Archivos adjuntos de la requisicion."""
+    return rx.vstack(
+        rx.cond(
+            RequisicionesState.es_edicion,
+            rx.vstack(
+                rx.callout(
+                    "Suba imagenes (JPG, PNG) o documentos PDF. Las imagenes se comprimen automaticamente.",
+                    icon="info",
+                    color_scheme="blue",
+                    size="1",
+                ),
+                archivo_uploader(
+                    upload_id="archivos_requisicion",
+                    archivos=RequisicionesState.archivos_entidad,
+                    on_upload=RequisicionesState.handle_upload_archivo,
+                    on_delete=RequisicionesState.eliminar_archivo_entidad,
+                    subiendo=RequisicionesState.subiendo_archivo,
+                ),
+                spacing="3",
+                width="100%",
+            ),
+            rx.callout(
+                "Guarde la requisicion primero para poder adjuntar archivos.",
+                icon="info",
+                color_scheme="gray",
+                size="1",
+            ),
         ),
         spacing="3",
         width="100%",
@@ -424,6 +487,7 @@ def requisicion_form_modal(
                     rx.tabs.trigger("Partidas", value="partidas"),
                     rx.tabs.trigger("PDI", value="pdi"),
                     rx.tabs.trigger("Firmas", value="firmas"),
+                    rx.tabs.trigger("Archivos", value="archivos"),
                     size="1",
                 ),
                 rx.tabs.content(_tab_datos_generales(), value="general", padding_top="16px"),
@@ -433,6 +497,7 @@ def requisicion_form_modal(
                 rx.tabs.content(_tab_partidas(), value="partidas", padding_top="16px"),
                 rx.tabs.content(_tab_pdi(), value="pdi", padding_top="16px"),
                 rx.tabs.content(_tab_firmas(), value="firmas", padding_top="16px"),
+                rx.tabs.content(_tab_archivos(), value="archivos", padding_top="16px"),
                 default_value="general",
                 width="100%",
             ),
@@ -460,12 +525,24 @@ def requisicion_form_modal(
                         rx.cond(
                             RequisicionesState.es_edicion,
                             "Guardar Cambios",
-                            "Crear Requisicion",
+                            rx.cond(
+                                RequisicionesState.formulario_completo,
+                                "Crear Requisicion",
+                                "Guardar Borrador",
+                            ),
                         ),
                     ),
                     on_click=RequisicionesState.guardar_requisicion,
                     disabled=RequisicionesState.saving,
-                    color_scheme="blue",
+                    color_scheme=rx.cond(
+                        RequisicionesState.es_edicion,
+                        "blue",
+                        rx.cond(
+                            RequisicionesState.formulario_completo,
+                            "blue",
+                            "gray",
+                        ),
+                    ),
                     size="2",
                 ),
                 spacing="4",

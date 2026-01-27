@@ -56,7 +56,9 @@ def modal_empresa() -> rx.Component:
                     rx.text("Información Básica", weight="bold", size="3"),
 
                     form_input(
-                        placeholder="Nombre comercial *",
+                        label="Nombre comercial",
+                        required=True,
+                        placeholder="Ej: ACME Corp",
                         value=EmpresasState.form_nombre_comercial,
                         on_change=EmpresasState.set_form_nombre_comercial,
                         on_blur=EmpresasState.validar_nombre_comercial_campo,
@@ -64,7 +66,9 @@ def modal_empresa() -> rx.Component:
                     ),
 
                     form_input(
-                        placeholder="Razón social *",
+                        label="Razon social",
+                        required=True,
+                        placeholder="Ej: ACME Corporation SA de CV",
                         value=EmpresasState.form_razon_social,
                         on_change=EmpresasState.set_form_razon_social,
                         on_blur=EmpresasState.validar_razon_social_campo,
@@ -72,7 +76,9 @@ def modal_empresa() -> rx.Component:
                     ),
 
                     form_input(
-                        placeholder="RFC *",
+                        label="RFC",
+                        required=True,
+                        placeholder="Ej: ACM010101ABC",
                         value=EmpresasState.form_rfc,
                         on_change=EmpresasState.set_form_rfc,
                         on_blur=EmpresasState.validar_rfc_campo,
@@ -81,7 +87,9 @@ def modal_empresa() -> rx.Component:
 
                     rx.hstack(
                         form_select(
-                            placeholder="Tipo de empresa *",
+                            label="Tipo de empresa",
+                            required=True,
+                            placeholder="Seleccione tipo",
                             value=EmpresasState.form_tipo_empresa,
                             on_change=EmpresasState.set_form_tipo_empresa,
                             options=[{"label": tipo.value, "value": tipo.value} for tipo in TipoEmpresa],
@@ -103,20 +111,22 @@ def modal_empresa() -> rx.Component:
 
                     rx.hstack(
                         form_input(
-                            placeholder="Registro Patronal (ej: Y1234567101)",
+                            label="Registro patronal",
+                            placeholder="Ej: Y1234567101",
                             value=EmpresasState.form_registro_patronal,
                             on_change=EmpresasState.set_form_registro_patronal,
                             on_blur=EmpresasState.validar_registro_patronal_campo,
                             error=EmpresasState.error_registro_patronal,
-                           
+
                         ),
                         form_input(
-                            placeholder="Prima de Riesgo % (ej: 2.598)",
+                            label="Prima de riesgo (%)",
+                            placeholder="Ej: 2.598",
                             value=EmpresasState.form_prima_riesgo,
                             on_change=EmpresasState.set_form_prima_riesgo,
                             on_blur=EmpresasState.validar_prima_riesgo_campo,
                             error=EmpresasState.error_prima_riesgo,
-                           
+
                         ),
                         spacing="2",
                         width="100%"
@@ -133,21 +143,24 @@ def modal_empresa() -> rx.Component:
                     rx.text("Información de Contacto", weight="bold", size="3"),
 
                     form_input(
-                        placeholder="Dirección",
+                        label="Direccion",
+                        placeholder="Ej: Av. Reforma 123, Col. Centro",
                         value=EmpresasState.form_direccion,
                         on_change=EmpresasState.set_form_direccion
                     ),
 
                     rx.hstack(
                         form_input(
-                            placeholder="Código Postal",
+                            label="Codigo postal",
+                            placeholder="Ej: 72000",
                             value=EmpresasState.form_codigo_postal,
                             on_change=EmpresasState.set_form_codigo_postal,
                             on_blur=EmpresasState.validar_codigo_postal_campo,
                             error=EmpresasState.error_codigo_postal
                         ),
                         form_input(
-                            placeholder="Teléfono",
+                            label="Telefono",
+                            placeholder="Ej: 2221234567",
                             value=EmpresasState.form_telefono,
                             on_change=EmpresasState.set_form_telefono,
                             on_blur=EmpresasState.validar_telefono_campo,
@@ -159,14 +172,16 @@ def modal_empresa() -> rx.Component:
 
                     rx.hstack(
                         form_input(
-                            placeholder="Email",
+                            label="Email",
+                            placeholder="Ej: contacto@empresa.com",
                             value=EmpresasState.form_email,
                             on_change=EmpresasState.set_form_email,
                             on_blur=EmpresasState.validar_email_campo,
                             error=EmpresasState.error_email
                         ),
                         form_input(
-                            placeholder="Página web",
+                            label="Pagina web",
+                            placeholder="Ej: www.empresa.com",
                             value=EmpresasState.form_pagina_web,
                             on_change=EmpresasState.set_form_pagina_web
                         ),
@@ -186,7 +201,8 @@ def modal_empresa() -> rx.Component:
 
                     rx.hstack(
                         form_select(
-                            placeholder="Estatus",
+                            label="Estatus",
+                            placeholder="Seleccione estatus",
                             value=EmpresasState.form_estatus,
                             on_change=EmpresasState.set_form_estatus,
                             options=[{"label": estatus.value, "value": estatus.value} for estatus in EstatusEmpresa],
@@ -197,7 +213,8 @@ def modal_empresa() -> rx.Component:
                     ),
 
                     form_textarea(
-                        placeholder="Notas adicionales (opcional)",
+                        label="Notas",
+                        placeholder="Ej: Informacion adicional...",
                         value=EmpresasState.form_notas,
                         on_change=EmpresasState.set_form_notas,
                         rows="4",

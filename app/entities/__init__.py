@@ -104,8 +104,21 @@ from app.entities.historial_laboral import (
     HistorialLaboralResumen,
 )
 
+# Archivo
+from app.entities.archivo import (
+    EntidadArchivo,
+    TipoArchivo,
+    OrigenArchivo,
+    ArchivoSistema,
+    ArchivoSistemaCreate,
+    ArchivoSistemaUpdate,
+    ArchivoSistemaResumen,
+    ArchivoUploadResponse,
+)
+
 # Requisicion
 from app.entities.requisicion import (
+    LugarEntrega,
     ConfiguracionRequisicion,
     ConfiguracionRequisicionCreate,
     ConfiguracionRequisicionUpdate,
@@ -199,7 +212,17 @@ __all__ = [
     "HistorialLaboral",
     "HistorialLaboralInterno",
     "HistorialLaboralResumen",
+    # Archivo
+    "EntidadArchivo",
+    "TipoArchivo",
+    "OrigenArchivo",
+    "ArchivoSistema",
+    "ArchivoSistemaCreate",
+    "ArchivoSistemaUpdate",
+    "ArchivoSistemaResumen",
+    "ArchivoUploadResponse",
     # Requisicion
+    "LugarEntrega",
     "ConfiguracionRequisicion",
     "ConfiguracionRequisicionCreate",
     "ConfiguracionRequisicionUpdate",

@@ -1,8 +1,7 @@
 """Componentes genéricos de UI reutilizables"""
 
 from .headers import page_header
-from .form_input import form_input, form_select, form_textarea
-from .form_field import form_field, form_section
+from .form_input import form_input, form_select, form_textarea, form_date, form_row
 from .buttons import boton_accion, acciones_crud
 from .badges import estatus_badge
 from .tables import tabla_vacia, tabla
@@ -49,8 +48,8 @@ __all__ = [
     'form_input',
     'form_select',
     'form_textarea',
-    'form_field',
-    'form_section',
+    'form_date',
+    'form_row',
     'boton_accion',
     'acciones_crud',
     'estatus_badge',

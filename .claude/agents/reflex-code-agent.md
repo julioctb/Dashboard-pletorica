@@ -158,7 +158,96 @@ def tiene_datos(self) -> bool:
     return len(self.datos) > 0
 ```
 
-### 7. Event Handlers Async
+### 7. Setters Explícitos (CRÍTICO - Reflex 0.8.9+)
+
+```python
+# ❌ INCORRECTO: Usar setters automáticos (DEPRECADO)
+class MiState(rx.State):
+    mostrar_modal: bool = False
+    form_nombre: str = ""
+
+# En el componente:
+rx.button(on_click=MiState.set_mostrar_modal(True))  # ⚠️ DeprecationWarning!
+rx.input(on_change=MiState.set_form_nombre)          # ⚠️ DeprecationWarning!
+
+# ✅ CORRECTO: Definir setters explícitamente
+class MiState(rx.State):
+    mostrar_modal: bool = False
+    form_nombre: str = ""
+    
+    # Setters explícitos (OBLIGATORIO desde 0.8.9)
+    def set_mostrar_modal(self, value: bool):
+        self.mostrar_modal = value
+    
+    def set_form_nombre(self, value: str):
+        self.form_nombre = value
+
+# En el componente:
+rx.button(on_click=lambda: MiState.set_mostrar_modal(True))
+rx.input(on_change=MiState.set_form_nombre)
+```
+
+**⚠️ IMPORTANTE:** Los setters automáticos (`state_auto_setters=True`) están deprecados en 0.8.9 y serán eliminados en 0.9.0. **SIEMPRE definir setters explícitos.**
+
+#### Patrón Completo de State con Setters
+
+```python
+class MiModuloState(BaseState):
+    # ========================
+    # ESTADO DE DATOS
+    # ========================
+    items: List[dict] = []
+    item_seleccionado: Optional[dict] = None
+    
+    # ========================
+    # ESTADO DE UI
+    # ========================
+    mostrar_modal: bool = False
+    mostrar_confirmar: bool = False
+    
+    # ========================
+    # ESTADO DE FORMULARIO
+    # ========================
+    form_nombre: str = ""
+    form_descripcion: str = ""
+    error_nombre: str = ""
+    error_descripcion: str = ""
+    
+    # ========================
+    # SETTERS EXPLÍCITOS (Reflex 0.8.9+)
+    # ========================
+    # UI
+    def set_mostrar_modal(self, value: bool):
+        self.mostrar_modal = value
+    
+    def set_mostrar_confirmar(self, value: bool):
+        self.mostrar_confirmar = value
+    
+    # Formulario
+    def set_form_nombre(self, value: str):
+        self.form_nombre = value
+    
+    def set_form_descripcion(self, value: str):
+        self.form_descripcion = value
+    
+    # ========================
+    # MÉTODOS DE CONVENIENCIA
+    # ========================
+    def abrir_modal(self):
+        self.mostrar_modal = True
+    
+    def cerrar_modal(self):
+        self.mostrar_modal = False
+        self._limpiar_formulario()
+    
+    def _limpiar_formulario(self):
+        self.form_nombre = ""
+        self.form_descripcion = ""
+        self.error_nombre = ""
+        self.error_descripcion = ""
+```
+
+### 8. Event Handlers Async
 
 ```python
 # ❌ INCORRECTO: No manejar estados de carga
@@ -489,6 +578,8 @@ from ..components.ui import form_input
 - [ ] No hay retornos de `None` en componentes (usar `rx.fragment()` o `""`)
 - [ ] Todos los `rx.cond` tienen ambas ramas (true y false)
 - [ ] Variables de State están tipadas explícitamente
+- [ ] Todos los setters están definidos explícitamente** (no usar auto-setters)
+- [ ] No se usan `and`, `or`, `not` con rx.Var (usar `&`, `|`, `~` o `rx.cond`)
 - [ ] Handlers async usan `try/finally` con `loading`/`saving`
 - [ ] Errores se manejan con `manejar_error_con_toast()`
 

@@ -21,56 +21,38 @@ def modal_tipo_servicio() -> rx.Component:
             rx.dialog.description(
                 rx.vstack(
                     # Campo: Nombre (primero para auto-generar clave)
-                    rx.vstack(
-                        rx.text("Nombre *", size="2", weight="medium"),
-                        form_input(
-                            placeholder="Ej: JARDINERÍA",
-                            value=TipoServicioState.form_nombre,
-                            on_change=TipoServicioState.set_form_nombre,
-                            on_blur=TipoServicioState.validar_nombre_campo,
-                            error=TipoServicioState.error_nombre,
-                            max_length=50,
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_input(
+                        label="Nombre",
+                        required=True,
+                        placeholder="Ej: JARDINERIA",
+                        value=TipoServicioState.form_nombre,
+                        on_change=TipoServicioState.set_form_nombre,
+                        on_blur=TipoServicioState.validar_nombre_campo,
+                        error=TipoServicioState.error_nombre,
+                        max_length=50,
                     ),
 
                     # Campo: Clave (auto-generada, editable)
-                    rx.vstack(
-                        rx.text("Clave", size="2", weight="medium"),
-                        form_input(
-                            placeholder="Se genera automáticamente",
-                            value=TipoServicioState.form_clave,
-                            on_change=TipoServicioState.set_form_clave,
-                            on_blur=TipoServicioState.validar_clave_campo,
-                            error=TipoServicioState.error_clave,
-                            max_length=5,
-                        ),
-                        rx.text(
-                            "Auto-generada desde el nombre (editable)",
-                            size="1",
-                            color="gray"
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    form_input(
+                        label="Clave",
+                        placeholder="Ej: JARD",
+                        value=TipoServicioState.form_clave,
+                        on_change=TipoServicioState.set_form_clave,
+                        on_blur=TipoServicioState.validar_clave_campo,
+                        error=TipoServicioState.error_clave,
+                        max_length=5,
+                        hint="Auto-generada desde el nombre (editable)",
                     ),
 
-                    # Campo: Descripción
-                    rx.vstack(
-                        rx.text("Descripción", size="2", weight="medium"),
-                        form_textarea(
-                            placeholder="Descripción del tipo de servicio (opcional)",
-                            value=TipoServicioState.form_descripcion,
-                            on_change=TipoServicioState.set_form_descripcion,
-                            on_blur=TipoServicioState.validar_descripcion_campo,
-                            error=TipoServicioState.error_descripcion,
-                            max_length=500,
-                        ),
-                        spacing="1",
-                        width="100%",
-                        align_items="stretch"
+                    # Campo: Descripcion
+                    form_textarea(
+                        label="Descripcion",
+                        placeholder="Ej: Servicio de mantenimiento de areas verdes",
+                        value=TipoServicioState.form_descripcion,
+                        on_change=TipoServicioState.set_form_descripcion,
+                        on_blur=TipoServicioState.validar_descripcion_campo,
+                        error=TipoServicioState.error_descripcion,
+                        max_length=500,
                     ),
 
                     spacing="4",

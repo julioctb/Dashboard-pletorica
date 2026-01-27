@@ -1,19 +1,17 @@
 import reflex as rx
 from app.presentation.pages.simulador.simulador_state import SimuladorState
 from app.presentation.components.ui.headers import page_header
-from app.presentation.components.ui.form_field import form_field, form_section
+from app.presentation.components.ui.form_input import form_input, form_select
 from app.core.ui_options import ESTADOS_DISPLAY, TIPO_SALARIO_CALCULO
-from app.core.validation import (
-    CAMPO_SIM_ESTADO,
-    CAMPO_SIM_PRIMA_RIESGO,
-    CAMPO_SIM_DIAS_AGUINALDO,
-    CAMPO_SIM_PRIMA_VACACIONAL,
-    CAMPO_SIM_TIPO_CALCULO,
-    CAMPO_SIM_SALARIO_MENSUAL,
-    CAMPO_SIM_SALARIO_DIARIO,
-    CAMPO_SIM_ANTIGUEDAD,
-    CAMPO_SIM_DIAS_COTIZADOS,
-)
+
+
+# Opciones para selects (convertidas a formato dict)
+OPCIONES_ESTADOS = [
+    {"value": v, "label": v} for v in ESTADOS_DISPLAY.values()
+]
+OPCIONES_TIPO_CALCULO = [
+    {"value": v, "label": v} for v in TIPO_SALARIO_CALCULO.values()
+]
 
 
 def formulario_empresa() -> rx.Component:
@@ -24,17 +22,21 @@ def formulario_empresa() -> rx.Component:
 
             # Estado y Prima de riesgo
             rx.hstack(
-                form_field(
-                    config=CAMPO_SIM_ESTADO,
+                form_select(
+                    label="Estado",
+                    placeholder="Selecciona un estado",
                     value=SimuladorState.estado,
                     on_change=SimuladorState.set_estado_display,
-                    options=list(ESTADOS_DISPLAY.values()),
+                    options=OPCIONES_ESTADOS,
                     default_value="Puebla",
                 ),
-                form_field(
-                    config=CAMPO_SIM_PRIMA_RIESGO,
+                form_input(
+                    label="Prima de riesgo (%)",
+                    placeholder="2.5984",
                     value=SimuladorState.prima_riesgo.to(str),
                     on_change=SimuladorState.set_prima_riesgo,
+                    hint="Porcentaje segun giro de la empresa",
+                    type="number",
                     step="0.0001",
                 ),
                 spacing="3",
@@ -45,15 +47,21 @@ def formulario_empresa() -> rx.Component:
 
             # Días aguinaldo y Prima vacacional
             rx.hstack(
-                form_field(
-                    config=CAMPO_SIM_DIAS_AGUINALDO,
+                form_input(
+                    label="Dias de aguinaldo",
+                    placeholder="15",
                     value=SimuladorState.dias_aguinaldo.to(str),
                     on_change=SimuladorState.set_dias_aguinaldo,
+                    hint="Minimo legal: 15 dias",
+                    type="number",
                 ),
-                form_field(
-                    config=CAMPO_SIM_PRIMA_VACACIONAL,
+                form_input(
+                    label="Prima vacacional (%)",
+                    placeholder="25",
                     value=SimuladorState.prima_vacacional.to(str),
                     on_change=SimuladorState.set_prima_vacacional,
+                    hint="Minimo legal: 25%",
+                    type="number",
                 ),
                 spacing="3",
                 width="100%",
@@ -75,27 +83,33 @@ def formulario_trabajador() -> rx.Component:
 
             # Tipo de cálculo, Salario mensual, Salario diario
             rx.hstack(
-                form_field(
-                    config=CAMPO_SIM_TIPO_CALCULO,
+                form_select(
+                    label="Tipo de calculo",
+                    placeholder="Selecciona un tipo",
                     value=SimuladorState.tipo_salario_calculo,
                     on_change=SimuladorState.set_tipo_salario_calculo,
-                    options=list(TIPO_SALARIO_CALCULO.values()),
+                    options=OPCIONES_TIPO_CALCULO,
                 ),
-                form_field(
-                    config=CAMPO_SIM_SALARIO_MENSUAL,
+                form_input(
+                    label="Salario mensual ($)",
+                    placeholder="0.00",
                     value=SimuladorState.salario_mensual,
                     on_change=SimuladorState.set_salario_mensual,
                     disabled=(
                         (SimuladorState.tipo_salario_calculo == "Salario Mínimo") |
                         (SimuladorState.tipo_salario_calculo == "")
                     ),
+                    type="number",
                     step="0.01",
                 ),
-                form_field(
-                    config=CAMPO_SIM_SALARIO_DIARIO,
+                form_input(
+                    label="Salario diario ($)",
+                    placeholder="0.00",
                     value=SimuladorState.calc_salario_diario,
                     on_change=SimuladorState.noop,  # Campo calculado, no editable
+                    hint="Calculado automaticamente",
                     disabled=True,
+                    type="number",
                     step="0.01",
                 ),
                 spacing="3",
@@ -104,16 +118,22 @@ def formulario_trabajador() -> rx.Component:
 
             # Antigüedad y Días cotizados
             rx.hstack(
-                form_field(
-                    config=CAMPO_SIM_ANTIGUEDAD,
+                form_input(
+                    label="Antiguedad (anos)",
+                    placeholder="1",
                     value=SimuladorState.antiguedad_anos.to(str),
                     on_change=SimuladorState.set_antiguedad_anos,
+                    hint="Minimo 1 ano",
+                    type="number",
                     min="1",
                 ),
-                form_field(
-                    config=CAMPO_SIM_DIAS_COTIZADOS,
+                form_input(
+                    label="Dias cotizados",
+                    placeholder="30",
                     value=SimuladorState.dias_cotizados.to(str),
                     on_change=SimuladorState.set_dias_cotizados,
+                    hint="Dias del mes a cotizar",
+                    type="number",
                     step="0.1",
                 ),
                 # Espaciador para alinear (3 columnas arriba, 2 aquí)

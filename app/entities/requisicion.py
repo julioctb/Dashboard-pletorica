@@ -23,6 +23,10 @@ from app.core.validation.constants import (
     CARGO_MAX,
     TELEFONO_REQUISICION_MAX,
     EMAIL_REQUISICION_MAX,
+    DOMICILIO_REQUISICION_MAX,
+    LUGAR_ENTREGA_MAX,
+    TIPO_GARANTIA_MAX,
+    FORMA_PAGO_MAX,
     GARANTIA_VIGENCIA_MAX,
     EXISTENCIA_ALMACEN_MAX,
     PARTIDA_PRESUPUESTARIA_MAX,
@@ -30,7 +34,6 @@ from app.core.validation.constants import (
     ORIGEN_RECURSO_REQUISICION_MAX,
     OFICIO_SUFICIENCIA_MAX,
     UNIDAD_MEDIDA_MAX,
-    REFERENCIA_URL_MAX,
     CLAVE_CONFIGURACION_MAX,
     DESCRIPCION_CONFIGURACION_MAX,
 )
@@ -69,6 +72,21 @@ TRANSICIONES_VALIDAS = {
     EstadoRequisicion.CONTRATADA: [],  # Estado final
     EstadoRequisicion.CANCELADA: [],   # Estado final
 }
+
+
+# =============================================================================
+# LUGAR DE ENTREGA
+# =============================================================================
+
+class LugarEntrega(BaseModel):
+    """Lugar de entrega disponible para requisiciones."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: Optional[int] = None
+    nombre: str = Field(max_length=200)
+    activo: bool = True
+    created_at: Optional[datetime] = None
 
 
 # =============================================================================
@@ -149,8 +167,10 @@ class RequisicionItem(BaseModel):
     precio_unitario_estimado: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
     subtotal_estimado: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
     especificaciones_tecnicas: Optional[str] = None
-    referencia_visual_url: Optional[str] = Field(None, max_length=REFERENCIA_URL_MAX)
     created_at: Optional[datetime] = None
+
+    # Archivos asociados (se cargan desde archivo_sistema)
+    archivos: list = []
 
 
 class RequisicionItemCreate(BaseModel):
@@ -167,7 +187,6 @@ class RequisicionItemCreate(BaseModel):
     descripcion: str
     precio_unitario_estimado: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
     especificaciones_tecnicas: Optional[str] = None
-    referencia_visual_url: Optional[str] = Field(None, max_length=REFERENCIA_URL_MAX)
 
     @field_validator('cantidad', 'precio_unitario_estimado', mode='before')
     @classmethod
@@ -193,7 +212,6 @@ class RequisicionItemUpdate(BaseModel):
     descripcion: Optional[str] = None
     precio_unitario_estimado: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
     especificaciones_tecnicas: Optional[str] = None
-    referencia_visual_url: Optional[str] = Field(None, max_length=REFERENCIA_URL_MAX)
 
     @field_validator('cantidad', 'precio_unitario_estimado', mode='before')
     @classmethod
@@ -309,7 +327,7 @@ class Requisicion(BaseModel):
 
     # Área Requirente (campos con valores default editables)
     dependencia_requirente: str = Field(max_length=DEPENDENCIA_MAX)
-    domicilio: str
+    domicilio: str = Field("", max_length=DOMICILIO_REQUISICION_MAX)
     titular_nombre: str = Field(max_length=NOMBRE_PERSONA_MAX)
     titular_cargo: str = Field(max_length=CARGO_MAX)
     titular_telefono: Optional[str] = Field(None, max_length=TELEFONO_REQUISICION_MAX)
@@ -324,15 +342,15 @@ class Requisicion(BaseModel):
     # Datos del Bien/Servicio
     tipo_contratacion: TipoContratacion
     objeto_contratacion: str
-    lugar_entrega: str
+    lugar_entrega: str = Field("", max_length=LUGAR_ENTREGA_MAX)
     fecha_entrega_inicio: Optional[date] = None
     fecha_entrega_fin: Optional[date] = None
     condiciones_entrega: Optional[str] = None
-    tipo_garantia: Optional[str] = None
+    tipo_garantia: Optional[str] = Field(None, max_length=TIPO_GARANTIA_MAX)
     garantia_vigencia: Optional[str] = Field(None, max_length=GARANTIA_VIGENCIA_MAX)
     requisitos_proveedor: Optional[str] = None
     justificacion: str
-    forma_pago: Optional[str] = None
+    forma_pago: Optional[str] = Field(None, max_length=FORMA_PAGO_MAX)
     requiere_anticipo: bool = False
     requiere_muestras: bool = False
     requiere_visita: bool = False
@@ -365,6 +383,7 @@ class Requisicion(BaseModel):
     # Relaciones (se cargan con joins)
     items: List[RequisicionItem] = []
     partidas: List[RequisicionPartida] = []
+    archivos: list = []  # Se cargan desde archivo_sistema
 
     # ==========================================
     # VALIDADORES
@@ -441,10 +460,10 @@ class RequisicionCreate(BaseModel):
     fecha_elaboracion: date
 
     # Área Requirente (pueden venir pre-llenados desde configuración)
-    dependencia_requirente: str = Field(..., max_length=DEPENDENCIA_MAX)
-    domicilio: str
-    titular_nombre: str = Field(..., max_length=NOMBRE_PERSONA_MAX)
-    titular_cargo: str = Field(..., max_length=CARGO_MAX)
+    dependencia_requirente: str = Field("", max_length=DEPENDENCIA_MAX)
+    domicilio: str = Field("", max_length=DOMICILIO_REQUISICION_MAX)
+    titular_nombre: str = Field("", max_length=NOMBRE_PERSONA_MAX)
+    titular_cargo: str = Field("", max_length=CARGO_MAX)
     titular_telefono: Optional[str] = Field(None, max_length=TELEFONO_REQUISICION_MAX)
     titular_email: Optional[str] = Field(None, max_length=EMAIL_REQUISICION_MAX)
     coordinador_nombre: Optional[str] = Field(None, max_length=NOMBRE_PERSONA_MAX)
@@ -455,17 +474,17 @@ class RequisicionCreate(BaseModel):
     asesor_email: Optional[str] = Field(None, max_length=EMAIL_REQUISICION_MAX)
 
     # Datos del Bien/Servicio
-    tipo_contratacion: TipoContratacion
-    objeto_contratacion: str
-    lugar_entrega: str
+    tipo_contratacion: Optional[TipoContratacion] = None
+    objeto_contratacion: str = ""
+    lugar_entrega: str = Field("", max_length=LUGAR_ENTREGA_MAX)
     fecha_entrega_inicio: Optional[date] = None
     fecha_entrega_fin: Optional[date] = None
     condiciones_entrega: Optional[str] = None
-    tipo_garantia: Optional[str] = None
+    tipo_garantia: Optional[str] = Field(None, max_length=TIPO_GARANTIA_MAX)
     garantia_vigencia: Optional[str] = Field(None, max_length=GARANTIA_VIGENCIA_MAX)
     requisitos_proveedor: Optional[str] = None
-    justificacion: str
-    forma_pago: Optional[str] = None
+    justificacion: str = ""
+    forma_pago: Optional[str] = Field(None, max_length=FORMA_PAGO_MAX)
     requiere_anticipo: bool = False
     requiere_muestras: bool = False
     requiere_visita: bool = False
@@ -482,14 +501,14 @@ class RequisicionCreate(BaseModel):
 
     # Firmas (pueden venir pre-llenados desde configuración)
     validacion_asesor: Optional[str] = Field(None, max_length=NOMBRE_PERSONA_MAX)
-    elabora_nombre: str = Field(..., max_length=NOMBRE_PERSONA_MAX)
-    elabora_cargo: str = Field(..., max_length=CARGO_MAX)
-    solicita_nombre: str = Field(..., max_length=NOMBRE_PERSONA_MAX)
-    solicita_cargo: str = Field(..., max_length=CARGO_MAX)
+    elabora_nombre: str = Field("", max_length=NOMBRE_PERSONA_MAX)
+    elabora_cargo: str = Field("", max_length=CARGO_MAX)
+    solicita_nombre: str = Field("", max_length=NOMBRE_PERSONA_MAX)
+    solicita_cargo: str = Field("", max_length=CARGO_MAX)
 
-    # Items y Partidas (se crean junto con la requisición)
-    items: List[RequisicionItemCreate] = Field(..., min_length=1)
-    partidas: List[RequisicionPartidaCreate] = Field(..., min_length=1)
+    # Items y Partidas (opcionales para borradores)
+    items: List[RequisicionItemCreate] = []
+    partidas: List[RequisicionPartidaCreate] = []
 
     @model_validator(mode='after')
     def validar_fechas_entrega(self) -> 'RequisicionCreate':
@@ -513,7 +532,7 @@ class RequisicionUpdate(BaseModel):
 
     # Área Requirente
     dependencia_requirente: Optional[str] = Field(None, max_length=DEPENDENCIA_MAX)
-    domicilio: Optional[str] = None
+    domicilio: Optional[str] = Field(None, max_length=DOMICILIO_REQUISICION_MAX)
     titular_nombre: Optional[str] = Field(None, max_length=NOMBRE_PERSONA_MAX)
     titular_cargo: Optional[str] = Field(None, max_length=CARGO_MAX)
     titular_telefono: Optional[str] = Field(None, max_length=TELEFONO_REQUISICION_MAX)
@@ -528,15 +547,15 @@ class RequisicionUpdate(BaseModel):
     # Datos del Bien/Servicio
     tipo_contratacion: Optional[TipoContratacion] = None
     objeto_contratacion: Optional[str] = None
-    lugar_entrega: Optional[str] = None
+    lugar_entrega: Optional[str] = Field(None, max_length=LUGAR_ENTREGA_MAX)
     fecha_entrega_inicio: Optional[date] = None
     fecha_entrega_fin: Optional[date] = None
     condiciones_entrega: Optional[str] = None
-    tipo_garantia: Optional[str] = None
+    tipo_garantia: Optional[str] = Field(None, max_length=TIPO_GARANTIA_MAX)
     garantia_vigencia: Optional[str] = Field(None, max_length=GARANTIA_VIGENCIA_MAX)
     requisitos_proveedor: Optional[str] = None
     justificacion: Optional[str] = None
-    forma_pago: Optional[str] = None
+    forma_pago: Optional[str] = Field(None, max_length=FORMA_PAGO_MAX)
     requiere_anticipo: Optional[bool] = None
     requiere_muestras: Optional[bool] = None
     requiere_visita: Optional[bool] = None

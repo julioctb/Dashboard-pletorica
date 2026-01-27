@@ -11,6 +11,8 @@ from app.presentation.components.shared.base_state import BaseState
 from app.presentation.constants import FILTRO_TODOS
 from app.services.requisicion_service import requisicion_service
 from app.services.empresa_service import empresa_service
+from app.services.archivo_service import archivo_service, ArchivoValidationError
+from app.entities.archivo import EntidadArchivo, TipoArchivo
 
 from app.entities.requisicion import (
     RequisicionCreate,
@@ -115,9 +117,16 @@ class RequisicionesState(BaseState):
 
     # Listas para dropdowns
     empresas_opciones: List[dict] = []
+    lugares_entrega_opciones: List[dict] = []
 
     # Configuración defaults
     configuracion_defaults: dict = {}
+
+    # ========================
+    # ARCHIVOS
+    # ========================
+    archivos_entidad: list[dict] = []
+    subiendo_archivo: bool = False
 
     # ========================
     # ESTADO DE UI
@@ -328,6 +337,12 @@ class RequisicionesState(BaseState):
         self.form_adjudicar_fecha = v
 
     # ========================
+    # SETTERS DE UI
+    # ========================
+    def set_mostrar_modal_detalle(self, v: bool):
+        self.mostrar_modal_detalle = v
+
+    # ========================
     # SETTERS DE FILTROS
     # ========================
     def set_filtro_estado(self, v: str):
@@ -433,6 +448,23 @@ class RequisicionesState(BaseState):
                 pass
         return f"${total:,.2f}"
 
+    @rx.var
+    def formulario_completo(self) -> bool:
+        """Indica si todos los campos requeridos estan completos."""
+        return bool(
+            self.form_tipo_contratacion
+            and self.form_fecha_elaboracion
+            and self.form_objeto_contratacion
+            and self.form_justificacion
+            and self.form_dependencia_requirente
+            and self.form_titular_nombre
+            and self.form_lugar_entrega
+            and self.form_elabora_nombre
+            and self.form_solicita_nombre
+            and any(i.get("descripcion") for i in self.form_items)
+            and any(p.get("partida_presupuestaria") for p in self.form_partidas)
+        )
+
     # ========================
     # CARGA DE DATOS
     # ========================
@@ -441,6 +473,7 @@ class RequisicionesState(BaseState):
         await self.cargar_requisiciones()
         await self.cargar_configuracion()
         await self.cargar_empresas()
+        await self.cargar_lugares_entrega()
 
     async def cargar_requisiciones(self):
         """Carga las requisiciones con filtros aplicados."""
@@ -487,6 +520,17 @@ class RequisicionesState(BaseState):
             ]
         except Exception:
             self.empresas_opciones = []
+
+    async def cargar_lugares_entrega(self):
+        """Carga lista de lugares de entrega para dropdown."""
+        try:
+            lugares = await requisicion_service.obtener_lugares_entrega()
+            self.lugares_entrega_opciones = [
+                {"value": l.nombre, "label": l.nombre}
+                for l in lugares
+            ]
+        except Exception:
+            self.lugares_entrega_opciones = []
 
     async def aplicar_filtros(self):
         """Aplica filtros y recarga."""
@@ -547,6 +591,72 @@ class RequisicionesState(BaseState):
             self.form_partidas = partidas
 
     # ========================
+    # GESTIÓN DE ARCHIVOS
+    # ========================
+    async def handle_upload_archivo(self, files: list[rx.UploadFile]):
+        """Procesa archivos subidos para la requisicion actual."""
+        if not files or not self.id_requisicion_edicion:
+            return
+
+        self.subiendo_archivo = True
+        try:
+            for file in files:
+                contenido = await file.read()
+                tipo_mime = file.content_type or "application/octet-stream"
+                es_imagen = tipo_mime.startswith("image/")
+
+                await archivo_service.subir_archivo(
+                    contenido=contenido,
+                    nombre_original=file.filename,
+                    tipo_mime=tipo_mime,
+                    entidad_tipo=EntidadArchivo.REQUISICION,
+                    entidad_id=self.id_requisicion_edicion,
+                    identificador_ruta=f"REQ-{self.id_requisicion_edicion}",
+                    tipo_archivo=TipoArchivo.IMAGEN if es_imagen else TipoArchivo.DOCUMENTO,
+                )
+
+            await self.cargar_archivos_entidad()
+            self.mostrar_mensaje("Archivos subidos correctamente", "success")
+        except ArchivoValidationError as e:
+            self.mostrar_mensaje(str(e), "error")
+        except Exception as e:
+            self.manejar_error(e, "al subir archivos")
+        finally:
+            self.subiendo_archivo = False
+
+    async def eliminar_archivo_entidad(self, archivo_id: int):
+        """Elimina un archivo de la requisicion."""
+        try:
+            await archivo_service.eliminar_archivo(archivo_id)
+            await self.cargar_archivos_entidad()
+            self.mostrar_mensaje("Archivo eliminado", "success")
+        except Exception as e:
+            self.manejar_error(e, "al eliminar archivo")
+
+    async def cargar_archivos_entidad(self):
+        """Carga archivos de la requisicion actual."""
+        if not self.id_requisicion_edicion:
+            self.archivos_entidad = []
+            return
+        try:
+            archivos = await archivo_service.obtener_archivos_entidad(
+                EntidadArchivo.REQUISICION,
+                self.id_requisicion_edicion,
+            )
+            self.archivos_entidad = [
+                {
+                    "id": a.id,
+                    "nombre_original": a.nombre_original,
+                    "tipo_mime": a.tipo_mime,
+                    "tamanio_bytes": a.tamanio_bytes,
+                    "fue_comprimido": a.fue_comprimido,
+                }
+                for a in archivos
+            ]
+        except Exception:
+            self.archivos_entidad = []
+
+    # ========================
     # MODALES
     # ========================
     def _limpiar_formulario(self):
@@ -555,6 +665,8 @@ class RequisicionesState(BaseState):
             setattr(self, f"form_{campo}", valor)
         self.form_items = [dict(ITEM_DEFAULT)]
         self.form_partidas = [dict(PARTIDA_DEFAULT)]
+        self.archivos_entidad = []
+        self.subiendo_archivo = False
         self.es_edicion = False
         self.id_requisicion_edicion = 0
 
@@ -577,7 +689,6 @@ class RequisicionesState(BaseState):
             "asesor_nombre": "asesor_nombre",
             "asesor_telefono": "asesor_telefono",
             "asesor_email": "asesor_email",
-            "lugar_entrega": "lugar_entrega",
             "validacion_asesor": "validacion_asesor",
             "elabora_nombre": "elabora_nombre",
             "elabora_cargo": "elabora_cargo",
@@ -644,6 +755,9 @@ class RequisicionesState(BaseState):
                 }
                 for p in req_dict.get("partidas", [])
             ] or [dict(PARTIDA_DEFAULT)]
+
+            # Cargar archivos asociados
+            await self.cargar_archivos_entidad()
 
             self.mostrar_modal_editar = True
         except Exception as e:
@@ -790,7 +904,7 @@ class RequisicionesState(BaseState):
                 # Crear nueva requisición
                 create_data = RequisicionCreate(
                     fecha_elaboracion=date.fromisoformat(self.form_fecha_elaboracion) if self.form_fecha_elaboracion else date.today(),
-                    tipo_contratacion=self.form_tipo_contratacion,
+                    tipo_contratacion=self.form_tipo_contratacion or None,
                     objeto_contratacion=self.form_objeto_contratacion,
                     justificacion=self.form_justificacion,
                     dependencia_requirente=self.form_dependencia_requirente,
@@ -833,7 +947,11 @@ class RequisicionesState(BaseState):
 
                 await requisicion_service.crear(create_data)
                 self.cerrar_modal_crear()
-                self.mostrar_mensaje("Requisición creada correctamente", "success")
+                es_borrador = not items_create or not partidas_create
+                if es_borrador:
+                    self.mostrar_mensaje("Borrador guardado correctamente", "success")
+                else:
+                    self.mostrar_mensaje("Requisición creada correctamente", "success")
 
             await self.cargar_requisiciones()
 

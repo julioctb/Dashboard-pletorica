@@ -15,6 +15,7 @@ import logging
 
 from app.entities.requisicion import (
     ConfiguracionRequisicion,
+    LugarEntrega,
     Requisicion,
     RequisicionItem,
     RequisicionPartida,
@@ -172,6 +173,25 @@ class IRequisicionRepository(ABC):
         """Actualiza el valor de una configuración."""
         pass
 
+    # ========================
+    # LUGARES DE ENTREGA
+    # ========================
+
+    @abstractmethod
+    async def obtener_lugares_entrega(self) -> List[LugarEntrega]:
+        """Obtiene todos los lugares de entrega activos."""
+        pass
+
+    @abstractmethod
+    async def crear_lugar_entrega(self, nombre: str) -> LugarEntrega:
+        """Crea un nuevo lugar de entrega."""
+        pass
+
+    @abstractmethod
+    async def eliminar_lugar_entrega(self, lugar_id: int) -> bool:
+        """Elimina (desactiva) un lugar de entrega."""
+        pass
+
 
 class SupabaseRequisicionRepository(IRequisicionRepository):
     """Implementación del repositorio usando Supabase."""
@@ -186,6 +206,7 @@ class SupabaseRequisicionRepository(IRequisicionRepository):
         self.tabla_items = 'requisicion_item'
         self.tabla_partidas = 'requisicion_partida'
         self.tabla_config = 'configuracion_requisicion'
+        self.tabla_lugares = 'lugar_entrega'
 
     # ========================
     # REQUISICIÓN PRINCIPAL
@@ -308,7 +329,7 @@ class SupabaseRequisicionRepository(IRequisicionRepository):
             # Preparar datos de la requisición (sin items, partidas ni campos auto)
             datos = requisicion.model_dump(
                 mode='json',
-                exclude={'id', 'created_at', 'updated_at', 'items', 'partidas'},
+                exclude={'id', 'created_at', 'updated_at', 'items', 'partidas', 'archivos'},
             )
 
             result = self.supabase.table(self.tabla).insert(datos).execute()
@@ -322,7 +343,7 @@ class SupabaseRequisicionRepository(IRequisicionRepository):
             for item in requisicion.items:
                 item_data = item.model_dump(
                     mode='json',
-                    exclude={'id', 'created_at', 'requisicion_id'},
+                    exclude={'id', 'created_at', 'requisicion_id', 'archivos'},
                 )
                 item_data['requisicion_id'] = requisicion_id
                 # Calcular subtotal
@@ -334,7 +355,7 @@ class SupabaseRequisicionRepository(IRequisicionRepository):
             for partida in requisicion.partidas:
                 partida_data = partida.model_dump(
                     mode='json',
-                    exclude={'id', 'created_at', 'requisicion_id'},
+                    exclude={'id', 'created_at', 'requisicion_id', 'archivos'},
                 )
                 partida_data['requisicion_id'] = requisicion_id
                 self.supabase.table(self.tabla_partidas).insert(partida_data).execute()
@@ -358,7 +379,7 @@ class SupabaseRequisicionRepository(IRequisicionRepository):
         try:
             datos = requisicion.model_dump(
                 mode='json',
-                exclude={'id', 'created_at', 'updated_at', 'items', 'partidas'},
+                exclude={'id', 'created_at', 'updated_at', 'items', 'partidas', 'archivos'},
             )
 
             result = self.supabase.table(self.tabla)\
@@ -526,7 +547,7 @@ class SupabaseRequisicionRepository(IRequisicionRepository):
     async def crear_item(self, requisicion_id: int, item: RequisicionItem) -> RequisicionItem:
         """Crea un item en una requisición."""
         try:
-            datos = item.model_dump(mode='json', exclude={'id', 'created_at', 'requisicion_id'})
+            datos = item.model_dump(mode='json', exclude={'id', 'created_at', 'requisicion_id', 'archivos'})
             datos['requisicion_id'] = requisicion_id
 
             # Calcular subtotal
@@ -546,7 +567,7 @@ class SupabaseRequisicionRepository(IRequisicionRepository):
     async def actualizar_item(self, item: RequisicionItem) -> RequisicionItem:
         """Actualiza un item existente."""
         try:
-            datos = item.model_dump(mode='json', exclude={'id', 'created_at', 'requisicion_id'})
+            datos = item.model_dump(mode='json', exclude={'id', 'created_at', 'requisicion_id', 'archivos'})
 
             # Recalcular subtotal
             if item.precio_unitario_estimado and item.cantidad:
@@ -611,7 +632,7 @@ class SupabaseRequisicionRepository(IRequisicionRepository):
     async def crear_partida(self, requisicion_id: int, partida: RequisicionPartida) -> RequisicionPartida:
         """Crea una partida en una requisición."""
         try:
-            datos = partida.model_dump(mode='json', exclude={'id', 'created_at', 'requisicion_id'})
+            datos = partida.model_dump(mode='json', exclude={'id', 'created_at', 'requisicion_id', 'archivos'})
             datos['requisicion_id'] = requisicion_id
 
             result = self.supabase.table(self.tabla_partidas).insert(datos).execute()
@@ -627,7 +648,7 @@ class SupabaseRequisicionRepository(IRequisicionRepository):
     async def actualizar_partida(self, partida: RequisicionPartida) -> RequisicionPartida:
         """Actualiza una partida existente."""
         try:
-            datos = partida.model_dump(mode='json', exclude={'id', 'created_at', 'requisicion_id'})
+            datos = partida.model_dump(mode='json', exclude={'id', 'created_at', 'requisicion_id', 'archivos'})
 
             result = self.supabase.table(self.tabla_partidas)\
                 .update(datos)\
@@ -705,4 +726,44 @@ class SupabaseRequisicionRepository(IRequisicionRepository):
             raise
         except Exception as e:
             logger.error(f"Error actualizando configuración {config_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    # ========================
+    # LUGARES DE ENTREGA
+    # ========================
+
+    async def obtener_lugares_entrega(self) -> List[LugarEntrega]:
+        """Obtiene todos los lugares de entrega activos."""
+        try:
+            result = self.supabase.table(self.tabla_lugares)\
+                .select('*')\
+                .eq('activo', True)\
+                .order('nombre')\
+                .execute()
+            return [LugarEntrega(**data) for data in result.data]
+        except Exception as e:
+            logger.error(f"Error obteniendo lugares de entrega: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def crear_lugar_entrega(self, nombre: str) -> LugarEntrega:
+        """Crea un nuevo lugar de entrega."""
+        try:
+            result = self.supabase.table(self.tabla_lugares)\
+                .insert({'nombre': nombre})\
+                .execute()
+            return LugarEntrega(**result.data[0])
+        except Exception as e:
+            logger.error(f"Error creando lugar de entrega: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def eliminar_lugar_entrega(self, lugar_id: int) -> bool:
+        """Elimina (desactiva) un lugar de entrega."""
+        try:
+            result = self.supabase.table(self.tabla_lugares)\
+                .update({'activo': False})\
+                .eq('id', lugar_id)\
+                .execute()
+            return len(result.data) > 0
+        except Exception as e:
+            logger.error(f"Error eliminando lugar de entrega {lugar_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
