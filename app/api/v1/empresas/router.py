@@ -5,7 +5,6 @@ Todos los endpoints llaman a empresa_service (singleton).
 No duplican logica de negocio.
 """
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Query
 

@@ -9,21 +9,17 @@ from datetime import date
 
 from app.presentation.components.shared.base_state import BaseState
 from app.presentation.constants import FILTRO_TODOS
-from app.services import plaza_service, contrato_categoria_service, contrato_service
+from app.services import plaza_service, contrato_categoria_service
 from app.core.text_utils import formatear_moneda, formatear_fecha
 
 from app.entities import (
-    Plaza,
     PlazaCreate,
     PlazaUpdate,
-    PlazaResumen,
     EstatusPlaza,
 )
 
 from app.core.exceptions import (
-    NotFoundError,
     DuplicateError,
-    DatabaseError,
     BusinessRuleError,
 )
 

@@ -21,7 +21,6 @@ from app.entities.requisicion import (
     RequisicionItemCreate,
     RequisicionPartidaCreate,
 )
-from app.core.enums import EstadoRequisicion, TipoContratacion
 from app.core.exceptions import (
     NotFoundError,
     DuplicateError,

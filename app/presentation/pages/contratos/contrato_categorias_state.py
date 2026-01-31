@@ -7,7 +7,7 @@ from typing import List, Optional
 from decimal import Decimal, InvalidOperation
 
 from app.presentation.components.shared.base_state import BaseState
-from app.services import contrato_categoria_service, categoria_puesto_service
+from app.services import contrato_categoria_service
 from app.core.text_utils import formatear_moneda
 
 from app.entities import (

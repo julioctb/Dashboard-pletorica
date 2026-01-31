@@ -27,10 +27,8 @@ from app.presentation.theme import (
     Colors,
     Spacing,
     Typography,
-    Shadows,
     Transitions,
 )
-from app.presentation.layout.sidebar_state import SidebarState
 
 
 # =============================================================================

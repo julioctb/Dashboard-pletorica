@@ -4,9 +4,12 @@ Servicio generico para gestion de archivos del sistema.
 Orquesta compresion, almacenamiento en Supabase Storage,
 y registro en base de datos. Generico para cualquier modulo.
 
+Accede directamente a Supabase (sin repositorio intermedio).
+
 Patron de errores:
 - ArchivoValidationError: Validacion de formato, tamano o cantidad
-- Las excepciones del repository se propagan (NotFoundError, DatabaseError)
+- NotFoundError: Cuando no se encuentra un archivo
+- DatabaseError: Errores de conexion o infraestructura
 """
 
 import logging
@@ -16,7 +19,7 @@ from uuid import uuid4
 
 from app.core.compresores import GhostscriptCompressor, ImagenCompressor
 from app.core.config.archivos_config import ArchivosConfig
-from app.core.exceptions import ApplicationError
+from app.core.exceptions import ApplicationError, DatabaseError, NotFoundError
 from app.entities.archivo import (
     ArchivoSistema,
     ArchivoSistemaUpdate,
@@ -25,7 +28,6 @@ from app.entities.archivo import (
     OrigenArchivo,
     TipoArchivo,
 )
-from app.repositories.archivo_repository import SupabaseArchivoRepository
 
 logger = logging.getLogger(__name__)
 
@@ -41,16 +43,14 @@ class ArchivoService:
     Servicio generico para gestion de archivos del sistema.
 
     Maneja compresion, upload a Storage, registro en BD y eliminacion.
+    Accede directamente a Supabase sin repositorio intermedio.
     """
 
-    def __init__(self, repository=None):
-        if repository is None:
-            repository = SupabaseArchivoRepository()
-        self.repository = repository
-
+    def __init__(self):
         from app.database import db_manager
 
         self.supabase = db_manager.get_client()
+        self.tabla = "archivo_sistema"
 
     # ==========================================
     # VALIDACIONES
@@ -89,14 +89,27 @@ class ArchivoService:
         entidad_id: int,
     ) -> None:
         """Valida que no se exceda el limite de archivos."""
-        cantidad = await self.repository.contar_archivos(
-            entidad_tipo, entidad_id
-        )
         tipo_valor = (
             entidad_tipo.value
             if isinstance(entidad_tipo, EntidadArchivo)
             else entidad_tipo
         )
+
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select("id", count="exact")
+                .eq("entidad_tipo", tipo_valor)
+                .eq("entidad_id", entidad_id)
+                .execute()
+            )
+            cantidad = result.count or 0
+        except Exception as e:
+            logger.error(
+                f"Error contando archivos de {entidad_tipo}/{entidad_id}: {e}"
+            )
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
         limite = ArchivosConfig.get_max_archivos(tipo_valor)
 
         if cantidad >= limite:
@@ -233,30 +246,47 @@ class ArchivoService:
             )
 
         # Crear registro en BD
-        archivo = await self.repository.crear(
-            entidad_tipo=tipo_valor,
-            entidad_id=entidad_id,
-            nombre_original=nombre_original,
-            nombre_storage=nombre_storage,
-            ruta_storage=ruta_storage,
-            tipo_mime=tipo_mime_final,
-            tamanio_bytes=len(contenido_final),
-            tipo_archivo=(
+        datos = {
+            "entidad_tipo": tipo_valor,
+            "entidad_id": entidad_id,
+            "nombre_original": nombre_original,
+            "nombre_storage": nombre_storage,
+            "ruta_storage": ruta_storage,
+            "tipo_mime": tipo_mime_final,
+            "tamanio_bytes": len(contenido_final),
+            "tipo_archivo": (
                 tipo_archivo.value
                 if isinstance(tipo_archivo, TipoArchivo)
                 else tipo_archivo
             ),
-            descripcion=descripcion,
-            orden=orden,
-            tamanio_original_bytes=tamanio_original,
-            fue_comprimido=metadata.get("comprimido", False),
-            formato_original=metadata.get("formato_original"),
-            origen=(
+            "descripcion": descripcion,
+            "orden": orden,
+            "tamanio_original_bytes": tamanio_original,
+            "fue_comprimido": metadata.get("comprimido", False),
+            "formato_original": metadata.get("formato_original"),
+            "origen": (
                 origen.value
                 if isinstance(origen, OrigenArchivo)
                 else origen
             ),
-        )
+        }
+
+        try:
+            result = (
+                self.supabase.table(self.tabla).insert(datos).execute()
+            )
+
+            if not result.data:
+                raise DatabaseError("No se pudo crear el registro de archivo")
+
+            archivo = ArchivoSistema(**result.data[0])
+        except DatabaseError:
+            raise
+        except Exception as e:
+            logger.error(f"Error creando archivo en BD: {e}")
+            raise DatabaseError(
+                f"Error de base de datos al crear archivo: {str(e)}"
+            )
 
         return ArchivoUploadResponse(
             archivo=archivo,
@@ -273,7 +303,25 @@ class ArchivoService:
             NotFoundError: Si el archivo no existe
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_id(archivo_id)
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select("*")
+                .eq("id", archivo_id)
+                .execute()
+            )
+
+            if not result.data:
+                raise NotFoundError(
+                    f"Archivo con ID {archivo_id} no encontrado"
+                )
+
+            return ArchivoSistema(**result.data[0])
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error obteniendo archivo {archivo_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_archivos_entidad(
         self,
@@ -286,9 +334,27 @@ class ArchivoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_entidad(
-            entidad_tipo, entidad_id
-        )
+        try:
+            tipo_valor = (
+                entidad_tipo.value
+                if isinstance(entidad_tipo, EntidadArchivo)
+                else entidad_tipo
+            )
+            result = (
+                self.supabase.table(self.tabla)
+                .select("*")
+                .eq("entidad_tipo", tipo_valor)
+                .eq("entidad_id", entidad_id)
+                .order("orden")
+                .order("created_at")
+                .execute()
+            )
+            return [ArchivoSistema(**data) for data in result.data]
+        except Exception as e:
+            logger.error(
+                f"Error obteniendo archivos de {entidad_tipo}/{entidad_id}: {e}"
+            )
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_url_temporal(
         self,
@@ -302,7 +368,7 @@ class ArchivoService:
             NotFoundError: Si el archivo no existe
             ArchivoValidationError: Si falla la generacion de URL
         """
-        archivo = await self.repository.obtener_por_id(archivo_id)
+        archivo = await self.obtener_archivo(archivo_id)
 
         try:
             response = self.supabase.storage.from_(
@@ -330,7 +396,29 @@ class ArchivoService:
             NotFoundError: Si el archivo no existe
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.actualizar(archivo_id, data)
+        try:
+            update_data = data.model_dump(exclude_none=True)
+            if not update_data:
+                return await self.obtener_archivo(archivo_id)
+
+            result = (
+                self.supabase.table(self.tabla)
+                .update(update_data)
+                .eq("id", archivo_id)
+                .execute()
+            )
+
+            if not result.data:
+                raise NotFoundError(
+                    f"Archivo con ID {archivo_id} no encontrado"
+                )
+
+            return ArchivoSistema(**result.data[0])
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error actualizando archivo {archivo_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def eliminar_archivo(self, archivo_id: int) -> bool:
         """
@@ -340,7 +428,7 @@ class ArchivoService:
             NotFoundError: Si el archivo no existe
             DatabaseError: Si hay error de BD
         """
-        archivo = await self.repository.obtener_por_id(archivo_id)
+        archivo = await self.obtener_archivo(archivo_id)
 
         # Eliminar de Storage
         try:
@@ -352,7 +440,18 @@ class ArchivoService:
                 f"Error eliminando archivo de Storage ({archivo.ruta_storage}): {e}"
             )
 
-        return await self.repository.eliminar(archivo_id)
+        # Eliminar de BD
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .delete()
+                .eq("id", archivo_id)
+                .execute()
+            )
+            return bool(result.data)
+        except Exception as e:
+            logger.error(f"Error eliminando archivo {archivo_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def eliminar_archivos_entidad(
         self,
@@ -368,7 +467,7 @@ class ArchivoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        archivos = await self.repository.obtener_por_entidad(
+        archivos = await self.obtener_archivos_entidad(
             entidad_tipo, entidad_id
         )
 
@@ -383,9 +482,26 @@ class ArchivoService:
                     f"Error eliminando archivos de Storage: {e}"
                 )
 
-        return await self.repository.eliminar_por_entidad(
-            entidad_tipo, entidad_id
-        )
+        # Eliminar registros de BD
+        try:
+            tipo_valor = (
+                entidad_tipo.value
+                if isinstance(entidad_tipo, EntidadArchivo)
+                else entidad_tipo
+            )
+            result = (
+                self.supabase.table(self.tabla)
+                .delete()
+                .eq("entidad_tipo", tipo_valor)
+                .eq("entidad_id", entidad_id)
+                .execute()
+            )
+            return len(result.data) if result.data else 0
+        except Exception as e:
+            logger.error(
+                f"Error eliminando archivos de {entidad_tipo}/{entidad_id}: {e}"
+            )
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     # ==========================================
     # UTILIDADES

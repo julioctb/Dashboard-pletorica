@@ -28,7 +28,7 @@ from app.entities.requisicion import (
     TRANSICIONES_VALIDAS,
 )
 from app.core.enums import EstadoRequisicion
-from app.core.exceptions import BusinessRuleError, NotFoundError
+from app.core.exceptions import BusinessRuleError
 from app.core.error_messages import (
     MSG_REQUISICION_SIN_ITEMS,
     MSG_REQUISICION_SIN_PARTIDAS,

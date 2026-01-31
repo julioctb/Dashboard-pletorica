@@ -8,7 +8,6 @@ Estos validadores son usados tanto por frontend (empresas_validators.py)
 como por backend (entities con Pydantic).
 """
 import re
-from typing import Optional, Tuple
 
 from .constants import (
     RFC_PATTERN,

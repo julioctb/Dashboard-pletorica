@@ -1,5 +1,5 @@
 """
-Repositorio de Empleados - Interface y implementación para Supabase.
+Repositorio de Empleados - Implementación para Supabase.
 
 Patrón de manejo de errores:
 - NotFoundError: Cuando no se encuentra un recurso
@@ -7,7 +7,6 @@ Patrón de manejo de errores:
 - DatabaseError: Errores de conexión o infraestructura
 - Propagar otras excepciones hacia arriba
 """
-from abc import ABC, abstractmethod
 from typing import List, Optional
 from datetime import date
 import logging
@@ -18,112 +17,7 @@ from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
 logger = logging.getLogger(__name__)
 
 
-class IEmpleadoRepository(ABC):
-    """Interface del repositorio de empleados - define el contrato"""
-
-    # =========================================================================
-    # CRUD BÁSICO
-    # =========================================================================
-
-    @abstractmethod
-    async def obtener_por_id(self, empleado_id: int) -> Empleado:
-        """Obtiene un empleado por su ID"""
-        pass
-
-    @abstractmethod
-    async def obtener_por_clave(self, clave: str) -> Optional[Empleado]:
-        """Obtiene un empleado por su clave (B25-00001)"""
-        pass
-
-    @abstractmethod
-    async def obtener_por_curp(self, curp: str) -> Optional[Empleado]:
-        """Obtiene un empleado por su CURP"""
-        pass
-
-    @abstractmethod
-    async def crear(self, empleado: Empleado) -> Empleado:
-        """Crea un nuevo empleado"""
-        pass
-
-    @abstractmethod
-    async def actualizar(self, empleado: Empleado) -> Empleado:
-        """Actualiza un empleado existente"""
-        pass
-
-    @abstractmethod
-    async def eliminar(self, empleado_id: int) -> bool:
-        """Elimina (soft delete) un empleado"""
-        pass
-
-    # =========================================================================
-    # CONSULTAS
-    # =========================================================================
-
-    @abstractmethod
-    async def obtener_todos(
-        self,
-        incluir_inactivos: bool = False,
-        limite: Optional[int] = None,
-        offset: int = 0
-    ) -> List[Empleado]:
-        """Obtiene todos los empleados con paginación"""
-        pass
-
-    @abstractmethod
-    async def obtener_por_empresa(
-        self,
-        empresa_id: int,
-        incluir_inactivos: bool = False,
-        limite: Optional[int] = None,
-        offset: int = 0
-    ) -> List[Empleado]:
-        """Obtiene empleados de una empresa específica"""
-        pass
-
-    @abstractmethod
-    async def buscar(
-        self,
-        texto: str,
-        empresa_id: Optional[int] = None,
-        limite: int = 20
-    ) -> List[Empleado]:
-        """Busca empleados por nombre, CURP o clave"""
-        pass
-
-    @abstractmethod
-    async def contar(
-        self,
-        empresa_id: Optional[int] = None,
-        estatus: Optional[str] = None
-    ) -> int:
-        """Cuenta empleados con filtros opcionales"""
-        pass
-
-    # =========================================================================
-    # GENERACIÓN DE CLAVE
-    # =========================================================================
-
-    @abstractmethod
-    async def obtener_siguiente_consecutivo(self, anio: int) -> int:
-        """Obtiene el siguiente número consecutivo para el año dado"""
-        pass
-
-    # =========================================================================
-    # VERIFICACIONES
-    # =========================================================================
-
-    @abstractmethod
-    async def existe_curp(self, curp: str, excluir_id: Optional[int] = None) -> bool:
-        """Verifica si existe un CURP en la base de datos"""
-        pass
-
-    @abstractmethod
-    async def existe_clave(self, clave: str) -> bool:
-        """Verifica si existe una clave en la base de datos"""
-        pass
-
-
-class SupabaseEmpleadoRepository(IEmpleadoRepository):
+class SupabaseEmpleadoRepository:
     """Implementación del repositorio usando Supabase"""
 
     def __init__(self, db_manager=None):

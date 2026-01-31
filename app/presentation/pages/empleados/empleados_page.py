@@ -4,14 +4,12 @@ Muestra una tabla o cards con los empleados y acciones CRUD.
 """
 import reflex as rx
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
-from app.core.enums import EstatusEmpleado
 from app.presentation.layout import (
     page_layout,
     page_header,
     page_toolbar,
 )
 from app.presentation.components.ui import (
-    status_badge_reactive,
     tabla_vacia,
     skeleton_tabla,
 )

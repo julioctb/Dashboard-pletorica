@@ -24,7 +24,7 @@ Uso:
         error=State.error_rfc,
     )
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, Optional, List, Tuple
 from enum import Enum
 

@@ -1,5 +1,5 @@
 """
-Repositorio de Contratos - Interface y implementación para Supabase.
+Repositorio de Contratos - Implementación para Supabase.
 
 Patrón de manejo de errores:
 - NotFoundError: Cuando no se encuentra un recurso
@@ -7,14 +7,12 @@ Patrón de manejo de errores:
 - DatabaseError: Errores de conexión o infraestructura
 - Propagar otras excepciones hacia arriba
 """
-from abc import ABC, abstractmethod
 from typing import List, Optional
 from datetime import date
 import logging
 
 from app.entities import (
     Contrato,
-    ContratoResumen,
     EstatusContrato,
 )
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
@@ -22,111 +20,7 @@ from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
 logger = logging.getLogger(__name__)
 
 
-class IContratoRepository(ABC):
-    """Interface del repositorio de contratos - define el contrato"""
-
-    @abstractmethod
-    async def obtener_por_id(self, contrato_id: int) -> Contrato:
-        """Obtiene un contrato por su ID"""
-        pass
-
-    @abstractmethod
-    async def obtener_por_codigo(self, codigo: str) -> Optional[Contrato]:
-        """Obtiene un contrato por su código único"""
-        pass
-
-    @abstractmethod
-    async def obtener_todos(
-        self,
-        incluir_inactivos: bool = False,
-        limite: Optional[int] = None,
-        offset: int = 0
-    ) -> List[Contrato]:
-        """Obtiene todos los contratos con soporte de paginación"""
-        pass
-
-    @abstractmethod
-    async def obtener_por_empresa(
-        self,
-        empresa_id: int,
-        incluir_inactivos: bool = False
-    ) -> List[Contrato]:
-        """Obtiene todos los contratos de una empresa"""
-        pass
-
-    @abstractmethod
-    async def obtener_por_tipo_servicio(
-        self,
-        tipo_servicio_id: int,
-        incluir_inactivos: bool = False
-    ) -> List[Contrato]:
-        """Obtiene todos los contratos de un tipo de servicio"""
-        pass
-
-    @abstractmethod
-    async def crear(self, contrato: Contrato) -> Contrato:
-        """Crea un nuevo contrato"""
-        pass
-
-    @abstractmethod
-    async def actualizar(self, contrato: Contrato) -> Contrato:
-        """Actualiza un contrato existente"""
-        pass
-
-    @abstractmethod
-    async def eliminar(self, contrato_id: int) -> bool:
-        """Elimina (cancela) un contrato"""
-        pass
-
-    @abstractmethod
-    async def existe_codigo(self, codigo: str, excluir_id: Optional[int] = None) -> bool:
-        """Verifica si existe un código de contrato"""
-        pass
-
-    @abstractmethod
-    async def obtener_siguiente_consecutivo(
-        self,
-        codigo_empresa: str,
-        clave_servicio: str,
-        anio: int
-    ) -> int:
-        """Obtiene el siguiente consecutivo para generar código de contrato"""
-        pass
-
-    @abstractmethod
-    async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[Contrato]:
-        """Busca contratos por código o folio BUAP"""
-        pass
-
-    @abstractmethod
-    async def buscar_con_filtros(
-        self,
-        texto: Optional[str] = None,
-        empresa_id: Optional[int] = None,
-        tipo_servicio_id: Optional[int] = None,
-        estatus: Optional[str] = None,
-        modalidad: Optional[str] = None,
-        fecha_inicio_desde: Optional[date] = None,
-        fecha_inicio_hasta: Optional[date] = None,
-        incluir_inactivos: bool = False,
-        limite: int = 50,
-        offset: int = 0
-    ) -> List[Contrato]:
-        """Busca contratos con filtros combinados"""
-        pass
-
-    @abstractmethod
-    async def obtener_vigentes(self) -> List[Contrato]:
-        """Obtiene contratos activos y dentro de su periodo de vigencia"""
-        pass
-
-    @abstractmethod
-    async def obtener_por_vencer(self, dias: int = 30) -> List[Contrato]:
-        """Obtiene contratos que vencen en los próximos N días"""
-        pass
-
-
-class SupabaseContratoRepository(IContratoRepository):
+class SupabaseContratoRepository:
     """Implementación del repositorio usando Supabase"""
 
     def __init__(self, db_manager=None):

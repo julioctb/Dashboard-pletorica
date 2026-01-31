@@ -17,7 +17,7 @@ Uso:
         validar_rfc = campo_validador('rfc', CAMPO_RFC)
         validar_email = campo_validador('email', CAMPO_EMAIL)
 """
-from typing import Any, Optional
+from typing import Any
 from pydantic import Field, field_validator
 
 from .field_config import FieldConfig

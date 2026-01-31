@@ -13,7 +13,6 @@ from typing import Optional
 
 # Importar excepciones para manejo centralizado
 from app.core.exceptions import (
-    ApplicationError,
     ValidationError,
     NotFoundError,
     DuplicateError,

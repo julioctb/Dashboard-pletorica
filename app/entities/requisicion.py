@@ -114,37 +114,6 @@ class ConfiguracionRequisicion(BaseModel):
     updated_at: Optional[datetime] = None
 
 
-class ConfiguracionRequisicionCreate(BaseModel):
-    """Modelo para crear una configuración."""
-
-    model_config = ConfigDict(
-        use_enum_values=True,
-        str_strip_whitespace=True,
-        validate_assignment=True,
-    )
-
-    clave: str = Field(..., max_length=CLAVE_CONFIGURACION_MAX)
-    valor: str
-    descripcion: Optional[str] = Field(None, max_length=DESCRIPCION_CONFIGURACION_MAX)
-    grupo: GrupoConfiguracion
-    orden: int = 0
-    activo: bool = True
-
-
-class ConfiguracionRequisicionUpdate(BaseModel):
-    """Modelo para actualizar una configuración (todos opcionales)."""
-
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        validate_assignment=True,
-    )
-
-    valor: Optional[str] = None
-    descripcion: Optional[str] = Field(None, max_length=DESCRIPCION_CONFIGURACION_MAX)
-    orden: Optional[int] = None
-    activo: Optional[bool] = None
-
-
 # =============================================================================
 # ITEM DE REQUISICIÓN
 # =============================================================================

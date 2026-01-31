@@ -2,11 +2,11 @@
 Servicio de Historial Laboral.
 
 Este servicio es principalmente de LECTURA para la UI.
-Los métodos de escritura son INTERNOS y se llaman automáticamente
+Los metodos de escritura son INTERNOS y se llaman automaticamente
 desde empleado_service cuando ocurren eventos relevantes.
 
-IMPORTANTE: NO exponer métodos de escritura en la UI.
-Los registros se crean automáticamente cuando:
+IMPORTANTE: NO exponer metodos de escritura en la UI.
+Los registros se crean automaticamente cuando:
 - Se crea un empleado (ALTA)
 - Se asigna un empleado a una plaza (ASIGNACION)
 - Se cambia de plaza (CAMBIO_PLAZA)
@@ -18,16 +18,14 @@ from typing import List, Optional
 from datetime import date
 import logging
 
-from app.repositories.historial_laboral_repository import (
-    SupabaseHistorialLaboralRepository,
-)
+from app.database import db_manager
+from app.core.exceptions import NotFoundError, DatabaseError
 from app.entities.historial_laboral import (
     HistorialLaboral,
     HistorialLaboralInterno,
     HistorialLaboralResumen,
 )
 from app.core.enums import EstatusHistorial, TipoMovimiento, EstatusPlaza
-from app.core.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 
@@ -36,28 +34,77 @@ class HistorialLaboralService:
     """
     Servicio para gestionar el historial laboral.
 
-    El historial es una bitácora automática de movimientos de empleados.
-    Los registros se crean automáticamente desde el empleado_service.
+    El historial es una bitacora automatica de movimientos de empleados.
+    Los registros se crean automaticamente desde el empleado_service.
+
+    Accede directamente a Supabase (sin repositorio intermedio).
     """
 
-    def __init__(self, repository=None):
-        self.repository = repository or SupabaseHistorialLaboralRepository()
+    def __init__(self):
+        self.supabase = db_manager.get_client()
+        self.tabla = 'historial_laboral'
 
     # =========================================================================
-    # MÉTODOS DE LECTURA (para UI)
+    # METODOS DE LECTURA (para UI)
     # =========================================================================
 
     async def obtener_por_id(self, historial_id: int) -> HistorialLaboral:
-        """Obtiene un registro por ID"""
-        return await self.repository.obtener_por_id(historial_id)
+        """
+        Obtiene un registro por ID.
+
+        Raises:
+            NotFoundError: Si el registro no existe.
+            DatabaseError: Si hay error de conexion/infraestructura.
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('*')\
+                .eq('id', historial_id)\
+                .execute()
+
+            if not result.data:
+                raise NotFoundError(f"Historial con ID {historial_id} no encontrado")
+
+            return HistorialLaboral(**result.data[0])
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error obteniendo historial {historial_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_por_empleado(
         self,
         empleado_id: int,
         limite: int = 50
     ) -> List[HistorialLaboralResumen]:
-        """Obtiene el historial completo de un empleado"""
-        return await self.repository.obtener_por_empleado(empleado_id, limite)
+        """
+        Obtiene el historial completo de un empleado con datos enriquecidos.
+
+        Raises:
+            DatabaseError: Si hay error de conexion/infraestructura.
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('''
+                    *,
+                    empleados!inner(id, clave, nombre, apellido_paterno, apellido_materno)
+                ''')\
+                .eq('empleado_id', empleado_id)\
+                .order('fecha_inicio', desc=True)\
+                .limit(limite)\
+                .execute()
+
+            resumenes = []
+            for data in result.data:
+                resumen = await self._construir_resumen(data)
+                resumenes.append(resumen)
+
+            return resumenes
+
+        except Exception as e:
+            logger.error(f"Error obteniendo historial de empleado {empleado_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_todos(
         self,
@@ -66,28 +113,92 @@ class HistorialLaboralService:
         limite: int = 50,
         offset: int = 0
     ) -> List[HistorialLaboralResumen]:
-        """Obtiene registros con filtros opcionales"""
-        return await self.repository.obtener_todos(
-            empleado_id=empleado_id,
-            estatus=estatus,
-            limite=limite,
-            offset=offset
-        )
+        """
+        Obtiene registros con filtros opcionales.
+
+        Raises:
+            DatabaseError: Si hay error de conexion/infraestructura.
+        """
+        try:
+            query = self.supabase.table(self.tabla)\
+                .select('''
+                    *,
+                    empleados!inner(id, clave, nombre, apellido_paterno, apellido_materno)
+                ''')
+
+            if empleado_id:
+                query = query.eq('empleado_id', empleado_id)
+            if estatus and estatus != "TODOS":
+                query = query.eq('estatus', estatus)
+
+            query = query.order('fecha_inicio', desc=True)\
+                .range(offset, offset + limite - 1)
+
+            result = query.execute()
+
+            resumenes = []
+            for data in result.data:
+                resumen = await self._construir_resumen(data)
+                resumenes.append(resumen)
+
+            return resumenes
+
+        except Exception as e:
+            logger.error(f"Error obteniendo historial: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def contar(
         self,
         empleado_id: Optional[int] = None,
         estatus: Optional[str] = None
     ) -> int:
-        """Cuenta registros con filtros"""
-        return await self.repository.contar(empleado_id, estatus)
+        """
+        Cuenta registros con filtros.
+
+        Raises:
+            DatabaseError: Si hay error de conexion/infraestructura.
+        """
+        try:
+            query = self.supabase.table(self.tabla)\
+                .select('id', count='exact')
+
+            if empleado_id:
+                query = query.eq('empleado_id', empleado_id)
+            if estatus and estatus != "TODOS":
+                query = query.eq('estatus', estatus)
+
+            result = query.execute()
+            return result.count or 0
+
+        except Exception as e:
+            logger.error(f"Error contando historial: {e}")
+            return 0
 
     async def obtener_registro_activo(self, empleado_id: int) -> Optional[HistorialLaboral]:
-        """Obtiene el registro activo (sin fecha_fin) de un empleado"""
-        return await self.repository.obtener_registro_activo(empleado_id)
+        """
+        Obtiene el registro activo (sin fecha_fin) de un empleado.
+
+        Raises:
+            DatabaseError: Si hay error de conexion/infraestructura.
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('*')\
+                .eq('empleado_id', empleado_id)\
+                .is_('fecha_fin', 'null')\
+                .execute()
+
+            if not result.data:
+                return None
+
+            return HistorialLaboral(**result.data[0])
+
+        except Exception as e:
+            logger.error(f"Error obteniendo registro activo: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     # =========================================================================
-    # MÉTODOS INTERNOS DE ESCRITURA (llamados desde empleado_service)
+    # METODOS INTERNOS DE ESCRITURA (llamados desde empleado_service)
     # =========================================================================
 
     async def registrar_alta(
@@ -100,12 +211,12 @@ class HistorialLaboralService:
         """
         Registra el alta de un empleado en el sistema.
 
-        Si tiene plaza asignada → estatus ACTIVO
-        Si no tiene plaza → estatus INACTIVO
+        Si tiene plaza asignada -> estatus ACTIVO
+        Si no tiene plaza -> estatus INACTIVO
 
-        Se llama automáticamente desde empleado_service.crear()
+        Se llama automaticamente desde empleado_service.crear()
         """
-        # Determinar estatus según si tiene plaza o no
+        # Determinar estatus segun si tiene plaza o no
         estatus = EstatusHistorial.ACTIVO if plaza_id else EstatusHistorial.INACTIVO
 
         datos = HistorialLaboralInterno(
@@ -117,7 +228,7 @@ class HistorialLaboralService:
             notas=notas or "Alta en el sistema"
         )
 
-        historial = await self.repository.crear(datos)
+        historial = await self._crear(datos)
 
         # Si hay plaza, marcarla como ocupada
         if plaza_id:
@@ -134,15 +245,15 @@ class HistorialLaboralService:
         notas: Optional[str] = None
     ) -> HistorialLaboral:
         """
-        Registra la asignación de un empleado a una plaza.
+        Registra la asignacion de un empleado a una plaza.
 
         Cierra el registro anterior (si existe) y crea uno nuevo.
-        Se llama automáticamente cuando se asigna empleado a plaza.
+        Se llama automaticamente cuando se asigna empleado a plaza.
         """
         fecha_movimiento = fecha or date.today()
 
         # Cerrar registro activo anterior (si existe)
-        await self.repository.cerrar_registro_activo(empleado_id, fecha_movimiento)
+        await self._cerrar_registro_activo(empleado_id, fecha_movimiento)
 
         # Crear nuevo registro
         datos = HistorialLaboralInterno(
@@ -151,10 +262,10 @@ class HistorialLaboralService:
             tipo_movimiento=TipoMovimiento.ASIGNACION,
             fecha_inicio=fecha_movimiento,
             estatus=EstatusHistorial.ACTIVO,
-            notas=notas or f"Asignación a plaza {plaza_id}"
+            notas=notas or f"Asignacion a plaza {plaza_id}"
         )
 
-        historial = await self.repository.crear(datos)
+        historial = await self._crear(datos)
 
         # Marcar plaza como ocupada
         await self._actualizar_estatus_plaza(plaza_id, EstatusPlaza.OCUPADA)
@@ -178,11 +289,11 @@ class HistorialLaboralService:
         fecha_movimiento = fecha or date.today()
 
         # Obtener registro activo para saber la plaza anterior
-        registro_activo = await self.repository.obtener_registro_activo(empleado_id)
+        registro_activo = await self.obtener_registro_activo(empleado_id)
         plaza_anterior_id = registro_activo.plaza_id if registro_activo else None
 
         # Cerrar registro activo
-        await self.repository.cerrar_registro_activo(empleado_id, fecha_movimiento)
+        await self._cerrar_registro_activo(empleado_id, fecha_movimiento)
 
         # Liberar plaza anterior si existe
         if plaza_anterior_id:
@@ -199,7 +310,7 @@ class HistorialLaboralService:
             notas=nota_final
         )
 
-        historial = await self.repository.crear(datos)
+        historial = await self._crear(datos)
 
         # Marcar nueva plaza como ocupada
         await self._actualizar_estatus_plaza(nueva_plaza_id, EstatusPlaza.OCUPADA)
@@ -214,7 +325,7 @@ class HistorialLaboralService:
         notas: Optional[str] = None
     ) -> HistorialLaboral:
         """
-        Registra la suspensión de un empleado.
+        Registra la suspension de un empleado.
 
         Cierra el registro anterior, libera la plaza (si tiene),
         y crea nuevo registro con estatus SUSPENDIDO.
@@ -222,27 +333,27 @@ class HistorialLaboralService:
         fecha_movimiento = fecha or date.today()
 
         # Obtener registro activo para saber la plaza
-        registro_activo = await self.repository.obtener_registro_activo(empleado_id)
+        registro_activo = await self.obtener_registro_activo(empleado_id)
         plaza_id = registro_activo.plaza_id if registro_activo else None
 
         # Cerrar registro activo
-        await self.repository.cerrar_registro_activo(empleado_id, fecha_movimiento)
+        await self._cerrar_registro_activo(empleado_id, fecha_movimiento)
 
         # Liberar plaza si existe
         if plaza_id:
             await self._actualizar_estatus_plaza(plaza_id, EstatusPlaza.VACANTE)
 
-        # Crear nuevo registro de suspensión (sin plaza)
+        # Crear nuevo registro de suspension (sin plaza)
         datos = HistorialLaboralInterno(
             empleado_id=empleado_id,
             plaza_id=None,  # Suspendido no tiene plaza
             tipo_movimiento=TipoMovimiento.SUSPENSION,
             fecha_inicio=fecha_movimiento,
             estatus=EstatusHistorial.SUSPENDIDO,
-            notas=notas or "Suspensión temporal"
+            notas=notas or "Suspension temporal"
         )
 
-        historial = await self.repository.crear(datos)
+        historial = await self._crear(datos)
 
         logger.info(f"Registrada SUSPENSION de empleado {empleado_id}")
         return historial
@@ -255,18 +366,18 @@ class HistorialLaboralService:
         notas: Optional[str] = None
     ) -> HistorialLaboral:
         """
-        Registra la reactivación de un empleado.
+        Registra la reactivacion de un empleado.
 
-        Cierra el registro de suspensión y crea nuevo registro.
+        Cierra el registro de suspension y crea nuevo registro.
         Si se especifica plaza, el empleado queda ACTIVO.
-        Si no hay plaza, queda INACTIVO (disponible para asignación).
+        Si no hay plaza, queda INACTIVO (disponible para asignacion).
         """
         fecha_movimiento = fecha or date.today()
 
-        # Cerrar registro de suspensión
-        await self.repository.cerrar_registro_activo(empleado_id, fecha_movimiento)
+        # Cerrar registro de suspension
+        await self._cerrar_registro_activo(empleado_id, fecha_movimiento)
 
-        # Determinar estatus según si tiene plaza
+        # Determinar estatus segun si tiene plaza
         estatus = EstatusHistorial.ACTIVO if plaza_id else EstatusHistorial.INACTIVO
 
         # Crear nuevo registro
@@ -276,10 +387,10 @@ class HistorialLaboralService:
             tipo_movimiento=TipoMovimiento.REACTIVACION,
             fecha_inicio=fecha_movimiento,
             estatus=estatus,
-            notas=notas or "Reactivación de empleado"
+            notas=notas or "Reactivacion de empleado"
         )
 
-        historial = await self.repository.crear(datos)
+        historial = await self._crear(datos)
 
         # Si hay plaza, marcarla como ocupada
         if plaza_id:
@@ -303,11 +414,11 @@ class HistorialLaboralService:
         fecha_movimiento = fecha or date.today()
 
         # Obtener registro activo para saber la plaza
-        registro_activo = await self.repository.obtener_registro_activo(empleado_id)
+        registro_activo = await self.obtener_registro_activo(empleado_id)
         plaza_id = registro_activo.plaza_id if registro_activo else None
 
         # Cerrar registro activo
-        await self.repository.cerrar_registro_activo(empleado_id, fecha_movimiento)
+        await self._cerrar_registro_activo(empleado_id, fecha_movimiento)
 
         # Liberar plaza si existe
         if plaza_id:
@@ -323,7 +434,7 @@ class HistorialLaboralService:
             notas=notas or "Baja del sistema"
         )
 
-        historial = await self.repository.crear(datos)
+        historial = await self._crear(datos)
 
         logger.info(f"Registrada BAJA de empleado {empleado_id}")
         return historial
@@ -342,14 +453,14 @@ class HistorialLaboralService:
         fecha_movimiento = fecha or date.today()
 
         # Obtener registro activo
-        registro_activo = await self.repository.obtener_registro_activo(empleado_id)
+        registro_activo = await self.obtener_registro_activo(empleado_id)
         if not registro_activo or not registro_activo.plaza_id:
             return None  # No tiene plaza que liberar
 
         plaza_id = registro_activo.plaza_id
 
         # Cerrar registro activo
-        await self.repository.cerrar_registro_activo(empleado_id, fecha_movimiento)
+        await self._cerrar_registro_activo(empleado_id, fecha_movimiento)
 
         # Liberar plaza
         await self._actualizar_estatus_plaza(plaza_id, EstatusPlaza.VACANTE)
@@ -358,20 +469,183 @@ class HistorialLaboralService:
         datos = HistorialLaboralInterno(
             empleado_id=empleado_id,
             plaza_id=None,
-            tipo_movimiento=TipoMovimiento.ASIGNACION,  # Desasignación
+            tipo_movimiento=TipoMovimiento.ASIGNACION,  # Desasignacion
             fecha_inicio=fecha_movimiento,
             estatus=EstatusHistorial.INACTIVO,
-            notas=f"Desasignación de plaza {plaza_id}"
+            notas=f"Desasignacion de plaza {plaza_id}"
         )
 
-        historial = await self.repository.crear(datos)
+        historial = await self._crear(datos)
 
         logger.info(f"Liberada plaza {plaza_id} de empleado {empleado_id}")
         return historial
 
     # =========================================================================
-    # HELPERS
+    # HELPERS PRIVADOS (Supabase directo)
     # =========================================================================
+
+    async def _crear(self, datos: HistorialLaboralInterno) -> HistorialLaboral:
+        """
+        Crea un nuevo registro de historial en la base de datos.
+
+        Raises:
+            DatabaseError: Si no se pudo crear el registro.
+        """
+        try:
+            data_dict = datos.model_dump(mode='json')
+
+            result = self.supabase.table(self.tabla)\
+                .insert(data_dict)\
+                .execute()
+
+            if not result.data:
+                raise DatabaseError("No se pudo crear el registro")
+
+            return HistorialLaboral(**result.data[0])
+
+        except DatabaseError:
+            raise
+        except Exception as e:
+            logger.error(f"Error creando historial: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _cerrar_registro(
+        self,
+        historial_id: int,
+        fecha_fin: date
+    ) -> HistorialLaboral:
+        """
+        Cierra un registro estableciendo fecha_fin.
+
+        Raises:
+            NotFoundError: Si el registro no existe.
+            DatabaseError: Si hay error de conexion/infraestructura.
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .update({'fecha_fin': fecha_fin.isoformat()})\
+                .eq('id', historial_id)\
+                .execute()
+
+            if not result.data:
+                raise NotFoundError(f"Historial {historial_id} no encontrado")
+
+            return HistorialLaboral(**result.data[0])
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error cerrando registro: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _cerrar_registro_activo(
+        self,
+        empleado_id: int,
+        fecha_fin: date
+    ) -> Optional[HistorialLaboral]:
+        """
+        Cierra el registro activo de un empleado (si existe).
+
+        Raises:
+            DatabaseError: Si hay error de conexion/infraestructura.
+        """
+        try:
+            # Buscar registro activo
+            registro_activo = await self.obtener_registro_activo(empleado_id)
+            if not registro_activo:
+                return None
+
+            # Cerrar el registro
+            return await self._cerrar_registro(registro_activo.id, fecha_fin)
+
+        except (NotFoundError, DatabaseError):
+            raise
+        except Exception as e:
+            logger.error(f"Error cerrando registro activo: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _obtener_datos_plaza(self, plaza_id: int) -> Optional[dict]:
+        """Obtiene datos enriquecidos de una plaza via Supabase JOIN."""
+        try:
+            result = self.supabase.table('plazas')\
+                .select('''
+                    id, numero_plaza,
+                    contrato_categorias!inner(
+                        id,
+                        categorias_puesto!inner(nombre),
+                        contratos!inner(codigo, empresas!inner(nombre_comercial))
+                    )
+                ''')\
+                .eq('id', plaza_id)\
+                .execute()
+
+            if not result.data:
+                return None
+
+            data = result.data[0]
+            cc = data.get('contrato_categorias', {})
+            cat = cc.get('categorias_puesto', {})
+            contrato = cc.get('contratos', {})
+            empresa = contrato.get('empresas', {})
+
+            return {
+                'numero_plaza': data.get('numero_plaza'),
+                'categoria_nombre': cat.get('nombre'),
+                'contrato_codigo': contrato.get('codigo'),
+                'empresa_nombre': empresa.get('nombre_comercial'),
+            }
+
+        except Exception as e:
+            logger.error(f"Error obteniendo datos de plaza {plaza_id}: {e}")
+            return None
+
+    async def _construir_resumen(self, data: dict) -> HistorialLaboralResumen:
+        """
+        Construye un HistorialLaboralResumen a partir de un row con JOIN de empleados.
+
+        Enriquece con datos de plaza si plaza_id existe.
+        """
+        empleado = data.get('empleados', {})
+        nombre_completo = f"{empleado.get('nombre', '')} {empleado.get('apellido_paterno', '')}".strip()
+        if empleado.get('apellido_materno'):
+            nombre_completo += f" {empleado.get('apellido_materno')}"
+
+        # Obtener datos de plaza si existe
+        plaza_numero = None
+        categoria_nombre = None
+        contrato_codigo = None
+        empresa_nombre = None
+
+        if data.get('plaza_id'):
+            plaza_data = await self._obtener_datos_plaza(data['plaza_id'])
+            if plaza_data:
+                plaza_numero = plaza_data.get('numero_plaza')
+                categoria_nombre = plaza_data.get('categoria_nombre')
+                contrato_codigo = plaza_data.get('contrato_codigo')
+                empresa_nombre = plaza_data.get('empresa_nombre')
+
+        historial = HistorialLaboral(
+            id=data['id'],
+            empleado_id=data['empleado_id'],
+            plaza_id=data.get('plaza_id'),
+            tipo_movimiento=data.get('tipo_movimiento'),
+            fecha_inicio=data['fecha_inicio'],
+            fecha_fin=data.get('fecha_fin'),
+            estatus=data['estatus'],
+            notas=data.get('notas'),
+            fecha_creacion=data.get('fecha_creacion'),
+            fecha_actualizacion=data.get('fecha_actualizacion'),
+        )
+
+        return HistorialLaboralResumen.from_historial(
+            historial=historial,
+            empleado_clave=empleado.get('clave', ''),
+            empleado_nombre=nombre_completo,
+            plaza_numero=plaza_numero,
+            categoria_nombre=categoria_nombre,
+            contrato_codigo=contrato_codigo,
+            empresa_nombre=empresa_nombre,
+        )
 
     async def _actualizar_estatus_plaza(
         self,
@@ -385,7 +659,7 @@ class HistorialLaboralService:
             await plaza_repo.cambiar_estatus(plaza_id, nuevo_estatus)
         except Exception as e:
             logger.error(f"Error actualizando estatus de plaza {plaza_id}: {e}")
-            # No lanzamos excepción para no interrumpir el flujo principal
+            # No lanzamos excepcion para no interrumpir el flujo principal
 
 
 # =============================================================================

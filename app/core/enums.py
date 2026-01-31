@@ -293,7 +293,3 @@ class GrupoConfiguracion(str, Enum):
             'ENTREGA': 'Entrega',
         }
         return descripciones.get(self.value, self.value)
-
-
-# Alias para compatibilidad (deprecated)
-MotivoFinHistorial = TipoMovimiento

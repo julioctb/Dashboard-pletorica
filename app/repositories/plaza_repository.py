@@ -1,5 +1,5 @@
 """
-Repositorio de Plaza - Interface e implementación para Supabase.
+Repositorio de Plaza - Implementación para Supabase.
 
 Una Plaza es una instancia individual de un puesto dentro de un ContratoCategoría.
 Usa Soft Delete (estatus = CANCELADA) para mantener historial.
@@ -9,7 +9,6 @@ Patrón de manejo de errores:
 - DuplicateError: Cuando se viola unicidad (contrato_categoria_id + numero_plaza)
 - DatabaseError: Errores de conexión o infraestructura
 """
-from abc import ABC, abstractmethod
 from typing import List, Optional
 from decimal import Decimal
 import logging
@@ -21,103 +20,7 @@ from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
 logger = logging.getLogger(__name__)
 
 
-class IPlazaRepository(ABC):
-    """Interface del repositorio de Plaza"""
-
-    @abstractmethod
-    async def obtener_por_id(self, id: int) -> Plaza:
-        """Obtiene una plaza por su ID"""
-        pass
-
-    @abstractmethod
-    async def obtener_por_contrato_categoria(
-        self,
-        contrato_categoria_id: int,
-        incluir_canceladas: bool = False
-    ) -> List[Plaza]:
-        """Obtiene todas las plazas de una ContratoCategoria"""
-        pass
-
-    @abstractmethod
-    async def obtener_por_contrato(
-        self,
-        contrato_id: int,
-        incluir_canceladas: bool = False
-    ) -> List[Plaza]:
-        """Obtiene todas las plazas de un contrato (a través de contrato_categorias)"""
-        pass
-
-    @abstractmethod
-    async def obtener_vacantes_por_contrato_categoria(
-        self,
-        contrato_categoria_id: int
-    ) -> List[Plaza]:
-        """Obtiene las plazas vacantes de una ContratoCategoria"""
-        pass
-
-    @abstractmethod
-    async def crear(self, plaza: Plaza) -> Plaza:
-        """Crea una nueva plaza"""
-        pass
-
-    @abstractmethod
-    async def actualizar(self, plaza: Plaza) -> Plaza:
-        """Actualiza una plaza existente"""
-        pass
-
-    @abstractmethod
-    async def cancelar(self, id: int) -> Plaza:
-        """Cancela una plaza (Soft Delete)"""
-        pass
-
-    @abstractmethod
-    async def existe_numero_plaza(
-        self,
-        contrato_categoria_id: int,
-        numero_plaza: int,
-        excluir_id: Optional[int] = None
-    ) -> bool:
-        """Verifica si ya existe el número de plaza en la categoría"""
-        pass
-
-    @abstractmethod
-    async def contar_por_contrato_categoria(
-        self,
-        contrato_categoria_id: int,
-        estatus: Optional[EstatusPlaza] = None
-    ) -> int:
-        """Cuenta las plazas de una ContratoCategoria"""
-        pass
-
-    @abstractmethod
-    async def contar_por_contrato(
-        self,
-        contrato_id: int,
-        estatus: Optional[EstatusPlaza] = None
-    ) -> int:
-        """Cuenta las plazas de un contrato"""
-        pass
-
-    @abstractmethod
-    async def obtener_siguiente_numero_plaza(
-        self,
-        contrato_categoria_id: int
-    ) -> int:
-        """Obtiene el siguiente número de plaza disponible"""
-        pass
-
-    @abstractmethod
-    async def obtener_resumen_por_contrato(self, contrato_id: int) -> List[dict]:
-        """Obtiene resumen con datos de contrato y categoría incluidos"""
-        pass
-
-    @abstractmethod
-    async def obtener_totales_por_contrato(self, contrato_id: int) -> dict:
-        """Calcula totales de plazas por estatus para un contrato"""
-        pass
-
-
-class SupabasePlazaRepository(IPlazaRepository):
+class SupabasePlazaRepository:
     """Implementación del repositorio usando Supabase"""
 
     def __init__(self, db_manager=None):

@@ -13,10 +13,8 @@ from app.services import contrato_service, empresa_service, tipo_servicio_servic
 from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
 
 from app.entities import (
-    Contrato,
     ContratoCreate,
     ContratoUpdate,
-    ContratoResumen,
     EstatusContrato,
     ModalidadAdjudicacion,
     TipoDuracion,
@@ -24,15 +22,12 @@ from app.entities import (
 )
 
 from app.core.exceptions import (
-    NotFoundError,
     DuplicateError,
     DatabaseError,
-    ValidationError,
     BusinessRuleError,
 )
 
 from .contratos_validators import (
-    validar_codigo,
     validar_folio_buap,
     validar_descripcion_objeto,
     validar_origen_recurso,

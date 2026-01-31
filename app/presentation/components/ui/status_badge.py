@@ -26,12 +26,12 @@ Uso:
     # Con icono
     status_badge("ACTIVO", show_icon=True)
     
-    # Para contratos
-    status_badge_contrato("VENCIDO")
+    # Reactivo (para uso con rx.Var)
+    status_badge_reactive(State.estatus)
 """
 
 import reflex as rx
-from app.presentation.theme import StatusColors, Typography
+from app.presentation.theme import StatusColors
 
 
 def status_badge(
@@ -77,47 +77,6 @@ def status_badge(
             size=size,
             variant="soft",
         )
-
-
-def status_badge_contrato(
-    status: str,
-    show_icon: bool = True,
-    size: str = "2",
-) -> rx.Component:
-    """
-    Badge específico para estados de contrato.
-    Por defecto muestra icono para mejor identificación visual.
-    
-    Estados: BORRADOR, ACTIVO, SUSPENDIDO, VENCIDO, CANCELADO, CERRADO
-    """
-    return status_badge(status, show_icon=show_icon, size=size)
-
-
-def status_badge_entidad(
-    status: str,
-    size: str = "1",
-) -> rx.Component:
-    """
-    Badge específico para estados de entidad (empresas, empleados).
-    Sin icono por defecto para mantener compacto.
-
-    Estados: ACTIVO, INACTIVO
-    """
-    return status_badge(status, show_icon=False, size=size)
-
-
-def status_badge_plaza(
-    status: str,
-    show_icon: bool = True,
-    size: str = "2",
-) -> rx.Component:
-    """
-    Badge específico para estados de plaza.
-    Por defecto muestra icono para mejor identificación visual.
-
-    Estados: VACANTE, OCUPADA, SUSPENDIDA, CANCELADA
-    """
-    return status_badge(status, show_icon=show_icon, size=size)
 
 
 # =============================================================================
@@ -230,33 +189,4 @@ def status_badge_reactive(
         )),
         # Default
         rx.badge(status, color_scheme="gray", variant="soft"),
-    )
-
-
-# =============================================================================
-# INDICADOR DE ESTADO (versión compacta solo color)
-# =============================================================================
-
-def status_dot(status: str, size: str = "8px") -> rx.Component:
-    """
-    Indicador de punto de color para estados.
-    Útil en tablas donde el espacio es limitado.
-    
-    Ejemplo:
-        rx.hstack(
-            status_dot("ACTIVO"),
-            rx.text("Contrato ABC"),
-        )
-    """
-    color = StatusColors.get_color(status)
-    
-    return rx.tooltip(
-        rx.box(
-            width=size,
-            height=size,
-            background=color,
-            border_radius="50%",
-            flex_shrink="0",
-        ),
-        content=status.title(),
     )

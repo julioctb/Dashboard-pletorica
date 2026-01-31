@@ -8,7 +8,6 @@ from typing import List, Optional
 from app.core.text_utils import normalizar_mayusculas
 from app.core.utils import generar_candidatos_codigo
 from app.entities.categoria_puesto import (
-    CategoriaPuesto,
     CategoriaPuestoCreate,
     CategoriaPuestoUpdate,
 )

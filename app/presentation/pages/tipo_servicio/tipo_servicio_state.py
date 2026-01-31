@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from app.core.text_utils import normalizar_mayusculas
 from app.core.utils import generar_candidatos_codigo
-from app.entities import TipoServicio, TipoServicioCreate, TipoServicioUpdate
+from app.entities import TipoServicioCreate, TipoServicioUpdate
 from app.services import tipo_servicio_service
 # Las excepciones se manejan centralizadamente en BaseState
 from app.presentation.components.shared.base_state import BaseState

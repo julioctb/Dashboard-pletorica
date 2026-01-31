@@ -22,10 +22,7 @@ from app.entities import (
 )
 
 from app.core.exceptions import (
-    NotFoundError,
-    DuplicateError,
     DatabaseError,
-    ValidationError
 )
 
 from .empresas_validators import (

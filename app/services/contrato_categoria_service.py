@@ -4,9 +4,13 @@ Servicio de aplicación para gestión de Contrato-Categoría.
 Maneja la asignación de categorías de puesto a contratos,
 incluyendo validaciones de reglas de negocio.
 
+Accede a Supabase directamente (sin repositorio intermedio).
+
 Patrón de manejo de errores:
-- Las excepciones del repository se propagan (NotFoundError, DuplicateError, DatabaseError)
-- El servicio agrega validaciones de reglas de negocio (BusinessRuleError)
+- NotFoundError: Cuando no se encuentra un recurso
+- DuplicateError: Cuando se viola unicidad (contrato_id + categoria_puesto_id)
+- DatabaseError: Errores de conexión o infraestructura
+- BusinessRuleError: Reglas de negocio violadas
 """
 import logging
 from typing import List, Optional
@@ -19,8 +23,8 @@ from app.entities.contrato_categoria import (
     ContratoCategoriaResumen,
     ResumenPersonalContrato,
 )
-from app.repositories.contrato_categoria_repository import SupabaseContratoCategoriaRepository
-from app.core.exceptions import BusinessRuleError, NotFoundError
+from app.database import db_manager
+from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +32,334 @@ logger = logging.getLogger(__name__)
 class ContratoCategoriaService:
     """
     Servicio de aplicación para ContratoCategoria.
-    Orquesta las operaciones de negocio.
+    Orquesta las operaciones de negocio y accede a Supabase directamente.
     """
 
-    def __init__(self, repository=None):
-        if repository is None:
-            repository = SupabaseContratoCategoriaRepository()
-        self.repository = repository
+    def __init__(self):
+        self.supabase = db_manager.get_client()
+        self.tabla = 'contrato_categorias'
+
+    # ==========================================
+    # ACCESO A DATOS (antes en repositorio)
+    # ==========================================
+
+    async def _db_obtener_por_id(self, id: int) -> ContratoCategoria:
+        """
+        Obtiene una asignación por su ID desde la BD.
+
+        Raises:
+            NotFoundError: Si la asignación no existe
+            DatabaseError: Si hay error de conexión
+        """
+        try:
+            result = self.supabase.table(self.tabla).select('*').eq('id', id).execute()
+
+            if not result.data:
+                raise NotFoundError(f"Asignación con ID {id} no encontrada")
+
+            return ContratoCategoria(**result.data[0])
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error obteniendo asignación {id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_obtener_por_contrato(self, contrato_id: int) -> List[ContratoCategoria]:
+        """
+        Obtiene todas las categorías asignadas a un contrato.
+
+        Returns:
+            Lista ordenada por categoria_puesto_id
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('*')\
+                .eq('contrato_id', contrato_id)\
+                .order('categoria_puesto_id', desc=False)\
+                .execute()
+
+            return [ContratoCategoria(**data) for data in result.data]
+
+        except Exception as e:
+            logger.error(f"Error obteniendo categorías del contrato {contrato_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_obtener_por_contrato_y_categoria(
+        self,
+        contrato_id: int,
+        categoria_puesto_id: int
+    ) -> Optional[ContratoCategoria]:
+        """
+        Obtiene una asignación específica por contrato y categoría.
+
+        Returns:
+            La asignación si existe, None si no
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('*')\
+                .eq('contrato_id', contrato_id)\
+                .eq('categoria_puesto_id', categoria_puesto_id)\
+                .execute()
+
+            if not result.data:
+                return None
+
+            return ContratoCategoria(**result.data[0])
+
+        except Exception as e:
+            logger.error(f"Error buscando asignación contrato={contrato_id}, categoria={categoria_puesto_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_crear(self, contrato_categoria: ContratoCategoria) -> ContratoCategoria:
+        """
+        Crea una nueva asignación en la BD.
+
+        Raises:
+            DuplicateError: Si ya existe la combinación contrato-categoría
+            DatabaseError: Si hay error de conexión
+        """
+        try:
+            # Verificar duplicado
+            if await self._db_existe_asignacion(
+                contrato_categoria.contrato_id,
+                contrato_categoria.categoria_puesto_id
+            ):
+                raise DuplicateError(
+                    f"La categoría ya está asignada a este contrato",
+                    field="categoria_puesto_id",
+                    value=str(contrato_categoria.categoria_puesto_id)
+                )
+
+            datos = contrato_categoria.model_dump(
+                exclude={'id', 'fecha_creacion', 'fecha_actualizacion'}
+            )
+
+            # Convertir Decimal a float para JSON
+            if datos.get('costo_unitario') is not None:
+                datos['costo_unitario'] = float(datos['costo_unitario'])
+
+            result = self.supabase.table(self.tabla).insert(datos).execute()
+
+            if not result.data:
+                raise DatabaseError("No se pudo crear la asignación")
+
+            return ContratoCategoria(**result.data[0])
+
+        except (DuplicateError, NotFoundError):
+            raise
+        except Exception as e:
+            logger.error(f"Error creando asignación: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_actualizar(self, contrato_categoria: ContratoCategoria) -> ContratoCategoria:
+        """
+        Actualiza una asignación existente en la BD.
+
+        Raises:
+            NotFoundError: Si la asignación no existe
+            DatabaseError: Si hay error de conexión
+        """
+        try:
+            # Verificar que existe
+            await self._db_obtener_por_id(contrato_categoria.id)
+
+            datos = contrato_categoria.model_dump(
+                exclude={'id', 'contrato_id', 'categoria_puesto_id', 'fecha_creacion', 'fecha_actualizacion'}
+            )
+
+            # Convertir Decimal a float para JSON
+            if datos.get('costo_unitario') is not None:
+                datos['costo_unitario'] = float(datos['costo_unitario'])
+
+            result = self.supabase.table(self.tabla)\
+                .update(datos)\
+                .eq('id', contrato_categoria.id)\
+                .execute()
+
+            if not result.data:
+                raise NotFoundError(f"Asignación con ID {contrato_categoria.id} no encontrada")
+
+            return ContratoCategoria(**result.data[0])
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error actualizando asignación {contrato_categoria.id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_eliminar(self, id: int) -> bool:
+        """
+        Elimina una asignación (Hard Delete).
+
+        Raises:
+            NotFoundError: Si la asignación no existe
+            DatabaseError: Si hay error de conexión
+        """
+        try:
+            # Verificar que existe
+            await self._db_obtener_por_id(id)
+
+            result = self.supabase.table(self.tabla).delete().eq('id', id).execute()
+
+            return bool(result.data)
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error eliminando asignación {id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_eliminar_por_contrato(self, contrato_id: int) -> int:
+        """
+        Elimina todas las asignaciones de un contrato.
+
+        Returns:
+            Cantidad de registros eliminados
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .delete()\
+                .eq('contrato_id', contrato_id)\
+                .execute()
+
+            return len(result.data) if result.data else 0
+
+        except Exception as e:
+            logger.error(f"Error eliminando asignaciones del contrato {contrato_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_existe_asignacion(
+        self,
+        contrato_id: int,
+        categoria_puesto_id: int,
+        excluir_id: Optional[int] = None
+    ) -> bool:
+        """
+        Verifica si ya existe la asignación contrato-categoría.
+        """
+        try:
+            query = self.supabase.table(self.tabla)\
+                .select('id')\
+                .eq('contrato_id', contrato_id)\
+                .eq('categoria_puesto_id', categoria_puesto_id)
+
+            if excluir_id:
+                query = query.neq('id', excluir_id)
+
+            result = query.execute()
+            return len(result.data) > 0
+
+        except Exception as e:
+            logger.error(f"Error verificando asignación: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_contar_por_contrato(self, contrato_id: int) -> int:
+        """
+        Cuenta las categorías asignadas a un contrato.
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('id', count='exact')\
+                .eq('contrato_id', contrato_id)\
+                .execute()
+
+            return result.count if result.count is not None else 0
+
+        except Exception as e:
+            logger.error(f"Error contando categorías del contrato {contrato_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_contar_por_categoria(self, categoria_puesto_id: int) -> int:
+        """
+        Cuenta los contratos que usan una categoría.
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('id', count='exact')\
+                .eq('categoria_puesto_id', categoria_puesto_id)\
+                .execute()
+
+            return result.count if result.count is not None else 0
+
+        except Exception as e:
+            logger.error(f"Error contando contratos de la categoría {categoria_puesto_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_obtener_resumen_por_contrato(self, contrato_id: int) -> List[dict]:
+        """
+        Obtiene resumen con datos de categoría incluidos (JOIN).
+
+        Returns:
+            Lista de dicts con datos de la asignación y de la categoría
+        """
+        try:
+            # Supabase permite hacer joins con la sintaxis de select
+            result = self.supabase.table(self.tabla)\
+                .select(
+                    '*, '
+                    'categorias_puesto:categoria_puesto_id(id, clave, nombre, orden)'
+                )\
+                .eq('contrato_id', contrato_id)\
+                .execute()
+
+            resumen = []
+            for data in result.data:
+                categoria_data = data.pop('categorias_puesto', {}) or {}
+                item = {
+                    **data,
+                    'categoria_clave': categoria_data.get('clave', ''),
+                    'categoria_nombre': categoria_data.get('nombre', ''),
+                    'categoria_orden': categoria_data.get('orden', 0),
+                }
+                resumen.append(item)
+
+            # Ordenar por orden de categoría
+            resumen.sort(key=lambda x: (x.get('categoria_orden', 0), x.get('categoria_nombre', '')))
+
+            return resumen
+
+        except Exception as e:
+            logger.error(f"Error obteniendo resumen del contrato {contrato_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def _db_obtener_totales_por_contrato(self, contrato_id: int) -> dict:
+        """
+        Calcula los totales de personal y costos para un contrato.
+
+        Returns:
+            Dict con total_minimo, total_maximo, costo_minimo_total, costo_maximo_total
+        """
+        try:
+            asignaciones = await self._db_obtener_por_contrato(contrato_id)
+
+            total_minimo = 0
+            total_maximo = 0
+            costo_minimo_total = Decimal('0')
+            costo_maximo_total = Decimal('0')
+            tiene_costos = False
+
+            for a in asignaciones:
+                total_minimo += a.cantidad_minima
+                total_maximo += a.cantidad_maxima
+
+                if a.costo_unitario is not None:
+                    tiene_costos = True
+                    costo_minimo_total += a.cantidad_minima * a.costo_unitario
+                    costo_maximo_total += a.cantidad_maxima * a.costo_unitario
+
+            return {
+                'cantidad_categorias': len(asignaciones),
+                'total_minimo': total_minimo,
+                'total_maximo': total_maximo,
+                'costo_minimo_total': costo_minimo_total if tiene_costos else None,
+                'costo_maximo_total': costo_maximo_total if tiene_costos else None,
+            }
+
+        except Exception as e:
+            logger.error(f"Error calculando totales del contrato {contrato_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     # ==========================================
     # OPERACIONES DE LECTURA
@@ -48,7 +373,7 @@ class ContratoCategoriaService:
             NotFoundError: Si la asignación no existe
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_id(id)
+        return await self._db_obtener_por_id(id)
 
     async def obtener_categorias_de_contrato(
         self,
@@ -60,7 +385,7 @@ class ContratoCategoriaService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_contrato(contrato_id)
+        return await self._db_obtener_por_contrato(contrato_id)
 
     async def obtener_resumen_de_contrato(
         self,
@@ -72,7 +397,7 @@ class ContratoCategoriaService:
         Returns:
             Lista de ContratoCategoriaResumen ordenada por orden de categoría
         """
-        resumen_data = await self.repository.obtener_resumen_por_contrato(contrato_id)
+        resumen_data = await self._db_obtener_resumen_por_contrato(contrato_id)
 
         return [
             ContratoCategoriaResumen(
@@ -119,7 +444,7 @@ class ContratoCategoriaService:
         )
 
         # Obtener las ya asignadas
-        asignadas = await self.repository.obtener_por_contrato(contrato_id)
+        asignadas = await self._db_obtener_por_contrato(contrato_id)
         ids_asignadas = {a.categoria_puesto_id for a in asignadas}
 
         # Filtrar las disponibles
@@ -143,7 +468,7 @@ class ContratoCategoriaService:
         Returns:
             ResumenPersonalContrato con totales
         """
-        totales = await self.repository.obtener_totales_por_contrato(contrato_id)
+        totales = await self._db_obtener_totales_por_contrato(contrato_id)
 
         return ResumenPersonalContrato(
             contrato_id=contrato_id,
@@ -187,7 +512,7 @@ class ContratoCategoriaService:
             f"categoria={contrato_categoria.categoria_puesto_id}"
         )
 
-        return await self.repository.crear(contrato_categoria)
+        return await self._db_crear(contrato_categoria)
 
     async def actualizar(
         self,
@@ -204,7 +529,7 @@ class ContratoCategoriaService:
             NotFoundError: Si la asignación no existe
             DatabaseError: Si hay error de BD
         """
-        asignacion_actual = await self.repository.obtener_por_id(id)
+        asignacion_actual = await self._db_obtener_por_id(id)
 
         datos_actualizados = contrato_categoria_update.model_dump(exclude_unset=True)
 
@@ -224,7 +549,7 @@ class ContratoCategoriaService:
 
         logger.info(f"Actualizando asignación ID {id}")
 
-        return await self.repository.actualizar(asignacion_actual)
+        return await self._db_actualizar(asignacion_actual)
 
     async def eliminar(self, id: int) -> bool:
         """
@@ -234,14 +559,14 @@ class ContratoCategoriaService:
             NotFoundError: Si la asignación no existe
             DatabaseError: Si hay error de BD
         """
-        asignacion = await self.repository.obtener_por_id(id)
+        asignacion = await self._db_obtener_por_id(id)
 
         logger.info(
             f"Eliminando asignación: contrato={asignacion.contrato_id}, "
             f"categoria={asignacion.categoria_puesto_id}"
         )
 
-        return await self.repository.eliminar(id)
+        return await self._db_eliminar(id)
 
     # ==========================================
     # OPERACIONES EN LOTE
@@ -293,7 +618,7 @@ class ContratoCategoriaService:
             )
 
             contrato_categoria = ContratoCategoria(**create_data.model_dump())
-            resultado = await self.repository.crear(contrato_categoria)
+            resultado = await self._db_crear(contrato_categoria)
             resultados.append(resultado)
 
         logger.info(f"Asignadas {len(resultados)} categorías al contrato {contrato_id}")
@@ -307,7 +632,7 @@ class ContratoCategoriaService:
         Returns:
             Cantidad de registros eliminados
         """
-        cantidad = await self.repository.eliminar_por_contrato(contrato_id)
+        cantidad = await self._db_eliminar_por_contrato(contrato_id)
 
         logger.info(f"Eliminadas {cantidad} asignaciones del contrato {contrato_id}")
 
@@ -412,7 +737,7 @@ class ContratoCategoriaService:
 
         Útil para validar si se puede eliminar una categoría.
         """
-        return await self.repository.contar_por_categoria(categoria_puesto_id)
+        return await self._db_contar_por_categoria(categoria_puesto_id)
 
 
 # ==========================================

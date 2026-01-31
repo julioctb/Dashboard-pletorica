@@ -1,11 +1,12 @@
 """
 Servicio de aplicación para gestión de empresas.
-Consolidado y simplificado desde app/services/empresa_service.py
+Accede directamente a Supabase (sin capa de repositorio).
 
 Patrón de manejo de errores:
-- Las excepciones del repository se propagan (NotFoundError, DuplicateError, DatabaseError)
-- El servicio NO captura excepciones, las deja subir al State
-- Logging de errores solo para debugging, NO para control de flujo
+- NotFoundError: Cuando no se encuentra un recurso
+- DuplicateError: Cuando se viola unicidad (ej: RFC duplicado)
+- DatabaseError: Errores de conexión o infraestructura
+- Las excepciones se propagan hacia arriba al State
 """
 import logging
 from typing import List, Optional
@@ -18,7 +19,7 @@ from app.entities import (
     TipoEmpresa,
     EstatusEmpresa,
 )
-from app.repositories import SupabaseEmpresaRepository
+from app.database import db_manager
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
 from app.core.utils import generar_candidatos_codigo
 
@@ -28,19 +29,13 @@ logger = logging.getLogger(__name__)
 class EmpresaService:
     """
     Servicio de aplicación para empresas.
-    Orquesta las operaciones de negocio.
+    Orquesta las operaciones de negocio y accede directamente a Supabase.
     """
 
-    def __init__(self, repository=None):
-        """
-        Inicializa el servicio con un repository.
-
-        Args:
-            repository: Implementación del repository. Si es None, usa Supabase por defecto.
-        """
-        if repository is None:
-            repository = SupabaseEmpresaRepository()
-        self.repository = repository
+    def __init__(self):
+        """Inicializa el servicio con conexión directa a Supabase."""
+        self.supabase = db_manager.get_client()
+        self.tabla = 'empresas'
 
     # ==========================================
     # OPERACIONES CRUD
@@ -60,7 +55,16 @@ class EmpresaService:
             NotFoundError: Si la empresa no existe
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_id(empresa_id)
+        try:
+            result = self.supabase.table(self.tabla).select('*').eq('id', empresa_id).execute()
+            if not result.data:
+                raise NotFoundError(f"Empresa con ID {empresa_id} no encontrada")
+            return Empresa(**result.data[0])
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error obteniendo empresa {empresa_id}: {e}")
+            raise DatabaseError(f"Error de base de datos al obtener empresa: {str(e)}")
 
     async def obtener_todas(
         self,
@@ -82,31 +86,25 @@ class EmpresaService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_todas(incluir_inactivas, limite, offset)
+        try:
+            query = self.supabase.table(self.tabla).select('*')
 
-    async def obtener_resumen_empresas(
-        self,
-        incluir_inactivas: bool = False,
-        limite: Optional[int] = 50,
-        offset: int = 0
-    ) -> List[EmpresaResumen]:
-        """
-        Obtiene un resumen de todas las empresas de forma eficiente con paginación.
+            if not incluir_inactivas:
+                query = query.eq('estatus', 'ACTIVO')
 
-        Args:
-            incluir_inactivas: Si True, incluye empresas inactivas
-            limite: Número máximo de resultados (default 50 para UI responsivo)
-            offset: Número de registros a saltar
+            query = query.order('fecha_creacion', desc=True)
 
-        Returns:
-            Lista de resúmenes de empresas
+            if limite is None:
+                limite = 100
+                logger.debug("Usando límite por defecto de 100 registros")
 
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        empresas = await self.repository.obtener_todas(incluir_inactivas, limite, offset)
-        # Usar list comprehension con factory method (más eficiente que loop)
-        return [EmpresaResumen.from_empresa(empresa) for empresa in empresas]
+            query = query.range(offset, offset + limite - 1)
+
+            result = query.execute()
+            return [Empresa(**data) for data in result.data]
+        except Exception as e:
+            logger.error(f"Error obteniendo empresas: {e}")
+            raise DatabaseError(f"Error de base de datos al obtener empresas: {str(e)}")
 
     async def buscar_por_nombre(self, termino: str, limite: int = 10) -> List[Empresa]:
         """
@@ -125,8 +123,7 @@ class EmpresaService:
         if not termino or len(termino) < 2:
             return []
 
-        # Delegar búsqueda al repository (usa índices DB, ~100x más rápido)
-        return await self.repository.buscar_por_texto(termino, limite)
+        return await self._buscar_por_texto(termino, limite)
 
     async def buscar_con_filtros(
         self,
@@ -155,21 +152,37 @@ class EmpresaService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        # Validar texto mínimo si se proporciona
         if texto and len(texto.strip()) < 2:
-            texto = None  # Ignorar búsquedas muy cortas
+            texto = None
 
-        # Delegar al repository con todos los filtros
-        empresas = await self.repository.buscar_con_filtros(
-            texto=texto,
-            tipo_empresa=tipo_empresa,
-            estatus=estatus,
-            incluir_inactivas=incluir_inactivas,
-            limite=limite,
-            offset=offset
-        )
+        try:
+            query = self.supabase.table(self.tabla).select('*')
 
-        # Convertir a resumen para la UI
+            if texto and texto.strip():
+                query = query.or_(
+                    f"nombre_comercial.ilike.%{texto}%,"
+                    f"razon_social.ilike.%{texto}%"
+                )
+
+            if tipo_empresa:
+                query = query.eq('tipo_empresa', tipo_empresa)
+
+            if estatus:
+                query = query.eq('estatus', estatus)
+            elif not incluir_inactivas:
+                query = query.eq('estatus', 'ACTIVO')
+
+            query = query.order('fecha_creacion', desc=True)
+
+            if limite > 0:
+                query = query.range(offset, offset + limite - 1)
+
+            result = query.execute()
+            empresas = [Empresa(**data) for data in result.data]
+        except Exception as e:
+            logger.error(f"Error buscando empresas con filtros: {e}")
+            raise DatabaseError(f"Error de base de datos al buscar con filtros: {str(e)}")
+
         return [EmpresaResumen.from_empresa(empresa) for empresa in empresas]
 
     async def crear(self, empresa_create: EmpresaCreate) -> Empresa:
@@ -187,21 +200,37 @@ class EmpresaService:
             ValidationError: Si los datos no son válidos
             DatabaseError: Si hay error de BD
         """
-        # Generar código corto único
         codigo_corto = await self._generar_codigo_unico(empresa_create.nombre_comercial)
 
-        # Convertir EmpresaCreate a Empresa con código asignado
         datos = empresa_create.model_dump()
         datos['codigo_corto'] = codigo_corto
         empresa = Empresa(**datos)
 
-        # Validación de reglas de negocio
         if empresa.tipo_empresa == TipoEmpresa.NOMINA:
             if not empresa.email:
                 logger.warning("Empresa de nómina creada sin email")
 
-        # Delegar al repository (propaga DuplicateError o DatabaseError)
-        return await self.repository.crear(empresa)
+        # Verificar RFC duplicado e insertar
+        try:
+            if await self._existe_rfc(empresa.rfc):
+                raise DuplicateError(
+                    f"RFC {empresa.rfc} ya existe",
+                    field="rfc",
+                    value=empresa.rfc
+                )
+
+            datos_insert = empresa.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            result = self.supabase.table(self.tabla).insert(datos_insert).execute()
+
+            if not result.data:
+                raise DatabaseError("No se pudo crear la empresa (sin respuesta de BD)")
+
+            return Empresa(**result.data[0])
+        except (DuplicateError, DatabaseError):
+            raise
+        except Exception as e:
+            logger.error(f"Error creando empresa: {e}")
+            raise DatabaseError(f"Error de base de datos al crear empresa: {str(e)}")
 
     async def _generar_codigo_unico(self, nombre_comercial: str) -> str:
         """
@@ -224,11 +253,10 @@ class EmpresaService:
         candidatos = generar_candidatos_codigo(nombre_comercial)
 
         for codigo in candidatos:
-            if not await self.repository.existe_codigo_corto(codigo):
+            if not await self._existe_codigo_corto(codigo):
                 logger.info(f"Código '{codigo}' asignado para '{nombre_comercial}'")
                 return codigo
 
-        # Si llegamos aquí, algo muy raro pasó (>100 colisiones)
         raise DatabaseError(
             f"No se pudo generar código único para '{nombre_comercial}' "
             f"después de {len(candidatos)} intentos"
@@ -250,20 +278,29 @@ class EmpresaService:
             ValidationError: Si los datos no son válidos
             DatabaseError: Si hay error de BD
         """
-        # Obtener empresa actual (propaga NotFoundError)
-        empresa_actual = await self.repository.obtener_por_id(empresa_id)
+        empresa_actual = await self.obtener_por_id(empresa_id)
 
-        # Aplicar actualizaciones
         datos_actualizados = empresa_actual.model_dump()
         for campo, valor in empresa_update.model_dump(exclude_unset=True).items():
             if valor is not None:
                 datos_actualizados[campo] = valor
 
-        # Crear empresa modificada (puede lanzar ValidationError)
         empresa_modificada = Empresa(**datos_actualizados)
 
-        # Actualizar en BD (propaga NotFoundError o DatabaseError)
-        return await self.repository.actualizar(empresa_modificada)
+        # Actualizar en BD
+        try:
+            datos = empresa_modificada.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            result = self.supabase.table(self.tabla).update(datos).eq('id', empresa_modificada.id).execute()
+
+            if not result.data:
+                raise NotFoundError(f"Empresa con ID {empresa_modificada.id} no encontrada")
+
+            return Empresa(**result.data[0])
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error actualizando empresa {empresa_modificada.id}: {e}")
+            raise DatabaseError(f"Error de base de datos al actualizar empresa: {str(e)}")
 
     async def cambiar_estatus(self, empresa_id: int, nuevo_estatus: EstatusEmpresa) -> bool:
         """
@@ -280,16 +317,27 @@ class EmpresaService:
             NotFoundError: Si la empresa no existe
             DatabaseError: Si hay error de BD
         """
-        # Obtener empresa (propaga NotFoundError)
-        empresa = await self.repository.obtener_por_id(empresa_id)
+        empresa = await self.obtener_por_id(empresa_id)
 
         if empresa.estatus == nuevo_estatus:
             logger.warning(f"Empresa {empresa_id} ya tiene estatus {nuevo_estatus.value}")
             return True
 
         empresa.estatus = nuevo_estatus
-        await self.repository.actualizar(empresa)
-        return True
+
+        try:
+            datos = empresa.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            result = self.supabase.table(self.tabla).update(datos).eq('id', empresa.id).execute()
+
+            if not result.data:
+                raise NotFoundError(f"Empresa con ID {empresa.id} no encontrada")
+
+            return True
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error actualizando empresa {empresa.id}: {e}")
+            raise DatabaseError(f"Error de base de datos al actualizar empresa: {str(e)}")
 
     async def eliminar(self, empresa_id: int) -> bool:
         """
@@ -304,7 +352,94 @@ class EmpresaService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.eliminar(empresa_id)
+        try:
+            result = self.supabase.table(self.tabla).update(
+                {'estatus': 'INACTIVO'}
+            ).eq('id', empresa_id).execute()
+            return bool(result.data)
+        except Exception as e:
+            logger.error(f"Error eliminando empresa {empresa_id}: {e}")
+            raise DatabaseError(f"Error de base de datos al eliminar empresa: {str(e)}")
+
+    # ==========================================
+    # MÉTODOS INTERNOS DE CONSULTA
+    # ==========================================
+
+    async def _existe_rfc(self, rfc: str, excluir_id: Optional[int] = None) -> bool:
+        """
+        Verifica si existe un RFC en la base de datos.
+
+        Args:
+            rfc: RFC a verificar
+            excluir_id: ID a excluir de la búsqueda (para actualizaciones)
+
+        Returns:
+            True si el RFC ya existe
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
+        try:
+            query = self.supabase.table(self.tabla).select('id').eq('rfc', rfc.upper())
+            if excluir_id:
+                query = query.neq('id', excluir_id)
+            result = query.execute()
+            return len(result.data) > 0
+        except Exception as e:
+            logger.error(f"Error verificando RFC: {e}")
+            raise DatabaseError(f"Error de base de datos al verificar RFC: {str(e)}")
+
+    async def _existe_codigo_corto(self, codigo: str) -> bool:
+        """
+        Verifica si existe un código corto en la base de datos.
+
+        Args:
+            codigo: Código corto a verificar (3 caracteres)
+
+        Returns:
+            True si el código ya existe, False si está disponible
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('id')\
+                .eq('codigo_corto', codigo.upper())\
+                .execute()
+            return len(result.data) > 0
+        except Exception as e:
+            logger.error(f"Error verificando código corto '{codigo}': {e}")
+            raise DatabaseError(f"Error de base de datos al verificar código corto: {str(e)}")
+
+    async def _buscar_por_texto(self, termino: str, limite: int = 10) -> List[Empresa]:
+        """
+        Busca empresas por nombre comercial o razón social usando índices de la base de datos.
+
+        Args:
+            termino: Término de búsqueda
+            limite: Número máximo de resultados (default 10)
+
+        Returns:
+            Lista de empresas que coinciden con el término
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('*')\
+                .or_(
+                    f"nombre_comercial.ilike.%{termino}%,"
+                    f"razon_social.ilike.%{termino}%"
+                )\
+                .limit(limite)\
+                .execute()
+
+            return [Empresa(**data) for data in result.data]
+        except Exception as e:
+            logger.error(f"Error buscando empresas con término '{termino}': {e}")
+            raise DatabaseError(f"Error de base de datos al buscar empresas: {str(e)}")
 
 
 # Instancia global del servicio (singleton)

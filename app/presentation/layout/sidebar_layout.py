@@ -30,7 +30,6 @@ from app.presentation.theme import (
     Transitions,
     Typography,
     Shadows,
-    Sidebar as SidebarConfig,
 )
 
 

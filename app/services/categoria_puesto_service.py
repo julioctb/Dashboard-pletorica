@@ -1,9 +1,13 @@
 """
 Servicio de aplicación para gestión de Categorías de Puesto.
 
+Accede directamente a Supabase (sin repositorio intermedio).
+
 Patrón de manejo de errores:
-- Las excepciones del repository se propagan (NotFoundError, DuplicateError, DatabaseError)
-- El servicio agrega validaciones de reglas de negocio (BusinessRuleError)
+- NotFoundError: Cuando no se encuentra un recurso
+- DuplicateError: Cuando se viola unicidad (clave duplicada en el mismo tipo)
+- DatabaseError: Errores de conexión o infraestructura
+- BusinessRuleError: Violaciones de reglas de negocio
 """
 import logging
 from typing import List, Optional
@@ -14,8 +18,8 @@ from app.entities.categoria_puesto import (
     CategoriaPuestoUpdate,
 )
 from app.core.enums import Estatus
-from app.repositories.categoria_puesto_repository import SupabaseCategoriaPuestoRepository
-from app.core.exceptions import BusinessRuleError
+from app.database import db_manager
+from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +27,12 @@ logger = logging.getLogger(__name__)
 class CategoriaPuestoService:
     """
     Servicio de aplicación para categorías de puesto.
-    Orquesta las operaciones de negocio.
+    Orquesta las operaciones de negocio con acceso directo a Supabase.
     """
 
-    def __init__(self, repository=None):
-        if repository is None:
-            repository = SupabaseCategoriaPuestoRepository()
-        self.repository = repository
+    def __init__(self):
+        self.supabase = db_manager.get_client()
+        self.tabla = 'categorias_puesto'
 
     # ==========================================
     # OPERACIONES DE LECTURA
@@ -43,7 +46,19 @@ class CategoriaPuestoService:
             NotFoundError: Si la categoría no existe
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_id(categoria_id)
+        try:
+            result = self.supabase.table(self.tabla).select('*').eq('id', categoria_id).execute()
+
+            if not result.data:
+                raise NotFoundError(f"Categoría de puesto con ID {categoria_id} no encontrada")
+
+            return CategoriaPuesto(**result.data[0])
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error obteniendo categoría {categoria_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_por_tipo_servicio(
         self,
@@ -59,10 +74,20 @@ class CategoriaPuestoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_tipo_servicio(
-            tipo_servicio_id,
-            incluir_inactivas
-        )
+        try:
+            query = self.supabase.table(self.tabla).select('*').eq('tipo_servicio_id', tipo_servicio_id)
+
+            if not incluir_inactivas:
+                query = query.eq('estatus', 'ACTIVO')
+
+            query = query.order('orden', desc=False).order('nombre', desc=False)
+
+            result = query.execute()
+            return [CategoriaPuesto(**data) for data in result.data]
+
+        except Exception as e:
+            logger.error(f"Error obteniendo categorías del tipo {tipo_servicio_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_todas(
         self,
@@ -76,7 +101,25 @@ class CategoriaPuestoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_todas(incluir_inactivas, limite, offset)
+        try:
+            query = self.supabase.table(self.tabla).select('*')
+
+            if not incluir_inactivas:
+                query = query.eq('estatus', 'ACTIVO')
+
+            query = query.order('tipo_servicio_id', desc=False).order('orden', desc=False)
+
+            if limite is None:
+                limite = 100
+
+            query = query.range(offset, offset + limite - 1)
+
+            result = query.execute()
+            return [CategoriaPuesto(**data) for data in result.data]
+
+        except Exception as e:
+            logger.error(f"Error obteniendo categorías: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def buscar(
         self,
@@ -98,11 +141,28 @@ class CategoriaPuestoService:
         if not termino or len(termino.strip()) < 2:
             return []
 
-        return await self.repository.buscar_por_texto(
-            termino.strip(),
-            tipo_servicio_id,
-            limite
-        )
+        try:
+            termino_upper = termino.strip().upper()
+
+            query = self.supabase.table(self.tabla)\
+                .select('*')\
+                .eq('estatus', 'ACTIVO')\
+                .or_(
+                    f"nombre.ilike.%{termino_upper}%,"
+                    f"clave.ilike.%{termino_upper}%"
+                )
+
+            if tipo_servicio_id:
+                query = query.eq('tipo_servicio_id', tipo_servicio_id)
+
+            query = query.limit(limite)
+            result = query.execute()
+
+            return [CategoriaPuesto(**data) for data in result.data]
+
+        except Exception as e:
+            logger.error(f"Error buscando categorías con término '{termino}': {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     # ==========================================
     # OPERACIONES DE ESCRITURA
@@ -123,7 +183,28 @@ class CategoriaPuestoService:
             f"(tipo_servicio_id={categoria.tipo_servicio_id})"
         )
 
-        return await self.repository.crear(categoria)
+        try:
+            # Verificar clave duplicada dentro del tipo
+            if await self.existe_clave_en_tipo(categoria.tipo_servicio_id, categoria.clave):
+                raise DuplicateError(
+                    f"La clave '{categoria.clave}' ya existe en este tipo de servicio",
+                    field="clave",
+                    value=categoria.clave
+                )
+
+            datos = categoria.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            result = self.supabase.table(self.tabla).insert(datos).execute()
+
+            if not result.data:
+                raise DatabaseError("No se pudo crear la categoría")
+
+            return CategoriaPuesto(**result.data[0])
+
+        except (DuplicateError, DatabaseError):
+            raise
+        except Exception as e:
+            logger.error(f"Error creando categoría: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def actualizar(
         self,
@@ -138,7 +219,7 @@ class CategoriaPuestoService:
             DuplicateError: Si la nueva clave ya existe en el tipo de servicio
             DatabaseError: Si hay error de BD
         """
-        categoria_actual = await self.repository.obtener_por_id(categoria_id)
+        categoria_actual = await self.obtener_por_id(categoria_id)
 
         datos_actualizados = categoria_update.model_dump(exclude_unset=True)
 
@@ -148,7 +229,32 @@ class CategoriaPuestoService:
 
         logger.info(f"Actualizando categoría ID {categoria_id}")
 
-        return await self.repository.actualizar(categoria_actual)
+        try:
+            # Verificar clave duplicada (excluyendo registro actual)
+            if await self.existe_clave_en_tipo(
+                categoria_actual.tipo_servicio_id,
+                categoria_actual.clave,
+                excluir_id=categoria_actual.id
+            ):
+                raise DuplicateError(
+                    f"La clave '{categoria_actual.clave}' ya existe en este tipo de servicio",
+                    field="clave",
+                    value=categoria_actual.clave
+                )
+
+            datos = categoria_actual.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            result = self.supabase.table(self.tabla).update(datos).eq('id', categoria_actual.id).execute()
+
+            if not result.data:
+                raise NotFoundError(f"Categoría con ID {categoria_actual.id} no encontrada")
+
+            return CategoriaPuesto(**result.data[0])
+
+        except (NotFoundError, DuplicateError, DatabaseError):
+            raise
+        except Exception as e:
+            logger.error(f"Error actualizando categoría {categoria_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def eliminar(self, categoria_id: int) -> bool:
         """
@@ -159,13 +265,22 @@ class CategoriaPuestoService:
             BusinessRuleError: Si tiene empleados asociados (futuro)
             DatabaseError: Si hay error de BD
         """
-        categoria = await self.repository.obtener_por_id(categoria_id)
+        categoria = await self.obtener_por_id(categoria_id)
 
         await self._validar_puede_eliminar(categoria)
 
         logger.info(f"Eliminando (desactivando) categoría: {categoria.clave}")
 
-        return await self.repository.eliminar(categoria_id)
+        try:
+            result = self.supabase.table(self.tabla).update(
+                {'estatus': 'INACTIVO'}
+            ).eq('id', categoria_id).execute()
+
+            return bool(result.data)
+
+        except Exception as e:
+            logger.error(f"Error eliminando categoría {categoria_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def activar(self, categoria_id: int) -> CategoriaPuesto:
         """
@@ -176,7 +291,7 @@ class CategoriaPuestoService:
             BusinessRuleError: Si ya está activa
             DatabaseError: Si hay error de BD
         """
-        categoria = await self.repository.obtener_por_id(categoria_id)
+        categoria = await self.obtener_por_id(categoria_id)
 
         if categoria.estatus == Estatus.ACTIVO:
             raise BusinessRuleError("La categoría ya está activa")
@@ -185,22 +300,20 @@ class CategoriaPuestoService:
 
         logger.info(f"Activando categoría: {categoria.clave}")
 
-        return await self.repository.actualizar(categoria)
+        try:
+            datos = categoria.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            result = self.supabase.table(self.tabla).update(datos).eq('id', categoria.id).execute()
 
-    async def cambiar_orden(self, categoria_id: int, nuevo_orden: int) -> CategoriaPuesto:
-        """
-        Cambia el orden de visualización de una categoría.
+            if not result.data:
+                raise NotFoundError(f"Categoría con ID {categoria.id} no encontrada")
 
-        Raises:
-            NotFoundError: Si la categoría no existe
-            DatabaseError: Si hay error de BD
-        """
-        categoria = await self.repository.obtener_por_id(categoria_id)
-        categoria.orden = nuevo_orden
+            return CategoriaPuesto(**result.data[0])
 
-        logger.info(f"Cambiando orden de categoría {categoria.clave} a {nuevo_orden}")
-
-        return await self.repository.actualizar(categoria)
+        except (NotFoundError, DatabaseError):
+            raise
+        except Exception as e:
+            logger.error(f"Error activando categoría {categoria.id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     # ==========================================
     # VALIDACIONES DE NEGOCIO (privadas)
@@ -231,12 +344,25 @@ class CategoriaPuestoService:
     ) -> bool:
         """
         Verifica si una clave ya existe en el tipo de servicio.
+
+        Raises:
+            DatabaseError: Si hay error de BD
         """
-        return await self.repository.existe_clave_en_tipo(
-            tipo_servicio_id,
-            clave,
-            excluir_id
-        )
+        try:
+            query = self.supabase.table(self.tabla)\
+                .select('id')\
+                .eq('tipo_servicio_id', tipo_servicio_id)\
+                .eq('clave', clave.upper())
+
+            if excluir_id:
+                query = query.neq('id', excluir_id)
+
+            result = query.execute()
+            return len(result.data) > 0
+
+        except Exception as e:
+            logger.error(f"Error verificando clave {clave}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
 
 # ==========================================

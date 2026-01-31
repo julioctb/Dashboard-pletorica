@@ -10,7 +10,7 @@ from typing import List, Optional
 from app.presentation.components.shared.base_state import BaseState
 from app.presentation.constants import FILTRO_TODOS
 from app.services.historial_laboral_service import historial_laboral_service
-from app.core.enums import EstatusHistorial, TipoMovimiento
+from app.core.enums import TipoMovimiento
 from app.core.exceptions import DatabaseError
 
 

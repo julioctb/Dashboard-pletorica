@@ -8,14 +8,12 @@ from decimal import Decimal, InvalidOperation
 from datetime import date
 
 from app.presentation.components.shared.base_state import BaseState
-from app.services import pago_service, contrato_service
+from app.services import pago_service
 from app.core.text_utils import formatear_moneda, formatear_fecha
 
 from app.entities import (
-    Pago,
     PagoCreate,
     PagoUpdate,
-    ResumenPagosContrato,
     EstatusContrato,
 )
 

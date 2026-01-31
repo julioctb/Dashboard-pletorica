@@ -9,19 +9,15 @@ Patrón de manejo de errores:
 import logging
 from typing import List, Optional
 from datetime import date
-from decimal import Decimal
-
 from app.entities import (
     Contrato,
     ContratoCreate,
     ContratoUpdate,
     ContratoResumen,
     EstatusContrato,
-    ModalidadAdjudicacion,
-    TipoDuracion,
 )
 from app.repositories import SupabaseContratoRepository
-from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
+from app.core.exceptions import BusinessRuleError
 
 logger = logging.getLogger(__name__)
 
@@ -495,28 +491,6 @@ class ContratoService:
 
         return await self.repository.cambiar_estatus(contrato_id, EstatusContrato.CANCELADO)
 
-    async def marcar_vencido(self, contrato_id: int) -> Contrato:
-        """
-        Marca un contrato como vencido.
-
-        Args:
-            contrato_id: ID del contrato
-
-        Returns:
-            Contrato marcado como vencido
-
-        Raises:
-            NotFoundError: Si el contrato no existe
-            BusinessRuleError: Si no puede marcarse como vencido
-            DatabaseError: Si hay error de BD
-        """
-        contrato = await self.repository.obtener_por_id(contrato_id)
-
-        if contrato.estatus != EstatusContrato.ACTIVO:
-            raise BusinessRuleError("Solo se pueden marcar como vencidos contratos activos")
-
-        return await self.repository.cambiar_estatus(contrato_id, EstatusContrato.VENCIDO)
-
     async def eliminar(self, contrato_id: int) -> bool:
         """
         Elimina (cancela) un contrato.
@@ -575,61 +549,6 @@ class ContratoService:
             True si el código ya existe
         """
         return await self.repository.existe_codigo(codigo, excluir_id)
-
-    # ==========================================
-    # VALIDACIONES DE NEGOCIO
-    # ==========================================
-
-    def validar_montos(
-        self,
-        monto_minimo: Optional[Decimal],
-        monto_maximo: Optional[Decimal]
-    ) -> bool:
-        """
-        Valida que los montos sean coherentes.
-
-        Args:
-            monto_minimo: Monto mínimo
-            monto_maximo: Monto máximo
-
-        Returns:
-            True si son válidos
-
-        Raises:
-            BusinessRuleError: Si los montos no son válidos
-        """
-        if monto_minimo and monto_maximo:
-            if monto_maximo < monto_minimo:
-                raise BusinessRuleError("El monto máximo no puede ser menor al monto mínimo")
-        return True
-
-    def validar_fechas(
-        self,
-        fecha_inicio: date,
-        fecha_fin: Optional[date],
-        tipo_duracion: TipoDuracion
-    ) -> bool:
-        """
-        Valida que las fechas sean coherentes.
-
-        Args:
-            fecha_inicio: Fecha de inicio
-            fecha_fin: Fecha de fin (puede ser None)
-            tipo_duracion: Tipo de duración del contrato
-
-        Returns:
-            True si son válidas
-
-        Raises:
-            BusinessRuleError: Si las fechas no son válidas
-        """
-        if fecha_fin and fecha_fin < fecha_inicio:
-            raise BusinessRuleError("La fecha de fin no puede ser anterior a la fecha de inicio")
-
-        if tipo_duracion == TipoDuracion.TIEMPO_DETERMINADO and not fecha_fin:
-            raise BusinessRuleError("Los contratos de tiempo determinado deben tener fecha de fin")
-
-        return True
 
 
 # Instancia global del servicio (singleton)

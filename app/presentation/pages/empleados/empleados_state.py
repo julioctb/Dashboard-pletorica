@@ -12,20 +12,14 @@ from app.services import empleado_service, empresa_service
 from app.core.text_utils import formatear_fecha
 
 from app.entities import (
-    Empleado,
     EmpleadoCreate,
     EmpleadoUpdate,
-    EmpleadoResumen,
-    EstatusEmpleado,
-    GeneroEmpleado,
     MotivoBaja,
-    EmpresaResumen,
 )
 
 from app.core.exceptions import (
     NotFoundError,
     DuplicateError,
-    DatabaseError,
     BusinessRuleError,
 )
 

@@ -27,7 +27,6 @@ from app.repositories.empleado_repository import SupabaseEmpleadoRepository
 from app.core.exceptions import (
     NotFoundError,
     DuplicateError,
-    DatabaseError,
     BusinessRuleError,
 )
 
@@ -167,52 +166,6 @@ class EmpleadoService:
 
         return empleado_creado
 
-    async def crear_con_clave_auto(
-        self,
-        empresa_id: int,
-        curp: str,
-        nombre: str,
-        apellido_paterno: str,
-        apellido_materno: Optional[str] = None,
-        rfc: Optional[str] = None,
-        nss: Optional[str] = None,
-        fecha_nacimiento: Optional[date] = None,
-        genero: Optional[str] = None,
-        telefono: Optional[str] = None,
-        email: Optional[str] = None,
-        direccion: Optional[str] = None,
-        contacto_emergencia: Optional[str] = None,
-        fecha_ingreso: Optional[date] = None,
-        notas: Optional[str] = None,
-    ) -> Empleado:
-        """
-        Crea un nuevo empleado con parámetros individuales.
-        Método conveniente que genera la clave automáticamente.
-
-        Raises:
-            DuplicateError: Si el CURP ya existe
-            BusinessRuleError: Si la empresa no es válida
-            DatabaseError: Si hay error de BD
-        """
-        empleado_create = EmpleadoCreate(
-            empresa_id=empresa_id,
-            curp=curp,
-            nombre=nombre,
-            apellido_paterno=apellido_paterno,
-            apellido_materno=apellido_materno,
-            rfc=rfc,
-            nss=nss,
-            fecha_nacimiento=fecha_nacimiento,
-            genero=genero,
-            telefono=telefono,
-            email=email,
-            direccion=direccion,
-            contacto_emergencia=contacto_emergencia,
-            fecha_ingreso=fecha_ingreso,
-            notas=notas,
-        )
-        return await self.crear(empleado_create)
-
     async def actualizar(self, empleado_id: int, empleado_update: EmpleadoUpdate) -> Empleado:
         """
         Actualiza un empleado existente.
@@ -343,38 +296,6 @@ class EmpleadoService:
             logger.warning(f"Error registrando suspensión en historial: {e}")
 
         return empleado_actualizado
-
-    # =========================================================================
-    # CAMBIO DE EMPRESA
-    # =========================================================================
-
-    async def cambiar_empresa(self, empleado_id: int, nueva_empresa_id: int) -> Empleado:
-        """
-        Cambia el empleado de empresa (proveedor).
-        El empleado mantiene su clave, CURP e historial.
-
-        Args:
-            empleado_id: ID del empleado
-            nueva_empresa_id: ID de la nueva empresa
-
-        Returns:
-            Empleado actualizado
-
-        Raises:
-            NotFoundError: Si el empleado no existe
-            BusinessRuleError: Si la nueva empresa no es válida o es la misma
-            DatabaseError: Si hay error de BD
-        """
-        empleado = await self.repository.obtener_por_id(empleado_id)
-
-        if empleado.empresa_id == nueva_empresa_id:
-            raise BusinessRuleError("El empleado ya pertenece a esta empresa")
-
-        # Validar nueva empresa
-        await self._validar_empresa(nueva_empresa_id)
-
-        empleado.empresa_id = nueva_empresa_id
-        return await self.repository.actualizar(empleado)
 
     # =========================================================================
     # CONSULTAS

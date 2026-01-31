@@ -24,7 +24,6 @@ from app.core.enums import (
     # Enums de Historial Laboral
     EstatusHistorial,
     TipoMovimiento,
-    MotivoFinHistorial,  # Alias deprecated
     # Enums de Requisicion
     EstadoRequisicion,
     TipoContratacion,
@@ -110,9 +109,7 @@ from app.entities.archivo import (
     TipoArchivo,
     OrigenArchivo,
     ArchivoSistema,
-    ArchivoSistemaCreate,
     ArchivoSistemaUpdate,
-    ArchivoSistemaResumen,
     ArchivoUploadResponse,
 )
 
@@ -120,8 +117,6 @@ from app.entities.archivo import (
 from app.entities.requisicion import (
     LugarEntrega,
     ConfiguracionRequisicion,
-    ConfiguracionRequisicionCreate,
-    ConfiguracionRequisicionUpdate,
     Requisicion,
     RequisicionCreate,
     RequisicionUpdate,
@@ -162,7 +157,6 @@ __all__ = [
     "MotivoBaja",
     "EstatusHistorial",
     "TipoMovimiento",
-    "MotivoFinHistorial",
     "EstadoRequisicion",
     "TipoContratacion",
     "GrupoConfiguracion",
@@ -217,15 +211,11 @@ __all__ = [
     "TipoArchivo",
     "OrigenArchivo",
     "ArchivoSistema",
-    "ArchivoSistemaCreate",
     "ArchivoSistemaUpdate",
-    "ArchivoSistemaResumen",
     "ArchivoUploadResponse",
     # Requisicion
     "LugarEntrega",
     "ConfiguracionRequisicion",
-    "ConfiguracionRequisicionCreate",
-    "ConfiguracionRequisicionUpdate",
     "Requisicion",
     "RequisicionCreate",
     "RequisicionUpdate",

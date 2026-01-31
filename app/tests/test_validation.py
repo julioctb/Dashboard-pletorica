@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel, ValidationError
 
-from app.entities.empresa import Empresa, EmpresaCreate, EmpresaUpdate
+from app.entities.empresa import Empresa, EmpresaCreate
 from app.entities.tipo_servicio import TipoServicio, TipoServicioCreate, TipoServicioUpdate
 from app.core.enums import TipoEmpresa, EstatusEmpresa, Estatus
 from app.core.validation import (

@@ -1,9 +1,13 @@
 """
 Servicio de aplicación para gestión de Tipos de Servicio.
 
+Accede directamente a Supabase (sin repository intermedio).
+
 Patrón de manejo de errores:
-- Las excepciones del repository se propagan (NotFoundError, DuplicateError, DatabaseError)
-- El servicio agrega validaciones de reglas de negocio (BusinessRuleError)
+- NotFoundError: Cuando no se encuentra un recurso
+- DuplicateError: Cuando se viola unicidad (ej: clave duplicada)
+- DatabaseError: Errores de conexión o infraestructura
+- BusinessRuleError: Violaciones de reglas de negocio
 - Logging de errores solo para debugging, NO para control de flujo
 """
 import logging
@@ -15,7 +19,7 @@ from app.entities import (
     TipoServicioUpdate,
 )
 from app.core.enums import Estatus
-from app.repositories import SupabaseTipoServicioRepository
+from app.database import db_manager
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
 
 logger = logging.getLogger(__name__)
@@ -24,19 +28,13 @@ logger = logging.getLogger(__name__)
 class TipoServicioService:
     """
     Servicio de aplicación para tipos de servicio.
-    Orquesta las operaciones de negocio.
+    Orquesta las operaciones de negocio con acceso directo a Supabase.
     """
 
-    def __init__(self, repository=None):
-        """
-        Inicializa el servicio con un repository.
-
-        Args:
-            repository: Implementación del repository. Si es None, usa Supabase por defecto.
-        """
-        if repository is None:
-            repository = SupabaseTipoServicioRepository()
-        self.repository = repository
+    def __init__(self):
+        """Inicializa el servicio con conexión directa a Supabase."""
+        self.supabase = db_manager.get_client()
+        self.tabla = 'tipos_servicio'
 
     # ==========================================
     # OPERACIONES DE LECTURA
@@ -56,7 +54,19 @@ class TipoServicioService:
             NotFoundError: Si el tipo no existe
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_id(tipo_id)
+        try:
+            result = self.supabase.table(self.tabla).select('*').eq('id', tipo_id).execute()
+
+            if not result.data:
+                raise NotFoundError(f"Tipo de servicio con ID {tipo_id} no encontrado")
+
+            return TipoServicio(**result.data[0])
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error obteniendo tipo de servicio {tipo_id}: {e}")
+            raise DatabaseError(f"Error de base de datos al obtener tipo: {str(e)}")
 
     async def obtener_por_clave(self, clave: str) -> Optional[TipoServicio]:
         """
@@ -71,7 +81,17 @@ class TipoServicioService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_clave(clave.upper())
+        try:
+            result = self.supabase.table(self.tabla).select('*').eq('clave', clave.upper()).execute()
+
+            if not result.data:
+                return None
+
+            return TipoServicio(**result.data[0])
+
+        except Exception as e:
+            logger.error(f"Error obteniendo tipo por clave {clave}: {e}")
+            raise DatabaseError(f"Error de base de datos al obtener tipo: {str(e)}")
 
     async def obtener_todas(
         self,
@@ -93,7 +113,29 @@ class TipoServicioService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_todas(incluir_inactivas, limite, offset)
+        try:
+            query = self.supabase.table(self.tabla).select('*')
+
+            # Filtro de estatus
+            if not incluir_inactivas:
+                query = query.eq('estatus', 'ACTIVO')
+
+            # Ordenamiento por nombre
+            query = query.order('nombre', desc=False)
+
+            # Paginación con límite por defecto
+            if limite is None:
+                limite = 100
+                logger.debug("Usando límite por defecto de 100 registros")
+
+            query = query.range(offset, offset + limite - 1)
+
+            result = query.execute()
+            return [TipoServicio(**data) for data in result.data]
+
+        except Exception as e:
+            logger.error(f"Error obteniendo tipos de servicio: {e}")
+            raise DatabaseError(f"Error de base de datos al obtener tipos: {str(e)}")
 
     async def obtener_activas(self) -> List[TipoServicio]:
         """
@@ -106,7 +148,7 @@ class TipoServicioService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_todas(incluir_inactivas=False)
+        return await self.obtener_todas(incluir_inactivas=False)
 
     async def buscar(self, termino: str, limite: int = 10) -> List[TipoServicio]:
         """
@@ -125,7 +167,7 @@ class TipoServicioService:
         if not termino or len(termino.strip()) < 2:
             return []
 
-        return await self.repository.buscar_por_texto(termino.strip(), limite)
+        return await self._buscar_por_texto(termino.strip(), limite)
 
     async def contar(self, incluir_inactivas: bool = False) -> int:
         """
@@ -140,7 +182,18 @@ class TipoServicioService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.contar(incluir_inactivas)
+        try:
+            query = self.supabase.table(self.tabla).select('id', count='exact')
+
+            if not incluir_inactivas:
+                query = query.eq('estatus', 'ACTIVO')
+
+            result = query.execute()
+            return result.count if result.count else 0
+
+        except Exception as e:
+            logger.error(f"Error contando tipos de servicio: {e}")
+            raise DatabaseError(f"Error de base de datos al contar tipos: {str(e)}")
 
     # ==========================================
     # OPERACIONES DE ESCRITURA
@@ -160,13 +213,34 @@ class TipoServicioService:
             DuplicateError: Si la clave ya existe
             DatabaseError: Si hay error de BD
         """
-        # Convertir TipoServicioCreate a TipoServicio
-        tipo = TipoServicio(**tipo_create.model_dump())
+        try:
+            # Convertir TipoServicioCreate a TipoServicio
+            tipo = TipoServicio(**tipo_create.model_dump())
 
-        logger.info(f"Creando tipo de servicio: {tipo.clave} - {tipo.nombre}")
+            logger.info(f"Creando tipo de servicio: {tipo.clave} - {tipo.nombre}")
 
-        # Delegar al repository (propaga DuplicateError o DatabaseError)
-        return await self.repository.crear(tipo)
+            # Verificar clave duplicada
+            if await self.existe_clave(tipo.clave):
+                raise DuplicateError(
+                    f"La clave '{tipo.clave}' ya existe",
+                    field="clave",
+                    value=tipo.clave
+                )
+
+            # Preparar datos excluyendo campos autogenerados
+            datos = tipo.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            result = self.supabase.table(self.tabla).insert(datos).execute()
+
+            if not result.data:
+                raise DatabaseError("No se pudo crear el tipo de servicio (sin respuesta de BD)")
+
+            return TipoServicio(**result.data[0])
+
+        except (DuplicateError, DatabaseError):
+            raise
+        except Exception as e:
+            logger.error(f"Error creando tipo de servicio: {e}")
+            raise DatabaseError(f"Error de base de datos al crear tipo: {str(e)}")
 
     async def actualizar(self, tipo_id: int, tipo_update: TipoServicioUpdate) -> TipoServicio:
         """
@@ -184,20 +258,41 @@ class TipoServicioService:
             DuplicateError: Si la nueva clave ya existe
             DatabaseError: Si hay error de BD
         """
-        # Obtener tipo actual
-        tipo_actual = await self.repository.obtener_por_id(tipo_id)
+        try:
+            # Obtener tipo actual
+            tipo_actual = await self.obtener_por_id(tipo_id)
 
-        # Aplicar cambios (solo campos que vienen en el update)
-        datos_actualizados = tipo_update.model_dump(exclude_unset=True)
+            # Aplicar cambios (solo campos que vienen en el update)
+            datos_actualizados = tipo_update.model_dump(exclude_unset=True)
 
-        for campo, valor in datos_actualizados.items():
-            if valor is not None:
-                setattr(tipo_actual, campo, valor)
+            for campo, valor in datos_actualizados.items():
+                if valor is not None:
+                    setattr(tipo_actual, campo, valor)
 
-        logger.info(f"Actualizando tipo de servicio ID {tipo_id}")
+            logger.info(f"Actualizando tipo de servicio ID {tipo_id}")
 
-        # Delegar al repository
-        return await self.repository.actualizar(tipo_actual)
+            # Verificar clave duplicada (excluyendo el registro actual)
+            if await self.existe_clave(tipo_actual.clave, excluir_id=tipo_actual.id):
+                raise DuplicateError(
+                    f"La clave '{tipo_actual.clave}' ya existe en otro tipo",
+                    field="clave",
+                    value=tipo_actual.clave
+                )
+
+            # Preparar datos
+            datos = tipo_actual.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            result = self.supabase.table(self.tabla).update(datos).eq('id', tipo_actual.id).execute()
+
+            if not result.data:
+                raise NotFoundError(f"Tipo de servicio con ID {tipo_actual.id} no encontrado")
+
+            return TipoServicio(**result.data[0])
+
+        except (NotFoundError, DuplicateError):
+            raise
+        except Exception as e:
+            logger.error(f"Error actualizando tipo de servicio {tipo_id}: {e}")
+            raise DatabaseError(f"Error de base de datos al actualizar tipo: {str(e)}")
 
     async def eliminar(self, tipo_id: int) -> bool:
         """
@@ -218,15 +313,26 @@ class TipoServicioService:
             BusinessRuleError: Si tiene contratos activos
             DatabaseError: Si hay error de BD
         """
-        # Obtener tipo para validar que existe
-        tipo = await self.repository.obtener_por_id(tipo_id)
+        try:
+            # Obtener tipo para validar que existe
+            tipo = await self.obtener_por_id(tipo_id)
 
-        # Validar reglas de negocio
-        await self._validar_puede_eliminar(tipo)
+            # Validar reglas de negocio
+            await self._validar_puede_eliminar(tipo)
 
-        logger.info(f"Eliminando (desactivando) tipo de servicio: {tipo.clave}")
+            logger.info(f"Eliminando (desactivando) tipo de servicio: {tipo.clave}")
 
-        return await self.repository.eliminar(tipo_id)
+            result = self.supabase.table(self.tabla).update(
+                {'estatus': 'INACTIVO'}
+            ).eq('id', tipo_id).execute()
+
+            return bool(result.data)
+
+        except (NotFoundError, BusinessRuleError):
+            raise
+        except Exception as e:
+            logger.error(f"Error eliminando tipo de servicio {tipo_id}: {e}")
+            raise DatabaseError(f"Error de base de datos al eliminar tipo: {str(e)}")
 
     async def activar(self, tipo_id: int) -> TipoServicio:
         """
@@ -243,16 +349,30 @@ class TipoServicioService:
             BusinessRuleError: Si ya está activo
             DatabaseError: Si hay error de BD
         """
-        tipo = await self.repository.obtener_por_id(tipo_id)
+        try:
+            tipo = await self.obtener_por_id(tipo_id)
 
-        if tipo.estatus == Estatus.ACTIVO:
-            raise BusinessRuleError("El tipo ya está activo")
+            if tipo.estatus == Estatus.ACTIVO:
+                raise BusinessRuleError("El tipo ya está activo")
 
-        tipo.estatus = Estatus.ACTIVO
+            tipo.estatus = Estatus.ACTIVO
 
-        logger.info(f"Activando tipo de servicio: {tipo.clave}")
+            logger.info(f"Activando tipo de servicio: {tipo.clave}")
 
-        return await self.repository.actualizar(tipo)
+            # Actualizar en BD
+            datos = tipo.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+            result = self.supabase.table(self.tabla).update(datos).eq('id', tipo.id).execute()
+
+            if not result.data:
+                raise NotFoundError(f"Tipo de servicio con ID {tipo.id} no encontrado")
+
+            return TipoServicio(**result.data[0])
+
+        except (NotFoundError, BusinessRuleError):
+            raise
+        except Exception as e:
+            logger.error(f"Error activando tipo de servicio {tipo_id}: {e}")
+            raise DatabaseError(f"Error de base de datos al activar tipo: {str(e)}")
 
     # ==========================================
     # VALIDACIONES DE NEGOCIO (privadas)
@@ -291,8 +411,56 @@ class TipoServicioService:
 
         Returns:
             True si existe, False si no
+
+        Raises:
+            DatabaseError: Si hay error de BD
         """
-        return await self.repository.existe_clave(clave, excluir_id)
+        try:
+            query = self.supabase.table(self.tabla).select('id').eq('clave', clave.upper())
+
+            if excluir_id:
+                query = query.neq('id', excluir_id)
+
+            result = query.execute()
+            return len(result.data) > 0
+
+        except Exception as e:
+            logger.error(f"Error verificando clave {clave}: {e}")
+            raise DatabaseError(f"Error de base de datos al verificar clave: {str(e)}")
+
+    async def _buscar_por_texto(self, termino: str, limite: int = 10, offset: int = 0) -> List[TipoServicio]:
+        """
+        Busca tipos de servicio por nombre o clave en base de datos.
+
+        Args:
+            termino: Término de búsqueda
+            limite: Número máximo de resultados (default 10)
+            offset: Registros a saltar
+
+        Returns:
+            Lista de tipos que coinciden (vacía si no hay resultados)
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        try:
+            termino_upper = termino.upper()
+
+            result = self.supabase.table(self.tabla)\
+                .select('*')\
+                .eq('estatus', 'ACTIVO')\
+                .or_(
+                    f"nombre.ilike.%{termino_upper}%,"
+                    f"clave.ilike.%{termino_upper}%"
+                )\
+                .range(offset, offset + limite - 1)\
+                .execute()
+
+            return [TipoServicio(**data) for data in result.data]
+
+        except Exception as e:
+            logger.error(f"Error buscando tipos con término '{termino}': {e}")
+            raise DatabaseError(f"Error de base de datos al buscar tipos: {str(e)}")
 
 
 # ==========================================

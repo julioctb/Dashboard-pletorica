@@ -12,7 +12,6 @@ from app.core.validation import (
     RFC_PERSONA_PATTERN,
     NSS_PATTERN,
     EMAIL_PATTERN,
-    TELEFONO_PATTERN,
     # Constantes de longitud
     CURP_LEN,
     RFC_PERSONA_LEN,
