@@ -229,7 +229,10 @@ class AuthState(BaseState):
 
             logger.info(f"Login exitoso: {email}")
 
-            # Redirigir a página principal
+            # Redirigir segun rol
+            rol = self.usuario_actual.get('rol', '')
+            if rol == 'client':
+                return rx.redirect("/portal")
             return rx.redirect("/")
 
         except Exception as e:

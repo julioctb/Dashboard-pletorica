@@ -21,6 +21,13 @@ from .presentation.pages.admin.usuarios.usuarios_page import usuarios_admin_page
 
 from .presentation.layout.sidebar_layout import sidebar
 
+# Portal de cliente
+from .presentation.portal.layout.portal_layout import portal_index
+from .presentation.portal.pages.portal_dashboard import portal_dashboard_page
+from .presentation.portal.pages.mi_empresa import mi_empresa_page
+from .presentation.portal.pages.mis_empleados import mis_empleados_page
+from .presentation.portal.pages.mis_contratos import mis_contratos_page
+
 #se dibuja el layout para todas las paginas
 def index(content: rx.Component) -> rx.Component:
     return rx.hstack(
@@ -70,3 +77,9 @@ app.add_page(lambda: index(configuracion_page()), route="/configuracion")
 app.add_page(lambda: index(sedes_page()), route="/sedes")
 app.add_page(login_page, route="/login")
 app.add_page(lambda: index(usuarios_admin_page()), route="/admin/usuarios")
+
+# Portal de cliente
+app.add_page(lambda: portal_index(portal_dashboard_page()), route="/portal")
+app.add_page(lambda: portal_index(mi_empresa_page()), route="/portal/mi-empresa")
+app.add_page(lambda: portal_index(mis_empleados_page()), route="/portal/empleados")
+app.add_page(lambda: portal_index(mis_contratos_page()), route="/portal/contratos")
