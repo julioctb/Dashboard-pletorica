@@ -28,9 +28,6 @@ venv/
 # Assets externos
 assets/external/
 
-# Documentos generados
-documentacion
-
 # =======================
 # BACKUPS Y MIGRACIONES
 # =======================
