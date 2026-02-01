@@ -363,5 +363,5 @@ def empresas_page() -> rx.Component:
         ),
         width="100%",
         min_height="100vh",
-        on_mount=EmpresasState.cargar_empresas,
+        on_mount=EmpresasState.on_mount_empresas,
     )

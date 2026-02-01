@@ -7,7 +7,7 @@ import reflex as rx
 from decimal import Decimal
 from typing import List, Callable
 
-from app.presentation.components.shared.base_state import BaseState
+from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.constants import FILTRO_TODOS
 from app.services import empresa_service
 from app.core.text_utils import normalizar_mayusculas
@@ -70,8 +70,8 @@ FORM_DEFAULTS = {
 }
 
 
-class EmpresasState(BaseState):
-    """Estado para la gestión de empresas"""
+class EmpresasState(AuthState):
+    """Estado para la gestión de empresas (protegido con autenticación)."""
 
     # ========================
     # DATOS Y LISTAS
@@ -209,6 +209,16 @@ class EmpresasState(BaseState):
 
     def set_mostrar_modal_detalle(self, value: bool):
         self.mostrar_modal_detalle = value
+
+    # ========================
+    # MONTAJE CON VERIFICACIÓN DE AUTH
+    # ========================
+    async def on_mount_empresas(self):
+        """Verifica autenticación y carga empresas."""
+        resultado = await self.verificar_y_redirigir()
+        if resultado:
+            return resultado
+        await self.cargar_empresas()
 
     # ========================
     # OPERACIONES PRINCIPALES

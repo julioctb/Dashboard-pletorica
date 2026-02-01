@@ -10,6 +10,8 @@ from app.core.enums import (
     Estatus,
     EstatusEmpresa,
     TipoEmpresa,
+    # Enums de Usuario
+    RolUsuario,
     # Enums de Contrato
     TipoContrato,
     ModalidadAdjudicacion,
@@ -39,6 +41,21 @@ from app.entities.empresa import (
     EmpresaCreate,
     EmpresaUpdate,
     EmpresaResumen,
+)
+
+# Perfil de Usuario
+from app.entities.user_profile import (
+    UserProfile,
+    UserProfileCreate,
+    UserProfileUpdate,
+    UserProfileResumen
+)
+
+# Relacion Usuario/ Empresa
+from app.entities.user_company import(
+    UserCompany,
+    UserCompanyCreate,
+    UserCompanyResumen
 )
 
 # Tipo de Servicio
@@ -178,11 +195,21 @@ __all__ = [
     "EstadoRequisicion",
     "TipoContratacion",
     "GrupoConfiguracion",
+    "RolUsuario",
     # Empresa
     "Empresa",
     "EmpresaCreate",
     "EmpresaUpdate",
     "EmpresaResumen",
+    # Usuarios
+    "UserProfile",
+    "UserProfileCreate",
+    "UserProfileUpdate",
+    "UserProfileResumen",
+    # Usuario Empresa
+    "UserCompany",
+    "UserCompanyCreate",
+    "UserCompanyResumen",
     # Tipo de Servicio
     "TipoServicio",
     "TipoServicioCreate",

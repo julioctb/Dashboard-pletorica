@@ -3,22 +3,27 @@ Sidebar State - Estado del Sidebar Colapsable
 ==============================================
 
 Maneja el estado de expansión/colapso del sidebar.
-No persiste entre sesiones (se reinicia al recargar).
+Hereda de AuthState para acceder a información del usuario logueado
+(nombre, empresa actual, rol) y métodos de sesión (cerrar_sesion).
 
 Uso:
     from app.presentation.layout import SidebarState
-    
+
     # En componentes:
     rx.cond(SidebarState.is_collapsed, ..., ...)
-    
+    SidebarState.nombre_usuario  # nombre del usuario logueado
+    SidebarState.es_admin  # True si es administrador
+
     # Toggle:
     on_click=SidebarState.toggle
 """
 
 import reflex as rx
 
+from app.presentation.components.shared.auth_state import AuthState
 
-class SidebarState(rx.State):
+
+class SidebarState(AuthState):
     """
     Estado global del sidebar.
     

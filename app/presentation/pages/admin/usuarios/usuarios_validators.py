@@ -1,0 +1,51 @@
+"""
+Validadores de formulario para gestion de usuarios.
+
+Funciones puras que retornan mensaje de error o cadena vacia.
+"""
+import re
+
+EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+TELEFONO_DIGITOS = 10
+NOMBRE_MIN = 3
+NOMBRE_MAX = 150
+PASSWORD_MIN = 8
+
+
+def validar_email(email: str) -> str:
+    """Valida formato de email. Retorna mensaje de error o cadena vacia."""
+    if not email:
+        return "El email es requerido"
+    if not re.match(EMAIL_PATTERN, email):
+        return "Formato de email invalido"
+    return ""
+
+
+def validar_password(password: str) -> str:
+    """Valida contrasena. Retorna mensaje de error o cadena vacia."""
+    if not password:
+        return "La contrasena es requerida"
+    if len(password) < PASSWORD_MIN:
+        return f"Minimo {PASSWORD_MIN} caracteres"
+    return ""
+
+
+def validar_nombre_completo(nombre: str) -> str:
+    """Valida nombre completo."""
+    if not nombre:
+        return "El nombre es requerido"
+    if len(nombre.strip()) < NOMBRE_MIN:
+        return f"Minimo {NOMBRE_MIN} caracteres"
+    if len(nombre) > NOMBRE_MAX:
+        return f"Maximo {NOMBRE_MAX} caracteres"
+    return ""
+
+
+def validar_telefono(telefono: str) -> str:
+    """Valida telefono (opcional, pero si se proporciona debe ser valido)."""
+    if not telefono:
+        return ""  # Opcional
+    digitos = ''.join(c for c in telefono if c.isdigit())
+    if len(digitos) != TELEFONO_DIGITOS:
+        return f"Debe tener {TELEFONO_DIGITOS} digitos"
+    return ""

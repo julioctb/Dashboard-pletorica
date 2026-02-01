@@ -84,6 +84,9 @@ from app.services.contacto_buap_service import (
     contacto_buap_service,
 )
 
+# User (Autenticación y Perfiles)
+from app.services.user_service import user_service
+
 
 __all__ = [
     # Empresa
@@ -125,4 +128,6 @@ __all__ = [
     # Contacto BUAP
     "ContactoBuapService",
     "contacto_buap_service",
+    # User (Autenticación y Perfiles)
+    "user_service"
 ]

@@ -16,6 +16,8 @@ from .presentation.pages.historial_laboral.historial_laboral_page import histori
 from .presentation.pages.requisiciones.requisiciones_page import requisiciones_page
 from .presentation.pages.configuracion.configuracion_page import configuracion_page
 from .presentation.pages.sedes.sedes_page import sedes_page
+from .presentation.pages.login.login_page import login_page
+from .presentation.pages.admin.usuarios.usuarios_page import usuarios_admin_page
 
 from .presentation.layout.sidebar_layout import sidebar
 
@@ -66,3 +68,5 @@ app.add_page(lambda: index(historial_laboral_page()), route="/historial-laboral"
 app.add_page(lambda: index(requisiciones_page()), route="/requisiciones")
 app.add_page(lambda: index(configuracion_page()), route="/configuracion")
 app.add_page(lambda: index(sedes_page()), route="/sedes")
+app.add_page(login_page, route="/login")
+app.add_page(lambda: index(usuarios_admin_page()), route="/admin/usuarios")

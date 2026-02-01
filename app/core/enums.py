@@ -396,3 +396,33 @@ class NivelContacto(str, Enum):
             'OTRO': 'Otro',
         }
         return descripciones.get(self.value, self.value)
+
+
+# =============================================================================
+# ENUMS DE USUARIO
+# =============================================================================
+# Agregar este bloque a app/core/enums.py antes del cierre del archivo
+
+class RolUsuario(str, Enum):
+    """
+    Roles de usuario en el sistema.
+    
+    - ADMIN: Personal de BUAP con acceso completo
+    - CLIENT: Usuario de empresa proveedora con acceso limitado a sus empresas
+    """
+    ADMIN = 'admin'
+    CLIENT = 'client'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del rol"""
+        descripciones = {
+            'admin': 'Administrador (BUAP)',
+            'client': 'Cliente (Empresa proveedora)'
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def es_admin(self) -> bool:
+        """Indica si el rol tiene privilegios de administrador"""
+        return self == RolUsuario.ADMIN

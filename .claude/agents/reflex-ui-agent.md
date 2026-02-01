@@ -658,6 +658,69 @@ archivo_uploader(
 )
 ```
 
+### 7. rx.select.item con value="" (String Vacío)
+
+Radix UI (la librería de componentes que usa Reflex) **NO permite** que un `<Select.Item>` tenga `value=""`. Radix reserva el string vacío para representar "sin selección" (limpiar el select y mostrar el placeholder). Si un item tuviera `value=""`, sería indistinguible de "nada seleccionado".
+
+```python
+# ❌ INCORRECTO: value="" causa error en Radix UI
+rx.select.root(
+    rx.select.trigger(placeholder="Filtrar por rol"),
+    rx.select.content(
+        rx.select.item("Todos", value=""),      # ⚠️ ERROR: value vacío
+        rx.select.item("Admin", value="ADMIN"),
+        rx.select.item("Usuario", value="USER"),
+    ),
+    value=State.filtro_rol,
+    on_change=State.set_filtro_rol,
+)
+
+# ✅ CORRECTO: Usar valor centinela ("all") y mapear en el State
+rx.select.root(
+    rx.select.trigger(placeholder="Filtrar por rol"),
+    rx.select.content(
+        rx.select.item("Todos", value="all"),   # ✅ Valor centinela
+        rx.select.item("Admin", value="ADMIN"),
+        rx.select.item("Usuario", value="USER"),
+    ),
+    value=State.filtro_rol_select,              # ✅ Usa computed var
+    on_change=State.set_filtro_rol_select,      # ✅ Usa setter que mapea
+)
+```
+
+**Implementación en el State:**
+
+```python
+class MiState(BaseState):
+    # Variable interna (puede ser "" para "todos")
+    filtro_rol: str = ""
+    
+    # Setter que mapea "all" → "" para la lógica interna
+    def set_filtro_rol_select(self, value: str):
+        self.filtro_rol = "" if value == "all" else value
+    
+    # Computed var que mapea "" → "all" para el select
+    @rx.var
+    def filtro_rol_select(self) -> str:
+        return self.filtro_rol if self.filtro_rol else "all"
+    
+    # La lógica de filtrado sigue usando filtro_rol directamente
+    async def cargar_items(self):
+        rol = self.filtro_rol or None  # "" se convierte en None para el servicio
+        items = await mi_service.listar(rol=rol)
+        ...
+```
+
+**¿Por qué este patrón?**
+
+| Capa | Valor "Todos" | Valor específico |
+|------|---------------|------------------|
+| UI (Select) | `"all"` | `"ADMIN"` |
+| State interno | `""` | `"ADMIN"` |
+| Servicio/API | `None` | `"ADMIN"` |
+
+Así el select nunca recibe string vacío, pero la lógica de negocio sigue funcionando con `""` o `None` para representar "sin filtro".
+
 ---
 
 ## ♿ ACCESIBILIDAD (WCAG 2.1 AA)
@@ -771,6 +834,7 @@ from app.presentation.components.common import (
 - [ ] No se recrean componentes que ya existen
 - [ ] `form_input` usa `label=` y `placeholder=` de ejemplo (Ej: ...)
 - [ ] Todos los `rx.cond` tienen ambas ramas
+- [ ] **Ningún `rx.select.item` tiene `value=""`** (usar `"all"` + mapeo en State)
 
 ### Accesibilidad
 

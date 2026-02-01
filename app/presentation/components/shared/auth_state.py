@@ -1,0 +1,514 @@
+"""
+Estado de Autenticación para Reflex.
+
+Este state maneja la sesión del usuario, tokens JWT, y selección de empresa.
+Hereda de BaseState para mantener los helpers de errores y carga.
+
+ARQUITECTURA:
+    rx.State (Reflex)
+        └── BaseState (helpers de errores, loading, etc.)
+                └── AuthState (sesión, usuario, empresas)
+                        └── TuModuloState (hereda auth si necesita protección)
+
+USO EN MÓDULOS QUE REQUIEREN AUTENTICACIÓN:
+    # En lugar de heredar de BaseState:
+    from app.presentation.components.shared.auth_state import AuthState
+
+    class MiModuloProtegidoState(AuthState):
+        # Ahora tienes acceso a:
+        # - self.usuario_actual (dict con perfil)
+        # - self.esta_autenticado (bool)
+        # - self.es_admin (bool)
+        # - self.empresa_actual (dict con empresa seleccionada)
+        pass
+
+USO EN PÁGINAS PARA VERIFICAR AUTH:
+    def mi_pagina_protegida() -> rx.Component:
+        return rx.cond(
+            AuthState.requiere_login & ~AuthState.esta_autenticado,
+            rx.redirect("/login"),
+            contenido_de_la_pagina(),
+        )
+
+NOTA SOBRE DEBUG MODE:
+    Si Config.DEBUG=True, la propiedad `requiere_login` retorna False,
+    permitiendo acceso sin autenticación durante desarrollo.
+"""
+import reflex as rx
+import logging
+from typing import List, Optional
+from uuid import UUID
+
+from app.core.config import Config
+from app.presentation.components.shared.base_state import BaseState
+
+logger = logging.getLogger(__name__)
+
+
+class AuthState(BaseState):
+    """
+    Estado de autenticación que extiende BaseState.
+
+    Proporciona:
+    - Manejo de sesión (tokens JWT)
+    - Información del usuario actual
+    - Selección de empresa activa
+    - Propiedades para verificar permisos
+
+    Los módulos que requieran autenticación deben heredar de este state
+    en lugar de BaseState.
+    """
+
+    # =========================================================================
+    # ESTADO DE SESIÓN
+    # =========================================================================
+
+    # Tokens JWT de Supabase Auth
+    _access_token: str = ""
+    _refresh_token: str = ""
+    _token_expires_at: int = 0
+
+    # Perfil del usuario logueado (dict para serialización en Reflex)
+    usuario_actual: dict = {}
+
+    # Empresa actualmente seleccionada
+    empresa_actual: dict = {}
+
+    # Lista de empresas a las que el usuario tiene acceso
+    empresas_disponibles: List[dict] = []
+
+    # Flag para saber si ya se intentó cargar la sesión
+    _sesion_verificada: bool = False
+
+    # =========================================================================
+    # PROPIEDADES CALCULADAS
+    # =========================================================================
+
+    @rx.var
+    def requiere_login(self) -> bool:
+        """
+        Indica si el sistema requiere autenticación.
+
+        Retorna False si:
+        - DEBUG=True (desarrollo)
+        - SKIP_AUTH=True (testing)
+
+        Usar en páginas para decidir si redirigir a login.
+        """
+        # Verificar si hay método requiere_autenticacion en Config
+        if hasattr(Config, 'requiere_autenticacion'):
+            return Config.requiere_autenticacion()
+        # Fallback: si DEBUG está activo, no requerir login
+        return not getattr(Config, 'DEBUG', False)
+
+    @rx.var
+    def esta_autenticado(self) -> bool:
+        """
+        Indica si hay un usuario con sesión activa.
+
+        Verifica que exista un usuario cargado y un token válido.
+        """
+        tiene_usuario = bool(self.usuario_actual and self.usuario_actual.get('id'))
+        tiene_token = bool(self._access_token)
+        return tiene_usuario and tiene_token
+
+    @rx.var
+    def es_admin(self) -> bool:
+        """
+        Indica si el usuario actual tiene rol de administrador.
+
+        Los admins tienen acceso a todas las empresas y funciones
+        administrativas como gestión de usuarios.
+        """
+        if not self.usuario_actual:
+            return False
+        rol = self.usuario_actual.get('rol', '')
+        return rol == 'admin'
+
+    @rx.var
+    def es_client(self) -> bool:
+        """Indica si el usuario actual es cliente (empresa proveedora)."""
+        if not self.usuario_actual:
+            return False
+        rol = self.usuario_actual.get('rol', '')
+        return rol == 'client'
+
+    @rx.var
+    def nombre_usuario(self) -> str:
+        """Nombre del usuario para mostrar en UI (navbar, sidebar, etc.)."""
+        if not self.usuario_actual:
+            return ""
+        return self.usuario_actual.get('nombre_completo', 'Usuario')
+
+    @rx.var
+    def email_usuario(self) -> str:
+        """Email del usuario actual."""
+        if not self.usuario_actual:
+            return ""
+        return self.usuario_actual.get('email', '')
+
+    @rx.var
+    def id_usuario(self) -> str:
+        """UUID del usuario actual como string."""
+        if not self.usuario_actual:
+            return ""
+        return str(self.usuario_actual.get('id', ''))
+
+    @rx.var
+    def nombre_empresa_actual(self) -> str:
+        """Nombre de la empresa actualmente seleccionada."""
+        if not self.empresa_actual:
+            return "Sin empresa"
+        return self.empresa_actual.get('empresa_nombre', 'Empresa')
+
+    @rx.var
+    def id_empresa_actual(self) -> int:
+        """ID de la empresa actualmente seleccionada."""
+        if not self.empresa_actual:
+            return 0
+        return self.empresa_actual.get('empresa_id', 0)
+
+    @rx.var
+    def tiene_multiples_empresas(self) -> bool:
+        """Indica si el usuario tiene acceso a más de una empresa."""
+        return len(self.empresas_disponibles) > 1
+
+    @rx.var
+    def usuario_activo(self) -> bool:
+        """Indica si el usuario está activo (no deshabilitado)."""
+        if not self.usuario_actual:
+            return False
+        return self.usuario_actual.get('activo', False)
+
+    # =========================================================================
+    # MÉTODOS DE AUTENTICACIÓN
+    # =========================================================================
+
+    async def iniciar_sesion(self, email: str, password: str):
+        """
+        Inicia sesión con email y contraseña.
+
+        Args:
+            email: Email del usuario
+            password: Contraseña
+
+        Returns:
+            rx.redirect a la página principal si es exitoso,
+            rx.toast.error si falla
+
+        Ejemplo de uso en página de login:
+            rx.button(
+                "Iniciar Sesión",
+                on_click=AuthState.iniciar_sesion(
+                    LoginState.email,
+                    LoginState.password
+                )
+            )
+        """
+        self.loading = True
+
+        try:
+            from app.services import user_service
+
+            # Autenticar con el servicio
+            profile, session_data = await user_service.login(email, password)
+
+            # Guardar tokens
+            self._access_token = session_data.get('access_token', '')
+            self._refresh_token = session_data.get('refresh_token', '')
+            self._token_expires_at = session_data.get('expires_at', 0)
+
+            # Guardar perfil como dict
+            self.usuario_actual = profile.model_dump(mode='json')
+
+            # Cargar empresas del usuario
+            await self._cargar_empresas_usuario()
+
+            # Marcar sesión como verificada
+            self._sesion_verificada = True
+
+            logger.info(f"Login exitoso: {email}")
+
+            # Redirigir a página principal
+            return rx.redirect("/")
+
+        except Exception as e:
+            error_msg = str(e)
+            logger.warning(f"Error en login: {error_msg}")
+
+            # Mensajes amigables para errores comunes
+            if "inválid" in error_msg.lower() or "incorrect" in error_msg.lower():
+                return rx.toast.error(
+                    "Email o contraseña incorrectos",
+                    position="top-center"
+                )
+            elif "desactivad" in error_msg.lower() or "inactiv" in error_msg.lower():
+                return rx.toast.error(
+                    "Tu cuenta está desactivada. Contacta al administrador.",
+                    position="top-center"
+                )
+            else:
+                return rx.toast.error(
+                    f"Error al iniciar sesión: {error_msg}",
+                    position="top-center"
+                )
+
+        finally:
+            self.loading = False
+
+    async def cerrar_sesion(self):
+        """
+        Cierra la sesión actual y limpia el estado.
+
+        Redirige a la página de login después de cerrar sesión.
+        """
+        try:
+            from app.services import user_service
+            await user_service.logout()
+        except Exception as e:
+            logger.warning(f"Error en logout del servidor (no crítico): {e}")
+
+        # Limpiar estado local (siempre, aunque falle el servidor)
+        self._limpiar_sesion()
+
+        logger.info("Sesión cerrada")
+        return rx.redirect("/login")
+
+    async def verificar_sesion(self):
+        """
+        Verifica si hay una sesión válida al cargar la aplicación.
+
+        Este método debe llamarse en el on_mount de páginas protegidas
+        o en el layout principal.
+
+        Si el token es válido, carga el perfil del usuario.
+        Si no es válido, limpia la sesión.
+        """
+        # Si ya verificamos, no repetir
+        if self._sesion_verificada:
+            return
+
+        # Si no hay token, no hay nada que verificar
+        if not self._access_token:
+            self._sesion_verificada = True
+            return
+
+        try:
+            from app.services import user_service
+
+            # Validar token con el servicio
+            profile = await user_service.validar_token(self._access_token)
+
+            if profile:
+                # Token válido, actualizar perfil
+                self.usuario_actual = profile.model_dump(mode='json')
+                await self._cargar_empresas_usuario()
+                logger.debug("Sesión verificada correctamente")
+            else:
+                # Token inválido, intentar refrescar
+                await self._refrescar_sesion()
+
+        except Exception as e:
+            logger.warning(f"Error verificando sesión: {e}")
+            self._limpiar_sesion()
+
+        finally:
+            self._sesion_verificada = True
+
+    async def _refrescar_sesion(self):
+        """Intenta refrescar el token de acceso usando el refresh token."""
+        if not self._refresh_token:
+            self._limpiar_sesion()
+            return
+
+        try:
+            from app.services import user_service
+
+            nuevos_tokens = await user_service.refrescar_token(self._refresh_token)
+
+            if nuevos_tokens:
+                self._access_token = nuevos_tokens.get('access_token', '')
+                self._refresh_token = nuevos_tokens.get('refresh_token', '')
+                self._token_expires_at = nuevos_tokens.get('expires_at', 0)
+                logger.debug("Token refrescado exitosamente")
+            else:
+                # No se pudo refrescar, sesión expirada
+                self._limpiar_sesion()
+                logger.info("Sesión expirada, requiere nuevo login")
+
+        except Exception as e:
+            logger.warning(f"Error refrescando token: {e}")
+            self._limpiar_sesion()
+
+    def _limpiar_sesion(self):
+        """Limpia todos los datos de sesión del estado."""
+        self._access_token = ""
+        self._refresh_token = ""
+        self._token_expires_at = 0
+        self.usuario_actual = {}
+        self.empresa_actual = {}
+        self.empresas_disponibles = []
+        self._sesion_verificada = False
+
+    # =========================================================================
+    # GESTIÓN DE EMPRESAS
+    # =========================================================================
+
+    async def _cargar_empresas_usuario(self):
+        """
+        Carga las empresas a las que el usuario tiene acceso.
+
+        Selecciona automáticamente la empresa principal como activa.
+        """
+        if not self.usuario_actual:
+            return
+
+        try:
+            from app.services import user_service
+
+            user_id = UUID(str(self.usuario_actual.get('id')))
+            empresas = await user_service.obtener_empresas_usuario(user_id)
+
+            # Convertir a dict para Reflex
+            self.empresas_disponibles = [e.model_dump(mode='json') for e in empresas]
+
+            # Seleccionar empresa principal (o la primera disponible)
+            empresa_principal = next(
+                (e for e in self.empresas_disponibles if e.get('es_principal')),
+                self.empresas_disponibles[0] if self.empresas_disponibles else None
+            )
+
+            if empresa_principal:
+                self.empresa_actual = empresa_principal
+
+            logger.debug(f"Cargadas {len(self.empresas_disponibles)} empresas para usuario")
+
+        except Exception as e:
+            logger.error(f"Error cargando empresas del usuario: {e}")
+            self.empresas_disponibles = []
+
+    async def cambiar_empresa(self, empresa_id: int):
+        """
+        Cambia la empresa actualmente seleccionada.
+
+        Args:
+            empresa_id: ID de la empresa a seleccionar
+
+        Note:
+            Solo permite seleccionar empresas a las que el usuario tiene acceso.
+        """
+        # Buscar la empresa en las disponibles
+        empresa = next(
+            (e for e in self.empresas_disponibles if e.get('empresa_id') == empresa_id),
+            None
+        )
+
+        if not empresa:
+            return rx.toast.error(
+                "No tienes acceso a esa empresa",
+                position="top-center"
+            )
+
+        self.empresa_actual = empresa
+        logger.info(f"Empresa cambiada a: {empresa.get('empresa_nombre')}")
+
+        return rx.toast.success(
+            f"Empresa cambiada a {empresa.get('empresa_nombre')}",
+            position="top-center"
+        )
+
+    def obtener_empresa_id_para_filtro(self) -> Optional[int]:
+        """
+        Retorna el ID de empresa para filtrar datos.
+
+        - Si es admin: retorna None (ve todas las empresas)
+        - Si es client: retorna el ID de la empresa actual
+
+        Útil en servicios que necesitan filtrar por empresa del usuario.
+        """
+        if self.es_admin:
+            return None  # Admins ven todo
+        return self.id_empresa_actual or None
+
+    # =========================================================================
+    # UTILIDADES PARA PÁGINAS
+    # =========================================================================
+
+    @rx.var
+    def debe_redirigir_login(self) -> bool:
+        """
+        Indica si se debe redirigir a login.
+
+        Combina la verificación de si requiere login Y si no está autenticado.
+        Útil para usar directamente en rx.cond de páginas.
+        """
+        if not self.requiere_login:
+            return False
+        return not self.esta_autenticado
+
+    async def verificar_y_redirigir(self):
+        """
+        Verifica sesión y redirige a login si es necesario.
+
+        Llamar en on_mount de páginas protegidas:
+            async def on_mount(self):
+                resultado = await self.verificar_y_redirigir()
+                if resultado:
+                    return resultado
+                # ... resto del on_mount
+        """
+        await self.verificar_sesion()
+
+        if self.requiere_login and not self.esta_autenticado:
+            return rx.redirect("/login")
+
+        return None
+
+    def puede_acceder_empresa(self, empresa_id: int) -> bool:
+        """
+        Verifica si el usuario puede acceder a una empresa específica.
+
+        Args:
+            empresa_id: ID de la empresa a verificar
+
+        Returns:
+            True si es admin o tiene la empresa asignada
+        """
+        if self.es_admin:
+            return True
+
+        return any(
+            e.get('empresa_id') == empresa_id
+            for e in self.empresas_disponibles
+        )
+
+
+# =============================================================================
+# HELPER PARA PROTEGER PÁGINAS
+# =============================================================================
+
+def pagina_protegida(contenido: rx.Component) -> rx.Component:
+    """
+    Wrapper que protege una página requiriendo autenticación.
+
+    Uso:
+        def mi_pagina() -> rx.Component:
+            return pagina_protegida(
+                rx.box(
+                    rx.text("Contenido protegido"),
+                )
+            )
+
+    Si DEBUG=True, muestra el contenido sin verificar auth.
+    Si DEBUG=False y no hay sesión, redirige a /login.
+    """
+    return rx.cond(
+        AuthState.debe_redirigir_login,
+        # Si debe redirigir, mostrar loading mientras redirige
+        rx.center(
+            rx.spinner(size="3"),
+            height="100vh",
+        ),
+        # Si está autenticado (o no requiere login), mostrar contenido
+        contenido,
+    )
