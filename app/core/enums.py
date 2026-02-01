@@ -293,3 +293,106 @@ class GrupoConfiguracion(str, Enum):
             'ENTREGA': 'Entrega',
         }
         return descripciones.get(self.value, self.value)
+
+
+# =============================================================================
+# ENUMS DE SEDE
+# =============================================================================
+
+class TipoSede(str, Enum):
+    """Clasificación de sedes BUAP"""
+    # Ubicaciones físicas (típicamente es_ubicacion_fisica = True)
+    CAMPUS = 'CAMPUS'
+    COMPLEJO_REGIONAL = 'COMPLEJO_REGIONAL'
+    FACULTAD = 'FACULTAD'
+    PREPARATORIA = 'PREPARATORIA'
+    INSTITUTO = 'INSTITUTO'
+    HOSPITAL = 'HOSPITAL'
+    CENTRO = 'CENTRO'
+    BIBLIOTECA = 'BIBLIOTECA'
+    LIBRERIA = 'LIBRERIA'
+    MUSEO = 'MUSEO'
+    EDIFICIO = 'EDIFICIO'
+    # Unidades administrativas (típicamente es_ubicacion_fisica = False)
+    DIRECCION = 'DIRECCION'
+    COORDINACION = 'COORDINACION'
+    SECRETARIA = 'SECRETARIA'
+    VICERRECTORIA = 'VICERRECTORIA'
+    PROYECTO = 'PROYECTO'
+    UNIDAD = 'UNIDAD'
+    OTRO = 'OTRO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del tipo"""
+        descripciones = {
+            'CAMPUS': 'Campus',
+            'COMPLEJO_REGIONAL': 'Complejo Regional',
+            'FACULTAD': 'Facultad',
+            'PREPARATORIA': 'Preparatoria',
+            'INSTITUTO': 'Instituto',
+            'HOSPITAL': 'Hospital',
+            'CENTRO': 'Centro',
+            'BIBLIOTECA': 'Biblioteca',
+            'LIBRERIA': 'Librería',
+            'MUSEO': 'Museo',
+            'EDIFICIO': 'Edificio',
+            'DIRECCION': 'Dirección',
+            'COORDINACION': 'Coordinación',
+            'SECRETARIA': 'Secretaría',
+            'VICERRECTORIA': 'Vicerrectoría',
+            'PROYECTO': 'Proyecto',
+            'UNIDAD': 'Unidad',
+            'OTRO': 'Otro',
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def prefijo_codigo(self) -> str:
+        """Prefijo para códigos: CAM, FAC, DIR, etc."""
+        prefijos = {
+            'CAMPUS': 'CAM',
+            'COMPLEJO_REGIONAL': 'CRE',
+            'FACULTAD': 'FAC',
+            'PREPARATORIA': 'PRE',
+            'INSTITUTO': 'INS',
+            'HOSPITAL': 'HOS',
+            'CENTRO': 'CEN',
+            'BIBLIOTECA': 'BIB',
+            'LIBRERIA': 'LIB',
+            'MUSEO': 'MUS',
+            'EDIFICIO': 'EDI',
+            'DIRECCION': 'DIR',
+            'COORDINACION': 'COO',
+            'SECRETARIA': 'SEC',
+            'VICERRECTORIA': 'VIC',
+            'PROYECTO': 'PRO',
+            'UNIDAD': 'UNI',
+            'OTRO': 'OTR',
+        }
+        return prefijos.get(self.value, 'OTR')
+
+
+class NivelContacto(str, Enum):
+    """Nivel jerárquico de contactos BUAP"""
+    DIRECTOR = 'DIRECTOR'
+    SUBDIRECTOR = 'SUBDIRECTOR'
+    COORDINADOR = 'COORDINADOR'
+    JEFE_DEPARTAMENTO = 'JEFE_DEPARTAMENTO'
+    ADMINISTRATIVO = 'ADMINISTRATIVO'
+    OPERATIVO = 'OPERATIVO'
+    OTRO = 'OTRO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del nivel"""
+        descripciones = {
+            'DIRECTOR': 'Director',
+            'SUBDIRECTOR': 'Subdirector',
+            'COORDINADOR': 'Coordinador',
+            'JEFE_DEPARTAMENTO': 'Jefe de Departamento',
+            'ADMINISTRATIVO': 'Administrativo',
+            'OPERATIVO': 'Operativo',
+            'OTRO': 'Otro',
+        }
+        return descripciones.get(self.value, self.value)

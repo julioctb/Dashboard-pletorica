@@ -72,6 +72,18 @@ from app.services.requisicion_service import (
     requisicion_service,
 )
 
+# Sede
+from app.services.sede_service import (
+    SedeService,
+    sede_service,
+)
+
+# Contacto BUAP
+from app.services.contacto_buap_service import (
+    ContactoBuapService,
+    contacto_buap_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -107,4 +119,10 @@ __all__ = [
     # Requisicion
     "RequisicionService",
     "requisicion_service",
+    # Sede
+    "SedeService",
+    "sede_service",
+    # Contacto BUAP
+    "ContactoBuapService",
+    "contacto_buap_service",
 ]

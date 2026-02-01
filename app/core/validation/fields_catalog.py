@@ -26,6 +26,7 @@ from .constants import (
     TELEFONO_PATTERN,
     REGISTRO_PATRONAL_LIMPIO_PATTERN,
     CLAVE_CATALOGO_PATTERN,
+    CODIGO_SEDE_PATTERN,
     # Longitudes - Empresas
     NOMBRE_COMERCIAL_MIN,
     NOMBRE_COMERCIAL_MAX,
@@ -53,6 +54,15 @@ from .constants import (
     SEGMENTO_ASIGNACION_MAX,
     SEDE_CAMPUS_MAX,
     POLIZA_DETALLE_MAX,
+    # Longitudes - Sedes
+    CODIGO_SEDE_MAX,
+    NOMBRE_SEDE_MIN,
+    NOMBRE_SEDE_MAX,
+    NOMBRE_CORTO_SEDE_MAX,
+    # Longitudes - Contactos BUAP
+    NOMBRE_CONTACTO_MAX,
+    CARGO_CONTACTO_MAX,
+    EXTENSION_MAX,
 )
 from app.core.error_messages import (
     MSG_EMAIL_FORMATO_INVALIDO,
@@ -576,4 +586,135 @@ CAMPOS_CONTRATO = {
     'segmento_asignacion': CAMPO_SEGMENTO_ASIGNACION,
     'sede_campus': CAMPO_SEDE_CAMPUS,
     'poliza_detalle': CAMPO_POLIZA_DETALLE,
+}
+
+
+# =============================================================================
+# CAMPOS DE SEDE
+# =============================================================================
+
+SECCION_SEDE_INFO = "sede_info"
+SECCION_SEDE_JERARQUIA = "sede_jerarquia"
+SECCION_SEDE_CONTACTO = "sede_contacto"
+
+CAMPO_CODIGO_SEDE = FieldConfig(
+    nombre='Código',
+    requerido=True,
+    max_len=CODIGO_SEDE_MAX,
+    patron=CODIGO_SEDE_PATTERN,
+    patron_error='Formato: PREFIJO-CLAVE (ej: CAM-CU, FAC-MED)',
+    transformar=str.upper,
+    # UI
+    label='Código *',
+    placeholder='Ej: CAM-CU, FAC-MED',
+    hint='Se genera desde tipo + clave',
+    input_type=InputType.TEXT,
+    section=SECCION_SEDE_INFO,
+    order=1,
+    width='half',
+)
+
+CAMPO_NOMBRE_SEDE = FieldConfig(
+    nombre='Nombre',
+    requerido=True,
+    min_len=NOMBRE_SEDE_MIN,
+    max_len=NOMBRE_SEDE_MAX,
+    # UI
+    label='Nombre completo *',
+    placeholder='Ej: Ciudad Universitaria',
+    input_type=InputType.TEXT,
+    section=SECCION_SEDE_INFO,
+    order=2,
+)
+
+CAMPO_NOMBRE_CORTO_SEDE = FieldConfig(
+    nombre='Nombre corto',
+    requerido=False,
+    max_len=NOMBRE_CORTO_SEDE_MAX,
+    # UI
+    label='Nombre corto',
+    placeholder='Ej: CU, Torre Gestión',
+    hint='Alias o abreviatura común',
+    input_type=InputType.TEXT,
+    section=SECCION_SEDE_INFO,
+    order=3,
+    width='half',
+)
+
+CAMPO_DIRECCION_SEDE = FieldConfig(
+    nombre='Dirección',
+    requerido=False,
+    # UI
+    label='Dirección',
+    placeholder='Dirección postal de la sede',
+    input_type=InputType.TEXTAREA,
+    section=SECCION_SEDE_CONTACTO,
+    order=1,
+    rows=2,
+)
+
+CAMPO_NOTAS_SEDE = FieldConfig(
+    nombre='Notas',
+    requerido=False,
+    # UI
+    label='Notas',
+    placeholder='Observaciones adicionales...',
+    input_type=InputType.TEXTAREA,
+    section=SECCION_SEDE_CONTACTO,
+    order=2,
+    rows=3,
+)
+
+CAMPOS_SEDE = {
+    'codigo': CAMPO_CODIGO_SEDE,
+    'nombre': CAMPO_NOMBRE_SEDE,
+    'nombre_corto': CAMPO_NOMBRE_CORTO_SEDE,
+    'direccion': CAMPO_DIRECCION_SEDE,
+    'notas': CAMPO_NOTAS_SEDE,
+}
+
+
+# =============================================================================
+# CAMPOS DE CONTACTO BUAP
+# =============================================================================
+
+CAMPO_NOMBRE_CONTACTO = FieldConfig(
+    nombre='Nombre',
+    requerido=True,
+    min_len=NOMBRE_SEDE_MIN,
+    max_len=NOMBRE_CONTACTO_MAX,
+    # UI
+    label='Nombre completo *',
+    placeholder='Nombre del contacto',
+    input_type=InputType.TEXT,
+    order=1,
+)
+
+CAMPO_CARGO_CONTACTO = FieldConfig(
+    nombre='Cargo',
+    requerido=False,
+    max_len=CARGO_CONTACTO_MAX,
+    # UI
+    label='Cargo',
+    placeholder='Ej: Director General, Coordinador',
+    input_type=InputType.TEXT,
+    order=2,
+)
+
+CAMPO_EXTENSION_CONTACTO = FieldConfig(
+    nombre='Extensión',
+    requerido=False,
+    max_len=EXTENSION_MAX,
+    # UI
+    label='Extensión',
+    placeholder='Ej: 7045',
+    input_type=InputType.TEXT,
+    order=4,
+    width='half',
+)
+
+CAMPOS_CONTACTO_BUAP = {
+    'nombre': CAMPO_NOMBRE_CONTACTO,
+    'cargo': CAMPO_CARGO_CONTACTO,
+    'extension': CAMPO_EXTENSION_CONTACTO,
 }

@@ -28,6 +28,9 @@ from app.core.enums import (
     EstadoRequisicion,
     TipoContratacion,
     GrupoConfiguracion,
+    # Enums de Sede
+    TipoSede,
+    NivelContacto,
 )
 
 # Empresa
@@ -131,6 +134,21 @@ from app.entities.requisicion import (
     TRANSICIONES_VALIDAS,
 )
 
+# Sede
+from app.entities.sede import (
+    Sede,
+    SedeCreate,
+    SedeUpdate,
+    SedeResumen,
+)
+
+# Contacto BUAP
+from app.entities.contacto_buap import (
+    ContactoBuap,
+    ContactoBuapCreate,
+    ContactoBuapUpdate,
+)
+
 # Costo Patronal (si existe)
 try:
     from app.entities.costo_patronal import (
@@ -228,6 +246,17 @@ __all__ = [
     "RequisicionPartidaCreate",
     "RequisicionPartidaUpdate",
     "TRANSICIONES_VALIDAS",
+    # Sede
+    "TipoSede",
+    "NivelContacto",
+    "Sede",
+    "SedeCreate",
+    "SedeUpdate",
+    "SedeResumen",
+    # Contacto BUAP
+    "ContactoBuap",
+    "ContactoBuapCreate",
+    "ContactoBuapUpdate",
     # Costo Patronal
     "ConfiguracionEmpresa",
     "Trabajador",

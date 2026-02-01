@@ -178,3 +178,25 @@ OFICIO_SUFICIENCIA_MAX = 100
 UNIDAD_MEDIDA_MAX = 50
 CLAVE_CONFIGURACION_MAX = 50
 DESCRIPCION_CONFIGURACION_MAX = 255
+
+
+# =============================================================================
+# CONSTANTES DE LONGITUD - SEDES
+# =============================================================================
+
+CODIGO_SEDE_MAX = 20
+NOMBRE_SEDE_MIN = 2
+NOMBRE_SEDE_MAX = 150
+NOMBRE_CORTO_SEDE_MAX = 50
+
+# Patrón de código de sede: PREFIJO-CLAVE (ej: CAM-CU, FAC-MED)
+CODIGO_SEDE_PATTERN = r'^[A-Z]{2,3}-[A-Z0-9]{1,15}$'
+
+
+# =============================================================================
+# CONSTANTES DE LONGITUD - CONTACTOS BUAP
+# =============================================================================
+
+NOMBRE_CONTACTO_MAX = 150
+CARGO_CONTACTO_MAX = 100
+EXTENSION_MAX = 10
