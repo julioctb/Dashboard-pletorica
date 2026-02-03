@@ -712,7 +712,7 @@ class PlazasState(BaseState):
         self.saving = True
         try:
             plaza_id = self.plaza_seleccionada["id"]
-            empleado_id = int(self.empleado_seleccionado_id)
+            empleado_id = self.parse_id(self.empleado_seleccionado_id)
 
             await plaza_service.asignar_empleado(plaza_id, empleado_id)
 

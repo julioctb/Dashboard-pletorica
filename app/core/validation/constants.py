@@ -200,3 +200,19 @@ CODIGO_SEDE_PATTERN = r'^[A-Z]{2,3}-[A-Z0-9]{1,15}$'
 NOMBRE_CONTACTO_MAX = 150
 CARGO_CONTACTO_MAX = 100
 EXTENSION_MAX = 10
+
+
+# =============================================================================
+# CONSTANTES DE LONGITUD - USUARIOS
+# =============================================================================
+
+NOMBRE_COMPLETO_MIN = 3
+NOMBRE_COMPLETO_MAX = 150
+PASSWORD_MIN = 8
+
+# =============================================================================
+# CONSTANTES DE LONGITUD - RESTRICCIONES DE EMPLEADOS
+# =============================================================================
+
+MOTIVO_RESTRICCION_MIN = 10
+MOTIVO_RESTRICCION_MAX = 500

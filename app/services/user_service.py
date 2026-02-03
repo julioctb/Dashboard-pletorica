@@ -73,23 +73,13 @@ class UserService:
 
     def __init__(self):
         """Inicializa el servicio con ambos clientes de Supabase."""
-        # Cliente normal (sujeto a RLS)
-        self.supabase: Client = db_manager.get_client()
+        # Cliente anon para auth de usuario (sign_in, sign_out, tokens)
+        self.supabase: Client = db_manager.get_anon_client()
         self.tabla_profiles = 'user_profiles'
         self.tabla_companies = 'user_companies'
 
-        # Cliente admin (ignora RLS) - solo si está configurado
-        self.supabase_admin: Optional[Client] = None
-        if Config.SUPABASE_SERVICE_KEY:
-            self.supabase_admin = create_client(
-                Config.SUPABASE_URL,
-                Config.SUPABASE_SERVICE_KEY
-            )
-        else:
-            logger.warning(
-                "SUPABASE_SERVICE_KEY no configurada. "
-                "No se podrán crear usuarios desde la aplicación."
-            )
+        # Cliente admin (service_role, ignora RLS) - para crear usuarios y queries de datos
+        self.supabase_admin: Optional[Client] = db_manager.get_client()
 
     # =========================================================================
     # AUTENTICACIÓN
@@ -351,7 +341,7 @@ class UserService:
             DatabaseError: Si hay error de BD
         """
         try:
-            result = self.supabase.table(self.tabla_profiles)\
+            result = self.supabase_admin.table(self.tabla_profiles)\
                 .select('*')\
                 .eq('id', str(user_id))\
                 .execute()
@@ -432,7 +422,7 @@ class UserService:
                 # Nada que actualizar, retornar el profile actual
                 return await self.obtener_por_id(user_id)
 
-            result = self.supabase.table(self.tabla_profiles)\
+            result = self.supabase_admin.table(self.tabla_profiles)\
                 .update(datos_update)\
                 .eq('id', str(user_id))\
                 .execute()
@@ -550,7 +540,7 @@ class UserService:
             Requiere permisos de admin (RLS lo valida).
         """
         try:
-            query = self.supabase.table(self.tabla_profiles).select('*')
+            query = self.supabase_admin.table(self.tabla_profiles).select('*')
 
             if not incluir_inactivos:
                 query = query.eq('activo', True)
@@ -594,7 +584,7 @@ class UserService:
     async def _actualizar_ultimo_acceso(self, user_id: UUID) -> None:
         """Actualiza el timestamp de último acceso."""
         try:
-            self.supabase.table(self.tabla_profiles)\
+            self.supabase_admin.table(self.tabla_profiles)\
                 .update({'ultimo_acceso': datetime.now().isoformat()})\
                 .eq('id', str(user_id))\
                 .execute()
@@ -624,7 +614,7 @@ class UserService:
         """
         try:
             # Query con JOIN a empresas para obtener datos enriquecidos
-            result = self.supabase.table(self.tabla_companies)\
+            result = self.supabase_admin.table(self.tabla_companies)\
                 .select('*, empresas(nombre_comercial, rfc, tipo_empresa, estatus)')\
                 .eq('user_id', str(user_id))\
                 .order('es_principal', desc=True)\
@@ -692,7 +682,7 @@ class UserService:
                 'es_principal': es_principal,
             }
 
-            result = self.supabase.table(self.tabla_companies)\
+            result = self.supabase_admin.table(self.tabla_companies)\
                 .insert(datos)\
                 .execute()
 
@@ -746,7 +736,7 @@ class UserService:
         #     raise BusinessRuleError("El usuario debe tener al menos una empresa asignada")
 
         try:
-            self.supabase.table(self.tabla_companies)\
+            self.supabase_admin.table(self.tabla_companies)\
                 .delete()\
                 .eq('user_id', str(user_id))\
                 .eq('empresa_id', empresa_id)\
@@ -800,7 +790,7 @@ class UserService:
             await self._quitar_principal_actual(user_id)
 
             # Marcar la nueva como principal
-            result = self.supabase.table(self.tabla_companies)\
+            result = self.supabase_admin.table(self.tabla_companies)\
                 .update({'es_principal': True})\
                 .eq('user_id', str(user_id))\
                 .eq('empresa_id', empresa_id)\
@@ -821,7 +811,7 @@ class UserService:
     async def _quitar_principal_actual(self, user_id: UUID) -> None:
         """Quita la marca de principal de todas las empresas del usuario."""
         try:
-            self.supabase.table(self.tabla_companies)\
+            self.supabase_admin.table(self.tabla_companies)\
                 .update({'es_principal': False})\
                 .eq('user_id', str(user_id))\
                 .eq('es_principal', True)\
@@ -862,7 +852,7 @@ class UserService:
             True si tiene acceso, False si no
         """
         try:
-            result = self.supabase.table(self.tabla_companies)\
+            result = self.supabase_admin.table(self.tabla_companies)\
                 .select('id')\
                 .eq('user_id', str(user_id))\
                 .eq('empresa_id', empresa_id)\

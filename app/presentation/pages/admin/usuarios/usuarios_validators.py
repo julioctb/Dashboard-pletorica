@@ -2,14 +2,17 @@
 Validadores de formulario para gestion de usuarios.
 
 Funciones puras que retornan mensaje de error o cadena vacia.
+Sincronizado con app/entities/user_profile.py.
 """
 import re
 
-EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-TELEFONO_DIGITOS = 10
-NOMBRE_MIN = 3
-NOMBRE_MAX = 150
-PASSWORD_MIN = 8
+from app.core.validation.constants import (
+    EMAIL_PATTERN,
+    TELEFONO_DIGITOS,
+    NOMBRE_COMPLETO_MIN as NOMBRE_MIN,
+    NOMBRE_COMPLETO_MAX as NOMBRE_MAX,
+    PASSWORD_MIN,
+)
 
 
 def validar_email(email: str) -> str:

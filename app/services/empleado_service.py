@@ -14,7 +14,8 @@ IMPORTANTE: Este servicio registra automáticamente los movimientos en historial
 """
 import logging
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime, timezone
+from uuid import UUID
 
 from app.entities.empleado import (
     Empleado,
@@ -22,7 +23,9 @@ from app.entities.empleado import (
     EmpleadoUpdate,
     EmpleadoResumen,
 )
-from app.core.enums import EstatusEmpleado, MotivoBaja
+from app.entities.empleado_restriccion_log import EmpleadoRestriccionLogResumen
+from app.core.enums import EstatusEmpleado, MotivoBaja, AccionRestriccion
+from app.core.validation.constants import MOTIVO_RESTRICCION_MIN
 from app.repositories.empleado_repository import SupabaseEmpleadoRepository
 from app.core.exceptions import (
     NotFoundError,
@@ -112,8 +115,14 @@ class EmpleadoService:
             BusinessRuleError: Si la empresa no es válida
             DatabaseError: Si hay error de BD
         """
-        # Verificar que el CURP no exista
-        if await self.repository.existe_curp(empleado_create.curp):
+        # Verificar CURP: restriccion o duplicado
+        empleado_existente = await self.repository.obtener_por_curp(empleado_create.curp)
+        if empleado_existente:
+            if empleado_existente.is_restricted:
+                raise BusinessRuleError(
+                    f"El empleado con CURP {empleado_create.curp} tiene restricciones "
+                    f"en el sistema. Contacte al administrador de BUAP para mas informacion."
+                )
             raise DuplicateError(
                 f"Empleado con CURP {empleado_create.curp} ya existe",
                 field="curp",
@@ -294,6 +303,88 @@ class EmpleadoService:
             )
         except Exception as e:
             logger.warning(f"Error registrando suspensión en historial: {e}")
+
+        return empleado_actualizado
+
+    async def reingresar(
+        self,
+        empleado_id: int,
+        nueva_empresa_id: int,
+        datos_actualizados: Optional[EmpleadoUpdate] = None
+    ) -> Empleado:
+        """
+        Reingresa un empleado existente a una nueva empresa.
+
+        El empleado ya existe en el sistema (por CURP). Se cambia su empresa_id,
+        se reactiva si estaba inactivo, y se registra REINGRESO en historial.
+
+        Args:
+            empleado_id: ID del empleado existente
+            nueva_empresa_id: ID de la empresa destino
+            datos_actualizados: Datos opcionales a actualizar (rfc, nss, telefono, etc.)
+
+        Returns:
+            Empleado actualizado con nueva empresa
+
+        Raises:
+            NotFoundError: Si el empleado no existe
+            BusinessRuleError: Si el empleado esta restringido, o ya esta activo
+                en la misma empresa, o la empresa no es valida
+            DatabaseError: Si hay error de BD
+        """
+        empleado = await self.repository.obtener_por_id(empleado_id)
+
+        # Verificar restriccion
+        if empleado.is_restricted:
+            raise BusinessRuleError(
+                f"El empleado con CURP {empleado.curp} tiene restricciones "
+                f"en el sistema. Contacte al administrador de BUAP para mas informacion."
+            )
+
+        # Verificar que no este activo en la misma empresa
+        if (
+            empleado.estatus == EstatusEmpleado.ACTIVO
+            and empleado.empresa_id == nueva_empresa_id
+        ):
+            raise BusinessRuleError(
+                f"El empleado {empleado.clave} ya esta activo en esta empresa"
+            )
+
+        # Validar la nueva empresa
+        await self._validar_empresa(nueva_empresa_id)
+
+        # Guardar empresa anterior para historial
+        empresa_anterior_id = empleado.empresa_id
+
+        # Cambiar empresa
+        empleado.empresa_id = nueva_empresa_id
+
+        # Aplicar datos actualizados si se proporcionan
+        if datos_actualizados:
+            update_data = datos_actualizados.model_dump(exclude_unset=True)
+            for campo, valor in update_data.items():
+                if valor is not None:
+                    setattr(empleado, campo, valor)
+
+        # Activar si estaba inactivo o suspendido
+        if empleado.estatus != EstatusEmpleado.ACTIVO:
+            empleado.estatus = EstatusEmpleado.ACTIVO
+            empleado.fecha_baja = None
+            empleado.motivo_baja = None
+
+        empleado_actualizado = await self.repository.actualizar(empleado)
+
+        # Registrar reingreso en historial laboral
+        try:
+            historial_service = _get_historial_service()
+            await historial_service.registrar_reingreso(
+                empleado_id=empleado_id,
+                empresa_anterior_id=empresa_anterior_id,
+                plaza_id=None,
+                notas=f"Reingreso a empresa {nueva_empresa_id} desde empresa {empresa_anterior_id}"
+            )
+        except Exception as e:
+            logger.warning(f"Error registrando reingreso en historial: {e}")
 
         return empleado_actualizado
 
@@ -504,6 +595,223 @@ class EmpleadoService:
             raise BusinessRuleError(
                 "Solo empresas de tipo NOMINA pueden tener empleados"
             )
+
+    # =========================================================================
+    # RESTRICCIONES DE EMPLEADOS
+    # =========================================================================
+
+    async def restringir_empleado(
+        self,
+        empleado_id: int,
+        motivo: str,
+        admin_user_id: UUID,
+        notas: Optional[str] = None
+    ) -> Empleado:
+        """
+        Restringe un empleado. Solo administradores BUAP pueden ejecutar esto.
+
+        Args:
+            empleado_id: ID del empleado a restringir
+            motivo: Razon de la restriccion (obligatorio, min 10 caracteres)
+            admin_user_id: UUID del admin que restringe
+            notas: Observaciones adicionales (opcional)
+
+        Returns:
+            Empleado actualizado con restriccion aplicada
+
+        Raises:
+            NotFoundError: Si el empleado no existe
+            BusinessRuleError: Si ya esta restringido o si no es admin
+        """
+        if not await self._es_admin(admin_user_id):
+            raise BusinessRuleError("Solo administradores BUAP pueden restringir empleados")
+
+        empleado = await self.obtener_por_id(empleado_id)
+
+        if empleado.is_restricted:
+            raise BusinessRuleError(
+                f"El empleado {empleado.clave} ya tiene una restriccion activa"
+            )
+
+        if not motivo or len(motivo.strip()) < MOTIVO_RESTRICCION_MIN:
+            raise BusinessRuleError(f"El motivo debe tener al menos {MOTIVO_RESTRICCION_MIN} caracteres")
+
+        # Aplicar restriccion
+        ahora = datetime.now(timezone.utc)
+        empleado.is_restricted = True
+        empleado.restriction_reason = motivo.strip()
+        empleado.restricted_at = ahora
+        empleado.restricted_by = admin_user_id
+
+        empleado_actualizado = await self.repository.actualizar(empleado)
+
+        # Registrar en log
+        await self._registrar_log_restriccion(
+            empleado_id=empleado_id,
+            accion=AccionRestriccion.RESTRICCION,
+            motivo=motivo.strip(),
+            ejecutado_por=admin_user_id,
+            notas=notas
+        )
+
+        logger.info(
+            f"Empleado {empleado.clave} restringido por admin {admin_user_id}. "
+            f"Motivo: {motivo[:50]}..."
+        )
+
+        return empleado_actualizado
+
+    async def liberar_empleado(
+        self,
+        empleado_id: int,
+        motivo: str,
+        admin_user_id: UUID,
+        notas: Optional[str] = None
+    ) -> Empleado:
+        """
+        Libera la restriccion de un empleado. Solo administradores BUAP.
+
+        Args:
+            empleado_id: ID del empleado a liberar
+            motivo: Razon de la liberacion (obligatorio, min 10 caracteres)
+            admin_user_id: UUID del admin que libera
+            notas: Observaciones adicionales (opcional)
+
+        Returns:
+            Empleado actualizado sin restriccion
+
+        Raises:
+            NotFoundError: Si el empleado no existe
+            BusinessRuleError: Si no esta restringido o si no es admin
+        """
+        if not await self._es_admin(admin_user_id):
+            raise BusinessRuleError("Solo administradores BUAP pueden liberar empleados")
+
+        empleado = await self.obtener_por_id(empleado_id)
+
+        if not empleado.is_restricted:
+            raise BusinessRuleError(
+                f"El empleado {empleado.clave} no tiene restriccion activa"
+            )
+
+        if not motivo or len(motivo.strip()) < 10:
+            raise BusinessRuleError("El motivo de liberacion debe tener al menos 10 caracteres")
+
+        # Limpiar restriccion
+        empleado.is_restricted = False
+        empleado.restriction_reason = None
+        empleado.restricted_at = None
+        empleado.restricted_by = None
+
+        empleado_actualizado = await self.repository.actualizar(empleado)
+
+        # Registrar en log
+        await self._registrar_log_restriccion(
+            empleado_id=empleado_id,
+            accion=AccionRestriccion.LIBERACION,
+            motivo=motivo.strip(),
+            ejecutado_por=admin_user_id,
+            notas=notas
+        )
+
+        logger.info(
+            f"Empleado {empleado.clave} liberado por admin {admin_user_id}. "
+            f"Motivo: {motivo[:50]}..."
+        )
+
+        return empleado_actualizado
+
+    async def obtener_historial_restricciones(
+        self,
+        empleado_id: int,
+        admin_user_id: UUID
+    ) -> List[EmpleadoRestriccionLogResumen]:
+        """
+        Obtiene el historial de restricciones de un empleado.
+        Solo administradores pueden ver esta informacion.
+
+        Args:
+            empleado_id: ID del empleado
+            admin_user_id: UUID del admin solicitante
+
+        Returns:
+            Lista de registros ordenados por fecha descendente
+
+        Raises:
+            BusinessRuleError: Si no es admin
+            NotFoundError: Si el empleado no existe
+        """
+        if not await self._es_admin(admin_user_id):
+            raise BusinessRuleError("Solo administradores pueden ver el historial de restricciones")
+
+        # Verificar que el empleado existe
+        await self.obtener_por_id(empleado_id)
+
+        from app.database import db_manager
+        supabase = db_manager.get_client()
+
+        result = supabase.table('empleado_restricciones_log')\
+            .select('*, user_profiles(nombre_completo)')\
+            .eq('empleado_id', empleado_id)\
+            .order('fecha', desc=True)\
+            .execute()
+
+        return [
+            EmpleadoRestriccionLogResumen(
+                id=r['id'],
+                empleado_id=r['empleado_id'],
+                accion=r['accion'],
+                motivo=r['motivo'],
+                fecha=r['fecha'],
+                ejecutado_por_nombre=r.get('user_profiles', {}).get('nombre_completo', 'Desconocido'),
+                notas=r.get('notas')
+            )
+            for r in result.data
+        ]
+
+    # =========================================================================
+    # HELPERS PRIVADOS (RESTRICCIONES)
+    # =========================================================================
+
+    async def _es_admin(self, user_id: UUID) -> bool:
+        """Verifica si un usuario tiene rol de admin."""
+        try:
+            from app.database import db_manager
+            supabase = db_manager.get_client()
+
+            result = supabase.table('user_profiles')\
+                .select('rol, activo')\
+                .eq('id', str(user_id))\
+                .single()\
+                .execute()
+
+            if result.data:
+                return result.data['rol'] == 'admin' and result.data['activo']
+            return False
+        except Exception:
+            return False
+
+    async def _registrar_log_restriccion(
+        self,
+        empleado_id: int,
+        accion: AccionRestriccion,
+        motivo: str,
+        ejecutado_por: UUID,
+        notas: Optional[str] = None
+    ) -> None:
+        """Registra un evento en el log de restricciones."""
+        from app.database import db_manager
+        supabase = db_manager.get_client()
+
+        datos = {
+            'empleado_id': empleado_id,
+            'accion': accion.value if isinstance(accion, AccionRestriccion) else accion,
+            'motivo': motivo,
+            'ejecutado_por': str(ejecutado_por),
+            'notas': notas
+        }
+
+        supabase.table('empleado_restricciones_log').insert(datos).execute()
 
 
 # Singleton del servicio para uso global

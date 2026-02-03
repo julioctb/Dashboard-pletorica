@@ -11,7 +11,6 @@ from app.presentation.components.shared.base_state import BaseState
 from app.presentation.constants import FILTRO_TODOS
 from app.services.historial_laboral_service import historial_laboral_service
 from app.core.enums import TipoMovimiento
-from app.core.exceptions import DatabaseError
 
 
 class HistorialLaboralState(BaseState):
@@ -116,13 +115,11 @@ class HistorialLaboralState(BaseState):
 
     async def cargar_historial(self):
         """Carga el historial con filtros"""
-        self.loading = True
-        try:
-            # Preparar filtros
+
+        async def _cargar():
             empleado_id = int(self.filtro_empleado_id) if self.filtro_empleado_id else None
             estatus = self.filtro_estatus if self.filtro_estatus != FILTRO_TODOS else None
 
-            # Obtener historial
             registros = await historial_laboral_service.obtener_todos(
                 empleado_id=empleado_id,
                 estatus=estatus,
@@ -130,18 +127,10 @@ class HistorialLaboralState(BaseState):
                 offset=0
             )
 
-            # Convertir a dict
             self.historial = [r.model_dump() if hasattr(r, 'model_dump') else r for r in registros]
             self.total_registros = len(self.historial)
 
-        except DatabaseError as e:
-            self.mostrar_mensaje(f"Error cargando historial: {e}", "error")
-            self.historial = []
-        except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {e}", "error")
-            self.historial = []
-        finally:
-            self.loading = False
+        await self.ejecutar_carga(_cargar, "al cargar historial")
 
     async def aplicar_filtros(self):
         """Aplica filtros y recarga"""

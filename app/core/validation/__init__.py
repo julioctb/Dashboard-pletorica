@@ -225,6 +225,13 @@ from .constants import (
     NOMBRE_CONTACTO_MAX,
     CARGO_CONTACTO_MAX,
     EXTENSION_MAX,
+    # Longitudes - Usuarios
+    NOMBRE_COMPLETO_MIN,
+    NOMBRE_COMPLETO_MAX,
+    PASSWORD_MIN,
+    # Longitudes - Restricciones
+    MOTIVO_RESTRICCION_MIN,
+    MOTIVO_RESTRICCION_MAX,
 )
 
 __all__ = [
@@ -389,6 +396,13 @@ __all__ = [
     "NOMBRE_CONTACTO_MAX",
     "CARGO_CONTACTO_MAX",
     "EXTENSION_MAX",
+    # Longitudes - Usuarios
+    "NOMBRE_COMPLETO_MIN",
+    "NOMBRE_COMPLETO_MAX",
+    "PASSWORD_MIN",
+    # Longitudes - Restricciones
+    "MOTIVO_RESTRICCION_MIN",
+    "MOTIVO_RESTRICCION_MAX",
     # Secciones - Sedes
     "SECCION_SEDE_INFO",
     "SECCION_SEDE_JERARQUIA",

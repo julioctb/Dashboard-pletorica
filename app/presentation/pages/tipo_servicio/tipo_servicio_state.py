@@ -329,39 +329,26 @@ class TipoServicioState(BaseState):
         if not self.tipo_seleccionado:
             return
 
-        self.saving = True
-        try:
-            await tipo_servicio_service.eliminar(self.tipo_seleccionado["id"])
+        nombre = self.tipo_seleccionado["nombre"]
+        tipo_id = self.tipo_seleccionado["id"]
 
+        async def _on_exito():
             self.cerrar_confirmar_eliminar()
             await self.cargar_tipos()
 
-            return rx.toast.success(
-                f"Tipo '{self.tipo_seleccionado['nombre']}' eliminado",
-                position="top-center",
-                duration=3000
-            )
-
-        except Exception as e:
-            self.manejar_error(e, "al eliminar tipo")
-        finally:
-            self.finalizar_guardado()
-            self.cerrar_confirmar_eliminar()
+        return await self.ejecutar_guardado(
+            operacion=lambda: tipo_servicio_service.eliminar(tipo_id),
+            mensaje_exito=f"Tipo '{nombre}' eliminado",
+            on_exito=_on_exito,
+        )
 
     async def activar_tipo(self, tipo: dict):
         """Activar un tipo inactivo"""
-        try:
-            await tipo_servicio_service.activar(tipo["id"])
-            await self.cargar_tipos()
-
-            return rx.toast.success(
-                f"Tipo '{tipo['nombre']}' activado",
-                position="top-center",
-                duration=3000
-            )
-
-        except Exception as e:
-            self.manejar_error(e, "al activar tipo")
+        return await self.ejecutar_guardado(
+            operacion=lambda: tipo_servicio_service.activar(tipo["id"]),
+            mensaje_exito=f"Tipo '{tipo['nombre']}' activado",
+            on_exito=self.cargar_tipos,
+        )
 
     # ========================
     # HELPERS PRIVADOS

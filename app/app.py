@@ -27,6 +27,7 @@ from .presentation.portal.pages.portal_dashboard import portal_dashboard_page
 from .presentation.portal.pages.mi_empresa import mi_empresa_page
 from .presentation.portal.pages.mis_empleados import mis_empleados_page
 from .presentation.portal.pages.mis_contratos import mis_contratos_page
+from .presentation.portal.pages.alta_masiva import alta_masiva_page
 
 #se dibuja el layout para todas las paginas
 def index(content: rx.Component) -> rx.Component:
@@ -83,3 +84,4 @@ app.add_page(lambda: portal_index(portal_dashboard_page()), route="/portal")
 app.add_page(lambda: portal_index(mi_empresa_page()), route="/portal/mi-empresa")
 app.add_page(lambda: portal_index(mis_empleados_page()), route="/portal/empleados")
 app.add_page(lambda: portal_index(mis_contratos_page()), route="/portal/contratos")
+app.add_page(lambda: portal_index(alta_masiva_page()), route="/portal/alta-masiva")

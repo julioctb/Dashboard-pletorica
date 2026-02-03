@@ -194,3 +194,91 @@ class BaseState(rx.State):
     def finalizar_carga(self):
         """Finaliza estado de carga (loading=False)"""
         self.loading = False
+
+    # ========================
+    # CONVERSIÓN DE IDS
+    # ========================
+    @staticmethod
+    def parse_id(value: str) -> Optional[int]:
+        """
+        Convierte un ID de string (rx.select) a int para servicios.
+
+        rx.select requiere valores string, pero los servicios esperan int.
+        Este helper centraliza la conversión para evitar int() dispersos.
+
+        Args:
+            value: ID como string desde un rx.select
+
+        Returns:
+            int si value es no vacío, None si vacío/falsy
+        """
+        return int(value) if value else None
+
+    # ========================
+    # OPERACIONES CRUD GENÉRICAS
+    # ========================
+    async def ejecutar_guardado(
+        self,
+        operacion,
+        mensaje_exito: str,
+        on_exito=None,
+    ):
+        """
+        Ejecuta una operación de guardado con manejo de errores estándar.
+
+        Patrón: saving=True → operación → toast success → on_exito → saving=False
+        En caso de error: toast error → saving=False
+
+        Args:
+            operacion: Callable async que ejecuta la operación (crear, actualizar, etc.)
+            mensaje_exito: Mensaje para el toast de éxito
+            on_exito: Callable async opcional a ejecutar tras éxito (cerrar modal, recargar, etc.)
+
+        Returns:
+            rx.toast.success en éxito, rx.toast.error en fallo
+        """
+        self.saving = True
+        try:
+            resultado = await operacion()
+            if on_exito:
+                await on_exito()
+            return rx.toast.success(mensaje_exito, position="top-center")
+        except (DuplicateError, NotFoundError, BusinessRuleError, ValidationError) as e:
+            return rx.toast.error(str(e), position="top-center")
+        except DatabaseError as e:
+            return rx.toast.error(
+                f"Error de base de datos: {str(e)}", position="top-center"
+            )
+        except Exception as e:
+            return rx.toast.error(
+                f"Error inesperado: {str(e)}", position="top-center"
+            )
+        finally:
+            self.saving = False
+
+    async def ejecutar_carga(
+        self,
+        operacion,
+        contexto: str = "",
+    ):
+        """
+        Ejecuta una operación de carga con manejo de loading y errores.
+
+        Patrón: loading=True → operación → loading=False
+        En caso de error: manejar_error → loading=False
+
+        Args:
+            operacion: Callable async que carga los datos
+            contexto: Descripción para el mensaje de error
+
+        Returns:
+            Resultado de la operación, o None si falla
+        """
+        self.loading = True
+        try:
+            return await operacion()
+        except Exception as e:
+            self.manejar_error(e, contexto)
+            return None
+        finally:
+            self.loading = False

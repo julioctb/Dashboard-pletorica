@@ -234,7 +234,7 @@ class UsuariosAdminState(AuthState):
     @rx.var
     def opciones_empresas_disponibles(self) -> List[dict]:
         """Empresas que se pueden asignar (no asignadas al usuario)."""
-        ids_asignadas = {e.get("empresa_id") for e in self.empresas_usuario}
+        ids_asignadas = {str(e.get("empresa_id")) for e in self.empresas_usuario}
         return [
             e for e in self.todas_empresas
             if e.get("id") not in ids_asignadas
@@ -284,7 +284,7 @@ class UsuariosAdminState(AuthState):
             empresas = await empresa_service.obtener_todas(incluir_inactivas=False)
             self.todas_empresas = [
                 {
-                    "id": e.id,
+                    "id": str(e.id),
                     "nombre_comercial": e.nombre_comercial,
                     "rfc": e.rfc,
                 }
@@ -377,31 +377,22 @@ class UsuariosAdminState(AuthState):
         if not self.usuario_seleccionado:
             return
 
-        self.saving = True
-        try:
-            user_id = UUID(str(self.usuario_seleccionado["id"]))
+        user_id = UUID(str(self.usuario_seleccionado["id"]))
+        datos = UserProfileUpdate(
+            nombre_completo=self.form_edit_nombre_completo.strip(),
+            telefono=self.form_edit_telefono.strip() if self.form_edit_telefono.strip() else None,
+            rol=self.form_edit_rol,
+        )
 
-            datos = UserProfileUpdate(
-                nombre_completo=self.form_edit_nombre_completo.strip(),
-                telefono=self.form_edit_telefono.strip() if self.form_edit_telefono.strip() else None,
-                rol=self.form_edit_rol,
-            )
-
-            await user_service.actualizar_perfil(user_id, datos)
-
+        async def _on_exito():
             self.cerrar_modal_editar()
             await self.cargar_usuarios()
 
-            return rx.toast.success(
-                f"Usuario actualizado exitosamente",
-                position="top-center",
-                duration=3000,
-            )
-
-        except Exception as e:
-            self.manejar_error(e, "al editar usuario")
-        finally:
-            self.saving = False
+        return await self.ejecutar_guardado(
+            operacion=lambda: user_service.actualizar_perfil(user_id, datos),
+            mensaje_exito="Usuario actualizado exitosamente",
+            on_exito=_on_exito,
+        )
 
     # ========================
     # ACTIVAR / DESACTIVAR
@@ -426,40 +417,26 @@ class UsuariosAdminState(AuthState):
         if not self.usuario_seleccionado:
             return
 
-        self.saving = True
-        try:
-            user_id = UUID(str(self.usuario_seleccionado["id"]))
-            await user_service.desactivar_usuario(user_id)
+        user_id = UUID(str(self.usuario_seleccionado["id"]))
+        nombre = self.usuario_seleccionado.get("nombre_completo", "")
 
-            nombre = self.usuario_seleccionado.get("nombre_completo", "")
+        async def _on_exito():
             self.cerrar_confirmar_desactivar()
             await self.cargar_usuarios()
 
-            return rx.toast.success(
-                f"Usuario '{nombre}' desactivado",
-                position="top-center",
-                duration=3000,
-            )
-
-        except Exception as e:
-            self.manejar_error(e, "al desactivar usuario")
-        finally:
-            self.saving = False
+        return await self.ejecutar_guardado(
+            operacion=lambda: user_service.desactivar_usuario(user_id),
+            mensaje_exito=f"Usuario '{nombre}' desactivado",
+            on_exito=_on_exito,
+        )
 
     async def activar_usuario_accion(self, user_id: str):
         """Activa un usuario inactivo."""
-        try:
-            await user_service.activar_usuario(UUID(user_id))
-            await self.cargar_usuarios()
-
-            return rx.toast.success(
-                "Usuario activado",
-                position="top-center",
-                duration=3000,
-            )
-
-        except Exception as e:
-            self.manejar_error(e, "al activar usuario")
+        return await self.ejecutar_guardado(
+            operacion=lambda: user_service.activar_usuario(UUID(user_id)),
+            mensaje_exito="Usuario activado",
+            on_exito=self.cargar_usuarios,
+        )
 
     # ========================
     # GESTION DE EMPRESAS
@@ -483,74 +460,53 @@ class UsuariosAdminState(AuthState):
         if not self.usuario_seleccionado or not self.form_empresa_id:
             return
 
-        self.saving = True
-        try:
-            user_id = UUID(str(self.usuario_seleccionado["id"]))
-            empresa_id = int(self.form_empresa_id)
-            # Primera empresa asignada es principal
-            es_principal = len(self.empresas_usuario) == 0
+        user_id = UUID(str(self.usuario_seleccionado["id"]))
+        empresa_id = self.parse_id(self.form_empresa_id)
+        es_principal = len(self.empresas_usuario) == 0
 
-            await user_service.asignar_empresa(user_id, empresa_id, es_principal)
+        async def _on_exito():
             await self._cargar_empresas_usuario(str(self.usuario_seleccionado["id"]))
             self.form_empresa_id = ""
-
-            # Recargar listado para actualizar contador
             await self.cargar_usuarios()
 
-            return rx.toast.success(
-                "Empresa asignada",
-                position="top-center",
-                duration=2000,
-            )
-
-        except Exception as e:
-            self.manejar_error(e, "al asignar empresa")
-        finally:
-            self.saving = False
+        return await self.ejecutar_guardado(
+            operacion=lambda: user_service.asignar_empresa(user_id, empresa_id, es_principal),
+            mensaje_exito="Empresa asignada",
+            on_exito=_on_exito,
+        )
 
     async def quitar_empresa(self, empresa_id: int):
         """Quita una empresa del usuario seleccionado."""
         if not self.usuario_seleccionado:
             return
 
-        self.saving = True
-        try:
-            user_id = UUID(str(self.usuario_seleccionado["id"]))
-            await user_service.quitar_empresa(user_id, empresa_id)
-            await self._cargar_empresas_usuario(str(self.usuario_seleccionado["id"]))
+        user_id = UUID(str(self.usuario_seleccionado["id"]))
 
-            # Recargar listado para actualizar contador
+        async def _on_exito():
+            await self._cargar_empresas_usuario(str(self.usuario_seleccionado["id"]))
             await self.cargar_usuarios()
 
-            return rx.toast.success(
-                "Empresa removida",
-                position="top-center",
-                duration=2000,
-            )
-
-        except Exception as e:
-            self.manejar_error(e, "al quitar empresa")
-        finally:
-            self.saving = False
+        return await self.ejecutar_guardado(
+            operacion=lambda: user_service.quitar_empresa(user_id, empresa_id),
+            mensaje_exito="Empresa removida",
+            on_exito=_on_exito,
+        )
 
     async def hacer_principal(self, empresa_id: int):
         """Cambia la empresa principal del usuario."""
         if not self.usuario_seleccionado:
             return
 
-        try:
-            user_id = UUID(str(self.usuario_seleccionado["id"]))
-            await user_service.cambiar_empresa_principal(user_id, empresa_id)
+        user_id = UUID(str(self.usuario_seleccionado["id"]))
+
+        async def _on_exito():
             await self._cargar_empresas_usuario(str(self.usuario_seleccionado["id"]))
 
-            return rx.toast.success(
-                "Empresa principal actualizada",
-                position="top-center",
-                duration=2000,
-            )
-
-        except Exception as e:
-            self.manejar_error(e, "al cambiar empresa principal")
+        return await self.ejecutar_guardado(
+            operacion=lambda: user_service.cambiar_empresa_principal(user_id, empresa_id),
+            mensaje_exito="Empresa principal actualizada",
+            on_exito=_on_exito,
+        )
 
     # ========================
     # HELPERS PRIVADOS

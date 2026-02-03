@@ -33,6 +33,7 @@ PORTAL_NAVIGATION = [
         "items": [
             {"text": "Datos Empresa", "icon": "building-2", "href": "/portal/mi-empresa"},
             {"text": "Empleados", "icon": "users", "href": "/portal/empleados"},
+            {"text": "Alta Masiva", "icon": "upload", "href": "/portal/alta-masiva"},
         ],
     },
     {

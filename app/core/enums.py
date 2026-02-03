@@ -160,6 +160,20 @@ class GeneroEmpleado(str, Enum):
         return descripciones.get(self.value, self.value)
 
 
+class AccionRestriccion(str, Enum):
+    """Tipos de accion en el log de restricciones de empleados"""
+    RESTRICCION = 'RESTRICCION'
+    LIBERACION = 'LIBERACION'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'RESTRICCION': 'Restriccion aplicada',
+            'LIBERACION': 'Restriccion liberada'
+        }
+        return descripciones.get(self.value, self.value)
+
+
 class MotivoBaja(str, Enum):
     """Motivos de baja de empleado"""
     RENUNCIA = 'RENUNCIA'
@@ -212,6 +226,7 @@ class TipoMovimiento(str, Enum):
     SUSPENSION = 'SUSPENSION'
     REACTIVACION = 'REACTIVACION'
     BAJA = 'BAJA'
+    REINGRESO = 'REINGRESO'
 
     @property
     def descripcion(self) -> str:
@@ -222,7 +237,8 @@ class TipoMovimiento(str, Enum):
             'CAMBIO_PLAZA': 'Cambio de plaza',
             'SUSPENSION': 'Suspensión',
             'REACTIVACION': 'Reactivación',
-            'BAJA': 'Baja del sistema'
+            'BAJA': 'Baja del sistema',
+            'REINGRESO': 'Reingreso a otra empresa'
         }
         return descripciones.get(self.value, self.value)
 

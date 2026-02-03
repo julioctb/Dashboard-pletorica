@@ -87,6 +87,27 @@ from app.services.contacto_buap_service import (
 # User (Autenticación y Perfiles)
 from app.services.user_service import user_service
 
+# Alta Masiva
+from app.services.alta_masiva_parser import (
+    AltaMasivaParser,
+    alta_masiva_parser,
+)
+
+from app.services.alta_masiva_service import (
+    AltaMasivaService,
+    alta_masiva_service,
+)
+
+from app.services.plantilla_service import (
+    PlantillaService,
+    plantilla_service,
+)
+
+from app.services.reporte_alta_masiva_service import (
+    ReporteAltaMasivaService,
+    reporte_alta_masiva_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -129,5 +150,14 @@ __all__ = [
     "ContactoBuapService",
     "contacto_buap_service",
     # User (Autenticación y Perfiles)
-    "user_service"
+    "user_service",
+    # Alta Masiva
+    "AltaMasivaParser",
+    "alta_masiva_parser",
+    "AltaMasivaService",
+    "alta_masiva_service",
+    "PlantillaService",
+    "plantilla_service",
+    "ReporteAltaMasivaService",
+    "reporte_alta_masiva_service",
 ]

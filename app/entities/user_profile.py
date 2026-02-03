@@ -16,16 +16,16 @@ from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
+import re
+
 from app.core.enums import RolUsuario
-from app.core.validation.constants import TELEFONO_DIGITOS
-
-
-# =============================================================================
-# CONSTANTES DE VALIDACIÓN
-# =============================================================================
-
-NOMBRE_COMPLETO_MIN = 3
-NOMBRE_COMPLETO_MAX = 150
+from app.core.validation.constants import (
+    TELEFONO_DIGITOS,
+    EMAIL_PATTERN,
+    NOMBRE_COMPLETO_MIN,
+    NOMBRE_COMPLETO_MAX,
+    PASSWORD_MIN,
+)
 
 
 # =============================================================================
@@ -207,8 +207,11 @@ class UserProfileCreate(BaseModel):
     @field_validator('email')
     @classmethod
     def validar_email(cls, v: str) -> str:
-        """Normaliza el email a minúsculas."""
-        return v.strip().lower()
+        """Normaliza y valida el formato de email."""
+        v = v.strip().lower()
+        if not re.match(EMAIL_PATTERN, v):
+            raise ValueError('Formato de email invalido')
+        return v
 
     @field_validator('nombre_completo')
     @classmethod

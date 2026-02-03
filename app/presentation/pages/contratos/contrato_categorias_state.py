@@ -273,7 +273,7 @@ class ContratoCategoriaState(BaseState):
         """Crea una nueva asignación de categoría"""
         categoria_create = ContratoCategoriaCreate(
             contrato_id=self.contrato_id,
-            categoria_puesto_id=int(self.form_categoria_puesto_id),
+            categoria_puesto_id=self.parse_id(self.form_categoria_puesto_id),
             cantidad_minima=int(self.form_cantidad_minima),
             cantidad_maxima=int(self.form_cantidad_maxima),
             costo_unitario=self._parse_decimal(self.form_costo_unitario),

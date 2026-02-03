@@ -439,6 +439,53 @@ class HistorialLaboralService:
         logger.info(f"Registrada BAJA de empleado {empleado_id}")
         return historial
 
+    async def registrar_reingreso(
+        self,
+        empleado_id: int,
+        empresa_anterior_id: Optional[int] = None,
+        plaza_id: Optional[int] = None,
+        fecha: Optional[date] = None,
+        notas: Optional[str] = None
+    ) -> HistorialLaboral:
+        """
+        Registra el reingreso de un empleado a otra empresa.
+
+        Cierra el registro anterior y crea uno nuevo con tipo REINGRESO.
+        Guarda la empresa de la que provenia el empleado.
+
+        Se llama automaticamente desde empleado_service.reingresar()
+        """
+        fecha_movimiento = fecha or date.today()
+
+        # Cerrar registro activo anterior (si existe)
+        await self._cerrar_registro_activo(empleado_id, fecha_movimiento)
+
+        # Determinar estatus segun si tiene plaza
+        estatus = EstatusHistorial.ACTIVO if plaza_id else EstatusHistorial.INACTIVO
+
+        # Crear nuevo registro de reingreso
+        datos = HistorialLaboralInterno(
+            empleado_id=empleado_id,
+            plaza_id=plaza_id,
+            tipo_movimiento=TipoMovimiento.REINGRESO,
+            fecha_inicio=fecha_movimiento,
+            estatus=estatus,
+            notas=notas or "Reingreso a otra empresa",
+            empresa_anterior_id=empresa_anterior_id,
+        )
+
+        historial = await self._crear(datos)
+
+        # Si hay plaza, marcarla como ocupada
+        if plaza_id:
+            await self._actualizar_estatus_plaza(plaza_id, EstatusPlaza.OCUPADA)
+
+        logger.info(
+            f"Registrado REINGRESO de empleado {empleado_id}, "
+            f"empresa_anterior={empresa_anterior_id}, estatus={estatus}"
+        )
+        return historial
+
     async def liberar_plaza_empleado(
         self,
         empleado_id: int,

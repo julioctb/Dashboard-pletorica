@@ -660,7 +660,7 @@ class ContratosState(BaseState):
             return
         self.cargando_categorias_puesto = True
         try:
-            tipo_servicio_id = int(self.form_tipo_servicio_id)
+            tipo_servicio_id = self.parse_id(self.form_tipo_servicio_id)
             categorias = await categoria_puesto_service.obtener_por_tipo_servicio(
                 tipo_servicio_id,
                 incluir_inactivas=False
@@ -965,6 +965,8 @@ class ContratosState(BaseState):
         tiene_personal = False if es_adquisicion else self.form_tiene_personal
 
         contrato_update = ContratoUpdate(
+            empresa_id=self.parse_id(self.form_empresa_id),
+            tipo_servicio_id=self.parse_id(self.form_tipo_servicio_id) if self.form_tipo_servicio_id and not es_adquisicion else None,
             numero_folio_buap=self.form_folio_buap.strip() or None,
             tipo_contrato=TipoContrato(self.form_tipo_contrato) if self.form_tipo_contrato else None,
             modalidad_adjudicacion=ModalidadAdjudicacion(self.form_modalidad_adjudicacion) if self.form_modalidad_adjudicacion else None,
@@ -1162,7 +1164,7 @@ class ContratosState(BaseState):
         # tipo_servicio_id: requerido para SERVICIOS, opcional para ADQUISICION
         tipo_servicio_id = None
         if self.form_tipo_servicio_id:
-            tipo_servicio_id = int(self.form_tipo_servicio_id)
+            tipo_servicio_id = self.parse_id(self.form_tipo_servicio_id)
         elif not es_adquisicion:
             # Solo error si es SERVICIOS y no tiene tipo_servicio
             raise ValueError("Tipo de servicio es requerido para contratos de servicios")
@@ -1186,7 +1188,7 @@ class ContratosState(BaseState):
         tiene_personal = False if es_adquisicion else self.form_tiene_personal
 
         return ContratoCreate(
-            empresa_id=int(self.form_empresa_id),
+            empresa_id=self.parse_id(self.form_empresa_id),
             tipo_servicio_id=tipo_servicio_id,
             codigo="TEMP",  # Se sobrescribe con autogenerado
             numero_folio_buap=self.form_folio_buap.strip() or None,

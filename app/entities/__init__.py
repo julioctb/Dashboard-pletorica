@@ -23,6 +23,7 @@ from app.core.enums import (
     EstatusEmpleado,
     GeneroEmpleado,
     MotivoBaja,
+    AccionRestriccion,
     # Enums de Historial Laboral
     EstatusHistorial,
     TipoMovimiento,
@@ -159,11 +160,27 @@ from app.entities.sede import (
     SedeResumen,
 )
 
+# Restriccion de Empleado
+from app.entities.empleado_restriccion_log import (
+    EmpleadoRestriccionLog,
+    EmpleadoRestriccionLogCreate,
+    EmpleadoRestriccionLogResumen,
+)
+
 # Contacto BUAP
 from app.entities.contacto_buap import (
     ContactoBuap,
     ContactoBuapCreate,
     ContactoBuapUpdate,
+)
+
+# Alta Masiva
+from app.entities.alta_masiva import (
+    ResultadoFila,
+    RegistroValidado,
+    ResultadoValidacion,
+    ResultadoProcesamiento,
+    DetalleResultado,
 )
 
 # Costo Patronal (si existe)
@@ -280,6 +297,11 @@ __all__ = [
     "SedeCreate",
     "SedeUpdate",
     "SedeResumen",
+    # Restriccion de Empleado
+    "AccionRestriccion",
+    "EmpleadoRestriccionLog",
+    "EmpleadoRestriccionLogCreate",
+    "EmpleadoRestriccionLogResumen",
     # Contacto BUAP
     "ContactoBuap",
     "ContactoBuapCreate",
@@ -288,4 +310,10 @@ __all__ = [
     "ConfiguracionEmpresa",
     "Trabajador",
     "ResultadoCuotas",
+    # Alta Masiva
+    "ResultadoFila",
+    "RegistroValidado",
+    "ResultadoValidacion",
+    "ResultadoProcesamiento",
+    "DetalleResultado",
 ]

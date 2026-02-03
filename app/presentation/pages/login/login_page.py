@@ -108,6 +108,9 @@ class LoginState(AuthState):
 
         Si el usuario ya está autenticado, redirigir a home.
         """
+        # Resetear loading (BaseState inicia en True para skeletons de datos)
+        self.loading = False
+
         await self.verificar_sesion()
 
         # Si ya está logueado, redirigir
@@ -181,6 +184,7 @@ def _input_password() -> rx.Component:
                 type=rx.cond(LoginState.mostrar_password, "text", "password"),
                 size="3",
                 width="100%",
+                #padding_right='2.5rem',
                 disabled=LoginState.loading,
             ),
             rx.button(
@@ -195,7 +199,11 @@ def _input_password() -> rx.Component:
                 position="absolute",
                 right="8px",
                 top="50%",
-                transform="translateY(-50%)",
+                transform="translateY(-45%)",
+                height="100%",
+                display="flex",
+                align="center",
+                justify="center",
                 cursor="pointer",
             ),
             position="relative",
@@ -279,6 +287,7 @@ def _card_login() -> rx.Component:
             spacing="5",
             width="100%",
             padding="6",
+            align='center'
         ),
         width="100%",
         max_width="400px",

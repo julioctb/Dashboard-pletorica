@@ -6,7 +6,7 @@ import reflex as rx
 from typing import List, Optional
 from datetime import date
 
-from app.presentation.components.shared.base_state import BaseState
+from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.constants import FILTRO_TODOS, FILTRO_TODAS
 from app.services import empleado_service, empresa_service
 from app.core.text_utils import formatear_fecha
@@ -31,10 +31,11 @@ from .empleados_validators import (
     validar_apellido_paterno,
     validar_email,
     validar_telefono,
+    validar_motivo_restriccion,
 )
 
 
-class EmpleadosState(BaseState):
+class EmpleadosState(AuthState):
     """Estado para el módulo de Empleados"""
 
     # ========================
@@ -51,7 +52,9 @@ class EmpleadosState(BaseState):
 
     # Paginación
     pagina: int = 1
-    por_pagina: int = 20
+    por_pagina: int = 50
+    hay_mas: bool = False
+    cargando_mas: bool = False
 
     # Catálogos
     empresas: List[dict] = []
@@ -69,6 +72,9 @@ class EmpleadosState(BaseState):
     mostrar_modal_empleado: bool = False
     mostrar_modal_detalle: bool = False
     mostrar_modal_baja: bool = False
+    mostrar_modal_restriccion: bool = False
+    mostrar_modal_liberacion: bool = False
+    mostrar_modal_historial: bool = False
     es_edicion: bool = False
     pestaña_activa: str = "datos"
 
@@ -91,6 +97,15 @@ class EmpleadosState(BaseState):
     form_contacto_emergencia: str = ""
     form_notas: str = ""
     form_motivo_baja: str = ""
+
+    # Restricciones
+    form_motivo_restriccion: str = ""
+    form_notas_restriccion: str = ""
+    form_motivo_liberacion: str = ""
+    form_notas_liberacion: str = ""
+
+    # Datos - Historial de restricciones
+    historial_restricciones: List[dict] = []
 
     # ========================
     # ERRORES DE VALIDACIÓN
@@ -125,6 +140,30 @@ class EmpleadosState(BaseState):
 
     def set_filtro_estatus(self, value: str):
         self.filtro_estatus = value if value else FILTRO_TODOS
+
+    async def on_busqueda_change(self, value: str):
+        """Actualiza busqueda. 3+ caracteres consulta la base de datos."""
+        self.filtro_busqueda = value
+        if len(value) >= 3:
+            self.pagina = 1
+            self.hay_mas = False
+            try:
+                empresa_id = None
+                if self.filtro_empresa_id and self.filtro_empresa_id not in ("", FILTRO_TODAS):
+                    empresa_id = int(self.filtro_empresa_id)
+
+                empleados = await empleado_service.buscar(
+                    texto=value,
+                    empresa_id=empresa_id,
+                    limite=200
+                )
+                self.empleados = await self._convertir_a_dicts(empleados)
+                self.total_empleados = len(self.empleados)
+            except Exception:
+                pass  # Mantener lista actual si falla la busqueda
+        elif not value:
+            self.pagina = 1
+            await self.cargar_empleados()
 
     # ========================
     # SETTERS DE FORMULARIO
@@ -174,6 +213,18 @@ class EmpleadosState(BaseState):
 
     def set_form_motivo_baja(self, value: str):
         self.form_motivo_baja = value if value else ""
+
+    def set_form_motivo_restriccion(self, value: str):
+        self.form_motivo_restriccion = value
+
+    def set_form_notas_restriccion(self, value: str):
+        self.form_notas_restriccion = value
+
+    def set_form_motivo_liberacion(self, value: str):
+        self.form_motivo_liberacion = value
+
+    def set_form_notas_liberacion(self, value: str):
+        self.form_notas_liberacion = value
 
     def set_pestaña_activa(self, value: str):
         self.pestaña_activa = value if value else "datos"
@@ -298,6 +349,74 @@ class EmpleadosState(BaseState):
         return self.empleado_seleccionado.get("nombre_completo", "")
 
     # ========================
+    # COMPUTED VARS - RESTRICCIONES
+    # ========================
+
+    @rx.var
+    def empleado_esta_restringido(self) -> bool:
+        """Verifica si el empleado seleccionado esta restringido."""
+        if not self.empleado_seleccionado:
+            return False
+        return self.empleado_seleccionado.get("is_restricted", False)
+
+    @rx.var
+    def puede_restringir(self) -> bool:
+        """True si es admin y empleado NO esta restringido."""
+        if not self.empleado_seleccionado:
+            return False
+        if not self.es_admin:
+            return False
+        return not self.empleado_seleccionado.get("is_restricted", False)
+
+    @rx.var
+    def puede_liberar(self) -> bool:
+        """True si es admin y empleado SI esta restringido."""
+        if not self.empleado_seleccionado:
+            return False
+        if not self.es_admin:
+            return False
+        return self.empleado_seleccionado.get("is_restricted", False)
+
+    @rx.var
+    def puede_guardar_restriccion(self) -> bool:
+        """Valida si el formulario de restriccion es valido."""
+        return len(self.form_motivo_restriccion.strip()) >= 10 and not self.saving
+
+    @rx.var
+    def puede_guardar_liberacion(self) -> bool:
+        """Valida si el formulario de liberacion es valido."""
+        return len(self.form_motivo_liberacion.strip()) >= 10 and not self.saving
+
+    @rx.var
+    def motivo_restriccion_actual(self) -> str:
+        """Motivo de restriccion del empleado seleccionado."""
+        if not self.empleado_seleccionado:
+            return ""
+        return self.empleado_seleccionado.get("restriction_reason", "") or ""
+
+    @rx.var
+    def fecha_restriccion_actual(self) -> str:
+        """Fecha de restriccion formateada."""
+        if not self.empleado_seleccionado:
+            return ""
+        fecha = self.empleado_seleccionado.get("restricted_at", "")
+        if not fecha:
+            return ""
+        try:
+            from datetime import datetime
+            if isinstance(fecha, str):
+                dt = datetime.fromisoformat(fecha.replace('Z', '+00:00'))
+                return dt.strftime("%d/%m/%Y %H:%M")
+            return str(fecha)
+        except Exception:
+            return str(fecha)
+
+    @rx.var
+    def tiene_historial_restricciones(self) -> bool:
+        """Indica si hay historial de restricciones."""
+        return len(self.historial_restricciones) > 0
+
+    # ========================
     # CARGA DE DATOS
     # ========================
     async def cargar_empleados(self):
@@ -322,61 +441,27 @@ class EmpleadosState(BaseState):
                 empleados = await empleado_service.buscar(
                     texto=self.filtro_busqueda,
                     empresa_id=empresa_id,
-                    limite=50
+                    limite=200
                 )
+                self.hay_mas = False
             elif empresa_id:
                 empleados = await empleado_service.obtener_por_empresa(
                     empresa_id=empresa_id,
                     incluir_inactivos=incluir_inactivos,
                     limite=self.por_pagina,
-                    offset=(self.pagina - 1) * self.por_pagina
+                    offset=0
                 )
+                self.hay_mas = len(empleados) >= self.por_pagina
             else:
                 empleados = await empleado_service.obtener_todos(
                     incluir_inactivos=incluir_inactivos,
                     limite=self.por_pagina,
-                    offset=(self.pagina - 1) * self.por_pagina
+                    offset=0
                 )
-
-            # Obtener nombres de empresas
-            empresas_cache = {}
-            for emp in empleados:
-                if emp.empresa_id is not None and emp.empresa_id not in empresas_cache:
-                    try:
-                        empresa = await empresa_service.obtener_por_id(emp.empresa_id)
-                        empresas_cache[emp.empresa_id] = empresa.nombre_comercial
-                    except NotFoundError:
-                        empresas_cache[emp.empresa_id] = "N/A"
+                self.hay_mas = len(empleados) >= self.por_pagina
 
             # Convertir a diccionarios para la UI
-            self.empleados = [
-                {
-                    "id": emp.id,
-                    "clave": emp.clave,
-                    "curp": emp.curp,
-                    "nombre_completo": emp.nombre_completo(),
-                    "nombre": emp.nombre,
-                    "apellido_paterno": emp.apellido_paterno,
-                    "apellido_materno": emp.apellido_materno or "",
-                    "empresa_id": emp.empresa_id,
-                    "empresa_nombre": empresas_cache.get(emp.empresa_id, "N/A") if emp.empresa_id is not None else "Sin asignar",
-                    "estatus": emp.estatus,
-                    "fecha_ingreso": formatear_fecha(emp.fecha_ingreso) if emp.fecha_ingreso else "",
-                    "telefono": emp.telefono or "",
-                    "email": emp.email or "",
-                    "rfc": emp.rfc or "",
-                    "nss": emp.nss or "",
-                    "fecha_nacimiento": emp.fecha_nacimiento.isoformat() if emp.fecha_nacimiento else "",
-                    "genero": emp.genero or "",
-                    "direccion": emp.direccion or "",
-                    "contacto_emergencia": emp.contacto_emergencia or "",
-                    "notas": emp.notas or "",
-                    "fecha_baja": formatear_fecha(emp.fecha_baja) if emp.fecha_baja else "",
-                    "motivo_baja": emp.motivo_baja or "",
-                }
-                for emp in empleados
-            ]
-
+            self.empleados = await self._convertir_a_dicts(empleados)
             self.total_empleados = len(self.empleados)
 
         except Exception as e:
@@ -444,6 +529,10 @@ class EmpleadosState(BaseState):
                 "motivo_baja": empleado.motivo_baja or "",
                 "antiguedad_anios": empleado.antiguedad_anios(),
                 "edad": empleado.edad(),
+                "is_restricted": empleado.is_restricted,
+                "restriction_reason": empleado.restriction_reason or "",
+                "restricted_at": empleado.restricted_at.isoformat() if empleado.restricted_at else "",
+                "restricted_by": str(empleado.restricted_by) if empleado.restricted_by else "",
             }
 
         except NotFoundError:
@@ -535,6 +624,173 @@ class EmpleadosState(BaseState):
         self.form_motivo_baja = ""
 
     # ========================
+    # ACCIONES DE MODAL - RESTRICCIONES
+    # ========================
+
+    def abrir_modal_restriccion(self):
+        """Abre el modal para restringir empleado."""
+        if not self.empleado_seleccionado:
+            return
+        self.form_motivo_restriccion = ""
+        self.form_notas_restriccion = ""
+        self.mostrar_modal_restriccion = True
+
+    def abrir_modal_restriccion_desde_lista(self, empleado: dict):
+        """Abre modal de restriccion desde la lista (sin abrir detalle)."""
+        if not empleado or not isinstance(empleado, dict):
+            return
+        self.empleado_seleccionado = empleado
+        self.form_motivo_restriccion = ""
+        self.form_notas_restriccion = ""
+        self.mostrar_modal_restriccion = True
+
+    def cerrar_modal_restriccion(self):
+        """Cierra el modal de restriccion."""
+        self.mostrar_modal_restriccion = False
+        self.form_motivo_restriccion = ""
+        self.form_notas_restriccion = ""
+
+    def abrir_modal_liberacion(self):
+        """Abre el modal para liberar restriccion."""
+        if not self.empleado_seleccionado:
+            return
+        self.form_motivo_liberacion = ""
+        self.form_notas_liberacion = ""
+        self.mostrar_modal_liberacion = True
+
+    def abrir_modal_liberacion_desde_lista(self, empleado: dict):
+        """Abre modal de liberacion desde la lista (sin abrir detalle)."""
+        if not empleado or not isinstance(empleado, dict):
+            return
+        self.empleado_seleccionado = empleado
+        self.form_motivo_liberacion = ""
+        self.form_notas_liberacion = ""
+        self.mostrar_modal_liberacion = True
+
+    def cerrar_modal_liberacion(self):
+        """Cierra el modal de liberacion."""
+        self.mostrar_modal_liberacion = False
+        self.form_motivo_liberacion = ""
+        self.form_notas_liberacion = ""
+
+    async def abrir_modal_historial(self):
+        """Abre el modal de historial y carga los datos."""
+        if not self.empleado_seleccionado:
+            return
+
+        self.mostrar_modal_historial = True
+        self.loading = True
+
+        try:
+            from uuid import UUID
+            admin_id = UUID(self.id_usuario) if self.id_usuario else None
+
+            if not admin_id:
+                return rx.toast.error("No se pudo obtener el ID del usuario")
+
+            historial = await empleado_service.obtener_historial_restricciones(
+                empleado_id=self.empleado_seleccionado["id"],
+                admin_user_id=admin_id
+            )
+
+            self.historial_restricciones = [
+                {
+                    "id": h.id,
+                    "accion": h.accion,
+                    "motivo": h.motivo,
+                    "fecha": h.fecha.strftime("%d/%m/%Y %H:%M") if h.fecha else "",
+                    "ejecutado_por_nombre": h.ejecutado_por_nombre,
+                    "notas": h.notas or "",
+                    "es_restriccion": h.accion == "RESTRICCION",
+                }
+                for h in historial
+            ]
+
+        except BusinessRuleError as e:
+            return rx.toast.error(str(e))
+        except Exception as e:
+            self.manejar_error(e, "cargando historial")
+        finally:
+            self.loading = False
+
+    def cerrar_modal_historial(self):
+        """Cierra el modal de historial."""
+        self.mostrar_modal_historial = False
+        self.historial_restricciones = []
+
+    # ========================
+    # OPERACIONES - RESTRICCIONES
+    # ========================
+
+    async def confirmar_restriccion(self):
+        """Confirma la restriccion del empleado."""
+        if not self.empleado_seleccionado:
+            return rx.toast.error("No hay empleado seleccionado")
+
+        error_motivo = validar_motivo_restriccion(self.form_motivo_restriccion)
+        if error_motivo:
+            return rx.toast.error(error_motivo)
+
+        from uuid import UUID
+        admin_id = UUID(self.id_usuario) if self.id_usuario else None
+        if not admin_id:
+            return rx.toast.error("No se pudo obtener el ID del usuario")
+
+        empleado_id = self.empleado_seleccionado["id"]
+        motivo = self.form_motivo_restriccion.strip()
+        notas = self.form_notas_restriccion.strip() or None
+
+        async def _on_exito():
+            self.cerrar_modal_restriccion()
+            self.cerrar_modal_detalle()
+            await self.cargar_empleados()
+
+        return await self.ejecutar_guardado(
+            operacion=lambda: empleado_service.restringir_empleado(
+                empleado_id=empleado_id,
+                motivo=motivo,
+                admin_user_id=admin_id,
+                notas=notas,
+            ),
+            mensaje_exito="Empleado restringido correctamente",
+            on_exito=_on_exito,
+        )
+
+    async def confirmar_liberacion(self):
+        """Confirma la liberacion de la restriccion."""
+        if not self.empleado_seleccionado:
+            return rx.toast.error("No hay empleado seleccionado")
+
+        error_motivo = validar_motivo_restriccion(self.form_motivo_liberacion)
+        if error_motivo:
+            return rx.toast.error(error_motivo)
+
+        from uuid import UUID
+        admin_id = UUID(self.id_usuario) if self.id_usuario else None
+        if not admin_id:
+            return rx.toast.error("No se pudo obtener el ID del usuario")
+
+        empleado_id = self.empleado_seleccionado["id"]
+        motivo = self.form_motivo_liberacion.strip()
+        notas = self.form_notas_liberacion.strip() or None
+
+        async def _on_exito():
+            self.cerrar_modal_liberacion()
+            self.cerrar_modal_detalle()
+            await self.cargar_empleados()
+
+        return await self.ejecutar_guardado(
+            operacion=lambda: empleado_service.liberar_empleado(
+                empleado_id=empleado_id,
+                motivo=motivo,
+                admin_user_id=admin_id,
+                notas=notas,
+            ),
+            mensaje_exito="Restriccion liberada correctamente",
+            on_exito=_on_exito,
+        )
+
+    # ========================
     # OPERACIONES CRUD
     # ========================
     async def guardar_empleado(self):
@@ -552,7 +808,7 @@ class EmpleadosState(BaseState):
             if self.es_edicion:
                 # Actualizar empleado existente
                 empleado_update = EmpleadoUpdate(
-                    empresa_id=int(self.form_empresa_id) if self.form_empresa_id else None,
+                    empresa_id=self.parse_id(self.form_empresa_id),
                     rfc=self.form_rfc or None,
                     nss=self.form_nss or None,
                     nombre=self.form_nombre or None,
@@ -579,7 +835,7 @@ class EmpleadosState(BaseState):
             else:
                 # Crear nuevo empleado
                 empleado_create = EmpleadoCreate(
-                    empresa_id=int(self.form_empresa_id) if self.form_empresa_id else None,
+                    empresa_id=self.parse_id(self.form_empresa_id),
                     curp=self.form_curp,
                     rfc=self.form_rfc or None,
                     nss=self.form_nss or None,
@@ -624,22 +880,20 @@ class EmpleadosState(BaseState):
         if not self.form_motivo_baja:
             return rx.toast.error("Debe seleccionar un motivo de baja")
 
-        self.saving = True
-        try:
-            await empleado_service.dar_de_baja(
-                empleado_id=empleado_id,
-                motivo=MotivoBaja(self.form_motivo_baja),
-            )
+        motivo = MotivoBaja(self.form_motivo_baja)
 
+        async def _on_exito():
             self.cerrar_modal_baja()
             self.cerrar_modal_detalle()
             await self.cargar_empleados()
-            return rx.toast.success("Empleado dado de baja correctamente")
 
-        except Exception as e:
-            return self.manejar_error_con_toast(e, "dando de baja")
-        finally:
-            self.saving = False
+        return await self.ejecutar_guardado(
+            operacion=lambda: empleado_service.dar_de_baja(
+                empleado_id=empleado_id, motivo=motivo,
+            ),
+            mensaje_exito="Empleado dado de baja correctamente",
+            on_exito=_on_exito,
+        )
 
     async def reactivar_empleado(self):
         """Reactiva al empleado seleccionado"""
@@ -650,18 +904,15 @@ class EmpleadosState(BaseState):
         if not empleado_id:
             return rx.toast.error("Error: No se pudo obtener el ID del empleado")
 
-        self.saving = True
-        try:
-            await empleado_service.reactivar(empleado_id)
-
+        async def _on_exito():
             self.cerrar_modal_detalle()
             await self.cargar_empleados()
-            return rx.toast.success("Empleado reactivado correctamente")
 
-        except Exception as e:
-            return self.manejar_error_con_toast(e, "reactivando empleado")
-        finally:
-            self.saving = False
+        return await self.ejecutar_guardado(
+            operacion=lambda: empleado_service.reactivar(empleado_id),
+            mensaje_exito="Empleado reactivado correctamente",
+            on_exito=_on_exito,
+        )
 
     async def suspender_empleado(self):
         """Suspende al empleado seleccionado"""
@@ -672,42 +923,116 @@ class EmpleadosState(BaseState):
         if not empleado_id:
             return rx.toast.error("Error: No se pudo obtener el ID del empleado")
 
-        self.saving = True
-        try:
-            await empleado_service.suspender(empleado_id)
-
+        async def _on_exito():
             self.cerrar_modal_detalle()
             await self.cargar_empleados()
-            return rx.toast.success("Empleado suspendido correctamente")
 
-        except Exception as e:
-            return self.manejar_error_con_toast(e, "suspendiendo empleado")
-        finally:
-            self.saving = False
+        return await self.ejecutar_guardado(
+            operacion=lambda: empleado_service.suspender(empleado_id),
+            mensaje_exito="Empleado suspendido correctamente",
+            on_exito=_on_exito,
+        )
 
     async def suspender_desde_lista(self, empleado_id: int):
         """Suspende un empleado desde la lista (sin modal de detalle)"""
-        self.saving = True
-        try:
-            await empleado_service.suspender(empleado_id)
-            await self.cargar_empleados()
-            return rx.toast.success("Empleado suspendido correctamente")
-        except Exception as e:
-            return self.manejar_error_con_toast(e, "suspendiendo empleado")
-        finally:
-            self.saving = False
+        return await self.ejecutar_guardado(
+            operacion=lambda: empleado_service.suspender(empleado_id),
+            mensaje_exito="Empleado suspendido correctamente",
+            on_exito=self.cargar_empleados,
+        )
 
     async def reactivar_desde_lista(self, empleado_id: int):
         """Reactiva un empleado desde la lista (sin modal de detalle)"""
-        self.saving = True
+        return await self.ejecutar_guardado(
+            operacion=lambda: empleado_service.reactivar(empleado_id),
+            mensaje_exito="Empleado reactivado correctamente",
+            on_exito=self.cargar_empleados,
+        )
+
+    async def cargar_mas(self):
+        """Carga la siguiente pagina de empleados (ver mas)."""
+        if not self.hay_mas:
+            return
+
+        self.cargando_mas = True
         try:
-            await empleado_service.reactivar(empleado_id)
-            await self.cargar_empleados()
-            return rx.toast.success("Empleado reactivado correctamente")
+            self.pagina += 1
+            offset = (self.pagina - 1) * self.por_pagina
+
+            empresa_id = None
+            if self.filtro_empresa_id and self.filtro_empresa_id not in ("", FILTRO_TODAS):
+                empresa_id = int(self.filtro_empresa_id)
+
+            incluir_inactivos = self.filtro_estatus == FILTRO_TODOS
+
+            if empresa_id:
+                nuevos = await empleado_service.obtener_por_empresa(
+                    empresa_id=empresa_id,
+                    incluir_inactivos=incluir_inactivos,
+                    limite=self.por_pagina,
+                    offset=offset
+                )
+            else:
+                nuevos = await empleado_service.obtener_todos(
+                    incluir_inactivos=incluir_inactivos,
+                    limite=self.por_pagina,
+                    offset=offset
+                )
+
+            self.hay_mas = len(nuevos) >= self.por_pagina
+
+            nuevos_dicts = await self._convertir_a_dicts(nuevos)
+            self.empleados = self.empleados + nuevos_dicts
+            self.total_empleados = len(self.empleados)
+
         except Exception as e:
-            return self.manejar_error_con_toast(e, "reactivando empleado")
+            self.manejar_error(e, "cargando más empleados")
+            self.pagina -= 1
         finally:
-            self.saving = False
+            self.cargando_mas = False
+
+    async def _convertir_a_dicts(self, empleados) -> list:
+        """Convierte lista de Empleado a dicts para la UI."""
+        empresas_cache = {}
+        for emp in empleados:
+            if emp.empresa_id is not None and emp.empresa_id not in empresas_cache:
+                try:
+                    empresa = await empresa_service.obtener_por_id(emp.empresa_id)
+                    empresas_cache[emp.empresa_id] = empresa.nombre_comercial
+                except NotFoundError:
+                    empresas_cache[emp.empresa_id] = "N/A"
+
+        return [
+            {
+                "id": emp.id,
+                "clave": emp.clave,
+                "curp": emp.curp,
+                "nombre_completo": emp.nombre_completo(),
+                "nombre": emp.nombre,
+                "apellido_paterno": emp.apellido_paterno,
+                "apellido_materno": emp.apellido_materno or "",
+                "empresa_id": emp.empresa_id,
+                "empresa_nombre": empresas_cache.get(emp.empresa_id, "N/A") if emp.empresa_id is not None else "Sin asignar",
+                "estatus": emp.estatus,
+                "fecha_ingreso": formatear_fecha(emp.fecha_ingreso) if emp.fecha_ingreso else "",
+                "telefono": emp.telefono or "",
+                "email": emp.email or "",
+                "rfc": emp.rfc or "",
+                "nss": emp.nss or "",
+                "fecha_nacimiento": emp.fecha_nacimiento.isoformat() if emp.fecha_nacimiento else "",
+                "genero": emp.genero or "",
+                "direccion": emp.direccion or "",
+                "contacto_emergencia": emp.contacto_emergencia or "",
+                "notas": emp.notas or "",
+                "fecha_baja": formatear_fecha(emp.fecha_baja) if emp.fecha_baja else "",
+                "motivo_baja": emp.motivo_baja or "",
+                "is_restricted": emp.is_restricted,
+                "restriction_reason": emp.restriction_reason or "",
+                "restricted_at": emp.restricted_at.isoformat() if emp.restricted_at else "",
+                "restricted_by": str(emp.restricted_by) if emp.restricted_by else "",
+            }
+            for emp in empleados
+        ]
 
     # ========================
     # FILTROS

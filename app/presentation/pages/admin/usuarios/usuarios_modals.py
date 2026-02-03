@@ -229,21 +229,31 @@ def _fila_empresa_asignada(empresa: dict) -> rx.Component:
         # Info de la empresa
         rx.vstack(
             rx.hstack(
-                rx.text(empresa["empresa_nombre"], weight="bold", size="2"),
+                rx.text(
+                    empresa["empresa_nombre"],
+                    weight="bold",
+                    size="2",
+                    overflow="hidden",
+                    text_overflow="ellipsis",
+                    white_space="nowrap",
+                ),
                 rx.cond(
                     empresa["es_principal"],
-                    rx.badge("Principal", color_scheme="blue", size="1"),
+                    rx.badge("Principal", color_scheme="blue", size="1", flex_shrink="0"),
                 ),
                 spacing="2",
                 align="center",
+                min_width="0",
+                width="100%",
             ),
             rx.cond(
                 empresa["empresa_rfc"],
                 rx.text(empresa["empresa_rfc"], size="1", color="gray"),
             ),
             spacing="0",
+            min_width="0",
+            flex="1",
         ),
-        rx.spacer(),
         # Acciones
         rx.hstack(
             # Hacer principal
@@ -272,11 +282,13 @@ def _fila_empresa_asignada(empresa: dict) -> rx.Component:
                 content="Quitar acceso",
             ),
             spacing="1",
+            flex_shrink="0",
         ),
         width="100%",
         padding="3",
         border_bottom="1px solid var(--gray-4)",
         align="center",
+        gap="3",
     )
 
 
@@ -300,11 +312,12 @@ def modal_gestionar_empresas() -> rx.Component:
                     ),
                     rx.text(""),
                 ),
+                margin_bottom="16px",
             ),
 
             rx.vstack(
                 # Asignar nueva empresa
-                rx.hstack(
+                rx.vstack(
                     rx.select.root(
                         rx.select.trigger(
                             placeholder="Seleccionar empresa...",
@@ -315,7 +328,7 @@ def modal_gestionar_empresas() -> rx.Component:
                                 UsuariosAdminState.opciones_empresas_disponibles,
                                 lambda e: rx.select.item(
                                     e["nombre_comercial"],
-                                    value=e["id"].to(str),
+                                    value=e["id"],
                                 ),
                             ),
                         ),
@@ -330,6 +343,7 @@ def modal_gestionar_empresas() -> rx.Component:
                         disabled=UsuariosAdminState.form_empresa_id == "",
                         size="2",
                         color_scheme="blue",
+                        width="100%",
                     ),
                     width="100%",
                     spacing="2",
@@ -347,8 +361,6 @@ def modal_gestionar_empresas() -> rx.Component:
                         ),
                         width="100%",
                         spacing="0",
-                        max_height="300px",
-                        overflow_y="auto",
                     ),
                     rx.center(
                         rx.text("Sin empresas asignadas", color="gray", size="2"),
@@ -358,7 +370,6 @@ def modal_gestionar_empresas() -> rx.Component:
 
                 spacing="4",
                 width="100%",
-                padding_y="4",
             ),
 
             # Boton cerrar
@@ -373,10 +384,12 @@ def modal_gestionar_empresas() -> rx.Component:
                 ),
                 justify="end",
                 width="100%",
-                padding_top="4",
+                margin_top="16px",
             ),
 
             max_width="500px",
+            padding="24px",
+            overflow_x="hidden",
         ),
         open=UsuariosAdminState.mostrar_modal_empresas,
         on_open_change=UsuariosAdminState.set_mostrar_modal_empresas,

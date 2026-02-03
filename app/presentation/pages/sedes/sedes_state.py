@@ -352,8 +352,8 @@ class SedesState(BaseState):
             nombre_corto=self.form_nombre_corto.strip() if self.form_nombre_corto else None,
             tipo_sede=TipoSede(self.form_tipo_sede),
             es_ubicacion_fisica=self.form_es_ubicacion_fisica,
-            sede_padre_id=int(self.form_sede_padre_id) if self.form_sede_padre_id else None,
-            ubicacion_fisica_id=int(self.form_ubicacion_fisica_id) if self.form_ubicacion_fisica_id else None,
+            sede_padre_id=self.parse_id(self.form_sede_padre_id),
+            ubicacion_fisica_id=self.parse_id(self.form_ubicacion_fisica_id),
             direccion=self.form_direccion.strip() if self.form_direccion else None,
             notas=self.form_notas.strip() if self.form_notas else None,
         )
@@ -376,8 +376,8 @@ class SedesState(BaseState):
             nombre_corto=self.form_nombre_corto.strip() if self.form_nombre_corto else None,
             tipo_sede=TipoSede(self.form_tipo_sede),
             es_ubicacion_fisica=self.form_es_ubicacion_fisica,
-            sede_padre_id=int(self.form_sede_padre_id) if self.form_sede_padre_id else None,
-            ubicacion_fisica_id=int(self.form_ubicacion_fisica_id) if self.form_ubicacion_fisica_id else None,
+            sede_padre_id=self.parse_id(self.form_sede_padre_id),
+            ubicacion_fisica_id=self.parse_id(self.form_ubicacion_fisica_id),
             direccion=self.form_direccion.strip() if self.form_direccion else None,
             notas=self.form_notas.strip() if self.form_notas else None,
         )

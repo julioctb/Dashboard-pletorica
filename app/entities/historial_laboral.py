@@ -36,6 +36,7 @@ class HistorialLaboral(BaseModel):
     fecha_fin: Optional[date] = None
     estatus: EstatusHistorial = EstatusHistorial.INACTIVO
     notas: Optional[str] = None
+    empresa_anterior_id: Optional[int] = None
     fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None
 
@@ -89,6 +90,7 @@ class HistorialLaboralInterno(BaseModel):
     fecha_inicio: date = Field(default_factory=date.today)
     estatus: EstatusHistorial
     notas: Optional[str] = None
+    empresa_anterior_id: Optional[int] = None
 
 
 # =============================================================================

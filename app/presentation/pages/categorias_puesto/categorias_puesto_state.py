@@ -114,7 +114,7 @@ class CategoriasPuestoState(BaseState):
         # Auto-sugerir clave si está vacía, no es edición y hay tipo seleccionado
         if not self.form_clave and not self.es_edicion and value and self.form_tipo_servicio_id:
             candidatos = generar_candidatos_codigo(value)
-            tipo_id = int(self.form_tipo_servicio_id)
+            tipo_id = self.parse_id(self.form_tipo_servicio_id)
             for clave in candidatos[:10]:  # Probar máximo 10 candidatos
                 clave_corta = clave[:5]  # Máximo 5 caracteres
                 if not await categoria_puesto_service.existe_clave_en_tipo(tipo_id, clave_corta):
@@ -355,7 +355,7 @@ class CategoriasPuestoState(BaseState):
 
     async def _crear_categoria(self):
         categoria_create = CategoriaPuestoCreate(
-            tipo_servicio_id=int(self.form_tipo_servicio_id),  # Convertir string a int
+            tipo_servicio_id=self.parse_id(self.form_tipo_servicio_id),
             clave=normalizar_mayusculas(self.form_clave),
             nombre=normalizar_mayusculas(self.form_nombre),
             descripcion=self.form_descripcion.strip() if self.form_descripcion else None,
@@ -375,7 +375,7 @@ class CategoriasPuestoState(BaseState):
             return
 
         categoria_update = CategoriaPuestoUpdate(
-            tipo_servicio_id=int(self.form_tipo_servicio_id),  # Convertir string a int
+            tipo_servicio_id=self.parse_id(self.form_tipo_servicio_id),
             clave=normalizar_mayusculas(self.form_clave),
             nombre=normalizar_mayusculas(self.form_nombre),
             descripcion=self.form_descripcion.strip() if self.form_descripcion else None,
