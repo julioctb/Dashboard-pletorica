@@ -118,7 +118,7 @@ class TipoServicioService:
 
             # Filtro de estatus
             if not incluir_inactivas:
-                query = query.eq('estatus', 'ACTIVO')
+                query = query.eq('estatus', Estatus.ACTIVO)
 
             # Ordenamiento por nombre
             query = query.order('nombre', desc=False)
@@ -186,7 +186,7 @@ class TipoServicioService:
             query = self.supabase.table(self.tabla).select('id', count='exact')
 
             if not incluir_inactivas:
-                query = query.eq('estatus', 'ACTIVO')
+                query = query.eq('estatus', Estatus.ACTIVO)
 
             result = query.execute()
             return result.count if result.count else 0
@@ -448,7 +448,7 @@ class TipoServicioService:
 
             result = self.supabase.table(self.tabla)\
                 .select('*')\
-                .eq('estatus', 'ACTIVO')\
+                .eq('estatus', Estatus.ACTIVO)\
                 .or_(
                     f"nombre.ilike.%{termino_upper}%,"
                     f"clave.ilike.%{termino_upper}%"

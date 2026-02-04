@@ -19,6 +19,8 @@ from app.entities.alta_masiva import (
 )
 from app.entities.empleado import EmpleadoCreate, EmpleadoUpdate
 from app.core.enums import EstatusEmpleado, GeneroEmpleado
+from app.core.text_utils import limpiar_espacios, normalizar_email, normalizar_mayusculas
+from app.core.validation.custom_validators import limpiar_telefono
 from app.core.validation import (
     CURP_PATTERN,
     CURP_LEN,
@@ -228,7 +230,7 @@ class AltaMasivaService:
         errores = []
 
         # --- Validar CURP (obligatorio) ---
-        curp = (registro.get('curp') or '').upper().strip()
+        curp = normalizar_mayusculas(registro.get('curp'))
         if not curp:
             errores.append("CURP es obligatorio")
         elif len(curp) != CURP_LEN:
@@ -239,21 +241,21 @@ class AltaMasivaService:
             errores.append(f"CURP {curp} duplicado en el archivo")
 
         # --- Validar nombre (obligatorio) ---
-        nombre = (registro.get('nombre') or '').strip()
+        nombre = limpiar_espacios(registro.get('nombre'))
         if not nombre:
             errores.append("Nombre es obligatorio")
         elif len(nombre) < 2:
             errores.append("Nombre debe tener al menos 2 caracteres")
 
         # --- Validar apellido paterno (obligatorio) ---
-        apellido_paterno = (registro.get('apellido_paterno') or '').strip()
+        apellido_paterno = limpiar_espacios(registro.get('apellido_paterno'))
         if not apellido_paterno:
             errores.append("Apellido paterno es obligatorio")
         elif len(apellido_paterno) < 2:
             errores.append("Apellido paterno debe tener al menos 2 caracteres")
 
         # --- Validar RFC (opcional) ---
-        rfc = (registro.get('rfc') or '').upper().strip()
+        rfc = normalizar_mayusculas(registro.get('rfc'))
         if rfc:
             if len(rfc) != RFC_PERSONA_LEN:
                 errores.append(f"RFC debe tener {RFC_PERSONA_LEN} caracteres (tiene {len(rfc)})")
@@ -261,7 +263,7 @@ class AltaMasivaService:
                 errores.append("RFC con formato invalido")
 
         # --- Validar NSS (opcional) ---
-        nss = (registro.get('nss') or '').strip()
+        nss = limpiar_espacios(registro.get('nss'))
         if nss:
             nss_limpio = re.sub(r'[^0-9]', '', nss)
             if not re.match(NSS_PATTERN, nss_limpio):
@@ -279,14 +281,14 @@ class AltaMasivaService:
             errores.append(f"Genero invalido: '{registro.get('genero')}'. Use: Masculino, Femenino, M, F")
 
         # --- Validar telefono (opcional) ---
-        telefono = (registro.get('telefono') or '').strip()
+        telefono = limpiar_espacios(registro.get('telefono'))
         if telefono:
-            tel_limpio = re.sub(r'[^0-9]', '', telefono)
+            tel_limpio = limpiar_telefono(telefono)
             if len(tel_limpio) != 10:
                 errores.append("Telefono debe tener 10 digitos")
 
         # --- Validar email (opcional) ---
-        email = (registro.get('email') or '').strip()
+        email = normalizar_email(registro.get('email'))
         if email:
             if '@' not in email or '.' not in email:
                 errores.append("Email con formato invalido")
@@ -361,21 +363,21 @@ class AltaMasivaService:
         """Crea un EmpleadoCreate a partir de los datos parseados."""
         kwargs = {
             'empresa_id': empresa_id,
-            'curp': datos.get('curp', '').upper().strip(),
-            'nombre': datos.get('nombre', '').strip(),
-            'apellido_paterno': datos.get('apellido_paterno', '').strip(),
+            'curp': normalizar_mayusculas(datos.get('curp')),
+            'nombre': limpiar_espacios(datos.get('nombre')),
+            'apellido_paterno': limpiar_espacios(datos.get('apellido_paterno')),
         }
 
         # Campos opcionales
-        apellido_materno = (datos.get('apellido_materno') or '').strip()
+        apellido_materno = limpiar_espacios(datos.get('apellido_materno'))
         if apellido_materno:
             kwargs['apellido_materno'] = apellido_materno
 
-        rfc = (datos.get('rfc') or '').upper().strip()
+        rfc = normalizar_mayusculas(datos.get('rfc'))
         if rfc:
             kwargs['rfc'] = rfc
 
-        nss = (datos.get('nss') or '').strip()
+        nss = limpiar_espacios(datos.get('nss'))
         if nss:
             kwargs['nss'] = re.sub(r'[^0-9]', '', nss)
 
@@ -387,19 +389,19 @@ class AltaMasivaService:
         if genero_raw and genero_raw in GENERO_ALIASES:
             kwargs['genero'] = GENERO_ALIASES[genero_raw]
 
-        telefono = (datos.get('telefono') or '').strip()
+        telefono = limpiar_espacios(datos.get('telefono'))
         if telefono:
-            kwargs['telefono'] = re.sub(r'[^0-9]', '', telefono)
+            kwargs['telefono'] = limpiar_telefono(telefono)
 
-        email = (datos.get('email') or '').strip()
+        email = normalizar_email(datos.get('email'))
         if email:
-            kwargs['email'] = email.lower()
+            kwargs['email'] = email
 
-        direccion = (datos.get('direccion') or '').strip()
+        direccion = limpiar_espacios(datos.get('direccion'))
         if direccion:
             kwargs['direccion'] = direccion
 
-        contacto_emergencia = (datos.get('contacto_emergencia') or '').strip()
+        contacto_emergencia = limpiar_espacios(datos.get('contacto_emergencia'))
         if contacto_emergencia:
             kwargs['contacto_emergencia'] = contacto_emergencia
 
@@ -409,27 +411,27 @@ class AltaMasivaService:
         """Crea un EmpleadoUpdate con los datos proporcionados (para reingresos)."""
         kwargs = {}
 
-        rfc = (datos.get('rfc') or '').upper().strip()
+        rfc = normalizar_mayusculas(datos.get('rfc'))
         if rfc:
             kwargs['rfc'] = rfc
 
-        nss = (datos.get('nss') or '').strip()
+        nss = limpiar_espacios(datos.get('nss'))
         if nss:
             kwargs['nss'] = re.sub(r'[^0-9]', '', nss)
 
-        telefono = (datos.get('telefono') or '').strip()
+        telefono = limpiar_espacios(datos.get('telefono'))
         if telefono:
-            kwargs['telefono'] = re.sub(r'[^0-9]', '', telefono)
+            kwargs['telefono'] = limpiar_telefono(telefono)
 
-        email = (datos.get('email') or '').strip()
+        email = normalizar_email(datos.get('email'))
         if email:
-            kwargs['email'] = email.lower()
+            kwargs['email'] = email
 
-        direccion = (datos.get('direccion') or '').strip()
+        direccion = limpiar_espacios(datos.get('direccion'))
         if direccion:
             kwargs['direccion'] = direccion
 
-        contacto_emergencia = (datos.get('contacto_emergencia') or '').strip()
+        contacto_emergencia = limpiar_espacios(datos.get('contacto_emergencia'))
         if contacto_emergencia:
             kwargs['contacto_emergencia'] = contacto_emergencia
 
