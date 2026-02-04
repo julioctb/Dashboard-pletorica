@@ -79,7 +79,10 @@ class PortalState(AuthState):
             return
         try:
             empresa = await empresa_service.obtener_por_id(self.id_empresa_actual)
-            self.datos_empresa = empresa.model_dump(mode='json')
+            datos = empresa.model_dump(mode='json')
+            if empresa.prima_riesgo is not None:
+                datos["prima_riesgo"] = f"{empresa.get_prima_riesgo_porcentaje()}%"
+            self.datos_empresa = datos
         except Exception as e:
             logger.error(f"Error cargando datos de empresa: {e}")
             self.datos_empresa = {}
