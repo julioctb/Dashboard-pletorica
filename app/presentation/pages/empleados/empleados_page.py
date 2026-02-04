@@ -743,13 +743,28 @@ def modal_detalle_empleado() -> rx.Component:
     """Modal de detalle del empleado"""
     return rx.dialog.root(
         rx.dialog.content(
-            rx.dialog.title(
-                rx.hstack(
-                    rx.icon("user", size=20),
-                    EmpleadosState.nombre_completo_seleccionado,
-                    spacing="2",
-                    align="center",
+            rx.hstack(
+                rx.dialog.title(
+                    rx.hstack(
+                        rx.icon("user", size=20),
+                        EmpleadosState.nombre_completo_seleccionado,
+                        spacing="2",
+                        align="center",
+                    ),
                 ),
+                rx.spacer(),
+                rx.dialog.close(
+                    rx.button(
+                        rx.icon("x", size=16),
+                        variant="ghost",
+                        color_scheme="gray",
+                        size="1",
+                        on_click=EmpleadosState.cerrar_modal_detalle,
+                        cursor="pointer",
+                    ),
+                ),
+                align="center",
+                width="100%",
             ),
 
             rx.vstack(
@@ -929,16 +944,8 @@ def modal_detalle_empleado() -> rx.Component:
             ),
 
             # Botones de accion
+            rx.box(height="16px"),
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cerrar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=EmpleadosState.cerrar_modal_detalle,
-                    ),
-                ),
-                rx.spacer(),
                 # Ver historial (solo admin)
                 rx.cond(
                     EmpleadosState.es_admin,
@@ -948,28 +955,6 @@ def modal_detalle_empleado() -> rx.Component:
                         variant="soft",
                         color_scheme="gray",
                         on_click=EmpleadosState.abrir_modal_historial,
-                    ),
-                ),
-                # Editar (si editable Y no restringido)
-                rx.cond(
-                    EmpleadosState.empleado_es_editable & ~EmpleadosState.empleado_esta_restringido,
-                    rx.button(
-                        rx.icon("pencil", size=14),
-                        "Editar",
-                        variant="soft",
-                        color_scheme="blue",
-                        on_click=EmpleadosState.abrir_modal_editar_desde_detalle,
-                    ),
-                ),
-                # Dar de baja (si activo Y no restringido)
-                rx.cond(
-                    EmpleadosState.empleado_esta_activo & ~EmpleadosState.empleado_esta_restringido,
-                    rx.button(
-                        rx.icon("user-x", size=14),
-                        "Dar de baja",
-                        variant="soft",
-                        color_scheme="red",
-                        on_click=EmpleadosState.abrir_modal_baja,
                     ),
                 ),
                 # Restringir (solo admin, solo si no restringido)
@@ -1007,9 +992,10 @@ def modal_detalle_empleado() -> rx.Component:
                 ),
                 spacing="3",
                 width="100%",
+                justify="end",
             ),
 
-            max_width="500px",
+            max_width="650px",
         ),
         open=EmpleadosState.mostrar_modal_detalle,
         on_open_change=lambda open: rx.cond(~open, EmpleadosState.cerrar_modal_detalle(), None),
@@ -1137,9 +1123,8 @@ def modal_restriccion() -> rx.Component:
                 # Advertencia
                 rx.callout(
                     rx.text(
-                        "Esta accion bloqueara al empleado en ",
-                        rx.text("TODO", weight="bold"),
-                        " el sistema. Ninguna empresa proveedora podra darlo de alta.",
+                        "Esta accion bloqueara al empleado en ", rx.text.strong("TODO")," el sistema. " \
+                        "Ninguna empresa proveedora podra darlo de alta.", as_='span'
                     ),
                     icon="triangle-alert",
                     color_scheme="red",
@@ -1182,43 +1167,43 @@ def modal_restriccion() -> rx.Component:
                     spacing="1",
                 ),
 
+                # Botones
+                rx.hstack(
+                    rx.dialog.close(
+                        rx.button(
+                            "Cancelar",
+                            variant="soft",
+                            color_scheme="gray",
+                            on_click=EmpleadosState.cerrar_modal_restriccion,
+                        ),
+                    ),
+                    rx.button(
+                        rx.cond(
+                            EmpleadosState.saving,
+                            rx.hstack(
+                                rx.spinner(size="1"),
+                                rx.text("Restringiendo..."),
+                                spacing="2",
+                            ),
+                            rx.hstack(
+                                rx.icon("ban", size=14),
+                                rx.text("Confirmar Restriccion"),
+                                spacing="2",
+                            ),
+                        ),
+                        on_click=EmpleadosState.confirmar_restriccion,
+                        disabled=~EmpleadosState.puede_guardar_restriccion,
+                        color_scheme="red",
+                    ),
+                    spacing="3",
+                    justify="end",
+                    width="100%",
+                ),
                 spacing="4",
                 width="100%",
                 padding_y="4",
             ),
 
-            # Botones
-            rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=EmpleadosState.cerrar_modal_restriccion,
-                    ),
-                ),
-                rx.button(
-                    rx.cond(
-                        EmpleadosState.saving,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Restringiendo..."),
-                            spacing="2",
-                        ),
-                        rx.hstack(
-                            rx.icon("ban", size=14),
-                            rx.text("Confirmar Restriccion"),
-                            spacing="2",
-                        ),
-                    ),
-                    on_click=EmpleadosState.confirmar_restriccion,
-                    disabled=~EmpleadosState.puede_guardar_restriccion,
-                    color_scheme="red",
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-            ),
 
             max_width="500px",
         ),

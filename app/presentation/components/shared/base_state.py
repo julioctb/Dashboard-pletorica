@@ -8,8 +8,12 @@ Incluye helpers para:
 Nota: Los setters deben definirse explícitamente en cada state.
 Reflex no reconoce funciones asignadas dinámicamente como event handlers.
 """
+import logging
+import traceback
 import reflex as rx
 from typing import Optional
+
+from app.core.config import Config
 
 # Importar excepciones para manejo centralizado
 from app.core.exceptions import (
@@ -19,6 +23,8 @@ from app.core.exceptions import (
     DatabaseError,
     BusinessRuleError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -134,6 +140,8 @@ class BaseState(rx.State):
 
         else:
             # Error inesperado
+            if Config.DEBUG:
+                logger.error(f"{prefijo}{type(error).__name__}: {error}", exc_info=True)
             self.mostrar_mensaje(f"{prefijo}Error inesperado: {str(error)}", "error")
 
         return None
@@ -176,6 +184,8 @@ class BaseState(rx.State):
             mensaje = f"{prefijo}Error de base de datos: {str(error)}"
         else:
             mensaje = f"{prefijo}Error inesperado: {str(error)}"
+            if Config.DEBUG:
+                logger.error(f"{prefijo}{type(error).__name__}: {error}", exc_info=True)
 
         return rx.toast.error(mensaje, position="top-center")
 
@@ -250,6 +260,8 @@ class BaseState(rx.State):
                 f"Error de base de datos: {str(e)}", position="top-center"
             )
         except Exception as e:
+            if Config.DEBUG:
+                logger.error(f"Error inesperado en guardado: {type(e).__name__}: {e}", exc_info=True)
             return rx.toast.error(
                 f"Error inesperado: {str(e)}", position="top-center"
             )
@@ -278,6 +290,8 @@ class BaseState(rx.State):
         try:
             return await operacion()
         except Exception as e:
+            if Config.DEBUG:
+                logger.error(f"Error en carga ({contexto}): {type(e).__name__}: {e}", exc_info=True)
             self.manejar_error(e, contexto)
             return None
         finally:

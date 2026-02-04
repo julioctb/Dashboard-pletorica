@@ -25,7 +25,6 @@ from app.core.enums import (
     MotivoBaja,
     AccionRestriccion,
     # Enums de Historial Laboral
-    EstatusHistorial,
     TipoMovimiento,
     # Enums de Requisicion
     EstadoRequisicion,
@@ -207,7 +206,6 @@ __all__ = [
     "EstatusEmpleado",
     "GeneroEmpleado",
     "MotivoBaja",
-    "EstatusHistorial",
     "TipoMovimiento",
     "EstadoRequisicion",
     "TipoContratacion",

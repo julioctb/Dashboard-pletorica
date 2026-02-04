@@ -201,23 +201,6 @@ class MotivoBaja(str, Enum):
 # ENUMS DE HISTORIAL LABORAL
 # =============================================================================
 
-class EstatusHistorial(str, Enum):
-    """Estados del empleado en historial laboral (refleja estatus del empleado)"""
-    ACTIVO = 'ACTIVO'
-    INACTIVO = 'INACTIVO'
-    SUSPENDIDO = 'SUSPENDIDO'
-
-    @property
-    def descripcion(self) -> str:
-        """Descripción legible del estatus"""
-        descripciones = {
-            'ACTIVO': 'Activo',
-            'INACTIVO': 'Inactivo',
-            'SUSPENDIDO': 'Suspendido'
-        }
-        return descripciones.get(self.value, self.value)
-
-
 class TipoMovimiento(str, Enum):
     """Tipos de movimiento en historial laboral"""
     ALTA = 'ALTA'

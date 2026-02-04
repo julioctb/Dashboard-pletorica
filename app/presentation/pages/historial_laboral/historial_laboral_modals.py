@@ -8,17 +8,6 @@ from app.presentation.pages.historial_laboral.historial_laboral_state import His
 from app.presentation.theme import Colors
 
 
-def estatus_badge(estatus: str) -> rx.Component:
-    """Badge para estatus del empleado"""
-    return rx.match(
-        estatus,
-        ("ACTIVO", rx.badge("Activo", color_scheme="green")),
-        ("INACTIVO", rx.badge("Inactivo", color_scheme="gray")),
-        ("SUSPENDIDO", rx.badge("Suspendido", color_scheme="amber")),
-        rx.badge(estatus, color_scheme="gray"),
-    )
-
-
 def tipo_movimiento_badge(tipo: str) -> rx.Component:
     """Badge para tipo de movimiento"""
     return rx.match(
@@ -75,25 +64,14 @@ def modal_detalle() -> rx.Component:
 
                     rx.divider(),
 
-                    # Tipo de movimiento y estatus
-                    rx.hstack(
-                        rx.vstack(
-                            rx.text("Tipo de Movimiento", size="1", color="gray"),
-                            tipo_movimiento_badge(
-                                HistorialLaboralState.registro_seleccionado["tipo_movimiento"]
-                            ),
-                            spacing="1",
-                            align_items="start",
+                    # Tipo de movimiento
+                    rx.vstack(
+                        rx.text("Tipo de Movimiento", size="1", color="gray"),
+                        tipo_movimiento_badge(
+                            HistorialLaboralState.registro_seleccionado["tipo_movimiento"]
                         ),
-                        rx.vstack(
-                            rx.text("Estatus", size="1", color="gray"),
-                            estatus_badge(
-                                HistorialLaboralState.registro_seleccionado["estatus"]
-                            ),
-                            spacing="1",
-                            align_items="start",
-                        ),
-                        spacing="4",
+                        spacing="1",
+                        align_items="start",
                         width="100%",
                     ),
 

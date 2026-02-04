@@ -724,7 +724,7 @@ class EmpleadoService:
     async def obtener_historial_restricciones(
         self,
         empleado_id: int,
-        admin_user_id: UUID
+        admin_user_id: Optional[UUID] = None,
     ) -> List[EmpleadoRestriccionLogResumen]:
         """
         Obtiene el historial de restricciones de un empleado.
@@ -773,8 +773,13 @@ class EmpleadoService:
     # HELPERS PRIVADOS (RESTRICCIONES)
     # =========================================================================
 
-    async def _es_admin(self, user_id: UUID) -> bool:
+    async def _es_admin(self, user_id: Optional[UUID]) -> bool:
         """Verifica si un usuario tiene rol de admin."""
+        from app.core.config import Config
+        if not Config.requiere_autenticacion():
+            return True
+        if not user_id:
+            return False
         try:
             from app.database import db_manager
             supabase = db_manager.get_client()

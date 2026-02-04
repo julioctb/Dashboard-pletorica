@@ -683,14 +683,12 @@ class EmpleadosState(AuthState):
 
         try:
             from uuid import UUID
-            admin_id = UUID(self.id_usuario) if self.id_usuario else None
-
-            if not admin_id:
-                return rx.toast.error("No se pudo obtener el ID del usuario")
+            raw_id = str(self.usuario_actual.get('id', '')) if self.usuario_actual else ""
+            admin_id = UUID(raw_id) if raw_id else None
 
             historial = await empleado_service.obtener_historial_restricciones(
                 empleado_id=self.empleado_seleccionado["id"],
-                admin_user_id=admin_id
+                admin_user_id=admin_id,
             )
 
             self.historial_restricciones = [

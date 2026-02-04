@@ -8,7 +8,6 @@ import reflex as rx
 from typing import List, Optional
 
 from app.presentation.components.shared.base_state import BaseState
-from app.presentation.constants import FILTRO_TODOS
 from app.services.historial_laboral_service import historial_laboral_service
 from app.core.enums import TipoMovimiento
 
@@ -32,7 +31,6 @@ class HistorialLaboralState(BaseState):
     # FILTROS
     # ========================
     # filtro_busqueda heredado de BaseState
-    filtro_estatus: str = FILTRO_TODOS
     filtro_empleado_id: str = ""
 
     # ========================
@@ -43,9 +41,6 @@ class HistorialLaboralState(BaseState):
     # ========================
     # SETTERS DE FILTROS
     # ========================
-    def set_filtro_estatus(self, value: str):
-        self.filtro_estatus = value if value else FILTRO_TODOS
-
     def set_filtro_empleado_id(self, value: str):
         self.filtro_empleado_id = value if value else ""
 
@@ -91,15 +86,6 @@ class HistorialLaboralState(BaseState):
         return len(self.historial_filtrado)
 
     @rx.var
-    def opciones_estatus(self) -> List[dict]:
-        return [
-            {"value": FILTRO_TODOS, "label": "Todos"},
-            {"value": "ACTIVO", "label": "Activo"},
-            {"value": "INACTIVO", "label": "Inactivo"},
-            {"value": "SUSPENDIDO", "label": "Suspendido"},
-        ]
-
-    @rx.var
     def opciones_tipo_movimiento(self) -> List[dict]:
         return [
             {"value": m.value, "label": m.descripcion}
@@ -118,11 +104,9 @@ class HistorialLaboralState(BaseState):
 
         async def _cargar():
             empleado_id = int(self.filtro_empleado_id) if self.filtro_empleado_id else None
-            estatus = self.filtro_estatus if self.filtro_estatus != FILTRO_TODOS else None
 
             registros = await historial_laboral_service.obtener_todos(
                 empleado_id=empleado_id,
-                estatus=estatus,
                 limite=100,
                 offset=0
             )
@@ -139,7 +123,6 @@ class HistorialLaboralState(BaseState):
     async def limpiar_filtros(self):
         """Limpia todos los filtros"""
         self.filtro_busqueda = ""
-        self.filtro_estatus = FILTRO_TODOS
         self.filtro_empleado_id = ""
         await self.cargar_historial()
 

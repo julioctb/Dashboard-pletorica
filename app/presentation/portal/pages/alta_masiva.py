@@ -106,6 +106,7 @@ class AltaMasivaState(PortalState):
 
         self.archivo_error = ""
         self.validando_archivo = True
+        yield
 
         try:
             file = files[0]
@@ -115,6 +116,7 @@ class AltaMasivaState(PortalState):
             # Validar tamano (5MB)
             if len(contenido) > 5 * 1024 * 1024:
                 self.archivo_error = "El archivo excede el limite de 5MB"
+                self.validando_archivo = False
                 return
 
             self.archivo_nombre = nombre
@@ -156,6 +158,7 @@ class AltaMasivaState(PortalState):
     async def confirmar_procesamiento(self):
         """Procesa los registros validados y pasa al paso 3."""
         self.procesando = True
+        yield
 
         try:
             # Reconstruir ResultadoValidacion desde cache
@@ -183,7 +186,7 @@ class AltaMasivaState(PortalState):
             self.paso_actual = 3
 
         except Exception as e:
-            return rx.toast.error(
+            yield rx.toast.error(
                 f"Error al procesar: {str(e)}",
                 position="top-center",
             )
@@ -449,13 +452,25 @@ def _paso_1_subir() -> rx.Component:
                     align="center",
                 ),
                 rx.button(
-                    rx.icon("circle-check", size=16),
-                    "Validar archivo",
+                    rx.cond(
+                        AltaMasivaState.validando_archivo,
+                        rx.hstack(
+                            rx.spinner(size="1"),
+                            rx.text("Validando archivo...", size="2"),
+                            spacing="2",
+                            align="center",
+                        ),
+                        rx.hstack(
+                            rx.icon("circle-check", size=16),
+                            rx.text("Validar archivo", size="2"),
+                            spacing="2",
+                            align="center",
+                        ),
+                    ),
                     on_click=AltaMasivaState.handle_upload(
                         rx.upload_files(upload_id=UPLOAD_ID),
                     ),
                     disabled=AltaMasivaState.validando_archivo,
-                    loading=AltaMasivaState.validando_archivo,
                     size="2",
                     color_scheme="teal",
                 ),
@@ -650,13 +665,25 @@ def _paso_2_preview() -> rx.Component:
             ),
             rx.spacer(),
             rx.button(
-                rx.icon("check", size=16),
-                "Confirmar alta",
+                rx.cond(
+                    AltaMasivaState.procesando,
+                    rx.hstack(
+                        rx.spinner(size="1"),
+                        rx.text("Procesando alta...", size="2"),
+                        spacing="2",
+                        align="center",
+                    ),
+                    rx.hstack(
+                        rx.icon("check", size=16),
+                        rx.text("Confirmar alta", size="2"),
+                        spacing="2",
+                        align="center",
+                    ),
+                ),
                 on_click=AltaMasivaState.confirmar_procesamiento,
                 size="2",
                 color_scheme="teal",
                 disabled=~AltaMasivaState.puede_procesar | AltaMasivaState.procesando,
-                loading=AltaMasivaState.procesando,
             ),
             width="100%",
         ),

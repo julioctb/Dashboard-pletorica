@@ -7,6 +7,7 @@ y opciones para cambiar empresa (si tiene multiples asignadas).
 """
 import reflex as rx
 
+from app.core.config import Config
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.theme import (
     Colors,
@@ -269,6 +270,59 @@ def _portal_user_section() -> rx.Component:
 
 
 # =============================================================================
+# DEV SIMULATION BANNER
+# =============================================================================
+
+def _dev_simulation_banner() -> rx.Component:
+    """
+    Banner rojo SIMULACION con botón Volver a Admin.
+    Solo visible si Config.DEBUG y PortalState.simulando_cliente.
+    """
+    if not Config.DEBUG:
+        return rx.fragment()
+
+    return rx.cond(
+        PortalState.simulando_cliente,
+        rx.vstack(
+            rx.hstack(
+                rx.icon("bug", size=14, color="white"),
+                rx.text(
+                    "SIMULACION",
+                    font_size="11px",
+                    font_weight=Typography.WEIGHT_BOLD,
+                    color="white",
+                    letter_spacing=Typography.LETTER_SPACING_WIDE,
+                ),
+                align="center",
+                justify="center",
+                gap="2",
+            ),
+            rx.button(
+                rx.icon("arrow-left", size=14),
+                rx.text("Volver a Admin", font_size="12px"),
+                size="1",
+                variant="outline",
+                color_scheme="red",
+                width="100%",
+                on_click=PortalState.desactivar_simulacion_cliente,
+                cursor="pointer",
+                style={
+                    "color": "white",
+                    "border_color": "var(--red-7)",
+                    "_hover": {"background": "var(--red-8)"},
+                },
+            ),
+            width="100%",
+            padding=Spacing.SM,
+            background="var(--red-9)",
+            spacing="2",
+            align_items="center",
+        ),
+        rx.fragment(),
+    )
+
+
+# =============================================================================
 # SIDEBAR COMPLETO DEL PORTAL
 # =============================================================================
 
@@ -285,6 +339,7 @@ def portal_sidebar() -> rx.Component:
     """
     return rx.box(
         rx.vstack(
+            _dev_simulation_banner(),
             _portal_header(),
             _portal_navigation(),
             _portal_user_section(),

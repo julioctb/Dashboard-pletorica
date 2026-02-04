@@ -10,7 +10,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 from dateutil.relativedelta import relativedelta
 
-from app.core.enums import EstatusHistorial, TipoMovimiento
+from app.core.enums import TipoMovimiento
 
 
 # =============================================================================
@@ -34,7 +34,6 @@ class HistorialLaboral(BaseModel):
     tipo_movimiento: Optional[TipoMovimiento] = None
     fecha_inicio: date
     fecha_fin: Optional[date] = None
-    estatus: EstatusHistorial = EstatusHistorial.INACTIVO
     notas: Optional[str] = None
     empresa_anterior_id: Optional[int] = None
     fecha_creacion: Optional[datetime] = None
@@ -88,7 +87,6 @@ class HistorialLaboralInterno(BaseModel):
     plaza_id: Optional[int] = None
     tipo_movimiento: TipoMovimiento
     fecha_inicio: date = Field(default_factory=date.today)
-    estatus: EstatusHistorial
     notas: Optional[str] = None
     empresa_anterior_id: Optional[int] = None
 
@@ -111,7 +109,6 @@ class HistorialLaboralResumen(BaseModel):
     tipo_movimiento: Optional[str]
     fecha_inicio: date
     fecha_fin: Optional[date]
-    estatus: str
 
     # Datos del empleado
     empleado_clave: str
@@ -164,7 +161,6 @@ class HistorialLaboralResumen(BaseModel):
             tipo_movimiento=tipo_mov_desc,
             fecha_inicio=historial.fecha_inicio,
             fecha_fin=historial.fecha_fin,
-            estatus=historial.estatus if isinstance(historial.estatus, str) else historial.estatus.value,
             empleado_clave=empleado_clave,
             empleado_nombre=empleado_nombre,
             plaza_numero=plaza_numero,

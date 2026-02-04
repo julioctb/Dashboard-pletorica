@@ -25,7 +25,7 @@ from app.entities.historial_laboral import (
     HistorialLaboralInterno,
     HistorialLaboralResumen,
 )
-from app.core.enums import EstatusHistorial, TipoMovimiento, EstatusPlaza
+from app.core.enums import TipoMovimiento, EstatusPlaza
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ class HistorialLaboralService:
             result = self.supabase.table(self.tabla)\
                 .select('''
                     *,
-                    empleados!inner(id, clave, nombre, apellido_paterno, apellido_materno)
+                    empleados!inner(id, clave, nombre, apellido_paterno, apellido_materno, empresas(nombre_comercial))
                 ''')\
                 .eq('empleado_id', empleado_id)\
                 .order('fecha_inicio', desc=True)\
@@ -109,7 +109,6 @@ class HistorialLaboralService:
     async def obtener_todos(
         self,
         empleado_id: Optional[int] = None,
-        estatus: Optional[str] = None,
         limite: int = 50,
         offset: int = 0
     ) -> List[HistorialLaboralResumen]:
@@ -123,13 +122,11 @@ class HistorialLaboralService:
             query = self.supabase.table(self.tabla)\
                 .select('''
                     *,
-                    empleados!inner(id, clave, nombre, apellido_paterno, apellido_materno)
+                    empleados!inner(id, clave, nombre, apellido_paterno, apellido_materno, empresas(nombre_comercial))
                 ''')
 
             if empleado_id:
                 query = query.eq('empleado_id', empleado_id)
-            if estatus and estatus != "TODOS":
-                query = query.eq('estatus', estatus)
 
             query = query.order('fecha_inicio', desc=True)\
                 .range(offset, offset + limite - 1)
@@ -150,7 +147,6 @@ class HistorialLaboralService:
     async def contar(
         self,
         empleado_id: Optional[int] = None,
-        estatus: Optional[str] = None
     ) -> int:
         """
         Cuenta registros con filtros.
@@ -164,8 +160,6 @@ class HistorialLaboralService:
 
             if empleado_id:
                 query = query.eq('empleado_id', empleado_id)
-            if estatus and estatus != "TODOS":
-                query = query.eq('estatus', estatus)
 
             result = query.execute()
             return result.count or 0
@@ -211,20 +205,13 @@ class HistorialLaboralService:
         """
         Registra el alta de un empleado en el sistema.
 
-        Si tiene plaza asignada -> estatus ACTIVO
-        Si no tiene plaza -> estatus INACTIVO
-
         Se llama automaticamente desde empleado_service.crear()
         """
-        # Determinar estatus segun si tiene plaza o no
-        estatus = EstatusHistorial.ACTIVO if plaza_id else EstatusHistorial.INACTIVO
-
         datos = HistorialLaboralInterno(
             empleado_id=empleado_id,
             plaza_id=plaza_id,
             tipo_movimiento=TipoMovimiento.ALTA,
             fecha_inicio=fecha or date.today(),
-            estatus=estatus,
             notas=notas or "Alta en el sistema"
         )
 
@@ -234,7 +221,7 @@ class HistorialLaboralService:
         if plaza_id:
             await self._actualizar_estatus_plaza(plaza_id, EstatusPlaza.OCUPADA)
 
-        logger.info(f"Registrada ALTA de empleado {empleado_id}, estatus={estatus}")
+        logger.info(f"Registrada ALTA de empleado {empleado_id}")
         return historial
 
     async def registrar_asignacion(
@@ -261,7 +248,6 @@ class HistorialLaboralService:
             plaza_id=plaza_id,
             tipo_movimiento=TipoMovimiento.ASIGNACION,
             fecha_inicio=fecha_movimiento,
-            estatus=EstatusHistorial.ACTIVO,
             notas=notas or f"Asignacion a plaza {plaza_id}"
         )
 
@@ -306,7 +292,6 @@ class HistorialLaboralService:
             plaza_id=nueva_plaza_id,
             tipo_movimiento=TipoMovimiento.CAMBIO_PLAZA,
             fecha_inicio=fecha_movimiento,
-            estatus=EstatusHistorial.ACTIVO,
             notas=nota_final
         )
 
@@ -327,8 +312,7 @@ class HistorialLaboralService:
         """
         Registra la suspension de un empleado.
 
-        Cierra el registro anterior, libera la plaza (si tiene),
-        y crea nuevo registro con estatus SUSPENDIDO.
+        Cierra el registro anterior y libera la plaza (si tiene).
         """
         fecha_movimiento = fecha or date.today()
 
@@ -349,7 +333,6 @@ class HistorialLaboralService:
             plaza_id=None,  # Suspendido no tiene plaza
             tipo_movimiento=TipoMovimiento.SUSPENSION,
             fecha_inicio=fecha_movimiento,
-            estatus=EstatusHistorial.SUSPENDIDO,
             notas=notas or "Suspension temporal"
         )
 
@@ -369,16 +352,11 @@ class HistorialLaboralService:
         Registra la reactivacion de un empleado.
 
         Cierra el registro de suspension y crea nuevo registro.
-        Si se especifica plaza, el empleado queda ACTIVO.
-        Si no hay plaza, queda INACTIVO (disponible para asignacion).
         """
         fecha_movimiento = fecha or date.today()
 
         # Cerrar registro de suspension
         await self._cerrar_registro_activo(empleado_id, fecha_movimiento)
-
-        # Determinar estatus segun si tiene plaza
-        estatus = EstatusHistorial.ACTIVO if plaza_id else EstatusHistorial.INACTIVO
 
         # Crear nuevo registro
         datos = HistorialLaboralInterno(
@@ -386,7 +364,6 @@ class HistorialLaboralService:
             plaza_id=plaza_id,
             tipo_movimiento=TipoMovimiento.REACTIVACION,
             fecha_inicio=fecha_movimiento,
-            estatus=estatus,
             notas=notas or "Reactivacion de empleado"
         )
 
@@ -396,7 +373,7 @@ class HistorialLaboralService:
         if plaza_id:
             await self._actualizar_estatus_plaza(plaza_id, EstatusPlaza.OCUPADA)
 
-        logger.info(f"Registrada REACTIVACION de empleado {empleado_id}, estatus={estatus}")
+        logger.info(f"Registrada REACTIVACION de empleado {empleado_id}")
         return historial
 
     async def registrar_baja(
@@ -408,8 +385,7 @@ class HistorialLaboralService:
         """
         Registra la baja de un empleado del sistema.
 
-        Cierra el registro anterior, libera la plaza (si tiene),
-        y crea nuevo registro con estatus INACTIVO y tipo BAJA.
+        Cierra el registro anterior y libera la plaza (si tiene).
         """
         fecha_movimiento = fecha or date.today()
 
@@ -424,13 +400,12 @@ class HistorialLaboralService:
         if plaza_id:
             await self._actualizar_estatus_plaza(plaza_id, EstatusPlaza.VACANTE)
 
-        # Crear nuevo registro de baja (sin plaza, inactivo)
+        # Crear nuevo registro de baja (sin plaza)
         datos = HistorialLaboralInterno(
             empleado_id=empleado_id,
             plaza_id=None,
             tipo_movimiento=TipoMovimiento.BAJA,
             fecha_inicio=fecha_movimiento,
-            estatus=EstatusHistorial.INACTIVO,
             notas=notas or "Baja del sistema"
         )
 
@@ -460,16 +435,12 @@ class HistorialLaboralService:
         # Cerrar registro activo anterior (si existe)
         await self._cerrar_registro_activo(empleado_id, fecha_movimiento)
 
-        # Determinar estatus segun si tiene plaza
-        estatus = EstatusHistorial.ACTIVO if plaza_id else EstatusHistorial.INACTIVO
-
         # Crear nuevo registro de reingreso
         datos = HistorialLaboralInterno(
             empleado_id=empleado_id,
             plaza_id=plaza_id,
             tipo_movimiento=TipoMovimiento.REINGRESO,
             fecha_inicio=fecha_movimiento,
-            estatus=estatus,
             notas=notas or "Reingreso a otra empresa",
             empresa_anterior_id=empresa_anterior_id,
         )
@@ -482,7 +453,7 @@ class HistorialLaboralService:
 
         logger.info(
             f"Registrado REINGRESO de empleado {empleado_id}, "
-            f"empresa_anterior={empresa_anterior_id}, estatus={estatus}"
+            f"empresa_anterior={empresa_anterior_id}"
         )
         return historial
 
@@ -492,7 +463,7 @@ class HistorialLaboralService:
         fecha: Optional[date] = None
     ) -> Optional[HistorialLaboral]:
         """
-        Libera la plaza de un empleado sin cambiar su estatus general.
+        Libera la plaza de un empleado.
 
         Usado cuando se desasigna un empleado de una plaza
         pero sigue disponible para otras asignaciones.
@@ -518,7 +489,6 @@ class HistorialLaboralService:
             plaza_id=None,
             tipo_movimiento=TipoMovimiento.ASIGNACION,  # Desasignacion
             fecha_inicio=fecha_movimiento,
-            estatus=EstatusHistorial.INACTIVO,
             notas=f"Desasignacion de plaza {plaza_id}"
         )
 
@@ -657,11 +627,14 @@ class HistorialLaboralService:
         if empleado.get('apellido_materno'):
             nombre_completo += f" {empleado.get('apellido_materno')}"
 
+        # Empresa del empleado (siempre disponible via JOIN)
+        empresa_empleado = empleado.get('empresas', {})
+        empresa_nombre = empresa_empleado.get('nombre_comercial') if empresa_empleado else None
+
         # Obtener datos de plaza si existe
         plaza_numero = None
         categoria_nombre = None
         contrato_codigo = None
-        empresa_nombre = None
 
         if data.get('plaza_id'):
             plaza_data = await self._obtener_datos_plaza(data['plaza_id'])
@@ -669,7 +642,8 @@ class HistorialLaboralService:
                 plaza_numero = plaza_data.get('numero_plaza')
                 categoria_nombre = plaza_data.get('categoria_nombre')
                 contrato_codigo = plaza_data.get('contrato_codigo')
-                empresa_nombre = plaza_data.get('empresa_nombre')
+                # Preferir empresa de la plaza si existe
+                empresa_nombre = plaza_data.get('empresa_nombre') or empresa_nombre
 
         historial = HistorialLaboral(
             id=data['id'],
@@ -678,7 +652,6 @@ class HistorialLaboralService:
             tipo_movimiento=data.get('tipo_movimiento'),
             fecha_inicio=data['fecha_inicio'],
             fecha_fin=data.get('fecha_fin'),
-            estatus=data['estatus'],
             notas=data.get('notas'),
             fecha_creacion=data.get('fecha_creacion'),
             fecha_actualizacion=data.get('fecha_actualizacion'),

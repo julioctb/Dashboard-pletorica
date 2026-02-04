@@ -30,9 +30,9 @@ USO EN PÁGINAS PARA VERIFICAR AUTH:
             contenido_de_la_pagina(),
         )
 
-NOTA SOBRE DEBUG MODE:
-    Si Config.DEBUG=True, la propiedad `requiere_login` retorna False,
-    permitiendo acceso sin autenticación durante desarrollo.
+NOTA SOBRE SKIP_AUTH:
+    Si Config.SKIP_AUTH=True, la propiedad `requiere_login` retorna False,
+    permitiendo acceso sin autenticación durante desarrollo/testing.
 """
 import reflex as rx
 import logging
@@ -81,25 +81,29 @@ class AuthState(BaseState):
     _sesion_verificada: bool = False
 
     # =========================================================================
+    # SIMULACIÓN DE CLIENTE (solo DEBUG)
+    # =========================================================================
+    _simulando_cliente: bool = False
+    _empresas_simulacion: List[dict] = []
+
+    # =========================================================================
     # PROPIEDADES CALCULADAS
     # =========================================================================
+
+    @rx.var
+    def simulando_cliente(self) -> bool:
+        """Indica si se está simulando vista de cliente (solo en DEBUG)."""
+        return self._simulando_cliente
 
     @rx.var
     def requiere_login(self) -> bool:
         """
         Indica si el sistema requiere autenticación.
 
-        Retorna False si:
-        - DEBUG=True (desarrollo)
-        - SKIP_AUTH=True (testing)
-
+        Retorna False si SKIP_AUTH=True.
         Usar en páginas para decidir si redirigir a login.
         """
-        # Verificar si hay método requiere_autenticacion en Config
-        if hasattr(Config, 'requiere_autenticacion'):
-            return Config.requiere_autenticacion()
-        # Fallback: si DEBUG está activo, no requerir login
-        return not getattr(Config, 'DEBUG', False)
+        return Config.requiere_autenticacion()
 
     @rx.var
     def esta_autenticado(self) -> bool:
@@ -119,7 +123,13 @@ class AuthState(BaseState):
 
         Los admins tienen acceso a todas las empresas y funciones
         administrativas como gestión de usuarios.
+        Si SKIP_AUTH=True, siempre retorna True (acceso completo en dev).
+        Retorna False si se está simulando vista de cliente.
         """
+        if self._simulando_cliente:
+            return False
+        if not Config.requiere_autenticacion():
+            return True
         if not self.usuario_actual:
             return False
         rol = self.usuario_actual.get('rol', '')
@@ -127,7 +137,10 @@ class AuthState(BaseState):
 
     @rx.var
     def es_client(self) -> bool:
-        """Indica si el usuario actual es cliente (empresa proveedora)."""
+        """Indica si el usuario actual es cliente (empresa proveedora).
+        Retorna True si se está simulando vista de cliente."""
+        if self._simulando_cliente:
+            return True
         if not self.usuario_actual:
             return False
         rol = self.usuario_actual.get('rol', '')
@@ -343,6 +356,55 @@ class AuthState(BaseState):
             logger.warning(f"Error refrescando token: {e}")
             self._limpiar_sesion()
 
+    # =========================================================================
+    # MÉTODOS DE SIMULACIÓN (solo DEBUG)
+    # =========================================================================
+
+    async def cargar_empresas_simulacion(self):
+        """Carga todas las empresas desde DB para el selector de simulación."""
+        if not Config.DEBUG:
+            return
+        try:
+            from app.services import empresa_service
+            empresas = await empresa_service.obtener_todas(incluir_inactivas=False)
+            self._empresas_simulacion = [
+                {
+                    "id": e.id,
+                    "nombre": e.nombre_comercial,
+                }
+                for e in empresas
+            ]
+        except Exception as e:
+            logger.error(f"Error cargando empresas para simulación: {e}")
+            self._empresas_simulacion = []
+
+    async def activar_simulacion_cliente(self, empresa_id: str):
+        """Activa simulación de vista cliente con la empresa seleccionada."""
+        if not Config.DEBUG or not empresa_id:
+            return
+        eid = int(empresa_id)
+        empresa = next(
+            (e for e in self._empresas_simulacion if e["id"] == eid),
+            None,
+        )
+        if not empresa:
+            return
+        self._simulando_cliente = True
+        self.empresa_actual = {
+            "empresa_id": empresa["id"],
+            "empresa_nombre": empresa["nombre"],
+        }
+        logger.info(f"Simulación cliente activada: {empresa['nombre']} (ID {eid})")
+        return rx.redirect("/portal")
+
+    def desactivar_simulacion_cliente(self):
+        """Desactiva simulación y vuelve a vista admin."""
+        self._simulando_cliente = False
+        self.empresa_actual = {}
+        self._empresas_simulacion = []
+        logger.info("Simulación cliente desactivada")
+        return rx.redirect("/")
+
     def _limpiar_sesion(self):
         """Limpia todos los datos de sesión del estado."""
         self._access_token = ""
@@ -352,6 +414,8 @@ class AuthState(BaseState):
         self.empresa_actual = {}
         self.empresas_disponibles = []
         self._sesion_verificada = False
+        self._simulando_cliente = False
+        self._empresas_simulacion = []
 
     # =========================================================================
     # GESTIÓN DE EMPRESAS
@@ -502,8 +566,8 @@ def pagina_protegida(contenido: rx.Component) -> rx.Component:
                 )
             )
 
-    Si DEBUG=True, muestra el contenido sin verificar auth.
-    Si DEBUG=False y no hay sesión, redirige a /login.
+    Si SKIP_AUTH=True, muestra el contenido sin verificar auth.
+    Si SKIP_AUTH=False y no hay sesión, redirige a /login.
     """
     return rx.cond(
         AuthState.debe_redirigir_login,

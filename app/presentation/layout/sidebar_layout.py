@@ -25,6 +25,7 @@ Uso:
 """
 
 import reflex as rx
+from app.core.config import Config
 from app.presentation.layout.sidebar_state import SidebarState
 from app.presentation.theme import (
     Colors,
@@ -507,27 +508,151 @@ def sidebar_user_section() -> rx.Component:
 
 
 # =============================================================================
+# DEV VIEW SWITCHER (solo DEBUG)
+# =============================================================================
+
+def _dev_view_switcher() -> rx.Component:
+    """
+    Switcher Admin/Cliente para desarrollo.
+    Solo se renderiza cuando Config.DEBUG=True.
+    Permite simular la vista de portal de cliente con una empresa real.
+    """
+    if not Config.DEBUG:
+        return rx.fragment()
+
+    # Botón Admin
+    btn_admin = rx.button(
+        rx.icon("shield", size=14),
+        rx.cond(~SidebarState.is_collapsed, rx.text("Admin", font_size="12px"), rx.fragment()),
+        size="1",
+        variant=rx.cond(~SidebarState.dev_modo_cliente_activo, "solid", "outline"),
+        color_scheme="gray",
+        on_click=SidebarState.on_dev_view_change("admin"),
+        flex="1",
+        cursor="pointer",
+    )
+
+    # Botón Cliente
+    btn_cliente = rx.button(
+        rx.icon("building-2", size=14),
+        rx.cond(~SidebarState.is_collapsed, rx.text("Cliente", font_size="12px"), rx.fragment()),
+        size="1",
+        variant=rx.cond(SidebarState.dev_modo_cliente_activo, "solid", "outline"),
+        color_scheme="teal",
+        on_click=SidebarState.on_dev_view_change("cliente"),
+        flex="1",
+        cursor="pointer",
+    )
+
+    # Select de empresas (solo visible in modo cliente expandido)
+    empresa_select = rx.cond(
+        SidebarState.dev_modo_cliente_activo & ~SidebarState.is_collapsed,
+        rx.select.root(
+            rx.select.trigger(placeholder="Seleccionar empresa...", width="100%"),
+            rx.select.content(
+                rx.foreach(
+                    SidebarState.opciones_empresas_simulacion,
+                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
+                ),
+            ),
+            value=SidebarState.valor_empresa_simulada,
+            on_change=SidebarState.activar_simulacion_cliente,
+            size="1",
+        ),
+        rx.fragment(),
+    )
+
+    # Versión expandida
+    expanded = rx.vstack(
+        rx.text(
+            "DEV VIEW",
+            font_size="10px",
+            font_weight=Typography.WEIGHT_BOLD,
+            color="var(--red-9)",
+            letter_spacing=Typography.LETTER_SPACING_WIDE,
+        ),
+        rx.hstack(
+            btn_admin,
+            btn_cliente,
+            width="100%",
+            gap=Spacing.XS,
+        ),
+        empresa_select,
+        width="100%",
+        spacing="2",
+        padding=Spacing.SM,
+        background="var(--red-2)",
+        border_radius="8px",
+        border=f"1px dashed var(--red-6)",
+    )
+
+    # Versión colapsada: solo icono bug con tooltip
+    collapsed = rx.tooltip(
+        rx.center(
+            rx.icon("bug", size=16, color="var(--red-9)"),
+            width="36px",
+            height="36px",
+            border_radius="8px",
+            background="var(--red-2)",
+            border=f"1px dashed var(--red-6)",
+            cursor="pointer",
+        ),
+        content="Dev View Switcher",
+        side="right",
+    )
+
+    return rx.box(
+        rx.cond(SidebarState.is_collapsed, collapsed, expanded),
+        width="100%",
+        padding_x=Spacing.XS,
+    )
+
+
+# =============================================================================
 # FOOTER
 # =============================================================================
 
+def _debug_badge() -> rx.Component:
+    """Badge de modo desarrollo, solo visible si DEBUG=true."""
+    if not Config.DEBUG:
+        return rx.fragment()
+    return rx.badge(
+        "DEV",
+        color_scheme="red",
+        variant="solid",
+        size="1",
+    )
+
+
 def sidebar_footer() -> rx.Component:
     """
-    Footer del sidebar con version.
+    Footer del sidebar con dev view switcher, version y badge de debug.
     """
-    return rx.hstack(
-        rx.cond(
-            ~SidebarState.is_collapsed,
-            rx.text(
-                "v1.0.0",
-                font_size=Typography.SIZE_XS,
-                color=Colors.TEXT_MUTED,
+    return rx.vstack(
+        _dev_view_switcher(),
+        rx.hstack(
+            rx.cond(
+                ~SidebarState.is_collapsed,
+                rx.hstack(
+                    rx.text(
+                        "v1.0.0",
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.TEXT_MUTED,
+                    ),
+                    _debug_badge(),
+                    align="center",
+                    gap=Spacing.XS,
+                ),
+                _debug_badge(),
             ),
+            width="100%",
+            padding_x=Spacing.MD,
+            padding_bottom=Spacing.SM,
+            align="center",
+            justify=rx.cond(SidebarState.is_collapsed, "center", "start"),
         ),
         width="100%",
-        padding_x=Spacing.MD,
-        padding_bottom=Spacing.SM,
-        align="center",
-        justify=rx.cond(SidebarState.is_collapsed, "center", "start"),
+        spacing="2",
     )
 
 
