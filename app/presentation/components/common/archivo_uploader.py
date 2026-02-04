@@ -16,6 +16,8 @@ Uso:
 
 import reflex as rx
 
+from app.presentation.theme import Colors, Radius, Spacing
+
 
 def _archivo_card(archivo: dict, on_delete: callable) -> rx.Component:
     """Tarjeta individual de un archivo existente."""
@@ -23,8 +25,8 @@ def _archivo_card(archivo: dict, on_delete: callable) -> rx.Component:
         # Icono segun tipo
         rx.cond(
             archivo["tipo_mime"].to(str).contains("image"),
-            rx.icon("image", size=18, color="var(--blue-9)"),
-            rx.icon("file-text", size=18, color="var(--red-9)"),
+            rx.icon("image", size=18, color=Colors.PRIMARY),
+            rx.icon("file-text", size=18, color=Colors.ERROR),
         ),
         # Info del archivo
         rx.vstack(
@@ -40,12 +42,12 @@ def _archivo_card(archivo: dict, on_delete: callable) -> rx.Component:
                     archivo["fue_comprimido"].to(bool),
                     rx.text.span(
                         "Comprimido",
-                        color="var(--green-9)",
+                        color=Colors.SUCCESS,
                     ),
                     "",
                 ),
                 size="1",
-                color="gray",
+                color=Colors.TEXT_MUTED,
             ),
             spacing="0",
         ),
@@ -62,9 +64,9 @@ def _archivo_card(archivo: dict, on_delete: callable) -> rx.Component:
             content="Eliminar archivo",
         ),
         align="center",
-        padding="8px",
-        border_radius="var(--radius-2)",
-        background="var(--gray-2)",
+        padding=Spacing.SM,
+        border_radius=Radius.MD,
+        background=Colors.SECONDARY_LIGHT,
         width="100%",
     )
 
@@ -117,12 +119,12 @@ def archivo_uploader(
                     subiendo,
                     rx.vstack(
                         rx.spinner(size="3"),
-                        rx.text("Subiendo archivo...", size="2", color="gray"),
+                        rx.text("Subiendo archivo...", size="2", color=Colors.TEXT_MUTED),
                         align="center",
                         spacing="2",
                     ),
                     rx.vstack(
-                        rx.icon("upload", size=24, color="var(--blue-9)"),
+                        rx.icon("upload", size=24, color=Colors.PRIMARY),
                         rx.text(
                             "Click o arrastra archivos aqui",
                             size="2",
@@ -131,7 +133,7 @@ def archivo_uploader(
                         rx.text(
                             "JPG, PNG o PDF",
                             size="1",
-                            color="gray",
+                            color=Colors.TEXT_MUTED,
                         ),
                         align="center",
                         spacing="1",
@@ -139,7 +141,7 @@ def archivo_uploader(
                 ),
                 align="center",
                 justify="center",
-                padding="20px",
+                padding=Spacing.LG,
                 width="100%",
             ),
             id=upload_id,
@@ -151,10 +153,10 @@ def archivo_uploader(
             max_files=max_archivos,
             no_click=subiendo,
             no_drag=subiendo,
-            border=f"2px dashed var(--gray-6)",
-            border_radius="var(--radius-2)",
+            border=f"2px dashed {Colors.BORDER_STRONG}",
+            border_radius=Radius.MD,
             cursor=rx.cond(subiendo, "wait", "pointer"),
-            _hover={"borderColor": "var(--blue-8)", "background": "var(--blue-2)"},
+            _hover={"borderColor": Colors.PRIMARY, "background": Colors.PRIMARY_LIGHTER},
             width="100%",
         ),
 
@@ -164,7 +166,7 @@ def archivo_uploader(
             rx.vstack(
                 rx.foreach(
                     rx.selected_files(upload_id),
-                    lambda file: rx.text(file, size="1", color="gray"),
+                    lambda file: rx.text(file, size="1", color=Colors.TEXT_MUTED),
                 ),
                 rx.button(
                     "Subir archivos",
