@@ -94,7 +94,7 @@ class SedeService:
             query = self.supabase.table(self.tabla).select('*')
 
             if not incluir_inactivas:
-                query = query.eq('estatus', Estatus.ACTIVO)
+                query = query.eq('estatus', Estatus.ACTIVO.value)
 
             query = query.order('nombre', desc=False)
 
@@ -121,7 +121,7 @@ class SedeService:
             result = self.supabase.table(self.tabla)\
                 .select('*')\
                 .eq('sede_padre_id', sede_padre_id)\
-                .eq('estatus', Estatus.ACTIVO)\
+                .eq('estatus', Estatus.ACTIVO.value)\
                 .order('nombre')\
                 .execute()
 
@@ -143,7 +143,7 @@ class SedeService:
             # Obtener todas las sedes activas
             result = self.supabase.table(self.tabla)\
                 .select('*')\
-                .eq('estatus', Estatus.ACTIVO)\
+                .eq('estatus', Estatus.ACTIVO.value)\
                 .order('nombre')\
                 .execute()
 
@@ -182,7 +182,7 @@ class SedeService:
 
             result = self.supabase.table(self.tabla)\
                 .select('*')\
-                .eq('estatus', Estatus.ACTIVO)\
+                .eq('estatus', Estatus.ACTIVO.value)\
                 .or_(
                     f"nombre.ilike.%{termino_limpio}%,"
                     f"nombre_corto.ilike.%{termino_limpio}%,"
@@ -209,7 +209,7 @@ class SedeService:
             query = self.supabase.table(self.tabla).select('id', count='exact')
 
             if not incluir_inactivas:
-                query = query.eq('estatus', Estatus.ACTIVO)
+                query = query.eq('estatus', Estatus.ACTIVO.value)
 
             result = query.execute()
             return result.count if result.count else 0
@@ -337,7 +337,7 @@ class SedeService:
             logger.info(f"Eliminando (desactivando) sede: {sede.codigo}")
 
             result = self.supabase.table(self.tabla).update(
-                {'estatus': Estatus.INACTIVO}
+                {'estatus': Estatus.INACTIVO.value}
             ).eq('id', sede_id).execute()
 
             return bool(result.data)
@@ -360,13 +360,13 @@ class SedeService:
         try:
             sede = await self.obtener_por_id(sede_id)
 
-            if sede.estatus == Estatus.ACTIVO:
+            if sede.estatus == Estatus.ACTIVO.value:
                 raise BusinessRuleError("La sede ya está activa")
 
             logger.info(f"Activando sede: {sede.codigo}")
 
             result = self.supabase.table(self.tabla).update(
-                {'estatus': Estatus.ACTIVO}
+                {'estatus': Estatus.ACTIVO.value}
             ).eq('id', sede_id).execute()
 
             if not result.data:
@@ -391,7 +391,7 @@ class SedeService:
             result = self.supabase.table(self.tabla)\
                 .select('id', count='exact')\
                 .eq('sede_padre_id', sede.id)\
-                .eq('estatus', Estatus.ACTIVO)\
+                .eq('estatus', Estatus.ACTIVO.value)\
                 .execute()
 
             hijos = result.count if result.count else 0
@@ -404,7 +404,7 @@ class SedeService:
             result2 = self.supabase.table(self.tabla)\
                 .select('id', count='exact')\
                 .eq('ubicacion_fisica_id', sede.id)\
-                .eq('estatus', Estatus.ACTIVO)\
+                .eq('estatus', Estatus.ACTIVO.value)\
                 .execute()
 
             ubicadas = result2.count if result2.count else 0

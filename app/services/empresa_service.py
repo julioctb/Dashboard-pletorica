@@ -90,7 +90,7 @@ class EmpresaService:
             query = self.supabase.table(self.tabla).select('*')
 
             if not incluir_inactivas:
-                query = query.eq('estatus', EstatusEmpresa.ACTIVO)
+                query = query.eq('estatus', EstatusEmpresa.ACTIVO.value)
 
             query = query.order('fecha_creacion', desc=True)
 
@@ -170,7 +170,7 @@ class EmpresaService:
             if estatus:
                 query = query.eq('estatus', estatus)
             elif not incluir_inactivas:
-                query = query.eq('estatus', EstatusEmpresa.ACTIVO)
+                query = query.eq('estatus', EstatusEmpresa.ACTIVO.value)
 
             query = query.order('fecha_creacion', desc=True)
 
