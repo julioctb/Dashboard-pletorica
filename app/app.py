@@ -11,7 +11,7 @@ from .presentation.pages.tipo_servicio.tipo_servicio_page import tipo_servicio_p
 from .presentation.pages.categorias_puesto.categorias_puesto_page import categorias_puesto_page
 from .presentation.pages.contratos.contratos_page import contratos_page
 from .presentation.pages.plazas.plazas_page import plazas_page
-from .presentation.pages.empleados.empleados_page import empleados_page
+from .presentation.pages.empleados import empleados_page
 from .presentation.pages.historial_laboral.historial_laboral_page import historial_laboral_page
 from .presentation.pages.requisiciones.requisiciones_page import requisiciones_page
 from .presentation.pages.configuracion.configuracion_page import configuracion_page
