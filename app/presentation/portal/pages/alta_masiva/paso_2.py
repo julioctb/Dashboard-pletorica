@@ -3,7 +3,7 @@ Paso 2: Preview de validacion.
 """
 import reflex as rx
 
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import AltaMasivaState
 from .components import card_resumen, badge_resultado
@@ -21,16 +21,27 @@ def _fila_validacion(reg: dict) -> rx.Component:
     """Fila de la tabla de preview."""
     return rx.table.row(
         rx.table.cell(
-            rx.text(reg["fila"], size="2"),
+            rx.text(
+                reg["fila"],
+                font_size=Typography.SIZE_SM,
+            ),
         ),
         rx.table.cell(
-            rx.text(reg["curp"], size="2", weight="medium"),
+            rx.text(
+                reg["curp"],
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
         ),
         rx.table.cell(
             badge_resultado(reg["resultado"]),
         ),
         rx.table.cell(
-            rx.text(reg["mensaje"], size="2", color=Colors.TEXT_SECONDARY),
+            rx.text(
+                reg["mensaje"],
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_SECONDARY,
+            ),
         ),
     )
 
@@ -107,7 +118,7 @@ def paso_2_preview() -> rx.Component:
             AltaMasivaState.archivo_nombre,
             " | Total filas: ",
             AltaMasivaState.validacion_total,
-            size="2",
+            font_size=Typography.SIZE_SM,
             color=Colors.TEXT_SECONDARY,
         ),
 
@@ -127,13 +138,19 @@ def paso_2_preview() -> rx.Component:
                     AltaMasivaState.procesando,
                     rx.hstack(
                         rx.spinner(size="1"),
-                        rx.text("Procesando alta...", size="2"),
+                        rx.text(
+                            "Procesando alta...",
+                            font_size=Typography.SIZE_SM,
+                        ),
                         spacing="2",
                         align="center",
                     ),
                     rx.hstack(
                         rx.icon("check", size=16),
-                        rx.text("Confirmar alta", size="2"),
+                        rx.text(
+                            "Confirmar alta",
+                            font_size=Typography.SIZE_SM,
+                        ),
                         spacing="2",
                         align="center",
                     ),

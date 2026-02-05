@@ -3,7 +3,7 @@ Paso 1: Subir archivo CSV/Excel.
 """
 import reflex as rx
 
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import AltaMasivaState, UPLOAD_ID
 
@@ -18,7 +18,11 @@ def paso_1_subir() -> rx.Component:
                     AltaMasivaState.validando_archivo,
                     rx.vstack(
                         rx.spinner(size="3"),
-                        rx.text("Validando archivo...", size="2", color=Colors.TEXT_SECONDARY),
+                        rx.text(
+                            "Validando archivo...",
+                            font_size=Typography.SIZE_SM,
+                            color=Colors.TEXT_SECONDARY,
+                        ),
                         align="center",
                         spacing="2",
                     ),
@@ -26,13 +30,13 @@ def paso_1_subir() -> rx.Component:
                         rx.icon("upload", size=32, color=Colors.PORTAL_PRIMARY),
                         rx.text(
                             "Click o arrastra tu archivo CSV o Excel",
-                            size="3",
-                            weight="medium",
+                            font_size=Typography.SIZE_LG,
+                            font_weight=Typography.WEIGHT_MEDIUM,
                             color=Colors.TEXT_PRIMARY,
                         ),
                         rx.text(
                             "Formatos: .csv, .xlsx, .xls | Maximo 500 filas, 5MB",
-                            size="2",
+                            font_size=Typography.SIZE_SM,
                             color=Colors.TEXT_MUTED,
                         ),
                         align="center",
@@ -41,7 +45,7 @@ def paso_1_subir() -> rx.Component:
                 ),
                 align="center",
                 justify="center",
-                padding="40px",
+                padding=Spacing.XXXL,
                 width="100%",
             ),
             id=UPLOAD_ID,
@@ -68,7 +72,11 @@ def paso_1_subir() -> rx.Component:
                     rx.icon("file", size=16, color=Colors.PORTAL_PRIMARY),
                     rx.foreach(
                         rx.selected_files(UPLOAD_ID),
-                        lambda f: rx.text(f, size="2", color=Colors.TEXT_SECONDARY),
+                        lambda f: rx.text(
+                            f,
+                            font_size=Typography.SIZE_SM,
+                            color=Colors.TEXT_SECONDARY,
+                        ),
                     ),
                     spacing="2",
                     align="center",
@@ -78,13 +86,19 @@ def paso_1_subir() -> rx.Component:
                         AltaMasivaState.validando_archivo,
                         rx.hstack(
                             rx.spinner(size="1"),
-                            rx.text("Validando archivo...", size="2"),
+                            rx.text(
+                                "Validando archivo...",
+                                font_size=Typography.SIZE_SM,
+                            ),
                             spacing="2",
                             align="center",
                         ),
                         rx.hstack(
                             rx.icon("circle-check", size=16),
-                            rx.text("Validar archivo", size="2"),
+                            rx.text(
+                                "Validar archivo",
+                                font_size=Typography.SIZE_SM,
+                            ),
                             spacing="2",
                             align="center",
                         ),
@@ -121,13 +135,13 @@ def paso_1_subir() -> rx.Component:
         rx.vstack(
             rx.text(
                 "Descargar plantilla",
-                size="2",
-                weight="bold",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_BOLD,
                 color=Colors.TEXT_PRIMARY,
             ),
             rx.text(
                 "Usa estas plantillas para llenar los datos de tus empleados",
-                size="2",
+                font_size=Typography.SIZE_SM,
                 color=Colors.TEXT_MUTED,
             ),
             rx.hstack(

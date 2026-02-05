@@ -6,7 +6,7 @@ Tabla, filtros y badges.
 import reflex as rx
 
 from app.presentation.components.ui import skeleton_tabla
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import MisEmpleadosState
 
@@ -28,13 +28,26 @@ def fila_empleado(emp: dict) -> rx.Component:
     puede_editar = (emp["estatus"] == "ACTIVO") & (~emp["is_restricted"])
     return rx.table.row(
         rx.table.cell(
-            rx.text(emp["clave"], size="2", weight="medium", color=Colors.PORTAL_PRIMARY_TEXT),
+            rx.text(
+                emp["clave"],
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.PORTAL_PRIMARY_TEXT,
+            ),
         ),
         rx.table.cell(
-            rx.text(emp["nombre_completo"], size="2", weight="medium"),
+            rx.text(
+                emp["nombre_completo"],
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
         ),
         rx.table.cell(
-            rx.text(emp["curp"], size="2", color=Colors.TEXT_SECONDARY),
+            rx.text(
+                emp["curp"],
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_SECONDARY,
+            ),
         ),
         rx.table.cell(
             badge_estatus(emp["estatus"]),
@@ -98,7 +111,7 @@ def tabla_empleados() -> rx.Component:
                     "Mostrando ",
                     MisEmpleadosState.total_empleados_lista,
                     " empleado(s)",
-                    size="2",
+                    font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_SECONDARY,
                 ),
                 width="100%",
@@ -107,11 +120,15 @@ def tabla_empleados() -> rx.Component:
             rx.center(
                 rx.vstack(
                     rx.icon("users", size=48, color=Colors.TEXT_MUTED),
-                    rx.text("No hay empleados registrados", color=Colors.TEXT_SECONDARY, size="3"),
+                    rx.text(
+                        "No hay empleados registrados",
+                        font_size=Typography.SIZE_LG,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
                     spacing="3",
                     align="center",
                 ),
-                padding="12",
+                padding=Spacing.MD,
                 width="100%",
             ),
         ),

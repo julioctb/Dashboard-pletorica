@@ -3,7 +3,7 @@ Paso 3: Resultados del procesamiento.
 """
 import reflex as rx
 
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import AltaMasivaState
 from .components import card_resumen, badge_resultado
@@ -22,10 +22,17 @@ def _fila_resultado(det: dict) -> rx.Component:
     """Fila de la tabla de resultados."""
     return rx.table.row(
         rx.table.cell(
-            rx.text(det["fila"], size="2"),
+            rx.text(
+                det["fila"],
+                font_size=Typography.SIZE_SM,
+            ),
         ),
         rx.table.cell(
-            rx.text(det["curp"], size="2", weight="medium"),
+            rx.text(
+                det["curp"],
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
         ),
         rx.table.cell(
             badge_resultado(det["resultado"]),
@@ -33,13 +40,17 @@ def _fila_resultado(det: dict) -> rx.Component:
         rx.table.cell(
             rx.text(
                 rx.cond(det["clave"], det["clave"], "-"),
-                size="2",
+                font_size=Typography.SIZE_SM,
                 color=Colors.PORTAL_PRIMARY_TEXT,
-                weight="medium",
+                font_weight=Typography.WEIGHT_MEDIUM,
             ),
         ),
         rx.table.cell(
-            rx.text(det["mensaje"], size="2", color=Colors.TEXT_SECONDARY),
+            rx.text(
+                det["mensaje"],
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_SECONDARY,
+            ),
         ),
     )
 

@@ -10,7 +10,7 @@ from typing import List
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.layout import page_layout, page_header, page_toolbar
 from app.presentation.components.ui import skeleton_tabla
-from app.presentation.theme import Colors, Typography
+from app.presentation.theme import Colors, Typography, Spacing
 from app.services import contrato_service
 from app.core.exceptions import DatabaseError
 
@@ -121,27 +121,40 @@ def _fila_contrato(cto: dict) -> rx.Component:
     """Fila de la tabla de contratos."""
     return rx.table.row(
         rx.table.cell(
-            rx.text(cto["codigo"], size="2", weight="medium", color=Colors.PORTAL_PRIMARY_TEXT),
+            rx.text(
+                cto["codigo"],
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.PORTAL_PRIMARY_TEXT,
+            ),
         ),
         rx.table.cell(
             rx.text(
                 rx.cond(cto["numero_folio_buap"], cto["numero_folio_buap"], "-"),
-                size="2",
+                font_size=Typography.SIZE_SM,
             ),
         ),
         rx.table.cell(
-            rx.text(cto["tipo_contrato"], size="2", color=Colors.TEXT_SECONDARY),
+            rx.text(
+                cto["tipo_contrato"],
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_SECONDARY,
+            ),
         ),
         rx.table.cell(
             rx.hstack(
                 rx.text(
                     rx.cond(cto["fecha_inicio"], cto["fecha_inicio"], "-"),
-                    size="2",
+                    font_size=Typography.SIZE_SM,
                 ),
-                rx.text(" - ", size="2", color=Colors.TEXT_SECONDARY),
+                rx.text(
+                    " - ",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
                 rx.text(
                     rx.cond(cto["fecha_fin"], cto["fecha_fin"], "Indefinido"),
-                    size="2",
+                    font_size=Typography.SIZE_SM,
                 ),
                 spacing="1",
             ),
@@ -204,7 +217,7 @@ def _tabla_contratos() -> rx.Component:
                     "Mostrando ",
                     MisContratosState.total_contratos_lista,
                     " contrato(s)",
-                    size="2",
+                    font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_SECONDARY,
                 ),
                 width="100%",
@@ -213,11 +226,15 @@ def _tabla_contratos() -> rx.Component:
             rx.center(
                 rx.vstack(
                     rx.icon("file-text", size=48, color=Colors.TEXT_MUTED),
-                    rx.text("No hay contratos registrados", color=Colors.TEXT_SECONDARY, size="3"),
+                    rx.text(
+                        "No hay contratos registrados",
+                        font_size=Typography.SIZE_LG,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
                     spacing="3",
                     align="center",
                 ),
-                padding="12",
+                padding=Spacing.MD,
                 width="100%",
             ),
         ),
@@ -259,15 +276,24 @@ def _campo_detalle(label: str, valor: rx.Var) -> rx.Component:
         rx.text(
             label,
             font_size=Typography.SIZE_XS,
-            font_weight="600",
+            font_weight=Typography.WEIGHT_SEMIBOLD,
             color=Colors.TEXT_MUTED,
             text_transform="uppercase",
-            letter_spacing="0.05em",
+            letter_spacing=Typography.LETTER_SPACING_WIDE,
         ),
         rx.cond(
             valor,
-            rx.text(valor, font_size=Typography.SIZE_SM, color=Colors.TEXT_PRIMARY),
-            rx.text("No disponible", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED, font_style="italic"),
+            rx.text(
+                valor,
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_PRIMARY,
+            ),
+            rx.text(
+                "No disponible",
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_MUTED,
+                font_style="italic",
+            ),
         ),
         spacing="1",
         width="100%",
@@ -289,7 +315,11 @@ def _modal_detalle_contrato() -> rx.Component:
                 ),
             ),
             rx.dialog.description(
-                rx.text(datos["codigo"], size="2", color=Colors.TEXT_SECONDARY),
+                rx.text(
+                    datos["codigo"],
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
             ),
             rx.separator(),
             rx.vstack(
@@ -326,12 +356,12 @@ def _modal_detalle_contrato() -> rx.Component:
                 ),
                 spacing="4",
                 width="100%",
-                padding_y="4",
+                padding_y=Spacing.BASE,
             ),
             rx.dialog.close(
                 rx.button(
                     "Cerrar",
-                    variant="soft",
+                    variant="outline",
                     size="2",
                     width="100%",
                 ),

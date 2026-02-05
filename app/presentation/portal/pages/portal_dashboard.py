@@ -11,7 +11,7 @@ import reflex as rx
 
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.layout import page_layout, page_header
-from app.presentation.theme import Colors, Typography, Spacing
+from app.presentation.theme import Colors, Typography, Shadows
 
 
 # =============================================================================
@@ -25,7 +25,12 @@ def _metric_card(
     color_scheme: str,
     href: str,
 ) -> rx.Component:
-    """Tarjeta de metrica con valor, icono y link."""
+    """
+    Tarjeta de metrica con valor, icono y link.
+
+    Note: color_scheme usa variables Radix dinamicas (var(--{color}-N))
+    para permitir multiples colores por card (blue, teal, green, orange).
+    """
     return rx.link(
         rx.card(
             rx.hstack(
@@ -38,7 +43,7 @@ def _metric_card(
                     ),
                     rx.text(
                         valor,
-                        font_size="1.75rem",
+                        font_size=Typography.SIZE_3XL,
                         font_weight=Typography.WEIGHT_BOLD,
                         color=Colors.TEXT_PRIMARY,
                         line_height="1",
@@ -60,7 +65,7 @@ def _metric_card(
             ),
             width="100%",
             style={
-                "_hover": {"box_shadow": "0 2px 8px rgba(0,0,0,0.08)"},
+                "_hover": {"box_shadow": Shadows.MD},
                 "transition": "box-shadow 0.2s",
             },
         ),
@@ -128,8 +133,16 @@ def _quick_link(texto: str, icono: str, href: str, descripcion: str) -> rx.Compo
             rx.hstack(
                 rx.icon(icono, size=20, color=Colors.TEXT_SECONDARY),
                 rx.vstack(
-                    rx.text(texto, font_size=Typography.SIZE_SM, font_weight=Typography.WEIGHT_MEDIUM),
-                    rx.text(descripcion, font_size=Typography.SIZE_XS, color=Colors.TEXT_MUTED),
+                    rx.text(
+                        texto,
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
+                    rx.text(
+                        descripcion,
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.TEXT_MUTED,
+                    ),
                     spacing="0",
                 ),
                 spacing="3",
@@ -138,7 +151,7 @@ def _quick_link(texto: str, icono: str, href: str, descripcion: str) -> rx.Compo
             ),
             width="100%",
             style={
-                "_hover": {"background": "var(--gray-3)"},
+                "_hover": {"background": Colors.SURFACE_HOVER},
                 "transition": "background 0.2s",
                 "cursor": "pointer",
             },

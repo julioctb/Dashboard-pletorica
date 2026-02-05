@@ -3,7 +3,7 @@ Modal para crear/editar empleados en el portal.
 """
 import reflex as rx
 
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Typography, Spacing, Radius
 
 from .state import MisEmpleadosState
 
@@ -27,7 +27,7 @@ def modal_empleado() -> rx.Component:
                         "El empleado se asignara a ",
                         rx.text(
                             MisEmpleadosState.nombre_empresa_actual,
-                            weight="bold",
+                            font_weight=Typography.WEIGHT_BOLD,
                             as_="span",
                         ),
                     ),
@@ -61,7 +61,7 @@ def modal_empleado() -> rx.Component:
 
                 spacing="4",
                 width="100%",
-                padding_y="4",
+                padding_y=Spacing.BASE,
             ),
 
             # Botones de accion
@@ -69,7 +69,7 @@ def modal_empleado() -> rx.Component:
                 rx.dialog.close(
                     rx.button(
                         "Cancelar",
-                        variant="soft",
+                        variant="outline",
                         color_scheme="gray",
                         on_click=MisEmpleadosState.cerrar_modal_empleado,
                     ),
@@ -104,7 +104,11 @@ def modal_empleado() -> rx.Component:
 def _campo_curp() -> rx.Component:
     """Campo CURP."""
     return rx.vstack(
-        rx.text("CURP *", size="2", weight="medium"),
+        rx.text(
+            "CURP *",
+            font_size=Typography.SIZE_SM,
+            font_weight=Typography.WEIGHT_MEDIUM,
+        ),
         rx.input(
             value=MisEmpleadosState.form_curp,
             on_change=MisEmpleadosState.set_form_curp,
@@ -116,7 +120,11 @@ def _campo_curp() -> rx.Component:
         ),
         rx.cond(
             MisEmpleadosState.error_curp != "",
-            rx.text(MisEmpleadosState.error_curp, size="1", color=Colors.ERROR),
+            rx.text(
+                MisEmpleadosState.error_curp,
+                font_size=Typography.SIZE_XS,
+                color=Colors.ERROR,
+            ),
         ),
         width="100%",
         spacing="1",
@@ -127,7 +135,11 @@ def _campos_nombre() -> rx.Component:
     """Campos de nombre y apellidos."""
     return rx.hstack(
         rx.vstack(
-            rx.text("Nombre *", size="2", weight="medium"),
+            rx.text(
+                "Nombre *",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
             rx.input(
                 value=MisEmpleadosState.form_nombre,
                 on_change=MisEmpleadosState.set_form_nombre,
@@ -137,13 +149,21 @@ def _campos_nombre() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_nombre != "",
-                rx.text(MisEmpleadosState.error_nombre, size="1", color=Colors.ERROR),
+                rx.text(
+                    MisEmpleadosState.error_nombre,
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.ERROR,
+                ),
             ),
             width="100%",
             spacing="1",
         ),
         rx.vstack(
-            rx.text("Ap. Paterno *", size="2", weight="medium"),
+            rx.text(
+                "Ap. Paterno *",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
             rx.input(
                 value=MisEmpleadosState.form_apellido_paterno,
                 on_change=MisEmpleadosState.set_form_apellido_paterno,
@@ -153,13 +173,21 @@ def _campos_nombre() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_apellido_paterno != "",
-                rx.text(MisEmpleadosState.error_apellido_paterno, size="1", color=Colors.ERROR),
+                rx.text(
+                    MisEmpleadosState.error_apellido_paterno,
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.ERROR,
+                ),
             ),
             width="100%",
             spacing="1",
         ),
         rx.vstack(
-            rx.text("Ap. Materno *", size="2", weight="medium"),
+            rx.text(
+                "Ap. Materno *",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
             rx.input(
                 value=MisEmpleadosState.form_apellido_materno,
                 on_change=MisEmpleadosState.set_form_apellido_materno,
@@ -169,7 +197,11 @@ def _campos_nombre() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_apellido_materno != "",
-                rx.text(MisEmpleadosState.error_apellido_materno, size="1", color=Colors.ERROR),
+                rx.text(
+                    MisEmpleadosState.error_apellido_materno,
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.ERROR,
+                ),
             ),
             width="100%",
             spacing="1",
@@ -183,7 +215,11 @@ def _campos_rfc_nss() -> rx.Component:
     """Campos RFC y NSS."""
     return rx.hstack(
         rx.vstack(
-            rx.text("RFC *", size="2", weight="medium"),
+            rx.text(
+                "RFC *",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
             rx.input(
                 value=MisEmpleadosState.form_rfc,
                 on_change=MisEmpleadosState.set_form_rfc,
@@ -194,13 +230,21 @@ def _campos_rfc_nss() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_rfc != "",
-                rx.text(MisEmpleadosState.error_rfc, size="1", color=Colors.ERROR),
+                rx.text(
+                    MisEmpleadosState.error_rfc,
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.ERROR,
+                ),
             ),
             width="100%",
             spacing="1",
         ),
         rx.vstack(
-            rx.text("NSS *", size="2", weight="medium"),
+            rx.text(
+                "NSS *",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
             rx.input(
                 value=MisEmpleadosState.form_nss,
                 on_change=MisEmpleadosState.set_form_nss,
@@ -211,7 +255,11 @@ def _campos_rfc_nss() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_nss != "",
-                rx.text(MisEmpleadosState.error_nss, size="1", color=Colors.ERROR),
+                rx.text(
+                    MisEmpleadosState.error_nss,
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.ERROR,
+                ),
             ),
             width="100%",
             spacing="1",
@@ -225,7 +273,11 @@ def _campos_fecha_genero() -> rx.Component:
     """Campos fecha de nacimiento y genero."""
     return rx.hstack(
         rx.vstack(
-            rx.text("Fecha de Nacimiento *", size="2", weight="medium"),
+            rx.text(
+                "Fecha de Nacimiento *",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
             rx.input(
                 type="date",
                 value=MisEmpleadosState.form_fecha_nacimiento,
@@ -235,13 +287,21 @@ def _campos_fecha_genero() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_fecha_nacimiento != "",
-                rx.text(MisEmpleadosState.error_fecha_nacimiento, size="1", color=Colors.ERROR),
+                rx.text(
+                    MisEmpleadosState.error_fecha_nacimiento,
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.ERROR,
+                ),
             ),
             width="100%",
             spacing="1",
         ),
         rx.vstack(
-            rx.text("Genero *", size="2", weight="medium"),
+            rx.text(
+                "Genero *",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
             rx.select.root(
                 rx.select.trigger(
                     placeholder="Seleccionar...",
@@ -258,7 +318,11 @@ def _campos_fecha_genero() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_genero != "",
-                rx.text(MisEmpleadosState.error_genero, size="1", color=Colors.ERROR),
+                rx.text(
+                    MisEmpleadosState.error_genero,
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.ERROR,
+                ),
             ),
             width="100%",
             spacing="1",
@@ -272,7 +336,11 @@ def _campos_telefono_email() -> rx.Component:
     """Campos telefono y email."""
     return rx.hstack(
         rx.vstack(
-            rx.text("Telefono *", size="2", weight="medium"),
+            rx.text(
+                "Telefono *",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
             rx.input(
                 value=MisEmpleadosState.form_telefono,
                 on_change=MisEmpleadosState.set_form_telefono,
@@ -283,13 +351,21 @@ def _campos_telefono_email() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_telefono != "",
-                rx.text(MisEmpleadosState.error_telefono, size="1", color=Colors.ERROR),
+                rx.text(
+                    MisEmpleadosState.error_telefono,
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.ERROR,
+                ),
             ),
             width="100%",
             spacing="1",
         ),
         rx.vstack(
-            rx.text("Email", size="2", weight="medium"),
+            rx.text(
+                "Email",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
             rx.input(
                 value=MisEmpleadosState.form_email,
                 on_change=MisEmpleadosState.set_form_email,
@@ -299,7 +375,11 @@ def _campos_telefono_email() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_email != "",
-                rx.text(MisEmpleadosState.error_email, size="1", color=Colors.ERROR),
+                rx.text(
+                    MisEmpleadosState.error_email,
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.ERROR,
+                ),
             ),
             width="100%",
             spacing="1",
@@ -312,7 +392,11 @@ def _campos_telefono_email() -> rx.Component:
 def _campo_direccion() -> rx.Component:
     """Campo direccion."""
     return rx.vstack(
-        rx.text("Direccion", size="2", weight="medium"),
+        rx.text(
+            "Direccion",
+            font_size=Typography.SIZE_SM,
+            font_weight=Typography.WEIGHT_MEDIUM,
+        ),
         rx.text_area(
             value=MisEmpleadosState.form_direccion,
             on_change=MisEmpleadosState.set_form_direccion,
@@ -328,10 +412,18 @@ def _campo_direccion() -> rx.Component:
 def _seccion_contacto_emergencia() -> rx.Component:
     """Seccion de contacto de emergencia (3 campos)."""
     return rx.vstack(
-        rx.text("Contacto de Emergencia", size="2", weight="bold"),
+        rx.text(
+            "Contacto de Emergencia",
+            font_size=Typography.SIZE_SM,
+            font_weight=Typography.WEIGHT_BOLD,
+        ),
         rx.hstack(
             rx.vstack(
-                rx.text("Nombre", size="2", weight="medium"),
+                rx.text(
+                    "Nombre",
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                ),
                 rx.input(
                     value=MisEmpleadosState.form_contacto_nombre,
                     on_change=MisEmpleadosState.set_form_contacto_nombre,
@@ -341,13 +433,21 @@ def _seccion_contacto_emergencia() -> rx.Component:
                 ),
                 rx.cond(
                     MisEmpleadosState.error_contacto_nombre != "",
-                    rx.text(MisEmpleadosState.error_contacto_nombre, size="1", color=Colors.ERROR),
+                    rx.text(
+                        MisEmpleadosState.error_contacto_nombre,
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.ERROR,
+                    ),
                 ),
                 width="100%",
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Telefono", size="2", weight="medium"),
+                rx.text(
+                    "Telefono",
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                ),
                 rx.input(
                     value=MisEmpleadosState.form_contacto_telefono,
                     on_change=MisEmpleadosState.set_form_contacto_telefono,
@@ -358,13 +458,21 @@ def _seccion_contacto_emergencia() -> rx.Component:
                 ),
                 rx.cond(
                     MisEmpleadosState.error_contacto_telefono != "",
-                    rx.text(MisEmpleadosState.error_contacto_telefono, size="1", color=Colors.ERROR),
+                    rx.text(
+                        MisEmpleadosState.error_contacto_telefono,
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.ERROR,
+                    ),
                 ),
                 width="100%",
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Parentesco", size="2", weight="medium"),
+                rx.text(
+                    "Parentesco",
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                ),
                 rx.select.root(
                     rx.select.trigger(
                         placeholder="Seleccionar...",
@@ -381,7 +489,11 @@ def _seccion_contacto_emergencia() -> rx.Component:
                 ),
                 rx.cond(
                     MisEmpleadosState.error_contacto_parentesco != "",
-                    rx.text(MisEmpleadosState.error_contacto_parentesco, size="1", color=Colors.ERROR),
+                    rx.text(
+                        MisEmpleadosState.error_contacto_parentesco,
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.ERROR,
+                    ),
                 ),
                 width="100%",
                 spacing="1",
@@ -391,16 +503,20 @@ def _seccion_contacto_emergencia() -> rx.Component:
         ),
         width="100%",
         spacing="2",
-        padding="3",
+        padding=Spacing.MD,
         border=f"1px solid {Colors.BORDER}",
-        border_radius="var(--radius-2)",
+        border_radius=Radius.MD,
     )
 
 
 def _campo_notas() -> rx.Component:
     """Campo notas."""
     return rx.vstack(
-        rx.text("Notas", size="2", weight="medium"),
+        rx.text(
+            "Notas",
+            font_size=Typography.SIZE_SM,
+            font_weight=Typography.WEIGHT_MEDIUM,
+        ),
         rx.text_area(
             value=MisEmpleadosState.form_notas,
             on_change=MisEmpleadosState.set_form_notas,
