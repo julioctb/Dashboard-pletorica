@@ -1,5 +1,5 @@
 """
-Repositorio de Requisiciones - Interface y implementación para Supabase.
+Repositorio de Requisiciones - Implementación para Supabase.
 
 Maneja 4 tablas: configuracion_requisicion, requisicion, requisicion_item, requisicion_partida.
 
@@ -9,8 +9,7 @@ Patrón de manejo de errores:
 - DatabaseError: Errores de conexión o infraestructura
 - Propagar otras excepciones hacia arriba
 """
-from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import List, Optional
 import logging
 
 from app.entities.requisicion import (
@@ -19,7 +18,6 @@ from app.entities.requisicion import (
     Requisicion,
     RequisicionItem,
     RequisicionPartida,
-    RequisicionResumen,
 )
 from app.core.enums import EstadoRequisicion
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
@@ -27,173 +25,7 @@ from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
 logger = logging.getLogger(__name__)
 
 
-class IRequisicionRepository(ABC):
-    """Interface del repositorio de requisiciones."""
-
-    # ========================
-    # REQUISICIÓN PRINCIPAL
-    # ========================
-
-    @abstractmethod
-    async def obtener_por_id(self, requisicion_id: int) -> Requisicion:
-        """Obtiene una requisición por su ID (incluye items y partidas)."""
-        pass
-
-    @abstractmethod
-    async def obtener_por_numero(self, numero: str) -> Optional[Requisicion]:
-        """Obtiene una requisición por su número único."""
-        pass
-
-    @abstractmethod
-    async def obtener_todos(
-        self,
-        estado: Optional[str] = None,
-        tipo_contratacion: Optional[str] = None,
-        incluir_canceladas: bool = False,
-        limite: Optional[int] = None,
-        offset: int = 0,
-    ) -> List[Requisicion]:
-        """Obtiene requisiciones con filtros y paginación."""
-        pass
-
-    @abstractmethod
-    async def crear(self, requisicion: Requisicion) -> Requisicion:
-        """Crea una nueva requisición."""
-        pass
-
-    @abstractmethod
-    async def actualizar(self, requisicion: Requisicion) -> Requisicion:
-        """Actualiza una requisición existente."""
-        pass
-
-    @abstractmethod
-    async def eliminar(self, requisicion_id: int) -> bool:
-        """Elimina una requisición (solo BORRADOR)."""
-        pass
-
-    @abstractmethod
-    async def existe_numero(self, numero: str, excluir_id: Optional[int] = None) -> bool:
-        """Verifica si existe un número de requisición."""
-        pass
-
-    @abstractmethod
-    async def obtener_siguiente_consecutivo(self, anio: int) -> int:
-        """Obtiene el siguiente consecutivo para el año dado."""
-        pass
-
-    @abstractmethod
-    async def buscar_con_filtros(
-        self,
-        texto: Optional[str] = None,
-        estado: Optional[str] = None,
-        tipo_contratacion: Optional[str] = None,
-        incluir_canceladas: bool = False,
-        limite: int = 50,
-        offset: int = 0,
-    ) -> List[Requisicion]:
-        """Busca requisiciones con filtros combinados."""
-        pass
-
-    @abstractmethod
-    async def cambiar_estado(
-        self, requisicion_id: int, nuevo_estado: EstadoRequisicion
-    ) -> Requisicion:
-        """Cambia el estado de una requisición."""
-        pass
-
-    # ========================
-    # ITEMS
-    # ========================
-
-    @abstractmethod
-    async def obtener_items(self, requisicion_id: int) -> List[RequisicionItem]:
-        """Obtiene los items de una requisición."""
-        pass
-
-    @abstractmethod
-    async def crear_item(self, requisicion_id: int, item: RequisicionItem) -> RequisicionItem:
-        """Crea un item en una requisición."""
-        pass
-
-    @abstractmethod
-    async def actualizar_item(self, item: RequisicionItem) -> RequisicionItem:
-        """Actualiza un item existente."""
-        pass
-
-    @abstractmethod
-    async def eliminar_item(self, item_id: int) -> bool:
-        """Elimina un item."""
-        pass
-
-    @abstractmethod
-    async def eliminar_items_requisicion(self, requisicion_id: int) -> bool:
-        """Elimina todos los items de una requisición."""
-        pass
-
-    # ========================
-    # PARTIDAS
-    # ========================
-
-    @abstractmethod
-    async def obtener_partidas(self, requisicion_id: int) -> List[RequisicionPartida]:
-        """Obtiene las partidas de una requisición."""
-        pass
-
-    @abstractmethod
-    async def crear_partida(self, requisicion_id: int, partida: RequisicionPartida) -> RequisicionPartida:
-        """Crea una partida en una requisición."""
-        pass
-
-    @abstractmethod
-    async def actualizar_partida(self, partida: RequisicionPartida) -> RequisicionPartida:
-        """Actualiza una partida existente."""
-        pass
-
-    @abstractmethod
-    async def eliminar_partida(self, partida_id: int) -> bool:
-        """Elimina una partida."""
-        pass
-
-    @abstractmethod
-    async def eliminar_partidas_requisicion(self, requisicion_id: int) -> bool:
-        """Elimina todas las partidas de una requisición."""
-        pass
-
-    # ========================
-    # CONFIGURACIÓN
-    # ========================
-
-    @abstractmethod
-    async def obtener_configuracion(self, grupo: Optional[str] = None) -> List[ConfiguracionRequisicion]:
-        """Obtiene valores de configuración, opcionalmente filtrados por grupo."""
-        pass
-
-    @abstractmethod
-    async def actualizar_configuracion(self, config_id: int, valor: str) -> ConfiguracionRequisicion:
-        """Actualiza el valor de una configuración."""
-        pass
-
-    # ========================
-    # LUGARES DE ENTREGA
-    # ========================
-
-    @abstractmethod
-    async def obtener_lugares_entrega(self) -> List[LugarEntrega]:
-        """Obtiene todos los lugares de entrega activos."""
-        pass
-
-    @abstractmethod
-    async def crear_lugar_entrega(self, nombre: str) -> LugarEntrega:
-        """Crea un nuevo lugar de entrega."""
-        pass
-
-    @abstractmethod
-    async def eliminar_lugar_entrega(self, lugar_id: int) -> bool:
-        """Elimina (desactiva) un lugar de entrega."""
-        pass
-
-
-class SupabaseRequisicionRepository(IRequisicionRepository):
+class SupabaseRequisicionRepository:
     """Implementación del repositorio usando Supabase."""
 
     def __init__(self, db_manager=None):

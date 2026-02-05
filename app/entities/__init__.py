@@ -10,6 +10,8 @@ from app.core.enums import (
     Estatus,
     EstatusEmpresa,
     TipoEmpresa,
+    # Enums de Usuario
+    RolUsuario,
     # Enums de Contrato
     TipoContrato,
     ModalidadAdjudicacion,
@@ -21,14 +23,16 @@ from app.core.enums import (
     EstatusEmpleado,
     GeneroEmpleado,
     MotivoBaja,
+    AccionRestriccion,
     # Enums de Historial Laboral
-    EstatusHistorial,
     TipoMovimiento,
-    MotivoFinHistorial,  # Alias deprecated
     # Enums de Requisicion
     EstadoRequisicion,
     TipoContratacion,
     GrupoConfiguracion,
+    # Enums de Sede
+    TipoSede,
+    NivelContacto,
 )
 
 # Empresa
@@ -37,6 +41,21 @@ from app.entities.empresa import (
     EmpresaCreate,
     EmpresaUpdate,
     EmpresaResumen,
+)
+
+# Perfil de Usuario
+from app.entities.user_profile import (
+    UserProfile,
+    UserProfileCreate,
+    UserProfileUpdate,
+    UserProfileResumen
+)
+
+# Relacion Usuario/ Empresa
+from app.entities.user_company import(
+    UserCompany,
+    UserCompanyCreate,
+    UserCompanyResumen
 )
 
 # Tipo de Servicio
@@ -110,9 +129,7 @@ from app.entities.archivo import (
     TipoArchivo,
     OrigenArchivo,
     ArchivoSistema,
-    ArchivoSistemaCreate,
     ArchivoSistemaUpdate,
-    ArchivoSistemaResumen,
     ArchivoUploadResponse,
 )
 
@@ -120,8 +137,6 @@ from app.entities.archivo import (
 from app.entities.requisicion import (
     LugarEntrega,
     ConfiguracionRequisicion,
-    ConfiguracionRequisicionCreate,
-    ConfiguracionRequisicionUpdate,
     Requisicion,
     RequisicionCreate,
     RequisicionUpdate,
@@ -134,6 +149,37 @@ from app.entities.requisicion import (
     RequisicionPartidaCreate,
     RequisicionPartidaUpdate,
     TRANSICIONES_VALIDAS,
+)
+
+# Sede
+from app.entities.sede import (
+    Sede,
+    SedeCreate,
+    SedeUpdate,
+    SedeResumen,
+)
+
+# Restriccion de Empleado
+from app.entities.empleado_restriccion_log import (
+    EmpleadoRestriccionLog,
+    EmpleadoRestriccionLogCreate,
+    EmpleadoRestriccionLogResumen,
+)
+
+# Contacto BUAP
+from app.entities.contacto_buap import (
+    ContactoBuap,
+    ContactoBuapCreate,
+    ContactoBuapUpdate,
+)
+
+# Alta Masiva
+from app.entities.alta_masiva import (
+    ResultadoFila,
+    RegistroValidado,
+    ResultadoValidacion,
+    ResultadoProcesamiento,
+    DetalleResultado,
 )
 
 # Costo Patronal (si existe)
@@ -160,17 +206,25 @@ __all__ = [
     "EstatusEmpleado",
     "GeneroEmpleado",
     "MotivoBaja",
-    "EstatusHistorial",
     "TipoMovimiento",
-    "MotivoFinHistorial",
     "EstadoRequisicion",
     "TipoContratacion",
     "GrupoConfiguracion",
+    "RolUsuario",
     # Empresa
     "Empresa",
     "EmpresaCreate",
     "EmpresaUpdate",
     "EmpresaResumen",
+    # Usuarios
+    "UserProfile",
+    "UserProfileCreate",
+    "UserProfileUpdate",
+    "UserProfileResumen",
+    # Usuario Empresa
+    "UserCompany",
+    "UserCompanyCreate",
+    "UserCompanyResumen",
     # Tipo de Servicio
     "TipoServicio",
     "TipoServicioCreate",
@@ -217,15 +271,11 @@ __all__ = [
     "TipoArchivo",
     "OrigenArchivo",
     "ArchivoSistema",
-    "ArchivoSistemaCreate",
     "ArchivoSistemaUpdate",
-    "ArchivoSistemaResumen",
     "ArchivoUploadResponse",
     # Requisicion
     "LugarEntrega",
     "ConfiguracionRequisicion",
-    "ConfiguracionRequisicionCreate",
-    "ConfiguracionRequisicionUpdate",
     "Requisicion",
     "RequisicionCreate",
     "RequisicionUpdate",
@@ -238,8 +288,30 @@ __all__ = [
     "RequisicionPartidaCreate",
     "RequisicionPartidaUpdate",
     "TRANSICIONES_VALIDAS",
+    # Sede
+    "TipoSede",
+    "NivelContacto",
+    "Sede",
+    "SedeCreate",
+    "SedeUpdate",
+    "SedeResumen",
+    # Restriccion de Empleado
+    "AccionRestriccion",
+    "EmpleadoRestriccionLog",
+    "EmpleadoRestriccionLogCreate",
+    "EmpleadoRestriccionLogResumen",
+    # Contacto BUAP
+    "ContactoBuap",
+    "ContactoBuapCreate",
+    "ContactoBuapUpdate",
     # Costo Patronal
     "ConfiguracionEmpresa",
     "Trabajador",
     "ResultadoCuotas",
+    # Alta Masiva
+    "ResultadoFila",
+    "RegistroValidado",
+    "ResultadoValidacion",
+    "ResultadoProcesamiento",
+    "DetalleResultado",
 ]

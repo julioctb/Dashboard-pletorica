@@ -360,6 +360,8 @@ class ContratoUpdate(BaseModel):
         validate_assignment=True
     )
 
+    empresa_id: Optional[int] = None
+    tipo_servicio_id: Optional[int] = None
     numero_folio_buap: Optional[str] = Field(None, max_length=FOLIO_BUAP_MAX)
     tipo_contrato: Optional[TipoContrato] = None
     modalidad_adjudicacion: Optional[ModalidadAdjudicacion] = None

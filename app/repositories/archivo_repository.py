@@ -1,18 +1,16 @@
 """
-Repositorio de Archivos del Sistema - Interface y implementacion Supabase.
+Repositorio de Archivos del Sistema - Implementacion para Supabase.
 
-Maneja operaciones CRUD sobre la tabla archivo_sistema y operaciones
-de Storage en Supabase (upload, download, signed URLs, delete).
+Maneja operaciones de base de datos y Supabase Storage para archivos.
 
-Patron de errores:
+Patron de manejo de errores:
 - NotFoundError: Cuando no se encuentra un archivo
 - DatabaseError: Errores de conexion o infraestructura
 """
-
 import logging
-from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from app.core.config.archivos_config import ArchivosConfig
 from app.core.exceptions import DatabaseError, NotFoundError
 from app.entities.archivo import (
     ArchivoSistema,
@@ -23,80 +21,80 @@ from app.entities.archivo import (
 logger = logging.getLogger(__name__)
 
 
-class IArchivoRepository(ABC):
-    """Interface del repositorio de archivos."""
-
-    @abstractmethod
-    async def obtener_por_id(self, archivo_id: int) -> ArchivoSistema:
-        """Obtiene un archivo por su ID."""
-        pass
-
-    @abstractmethod
-    async def obtener_por_entidad(
-        self,
-        entidad_tipo: EntidadArchivo,
-        entidad_id: int,
-    ) -> List[ArchivoSistema]:
-        """Obtiene todos los archivos de una entidad."""
-        pass
-
-    @abstractmethod
-    async def contar_archivos(
-        self,
-        entidad_tipo: EntidadArchivo,
-        entidad_id: int,
-    ) -> int:
-        """Cuenta archivos de una entidad."""
-        pass
-
-    @abstractmethod
-    async def crear(self, **kwargs) -> ArchivoSistema:
-        """Crea un registro de archivo en la BD."""
-        pass
-
-    @abstractmethod
-    async def actualizar(
-        self,
-        archivo_id: int,
-        data: ArchivoSistemaUpdate,
-    ) -> ArchivoSistema:
-        """Actualiza metadata de un archivo."""
-        pass
-
-    @abstractmethod
-    async def eliminar(self, archivo_id: int) -> bool:
-        """Elimina un registro de archivo."""
-        pass
-
-    @abstractmethod
-    async def eliminar_por_entidad(
-        self,
-        entidad_tipo: EntidadArchivo,
-        entidad_id: int,
-    ) -> int:
-        """Elimina todos los archivos de una entidad. Retorna cantidad eliminada."""
-        pass
-
-
-class SupabaseArchivoRepository(IArchivoRepository):
-    """Implementacion del repositorio de archivos usando Supabase."""
+class SupabaseArchivoRepository:
+    """Implementacion del repositorio de archivos usando Supabase (BD + Storage)."""
 
     def __init__(self, db_manager=None):
         if db_manager is None:
             from app.database import db_manager as default_db
-
             db_manager = default_db
 
         self.supabase = db_manager.get_client()
-        self.tabla = "archivo_sistema"
+        self.tabla = 'archivo_sistema'
 
-    # ========================
-    # CONSULTAS
-    # ========================
+    # ==========================================
+    # OPERACIONES DE BASE DE DATOS
+    # ==========================================
+
+    async def contar_por_entidad(
+        self,
+        entidad_tipo: EntidadArchivo,
+        entidad_id: int,
+    ) -> int:
+        """
+        Cuenta los archivos de una entidad.
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        tipo_valor = (
+            entidad_tipo.value
+            if isinstance(entidad_tipo, EntidadArchivo)
+            else entidad_tipo
+        )
+
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select("id", count="exact")
+                .eq("entidad_tipo", tipo_valor)
+                .eq("entidad_id", entidad_id)
+                .execute()
+            )
+            return result.count or 0
+        except Exception as e:
+            logger.error(
+                f"Error contando archivos de {entidad_tipo}/{entidad_id}: {e}"
+            )
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def crear(self, datos: dict) -> ArchivoSistema:
+        """
+        Crea un registro de archivo en la BD.
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        try:
+            result = (
+                self.supabase.table(self.tabla).insert(datos).execute()
+            )
+
+            if not result.data:
+                raise DatabaseError("No se pudo crear el registro de archivo")
+
+            return ArchivoSistema(**result.data[0])
+        except DatabaseError:
+            raise
+        except Exception as e:
+            logger.error(f"Error creando archivo en BD: {e}")
+            raise DatabaseError(
+                f"Error de base de datos al crear archivo: {str(e)}"
+            )
 
     async def obtener_por_id(self, archivo_id: int) -> ArchivoSistema:
         """
-        Obtiene un archivo por su ID.
+        Obtiene un archivo por ID.
 
         Raises:
             NotFoundError: Si el archivo no existe
@@ -128,7 +126,7 @@ class SupabaseArchivoRepository(IArchivoRepository):
         entidad_id: int,
     ) -> List[ArchivoSistema]:
         """
-        Obtiene todos los archivos de una entidad, ordenados por orden.
+        Obtiene todos los archivos de una entidad.
 
         Raises:
             DatabaseError: Si hay error de BD
@@ -154,73 +152,6 @@ class SupabaseArchivoRepository(IArchivoRepository):
                 f"Error obteniendo archivos de {entidad_tipo}/{entidad_id}: {e}"
             )
             raise DatabaseError(f"Error de base de datos: {str(e)}")
-
-    async def contar_archivos(
-        self,
-        entidad_tipo: EntidadArchivo,
-        entidad_id: int,
-    ) -> int:
-        """
-        Cuenta archivos de una entidad.
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        try:
-            tipo_valor = (
-                entidad_tipo.value
-                if isinstance(entidad_tipo, EntidadArchivo)
-                else entidad_tipo
-            )
-            result = (
-                self.supabase.table(self.tabla)
-                .select("id", count="exact")
-                .eq("entidad_tipo", tipo_valor)
-                .eq("entidad_id", entidad_id)
-                .execute()
-            )
-            return result.count or 0
-        except Exception as e:
-            logger.error(
-                f"Error contando archivos de {entidad_tipo}/{entidad_id}: {e}"
-            )
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
-
-    # ========================
-    # ESCRITURA
-    # ========================
-
-    async def crear(self, **kwargs) -> ArchivoSistema:
-        """
-        Crea un registro de archivo en la BD.
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        try:
-            # Convertir enums a valores string
-            datos = {}
-            for key, value in kwargs.items():
-                if hasattr(value, "value"):
-                    datos[key] = value.value
-                else:
-                    datos[key] = value
-
-            result = (
-                self.supabase.table(self.tabla).insert(datos).execute()
-            )
-
-            if not result.data:
-                raise DatabaseError("No se pudo crear el registro de archivo")
-
-            return ArchivoSistema(**result.data[0])
-        except DatabaseError:
-            raise
-        except Exception as e:
-            logger.error(f"Error creando archivo: {e}")
-            raise DatabaseError(
-                f"Error de base de datos al crear archivo: {str(e)}"
-            )
 
     async def actualizar(
         self,
@@ -260,7 +191,7 @@ class SupabaseArchivoRepository(IArchivoRepository):
 
     async def eliminar(self, archivo_id: int) -> bool:
         """
-        Elimina un registro de archivo.
+        Elimina un registro de archivo de la BD.
 
         Raises:
             DatabaseError: Si hay error de BD
@@ -283,10 +214,10 @@ class SupabaseArchivoRepository(IArchivoRepository):
         entidad_id: int,
     ) -> int:
         """
-        Elimina todos los archivos de una entidad.
+        Elimina todos los registros de archivo de una entidad.
 
         Returns:
-            Cantidad de archivos eliminados.
+            Cantidad de registros eliminados.
 
         Raises:
             DatabaseError: Si hay error de BD
@@ -310,3 +241,55 @@ class SupabaseArchivoRepository(IArchivoRepository):
                 f"Error eliminando archivos de {entidad_tipo}/{entidad_id}: {e}"
             )
             raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    # ==========================================
+    # OPERACIONES DE STORAGE
+    # ==========================================
+
+    def subir_a_storage(
+        self,
+        ruta_storage: str,
+        contenido: bytes,
+        tipo_mime: str,
+    ) -> None:
+        """
+        Sube un archivo a Supabase Storage.
+
+        Raises:
+            Exception: Si hay error al subir
+        """
+        self.supabase.storage.from_(ArchivosConfig.BUCKET_NAME).upload(
+            path=ruta_storage,
+            file=contenido,
+            file_options={"content-type": tipo_mime},
+        )
+
+    def crear_url_temporal(
+        self,
+        ruta_storage: str,
+        expiracion_segundos: int = 3600,
+    ) -> str:
+        """
+        Genera URL temporal firmada para un archivo.
+
+        Raises:
+            Exception: Si hay error al generar URL
+        """
+        response = self.supabase.storage.from_(
+            ArchivosConfig.BUCKET_NAME
+        ).create_signed_url(
+            path=ruta_storage,
+            expires_in=expiracion_segundos,
+        )
+        return response["signedURL"]
+
+    def eliminar_de_storage(self, rutas: List[str]) -> None:
+        """
+        Elimina archivos de Supabase Storage.
+
+        Args:
+            rutas: Lista de rutas a eliminar
+        """
+        self.supabase.storage.from_(
+            ArchivosConfig.BUCKET_NAME
+        ).remove(rutas)

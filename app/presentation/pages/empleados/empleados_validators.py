@@ -12,7 +12,6 @@ from app.core.validation import (
     RFC_PERSONA_PATTERN,
     NSS_PATTERN,
     EMAIL_PATTERN,
-    TELEFONO_PATTERN,
     # Constantes de longitud
     CURP_LEN,
     RFC_PERSONA_LEN,
@@ -23,6 +22,7 @@ from app.core.validation import (
     APELLIDO_MAX,
     EMAIL_MAX,
     TELEFONO_DIGITOS,
+    MOTIVO_RESTRICCION_MIN,
 )
 
 
@@ -266,4 +266,24 @@ def validar_empresa_seleccionada(empresa_id: str) -> str:
     Returns:
         String vacío - empresa ya no es requerida
     """
+    return ""
+
+
+def validar_motivo_restriccion(motivo: str) -> str:
+    """
+    Valida motivo de restricción/liberación de empleado.
+
+    Sincronizado con empleado_service.restringir_empleado() y liberar_empleado().
+
+    Returns:
+        Mensaje de error o string vacío si es válido
+    """
+    if not motivo:
+        return "El motivo es obligatorio"
+
+    motivo_limpio = motivo.strip()
+
+    if len(motivo_limpio) < MOTIVO_RESTRICCION_MIN:
+        return f"El motivo debe tener al menos {MOTIVO_RESTRICCION_MIN} caracteres"
+
     return ""

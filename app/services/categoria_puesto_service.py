@@ -1,9 +1,11 @@
 """
-Servicio de aplicación para gestión de Categorías de Puesto.
+Servicio de aplicacion para gestion de Categorias de Puesto.
 
-Patrón de manejo de errores:
-- Las excepciones del repository se propagan (NotFoundError, DuplicateError, DatabaseError)
-- El servicio agrega validaciones de reglas de negocio (BusinessRuleError)
+Patron de manejo de errores:
+- NotFoundError: Cuando no se encuentra un recurso
+- DuplicateError: Cuando se viola unicidad (clave duplicada en el mismo tipo)
+- DatabaseError: Errores de conexion o infraestructura
+- BusinessRuleError: Violaciones de reglas de negocio
 """
 import logging
 from typing import List, Optional
@@ -14,22 +16,20 @@ from app.entities.categoria_puesto import (
     CategoriaPuestoUpdate,
 )
 from app.core.enums import Estatus
-from app.repositories.categoria_puesto_repository import SupabaseCategoriaPuestoRepository
-from app.core.exceptions import BusinessRuleError
+from app.repositories import SupabaseCategoriaPuestoRepository
+from app.core.exceptions import DuplicateError, BusinessRuleError
 
 logger = logging.getLogger(__name__)
 
 
 class CategoriaPuestoService:
     """
-    Servicio de aplicación para categorías de puesto.
-    Orquesta las operaciones de negocio.
+    Servicio de aplicacion para categorias de puesto.
+    Orquesta las operaciones de negocio delegando acceso a datos al repositorio.
     """
 
-    def __init__(self, repository=None):
-        if repository is None:
-            repository = SupabaseCategoriaPuestoRepository()
-        self.repository = repository
+    def __init__(self):
+        self.repository = SupabaseCategoriaPuestoRepository()
 
     # ==========================================
     # OPERACIONES DE LECTURA
@@ -37,10 +37,10 @@ class CategoriaPuestoService:
 
     async def obtener_por_id(self, categoria_id: int) -> CategoriaPuesto:
         """
-        Obtiene una categoría por su ID.
+        Obtiene una categoria por su ID.
 
         Raises:
-            NotFoundError: Si la categoría no existe
+            NotFoundError: Si la categoria no existe
             DatabaseError: Si hay error de BD
         """
         return await self.repository.obtener_por_id(categoria_id)
@@ -51,18 +51,12 @@ class CategoriaPuestoService:
         incluir_inactivas: bool = False
     ) -> List[CategoriaPuesto]:
         """
-        Obtiene todas las categorías de un tipo de servicio.
-
-        Returns:
-            Lista ordenada por 'orden' y luego por 'nombre'
+        Obtiene todas las categorias de un tipo de servicio.
 
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_tipo_servicio(
-            tipo_servicio_id,
-            incluir_inactivas
-        )
+        return await self.repository.obtener_por_tipo_servicio(tipo_servicio_id, incluir_inactivas)
 
     async def obtener_todas(
         self,
@@ -71,7 +65,7 @@ class CategoriaPuestoService:
         offset: int = 0
     ) -> List[CategoriaPuesto]:
         """
-        Obtiene todas las categorías con paginación.
+        Obtiene todas las categorias con paginacion.
 
         Raises:
             DatabaseError: Si hay error de BD
@@ -85,12 +79,7 @@ class CategoriaPuestoService:
         limite: int = 10
     ) -> List[CategoriaPuesto]:
         """
-        Busca categorías por nombre o clave.
-
-        Args:
-            termino: Término de búsqueda
-            tipo_servicio_id: Filtrar por tipo de servicio (opcional)
-            limite: Número máximo de resultados
+        Busca categorias por nombre o clave.
 
         Raises:
             DatabaseError: Si hay error de BD
@@ -98,11 +87,7 @@ class CategoriaPuestoService:
         if not termino or len(termino.strip()) < 2:
             return []
 
-        return await self.repository.buscar_por_texto(
-            termino.strip(),
-            tipo_servicio_id,
-            limite
-        )
+        return await self.repository.buscar(termino, tipo_servicio_id, limite)
 
     # ==========================================
     # OPERACIONES DE ESCRITURA
@@ -110,7 +95,7 @@ class CategoriaPuestoService:
 
     async def crear(self, categoria_create: CategoriaPuestoCreate) -> CategoriaPuesto:
         """
-        Crea una nueva categoría de puesto.
+        Crea una nueva categoria de puesto.
 
         Raises:
             DuplicateError: Si la clave ya existe en el tipo de servicio
@@ -119,7 +104,7 @@ class CategoriaPuestoService:
         categoria = CategoriaPuesto(**categoria_create.model_dump())
 
         logger.info(
-            f"Creando categoría: {categoria.clave} - {categoria.nombre} "
+            f"Creando categoria: {categoria.clave} - {categoria.nombre} "
             f"(tipo_servicio_id={categoria.tipo_servicio_id})"
         )
 
@@ -131,10 +116,10 @@ class CategoriaPuestoService:
         categoria_update: CategoriaPuestoUpdate
     ) -> CategoriaPuesto:
         """
-        Actualiza una categoría existente.
+        Actualiza una categoria existente.
 
         Raises:
-            NotFoundError: Si la categoría no existe
+            NotFoundError: Si la categoria no existe
             DuplicateError: Si la nueva clave ya existe en el tipo de servicio
             DatabaseError: Si hay error de BD
         """
@@ -146,16 +131,28 @@ class CategoriaPuestoService:
             if valor is not None:
                 setattr(categoria_actual, campo, valor)
 
-        logger.info(f"Actualizando categoría ID {categoria_id}")
+        logger.info(f"Actualizando categoria ID {categoria_id}")
+
+        # Verificar clave duplicada (excluyendo registro actual)
+        if await self.repository.existe_clave_en_tipo(
+            categoria_actual.tipo_servicio_id,
+            categoria_actual.clave,
+            excluir_id=categoria_actual.id
+        ):
+            raise DuplicateError(
+                f"La clave '{categoria_actual.clave}' ya existe en este tipo de servicio",
+                field="clave",
+                value=categoria_actual.clave
+            )
 
         return await self.repository.actualizar(categoria_actual)
 
     async def eliminar(self, categoria_id: int) -> bool:
         """
-        Elimina (desactiva) una categoría.
+        Elimina (desactiva) una categoria.
 
         Raises:
-            NotFoundError: Si la categoría no existe
+            NotFoundError: Si la categoria no existe
             BusinessRuleError: Si tiene empleados asociados (futuro)
             DatabaseError: Si hay error de BD
         """
@@ -163,42 +160,27 @@ class CategoriaPuestoService:
 
         await self._validar_puede_eliminar(categoria)
 
-        logger.info(f"Eliminando (desactivando) categoría: {categoria.clave}")
+        logger.info(f"Eliminando (desactivando) categoria: {categoria.clave}")
 
         return await self.repository.eliminar(categoria_id)
 
     async def activar(self, categoria_id: int) -> CategoriaPuesto:
         """
-        Activa una categoría que estaba inactiva.
+        Activa una categoria que estaba inactiva.
 
         Raises:
-            NotFoundError: Si la categoría no existe
-            BusinessRuleError: Si ya está activa
+            NotFoundError: Si la categoria no existe
+            BusinessRuleError: Si ya esta activa
             DatabaseError: Si hay error de BD
         """
         categoria = await self.repository.obtener_por_id(categoria_id)
 
         if categoria.estatus == Estatus.ACTIVO:
-            raise BusinessRuleError("La categoría ya está activa")
+            raise BusinessRuleError("La categoria ya esta activa")
 
         categoria.estatus = Estatus.ACTIVO
 
-        logger.info(f"Activando categoría: {categoria.clave}")
-
-        return await self.repository.actualizar(categoria)
-
-    async def cambiar_orden(self, categoria_id: int, nuevo_orden: int) -> CategoriaPuesto:
-        """
-        Cambia el orden de visualización de una categoría.
-
-        Raises:
-            NotFoundError: Si la categoría no existe
-            DatabaseError: Si hay error de BD
-        """
-        categoria = await self.repository.obtener_por_id(categoria_id)
-        categoria.orden = nuevo_orden
-
-        logger.info(f"Cambiando orden de categoría {categoria.clave} a {nuevo_orden}")
+        logger.info(f"Activando categoria: {categoria.clave}")
 
         return await self.repository.actualizar(categoria)
 
@@ -208,12 +190,9 @@ class CategoriaPuestoService:
 
     async def _validar_puede_eliminar(self, categoria: CategoriaPuesto) -> None:
         """
-        Valida si una categoría puede ser eliminada.
-
-        Reglas:
-        - No debe tener empleados activos asociados (futuro)
+        Valida si una categoria puede ser eliminada.
         """
-        # TODO: Cuando exista el módulo de empleados:
+        # TODO: Cuando exista el modulo de empleados:
         # from app.repositories import SupabaseEmpleadoRepository
         # empleado_repo = SupabaseEmpleadoRepository()
         # empleados = await empleado_repo.contar_por_categoria(categoria.id, solo_activos=True)
@@ -231,12 +210,11 @@ class CategoriaPuestoService:
     ) -> bool:
         """
         Verifica si una clave ya existe en el tipo de servicio.
+
+        Raises:
+            DatabaseError: Si hay error de BD
         """
-        return await self.repository.existe_clave_en_tipo(
-            tipo_servicio_id,
-            clave,
-            excluir_id
-        )
+        return await self.repository.existe_clave_en_tipo(tipo_servicio_id, clave, excluir_id)
 
 
 # ==========================================

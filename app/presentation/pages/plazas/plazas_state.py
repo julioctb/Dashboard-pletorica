@@ -9,21 +9,17 @@ from datetime import date
 
 from app.presentation.components.shared.base_state import BaseState
 from app.presentation.constants import FILTRO_TODOS
-from app.services import plaza_service, contrato_categoria_service, contrato_service
+from app.services import plaza_service, contrato_categoria_service
 from app.core.text_utils import formatear_moneda, formatear_fecha
 
 from app.entities import (
-    Plaza,
     PlazaCreate,
     PlazaUpdate,
-    PlazaResumen,
     EstatusPlaza,
 )
 
 from app.core.exceptions import (
-    NotFoundError,
     DuplicateError,
-    DatabaseError,
     BusinessRuleError,
 )
 
@@ -716,7 +712,7 @@ class PlazasState(BaseState):
         self.saving = True
         try:
             plaza_id = self.plaza_seleccionada["id"]
-            empleado_id = int(self.empleado_seleccionado_id)
+            empleado_id = self.parse_id(self.empleado_seleccionado_id)
 
             await plaza_service.asignar_empleado(plaza_id, empleado_id)
 

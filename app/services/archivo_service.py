@@ -6,7 +6,8 @@ y registro en base de datos. Generico para cualquier modulo.
 
 Patron de errores:
 - ArchivoValidationError: Validacion de formato, tamano o cantidad
-- Las excepciones del repository se propagan (NotFoundError, DatabaseError)
+- NotFoundError: Cuando no se encuentra un archivo
+- DatabaseError: Errores de conexion o infraestructura
 """
 
 import logging
@@ -16,7 +17,7 @@ from uuid import uuid4
 
 from app.core.compresores import GhostscriptCompressor, ImagenCompressor
 from app.core.config.archivos_config import ArchivosConfig
-from app.core.exceptions import ApplicationError
+from app.core.exceptions import ApplicationError, NotFoundError
 from app.entities.archivo import (
     ArchivoSistema,
     ArchivoSistemaUpdate,
@@ -25,7 +26,7 @@ from app.entities.archivo import (
     OrigenArchivo,
     TipoArchivo,
 )
-from app.repositories.archivo_repository import SupabaseArchivoRepository
+from app.repositories import SupabaseArchivoRepository
 
 logger = logging.getLogger(__name__)
 
@@ -41,16 +42,11 @@ class ArchivoService:
     Servicio generico para gestion de archivos del sistema.
 
     Maneja compresion, upload a Storage, registro en BD y eliminacion.
+    Delega acceso a datos al repositorio.
     """
 
-    def __init__(self, repository=None):
-        if repository is None:
-            repository = SupabaseArchivoRepository()
-        self.repository = repository
-
-        from app.database import db_manager
-
-        self.supabase = db_manager.get_client()
+    def __init__(self):
+        self.repository = SupabaseArchivoRepository()
 
     # ==========================================
     # VALIDACIONES
@@ -89,14 +85,14 @@ class ArchivoService:
         entidad_id: int,
     ) -> None:
         """Valida que no se exceda el limite de archivos."""
-        cantidad = await self.repository.contar_archivos(
-            entidad_tipo, entidad_id
-        )
         tipo_valor = (
             entidad_tipo.value
             if isinstance(entidad_tipo, EntidadArchivo)
             else entidad_tipo
         )
+
+        cantidad = await self.repository.contar_por_entidad(entidad_tipo, entidad_id)
+
         limite = ArchivosConfig.get_max_archivos(tipo_valor)
 
         if cantidad >= limite:
@@ -165,22 +161,6 @@ class ArchivoService:
         """
         Sube un archivo al sistema (comprime, almacena, registra).
 
-        Args:
-            contenido: Bytes del archivo
-            nombre_original: Nombre original del archivo
-            tipo_mime: Tipo MIME del archivo
-            entidad_tipo: Tipo de entidad (REQUISICION, REPORTE, etc.)
-            entidad_id: ID de la entidad
-            identificador_ruta: Identificador para la ruta (ej: REQ-SA-2025-0001)
-            tipo_archivo: Clasificacion (IMAGEN, DOCUMENTO, etc.)
-            descripcion: Descripcion opcional
-            orden: Orden para multiples archivos
-            sub_identificador: Para items/actividades (ej: numero de item)
-            origen: WEB o MOVIL
-
-        Returns:
-            ArchivoUploadResponse con archivo creado y metadata de compresion.
-
         Raises:
             ArchivoValidationError: Si el archivo no pasa validaciones
             DatabaseError: Si hay error de BD o Storage
@@ -221,11 +201,7 @@ class ArchivoService:
 
         # Subir a Supabase Storage
         try:
-            self.supabase.storage.from_(ArchivosConfig.BUCKET_NAME).upload(
-                path=ruta_storage,
-                file=contenido_final,
-                file_options={"content-type": tipo_mime_final},
-            )
+            self.repository.subir_a_storage(ruta_storage, contenido_final, tipo_mime_final)
         except Exception as e:
             logger.error(f"Error subiendo archivo a Storage: {e}")
             raise ArchivoValidationError(
@@ -233,30 +209,32 @@ class ArchivoService:
             )
 
         # Crear registro en BD
-        archivo = await self.repository.crear(
-            entidad_tipo=tipo_valor,
-            entidad_id=entidad_id,
-            nombre_original=nombre_original,
-            nombre_storage=nombre_storage,
-            ruta_storage=ruta_storage,
-            tipo_mime=tipo_mime_final,
-            tamanio_bytes=len(contenido_final),
-            tipo_archivo=(
+        datos = {
+            "entidad_tipo": tipo_valor,
+            "entidad_id": entidad_id,
+            "nombre_original": nombre_original,
+            "nombre_storage": nombre_storage,
+            "ruta_storage": ruta_storage,
+            "tipo_mime": tipo_mime_final,
+            "tamanio_bytes": len(contenido_final),
+            "tipo_archivo": (
                 tipo_archivo.value
                 if isinstance(tipo_archivo, TipoArchivo)
                 else tipo_archivo
             ),
-            descripcion=descripcion,
-            orden=orden,
-            tamanio_original_bytes=tamanio_original,
-            fue_comprimido=metadata.get("comprimido", False),
-            formato_original=metadata.get("formato_original"),
-            origen=(
+            "descripcion": descripcion,
+            "orden": orden,
+            "tamanio_original_bytes": tamanio_original,
+            "fue_comprimido": metadata.get("comprimido", False),
+            "formato_original": metadata.get("formato_original"),
+            "origen": (
                 origen.value
                 if isinstance(origen, OrigenArchivo)
                 else origen
             ),
-        )
+        }
+
+        archivo = await self.repository.crear(datos)
 
         return ArchivoUploadResponse(
             archivo=archivo,
@@ -286,9 +264,7 @@ class ArchivoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_entidad(
-            entidad_tipo, entidad_id
-        )
+        return await self.repository.obtener_por_entidad(entidad_tipo, entidad_id)
 
     async def obtener_url_temporal(
         self,
@@ -305,13 +281,9 @@ class ArchivoService:
         archivo = await self.repository.obtener_por_id(archivo_id)
 
         try:
-            response = self.supabase.storage.from_(
-                ArchivosConfig.BUCKET_NAME
-            ).create_signed_url(
-                path=archivo.ruta_storage,
-                expires_in=expiracion_segundos,
+            return self.repository.crear_url_temporal(
+                archivo.ruta_storage, expiracion_segundos
             )
-            return response["signedURL"]
         except Exception as e:
             logger.error(f"Error generando URL temporal: {e}")
             raise ArchivoValidationError(
@@ -344,14 +316,13 @@ class ArchivoService:
 
         # Eliminar de Storage
         try:
-            self.supabase.storage.from_(ArchivosConfig.BUCKET_NAME).remove(
-                [archivo.ruta_storage]
-            )
+            self.repository.eliminar_de_storage([archivo.ruta_storage])
         except Exception as e:
             logger.warning(
                 f"Error eliminando archivo de Storage ({archivo.ruta_storage}): {e}"
             )
 
+        # Eliminar de BD
         return await self.repository.eliminar(archivo_id)
 
     async def eliminar_archivos_entidad(
@@ -375,17 +346,13 @@ class ArchivoService:
         if archivos:
             rutas = [a.ruta_storage for a in archivos]
             try:
-                self.supabase.storage.from_(
-                    ArchivosConfig.BUCKET_NAME
-                ).remove(rutas)
+                self.repository.eliminar_de_storage(rutas)
             except Exception as e:
                 logger.warning(
                     f"Error eliminando archivos de Storage: {e}"
                 )
 
-        return await self.repository.eliminar_por_entidad(
-            entidad_tipo, entidad_id
-        )
+        return await self.repository.eliminar_por_entidad(entidad_tipo, entidad_id)
 
     # ==========================================
     # UTILIDADES

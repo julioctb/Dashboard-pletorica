@@ -7,6 +7,7 @@ La clave interna (B25-00001) es para uso operativo del sistema.
 import re
 from datetime import date, datetime
 from typing import Optional
+from uuid import UUID
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.core.enums import EstatusEmpleado, GeneroEmpleado, MotivoBaja
@@ -104,6 +105,25 @@ class Empleado(BaseModel):
     # Notas
     notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
 
+    # Restricción (solo admin BUAP puede modificar)
+    is_restricted: bool = Field(
+        default=False,
+        description="true = empleado bloqueado por BUAP"
+    )
+    restriction_reason: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Motivo de la restriccion (solo visible para admins)"
+    )
+    restricted_at: Optional[datetime] = Field(
+        None,
+        description="Fecha/hora de la restriccion"
+    )
+    restricted_by: Optional[UUID] = Field(
+        None,
+        description="UUID del admin que aplico la restriccion"
+    )
+
     # Auditoría
     fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None
@@ -187,6 +207,10 @@ class Empleado(BaseModel):
     # =========================================================================
     # MÉTODOS DE CONSULTA
     # =========================================================================
+
+    def esta_restringido(self) -> bool:
+        """Verifica si el empleado tiene restriccion activa."""
+        return self.is_restricted
 
     def esta_activo(self) -> bool:
         """Retorna True si el empleado está activo."""
@@ -351,6 +375,12 @@ class EmpleadoUpdate(BaseModel):
     motivo_baja: Optional[MotivoBaja] = None
     notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
 
+    # Campos de restriccion (solo admins pueden modificar via servicio)
+    is_restricted: Optional[bool] = None
+    restriction_reason: Optional[str] = Field(None, max_length=500)
+    restricted_at: Optional[datetime] = None
+    restricted_by: Optional[UUID] = None
+
     # Validadores reutilizados
     validar_rfc_update = field_validator('rfc', mode='before')(Empleado.validar_rfc.__func__)
     validar_nss_update = field_validator('nss', mode='before')(Empleado.validar_nss.__func__)
@@ -379,6 +409,7 @@ class EmpleadoResumen(BaseModel):
     empresa_id: Optional[int] = None
     empresa_nombre: Optional[str] = None
     estatus: EstatusEmpleado
+    is_restricted: bool = False
     fecha_ingreso: date
     telefono: Optional[str] = None
     email: Optional[str] = None
@@ -394,6 +425,7 @@ class EmpleadoResumen(BaseModel):
             empresa_id=empleado.empresa_id,
             empresa_nombre=empresa_nombre,
             estatus=empleado.estatus,
+            is_restricted=empleado.is_restricted,
             fecha_ingreso=empleado.fecha_ingreso,
             telefono=empleado.telefono,
             email=empleado.email,
@@ -418,6 +450,7 @@ class EmpleadoResumen(BaseModel):
             empresa_id=data['empresa_id'],
             empresa_nombre=empresa_nombre,
             estatus=data['estatus'],
+            is_restricted=data.get('is_restricted', False),
             fecha_ingreso=data['fecha_ingreso'],
             telefono=data.get('telefono'),
             email=data.get('email'),

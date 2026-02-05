@@ -1,64 +1,48 @@
 """
-Servicio de aplicación para gestión de pagos de contratos.
+Servicio de aplicacion para gestion de pagos de contratos.
 
-Patrón de manejo de errores:
-- Las excepciones del repository se propagan (NotFoundError, DatabaseError)
-- El servicio NO captura excepciones, las deja subir al State
+Usa SupabasePagoRepository para operaciones de datos de pagos
+y SupabaseContratoRepository para operaciones de contratos.
 """
 import logging
 from typing import List, Optional
-from datetime import date
 from decimal import Decimal
 
 from app.entities import (
     Pago,
     PagoCreate,
     PagoUpdate,
-    PagoResumen,
     ResumenPagosContrato,
     EstatusContrato,
 )
-from app.repositories import SupabasePagoRepository, SupabaseContratoRepository
-from app.core.exceptions import NotFoundError, DatabaseError, BusinessRuleError
+from app.repositories import SupabaseContratoRepository, SupabasePagoRepository
+from app.core.exceptions import NotFoundError, BusinessRuleError
 
 logger = logging.getLogger(__name__)
 
 
 class PagoService:
     """
-    Servicio de aplicación para pagos.
-    Orquesta las operaciones de negocio.
+    Servicio de aplicacion para pagos.
+    Orquesta las operaciones de negocio delegando acceso a datos a los repositorios.
     """
 
-    def __init__(self, repository=None, contrato_repository=None):
-        """
-        Inicializa el servicio con repositories.
-
-        Args:
-            repository: Implementación del repository de pagos.
-            contrato_repository: Implementación del repository de contratos.
-        """
-        if repository is None:
-            repository = SupabasePagoRepository()
+    def __init__(self, contrato_repository=None, pago_repository=None):
         if contrato_repository is None:
             contrato_repository = SupabaseContratoRepository()
-
-        self.repository = repository
         self.contrato_repository = contrato_repository
 
+        if pago_repository is None:
+            pago_repository = SupabasePagoRepository()
+        self.repository = pago_repository
+
     # ==========================================
-    # OPERACIONES CRUD
+    # OPERACIONES CRUD (publicas)
     # ==========================================
 
     async def obtener_por_id(self, pago_id: int) -> Pago:
         """
         Obtiene un pago por su ID.
-
-        Args:
-            pago_id: ID del pago
-
-        Returns:
-            Pago encontrado
 
         Raises:
             NotFoundError: Si el pago no existe
@@ -75,14 +59,6 @@ class PagoService:
         """
         Obtiene todos los pagos de un contrato.
 
-        Args:
-            contrato_id: ID del contrato
-            limite: Número máximo de resultados
-            offset: Registros a saltar
-
-        Returns:
-            Lista de pagos del contrato
-
         Raises:
             DatabaseError: Si hay error de BD
         """
@@ -92,18 +68,11 @@ class PagoService:
         """
         Crea un nuevo pago.
 
-        Args:
-            pago_create: Datos del pago a crear
-
-        Returns:
-            Pago creado con ID asignado
-
         Raises:
             NotFoundError: Si el contrato no existe
             BusinessRuleError: Si el contrato no puede recibir pagos
             DatabaseError: Si hay error de BD
         """
-        # Verificar que el contrato existe y puede recibir pagos
         contrato = await self.contrato_repository.obtener_por_id(pago_create.contrato_id)
 
         if contrato.estatus not in [EstatusContrato.ACTIVO, EstatusContrato.BORRADOR]:
@@ -111,7 +80,6 @@ class PagoService:
                 f"No se pueden registrar pagos en un contrato con estatus {contrato.estatus}"
             )
 
-        # Crear el pago
         pago = Pago(**pago_create.model_dump())
         return await self.repository.crear(pago)
 
@@ -119,20 +87,12 @@ class PagoService:
         """
         Actualiza un pago existente.
 
-        Args:
-            pago_id: ID del pago a actualizar
-            pago_update: Datos a actualizar
-
-        Returns:
-            Pago actualizado
-
         Raises:
             NotFoundError: Si el pago no existe
             DatabaseError: Si hay error de BD
         """
         pago_actual = await self.repository.obtener_por_id(pago_id)
 
-        # Aplicar actualizaciones
         datos_actualizados = pago_actual.model_dump()
         for campo, valor in pago_update.model_dump(exclude_unset=True).items():
             if valor is not None:
@@ -145,17 +105,10 @@ class PagoService:
         """
         Elimina un pago.
 
-        Args:
-            pago_id: ID del pago a eliminar
-
-        Returns:
-            True si se eliminó exitosamente
-
         Raises:
             NotFoundError: Si el pago no existe
             DatabaseError: Si hay error de BD
         """
-        # Verificar que existe
         await self.repository.obtener_por_id(pago_id)
         return await self.repository.eliminar(pago_id)
 
@@ -167,25 +120,16 @@ class PagoService:
         """
         Obtiene el resumen de pagos de un contrato.
 
-        Args:
-            contrato_id: ID del contrato
-
-        Returns:
-            Resumen con totales, saldo pendiente y porcentaje
-
         Raises:
             NotFoundError: Si el contrato no existe
             DatabaseError: Si hay error de BD
         """
-        # Obtener contrato
         contrato = await self.contrato_repository.obtener_por_id(contrato_id)
 
-        # Obtener datos de pagos
         total_pagado = await self.repository.obtener_total_pagado(contrato_id)
         cantidad_pagos = await self.repository.contar_pagos(contrato_id)
         ultimo_pago = await self.repository.obtener_ultimo_pago(contrato_id)
 
-        # Calcular saldo pendiente y porcentaje
         monto_maximo = contrato.monto_maximo or Decimal("0")
         saldo_pendiente = max(monto_maximo - total_pagado, Decimal("0"))
 
@@ -210,13 +154,7 @@ class PagoService:
         contratos_info: List[dict]
     ) -> dict[int, Decimal]:
         """
-        Obtiene los saldos pendientes de múltiples contratos en una sola query.
-
-        Args:
-            contratos_info: Lista de dicts con {id, monto_maximo}
-
-        Returns:
-            Diccionario {contrato_id: saldo_pendiente}
+        Obtiene los saldos pendientes de multiples contratos en una sola query.
 
         Raises:
             DatabaseError: Si hay error de BD
@@ -227,10 +165,8 @@ class PagoService:
         contrato_ids = [c['id'] for c in contratos_info]
         montos_maximos = {c['id']: Decimal(str(c.get('monto_maximo') or 0)) for c in contratos_info}
 
-        # Una sola query para todos los totales pagados
         totales_pagados = await self.repository.obtener_totales_por_contratos(contrato_ids)
 
-        # Calcular saldos pendientes
         saldos = {}
         for cid in contrato_ids:
             monto_maximo = montos_maximos.get(cid, Decimal("0"))
@@ -241,13 +177,7 @@ class PagoService:
 
     async def verificar_contrato_pagado(self, contrato_id: int) -> bool:
         """
-        Verifica si un contrato está completamente pagado.
-
-        Args:
-            contrato_id: ID del contrato
-
-        Returns:
-            True si el contrato está completamente pagado
+        Verifica si un contrato esta completamente pagado.
         """
         resumen = await self.obtener_resumen_pagos_contrato(contrato_id)
         return resumen.esta_pagado
@@ -258,24 +188,17 @@ class PagoService:
 
     async def cerrar_contrato(self, contrato_id: int, forzar: bool = False) -> bool:
         """
-        Cierra un contrato si está completamente pagado.
-
-        Args:
-            contrato_id: ID del contrato
-            forzar: Si True, cierra aunque no esté completamente pagado
-
-        Returns:
-            True si se cerró exitosamente
+        Cierra un contrato si esta completamente pagado.
 
         Raises:
             NotFoundError: Si el contrato no existe
-            BusinessRuleError: Si no está pagado y no se fuerza
+            BusinessRuleError: Si no esta pagado y no se fuerza
             DatabaseError: Si hay error de BD
         """
         contrato = await self.contrato_repository.obtener_por_id(contrato_id)
 
         if contrato.estatus == EstatusContrato.CERRADO:
-            raise BusinessRuleError("El contrato ya está cerrado")
+            raise BusinessRuleError("El contrato ya esta cerrado")
 
         if contrato.estatus not in [EstatusContrato.ACTIVO, EstatusContrato.VENCIDO]:
             raise BusinessRuleError(
@@ -291,70 +214,8 @@ class PagoService:
                     "Use forzar=True para cerrar de todas formas."
                 )
 
-        # Cambiar estatus a CERRADO
         await self.contrato_repository.cambiar_estatus(contrato_id, EstatusContrato.CERRADO)
         return True
-
-    # ==========================================
-    # CONSULTAS ADICIONALES
-    # ==========================================
-
-    async def buscar_por_rango_fechas(
-        self,
-        contrato_id: int,
-        fecha_desde: Optional[date] = None,
-        fecha_hasta: Optional[date] = None
-    ) -> List[Pago]:
-        """
-        Busca pagos de un contrato en un rango de fechas.
-
-        Args:
-            contrato_id: ID del contrato
-            fecha_desde: Fecha inicial
-            fecha_hasta: Fecha final
-
-        Returns:
-            Lista de pagos en el rango
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        return await self.repository.buscar_por_rango_fechas(
-            contrato_id, fecha_desde, fecha_hasta
-        )
-
-    async def obtener_resumen_lista(
-        self,
-        contrato_id: int,
-        limite: Optional[int] = 50,
-        offset: int = 0
-    ) -> List[PagoResumen]:
-        """
-        Obtiene lista resumida de pagos para mostrar en tabla.
-
-        Args:
-            contrato_id: ID del contrato
-            limite: Número máximo de resultados
-            offset: Registros a saltar
-
-        Returns:
-            Lista de resúmenes de pago
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        pagos = await self.repository.obtener_por_contrato(contrato_id, limite, offset)
-
-        # Obtener código del contrato
-        contrato = await self.contrato_repository.obtener_por_id(contrato_id)
-
-        resumenes = []
-        for pago in pagos:
-            resumen = PagoResumen.from_pago(pago)
-            resumen.codigo_contrato = contrato.codigo
-            resumenes.append(resumen)
-
-        return resumenes
 
 
 # Instancia global del servicio (singleton)

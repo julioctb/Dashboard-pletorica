@@ -1,110 +1,54 @@
 """
 Repositorios de acceso a datos.
 
-Este módulo exporta todos los repositorios para facilitar imports:
-    from app.repositories import SupabaseEmpresaRepository, etc.
+Todos los modulos usan el patron Repository para separar
+la logica de acceso a datos de la logica de negocio.
 """
 
 # Empresa
-from app.repositories.empresa_repository import (
-    IEmpresaRepository,
-    SupabaseEmpresaRepository,
-)
+from app.repositories.empresa_repository import SupabaseEmpresaRepository
 
 # Tipo de Servicio
-from app.repositories.tipo_servicio_repository import (
-    ITipoServicioRepository,
-    SupabaseTipoServicioRepository,
-)
+from app.repositories.tipo_servicio_repository import SupabaseTipoServicioRepository
 
-# Categoría de Puesto
-from app.repositories.categoria_puesto_repository import (
-    ICategoriaPuestoRepository,
-    SupabaseCategoriaPuestoRepository,
-)
+# Categoria de Puesto
+from app.repositories.categoria_puesto_repository import SupabaseCategoriaPuestoRepository
 
 # Contrato
-from app.repositories.contrato_repository import (
-    IContratoRepository,
-    SupabaseContratoRepository,
-)
+from app.repositories.contrato_repository import SupabaseContratoRepository
 
-# Pago
-from app.repositories.pago_repository import (
-    IPagoRepository,
-    SupabasePagoRepository,
-)
-
-# ContratoCategoria
-from app.repositories.contrato_categoria_repository import (
-    IContratoCategoriaRepository,
-    SupabaseContratoCategoriaRepository,
-)
+# Contrato-Categoria
+from app.repositories.contrato_categoria_repository import SupabaseContratoCategoriaRepository
 
 # Plaza
-from app.repositories.plaza_repository import (
-    IPlazaRepository,
-    SupabasePlazaRepository,
-)
+from app.repositories.plaza_repository import SupabasePlazaRepository
 
 # Empleado
-from app.repositories.empleado_repository import (
-    IEmpleadoRepository,
-    SupabaseEmpleadoRepository,
-)
-
-# Historial Laboral
-from app.repositories.historial_laboral_repository import (
-    IHistorialLaboralRepository,
-    SupabaseHistorialLaboralRepository,
-)
-
-
-# Archivo
-from app.repositories.archivo_repository import (
-    IArchivoRepository,
-    SupabaseArchivoRepository,
-)
+from app.repositories.empleado_repository import SupabaseEmpleadoRepository
 
 # Requisicion
-from app.repositories.requisicion_repository import (
-    IRequisicionRepository,
-    SupabaseRequisicionRepository,
-)
+from app.repositories.requisicion_repository import SupabaseRequisicionRepository
+
+# Pago
+from app.repositories.pago_repository import SupabasePagoRepository
+
+# Historial Laboral
+from app.repositories.historial_laboral_repository import SupabaseHistorialLaboralRepository
+
+# Archivo
+from app.repositories.archivo_repository import SupabaseArchivoRepository
 
 
 __all__ = [
-    # Empresa
-    "IEmpresaRepository",
     "SupabaseEmpresaRepository",
-    # Tipo de Servicio
-    "ITipoServicioRepository",
     "SupabaseTipoServicioRepository",
-    # Categoría de Puesto
-    "ICategoriaPuestoRepository",
     "SupabaseCategoriaPuestoRepository",
-    # Contrato
-    "IContratoRepository",
     "SupabaseContratoRepository",
-    # Pago
-    "IPagoRepository",
-    "SupabasePagoRepository",
-    # ContratoCategoria
-    "IContratoCategoriaRepository",
     "SupabaseContratoCategoriaRepository",
-    # Plaza
-    "IPlazaRepository",
     "SupabasePlazaRepository",
-    # Empleado
-    "IEmpleadoRepository",
     "SupabaseEmpleadoRepository",
-    # Historial Laboral
-    "IHistorialLaboralRepository",
-    "SupabaseHistorialLaboralRepository",
-    # Archivo
-    "IArchivoRepository",
-    "SupabaseArchivoRepository",
-    # Requisicion
-    "IRequisicionRepository",
     "SupabaseRequisicionRepository",
+    "SupabasePagoRepository",
+    "SupabaseHistorialLaboralRepository",
+    "SupabaseArchivoRepository",
 ]

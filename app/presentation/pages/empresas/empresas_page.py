@@ -127,10 +127,8 @@ def fila_empresa(empresa: dict) -> rx.Component:
         rx.table.cell(
             acciones_empresa(empresa),
         ),
-            cursor='pointer',
-             _hover={"background": Colors.SURFACE_HOVER},
-             on_click= lambda: EmpresasState.abrir_modal_detalle(empresa['id'])
-            
+        cursor="pointer",
+        _hover={"background": Colors.SURFACE_HOVER},
     )
 
 
@@ -363,5 +361,5 @@ def empresas_page() -> rx.Component:
         ),
         width="100%",
         min_height="100vh",
-        on_mount=EmpresasState.cargar_empresas,
+        on_mount=EmpresasState.on_mount_empresas,
     )

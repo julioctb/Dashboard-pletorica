@@ -20,9 +20,20 @@ color: blue
 
 Eres un agente especializado en desarrollo de interfaces con Reflex 0.8.21 para el sistema de nómina BUAP. Tu rol es guiar el desarrollo de UI usando el sistema de diseño establecido, asegurar accesibilidad WCAG 2.1 AA, y reutilizar componentes existentes.
 
+> **⚠️ IMPORTANTE: Rama SUPABASE**
+> 
+> Este agente está configurado para la **rama `SUPABASE`** del proyecto.
+> - **Base de datos**: Supabase (PostgreSQL hosted)
+> - **Storage**: Supabase Storage (bucket: `archivos`)
+> - **Archivos**: Compresión automática (WebP para imágenes, Ghostscript para PDFs)
+> 
+> Si trabajas en otra rama, verifica que los componentes y servicios sean compatibles.
+
+---
+
 ## 🎯 Misión Principal
 
-1. **ANTES de crear componentes**: Verificar si ya existen en `app/presentation/components/ui/`
+1. **ANTES de crear componentes**: Verificar si ya existen en `app/presentation/components/ui/` o `app/presentation/components/common/`
 2. **Durante el desarrollo**: Usar tokens del theme, NUNCA hardcodear valores
 3. **Siempre**: Considerar usuarios +42 años (alto contraste, tipografía legible)
 
@@ -215,13 +226,15 @@ rx.box(transition=Transitions.NORMAL)  # "200ms" - modales
 
 **SIEMPRE verificar si existe antes de crear:**
 
+### Componentes en `app/presentation/components/ui/`
+
 ```python
 from app.presentation.components.ui import (
     # === FORMULARIOS ===
-    form_input,          # Input con error handling
-    form_textarea,       # Textarea con error handling
-    form_select,         # Select con error handling
-    form_date,           # Date picker con error handling
+    form_input,          # Input con label, error, hint
+    form_textarea,       # Textarea con label, error, hint
+    form_select,         # Select con label, error, hint
+    form_date,           # Date picker con label, error
     form_row,            # Fila de campos en grid
 
     # === TABLAS ===
@@ -238,18 +251,18 @@ from app.presentation.components.ui import (
     status_dot,          # Solo punto de color
     
     # === MODALES ===
-    modal_formulario,    # Modal para formularios
+    modal_formulario,    # Modal para crear/editar
     modal_confirmar_eliminar,
     modal_confirmar_accion,
     modal_detalle,
     
     # === FILTROS Y BARRAS ===
     input_busqueda,
+    barra_filtros,
+    barra_herramientas,
     indicador_filtros,
     contador_registros,
     switch_inactivos,
-    barra_filtros,
-    barra_herramientas,
     
     # === BOTONES ===
     boton_accion,
@@ -261,64 +274,206 @@ from app.presentation.components.ui import (
     view_toggle,
     view_toggle_segmented,
     
-    # === HEADERS ===
+    # === OTROS ===
     page_header,
 )
 ```
 
-### Uso de form_input (Patron Estandar)
+### Componentes en `app/presentation/components/common/` (Rama SUPABASE)
 
 ```python
-from app.presentation.components.ui import form_input, form_select, form_date, form_row
-
-# Input con label, ejemplo como placeholder, y hint
-form_input(
-    label="Nombre comercial",
-    required=True,                          # Agrega " *" al label
-    placeholder="Ej: ACME Corporation",     # Valor de ejemplo
-    hint="Se formatea automaticamente",     # Texto de ayuda
-    value=State.form_nombre,
-    on_change=State.set_form_nombre,
-    on_blur=State.validar_nombre_campo,
-    error=State.error_nombre,
-    max_length=100,
-)
-
-# Select con label
-form_select(
-    label="Tipo de empresa",
-    required=True,
-    placeholder="Seleccione tipo",
-    options=State.opciones_tipo,
-    value=State.form_tipo,
-    on_change=State.set_form_tipo,
-    error=State.error_tipo,
-)
-
-# Date picker
-form_date(
-    label="Fecha de inicio",
-    required=True,
-    value=State.form_fecha,
-    on_change=State.set_form_fecha,
-    error=State.error_fecha,
-)
-
-# Fila de 2 campos lado a lado
-form_row(
-    form_input(label="Nombre", required=True, ...),
-    form_input(label="Apellido", required=True, ...),
-)
-
-# INCORRECTO: Crear input desde cero
-rx.vstack(
-    rx.text("Nombre comercial"),
-    rx.input(value=State.form_nombre, on_change=State.set_form_nombre),
-    rx.cond(State.error, rx.text(State.error)),  # Falta rama else!
+from app.presentation.components.common import (
+    archivo_uploader,    # Drag-and-drop para archivos (imágenes/PDFs)
 )
 ```
 
-**IMPORTANTE**: `form_input` NO se puede usar dentro de `rx.foreach` porque su check Python `if not label:` falla cuando label es un Var. Para campos dinamicos en `rx.foreach`, usar patron inline con `rx.cond` (ver `configuracion_page.py`).
+---
+
+## 📁 COMPONENTE: archivo_uploader (Rama SUPABASE)
+
+Componente funcional puro para carga de archivos con drag-and-drop. Integrado con `ArchivoService` para compresión automática.
+
+### Uso Básico
+
+```python
+from app.presentation.components.common import archivo_uploader
+
+# En tu componente de formulario/modal:
+archivo_uploader(
+    upload_id="archivos_requisicion",      # ID único para la zona de upload
+    archivos=MiState.archivos_entidad,     # Lista de archivos existentes
+    on_upload=MiState.handle_upload_archivo,  # Handler async para procesar
+    on_delete=MiState.eliminar_archivo_entidad,  # Handler para eliminar
+    subiendo=MiState.subiendo_archivo,     # Bool: muestra spinner si True
+    max_archivos=5,                        # Límite visual (default 5)
+)
+```
+
+### Implementación en el State
+
+```python
+from app.services import archivo_service
+from app.entities.archivo import EntidadArchivo, TipoArchivo
+
+class MiModuloState(BaseState):
+    archivos_entidad: list[dict] = []
+    subiendo_archivo: bool = False
+    
+    # Setter explícito
+    def set_subiendo_archivo(self, value: bool):
+        self.subiendo_archivo = value
+    
+    async def handle_upload_archivo(self, files: list[rx.UploadFile]):
+        """Procesa archivos subidos."""
+        if not files or not self.id_entidad:
+            return
+        
+        self.subiendo_archivo = True
+        try:
+            for file in files:
+                contenido = await file.read()
+                tipo_mime = file.content_type or "application/octet-stream"
+                es_imagen = tipo_mime.startswith("image/")
+                
+                await archivo_service.subir_archivo(
+                    contenido=contenido,
+                    nombre_original=file.filename,
+                    tipo_mime=tipo_mime,
+                    entidad_tipo=EntidadArchivo.MI_ENTIDAD,  # Cambiar según módulo
+                    entidad_id=self.id_entidad,
+                    identificador_ruta=f"MI-{self.id_entidad}",
+                    tipo_archivo=TipoArchivo.IMAGEN if es_imagen else TipoArchivo.DOCUMENTO,
+                )
+            
+            await self.cargar_archivos_entidad()
+            self.mostrar_mensaje("Archivos subidos correctamente", "success")
+        except Exception as e:
+            self.manejar_error(e, "al subir archivos")
+        finally:
+            self.subiendo_archivo = False
+    
+    async def eliminar_archivo_entidad(self, archivo_id: int):
+        """Elimina un archivo."""
+        try:
+            await archivo_service.eliminar_archivo(archivo_id)
+            await self.cargar_archivos_entidad()
+            self.mostrar_mensaje("Archivo eliminado", "success")
+        except Exception as e:
+            self.manejar_error(e, "al eliminar archivo")
+    
+    async def cargar_archivos_entidad(self):
+        """Carga lista de archivos de la entidad."""
+        if not self.id_entidad:
+            self.archivos_entidad = []
+            return
+        try:
+            archivos = await archivo_service.obtener_archivos_entidad(
+                EntidadArchivo.MI_ENTIDAD,
+                self.id_entidad,
+            )
+            self.archivos_entidad = [
+                {
+                    "id": a.id,
+                    "nombre_original": a.nombre_original,
+                    "tipo_mime": a.tipo_mime,
+                    "tamanio_bytes": a.tamanio_bytes,
+                    "fue_comprimido": a.fue_comprimido,
+                }
+                for a in archivos
+            ]
+        except Exception:
+            self.archivos_entidad = []
+```
+
+### Características del Sistema de Archivos
+
+| Característica | Descripción |
+|----------------|-------------|
+| **Formatos** | JPG, PNG, PDF |
+| **Compresión imágenes** | Automática a WebP (85% calidad) |
+| **Compresión PDFs** | Ghostscript (/ebook = 150 DPI) |
+| **Límite imágenes** | 5 MB original → 2 MB final |
+| **Límite PDFs** | 10 MB |
+| **Storage** | Supabase Storage (bucket: `archivos`) |
+
+### Entidades que Soportan Archivos
+
+```python
+class EntidadArchivo(str, Enum):
+    REQUISICION = "REQUISICION"
+    REQUISICION_ITEM = "REQUISICION_ITEM"
+    REPORTE = "REPORTE"
+    REPORTE_ACTIVIDAD = "REPORTE_ACTIVIDAD"
+    CONTRATO = "CONTRATO"
+    EMPLEADO = "EMPLEADO"
+```
+
+---
+
+## 📐 ESTILOS PREDEFINIDOS
+
+### Usar en lugar de definir inline:
+
+```python
+from app.presentation.theme import (
+    # Contenedores
+    PAGE_CONTAINER_STYLE,
+    CONTENT_AREA_STYLE,
+    
+    # Cards
+    CARD_BASE_STYLE,
+    CARD_INTERACTIVE_STYLE,
+    
+    # Modales
+    MODAL_OVERLAY_STYLE,
+    MODAL_CONTENT_STYLE,
+    
+    # Tablas
+    TABLE_CONTAINER_STYLE,
+    TABLE_HEADER_STYLE,
+    TABLE_ROW_STYLE,
+    TABLE_CELL_STYLE,
+    
+    # Formularios
+    FORM_GROUP_STYLE,
+    FORM_LABEL_STYLE,
+    FORM_INPUT_STYLE,
+    FORM_ERROR_STYLE,
+    FORM_HELP_STYLE,
+    
+    # Otros
+    PAGE_HEADER_STYLE,
+    TOOLBAR_STYLE,
+    EMPTY_STATE_STYLE,
+)
+
+# Uso
+rx.box(**CARD_BASE_STYLE)
+rx.box(**TABLE_CONTAINER_STYLE)
+```
+
+---
+
+## 🧩 USO DE COMPONENTES CLAVE
+
+### Uso de form_input
+
+```python
+from app.presentation.components.ui import form_input
+
+form_input(
+    label="Nombre comercial",
+    required=True,
+    placeholder="Ej: ACME Corporation",
+    value=State.form_nombre,
+    on_change=State.set_form_nombre,
+    on_blur=State.validar_nombre,
+    error=State.error_nombre,
+    hint="Máximo 100 caracteres",
+)
+```
+
+**IMPORTANTE**: `form_input` NO se puede usar dentro de `rx.foreach` porque su check Python `if not label:` falla cuando label es un Var. Para campos dinámicos en `rx.foreach`, usar patrón inline con `rx.cond` (ver `configuracion_page.py`).
 
 ### Uso de status_badge
 
@@ -371,7 +526,7 @@ modal_confirmar_eliminar(
 ### 1. Input Sin Label
 
 ```python
-# INCORRECTO: Sin label, nombre en placeholder
+# ❌ INCORRECTO: Sin label, nombre en placeholder
 form_input(
     placeholder="Nombre comercial *",
     value=State.nombre,
@@ -379,7 +534,7 @@ form_input(
     error=State.error_nombre,
 )
 
-# CORRECTO: Label + placeholder de ejemplo + hint
+# ✅ CORRECTO: Label + placeholder de ejemplo + hint
 form_input(
     label="Nombre comercial",
     required=True,
@@ -388,7 +543,7 @@ form_input(
     on_change=State.set_nombre,
     on_blur=State.validar_nombre,
     error=State.error_nombre,
-    hint="Maximo 100 caracteres",
+    hint="Máximo 100 caracteres",
 )
 ```
 
@@ -478,6 +633,94 @@ tabla(
 )
 ```
 
+### 6. Crear Uploader de Archivos Manualmente
+
+```python
+# ❌ INCORRECTO: Crear upload zone desde cero
+rx.upload(
+    rx.vstack(
+        rx.icon("upload"),
+        rx.text("Arrastra archivos aquí"),
+    ),
+    id="mi_upload",
+    # ... configuración manual
+)
+
+# ✅ CORRECTO: Usar archivo_uploader (rama SUPABASE)
+from app.presentation.components.common import archivo_uploader
+
+archivo_uploader(
+    upload_id="archivos_modulo",
+    archivos=State.archivos_entidad,
+    on_upload=State.handle_upload_archivo,
+    on_delete=State.eliminar_archivo_entidad,
+    subiendo=State.subiendo_archivo,
+)
+```
+
+### 7. rx.select.item con value="" (String Vacío)
+
+Radix UI (la librería de componentes que usa Reflex) **NO permite** que un `<Select.Item>` tenga `value=""`. Radix reserva el string vacío para representar "sin selección" (limpiar el select y mostrar el placeholder). Si un item tuviera `value=""`, sería indistinguible de "nada seleccionado".
+
+```python
+# ❌ INCORRECTO: value="" causa error en Radix UI
+rx.select.root(
+    rx.select.trigger(placeholder="Filtrar por rol"),
+    rx.select.content(
+        rx.select.item("Todos", value=""),      # ⚠️ ERROR: value vacío
+        rx.select.item("Admin", value="ADMIN"),
+        rx.select.item("Usuario", value="USER"),
+    ),
+    value=State.filtro_rol,
+    on_change=State.set_filtro_rol,
+)
+
+# ✅ CORRECTO: Usar valor centinela ("all") y mapear en el State
+rx.select.root(
+    rx.select.trigger(placeholder="Filtrar por rol"),
+    rx.select.content(
+        rx.select.item("Todos", value="all"),   # ✅ Valor centinela
+        rx.select.item("Admin", value="ADMIN"),
+        rx.select.item("Usuario", value="USER"),
+    ),
+    value=State.filtro_rol_select,              # ✅ Usa computed var
+    on_change=State.set_filtro_rol_select,      # ✅ Usa setter que mapea
+)
+```
+
+**Implementación en el State:**
+
+```python
+class MiState(BaseState):
+    # Variable interna (puede ser "" para "todos")
+    filtro_rol: str = ""
+    
+    # Setter que mapea "all" → "" para la lógica interna
+    def set_filtro_rol_select(self, value: str):
+        self.filtro_rol = "" if value == "all" else value
+    
+    # Computed var que mapea "" → "all" para el select
+    @rx.var
+    def filtro_rol_select(self) -> str:
+        return self.filtro_rol if self.filtro_rol else "all"
+    
+    # La lógica de filtrado sigue usando filtro_rol directamente
+    async def cargar_items(self):
+        rol = self.filtro_rol or None  # "" se convierte en None para el servicio
+        items = await mi_service.listar(rol=rol)
+        ...
+```
+
+**¿Por qué este patrón?**
+
+| Capa | Valor "Todos" | Valor específico |
+|------|---------------|------------------|
+| UI (Select) | `"all"` | `"ADMIN"` |
+| State interno | `""` | `"ADMIN"` |
+| Servicio/API | `None` | `"ADMIN"` |
+
+Así el select nunca recibe string vacío, pero la lógica de negocio sigue funcionando con `""` o `None` para representar "sin filtro".
+
 ---
 
 ## ♿ ACCESIBILIDAD (WCAG 2.1 AA)
@@ -534,50 +777,6 @@ rx.input(
 
 ---
 
-## 📐 ESTILOS PREDEFINIDOS
-
-### Usar en lugar de definir inline:
-
-```python
-from app.presentation.theme import (
-    # Contenedores
-    PAGE_CONTAINER_STYLE,
-    CONTENT_AREA_STYLE,
-    
-    # Cards
-    CARD_BASE_STYLE,
-    CARD_INTERACTIVE_STYLE,
-    
-    # Modales
-    MODAL_OVERLAY_STYLE,
-    MODAL_CONTENT_STYLE,
-    
-    # Tablas
-    TABLE_CONTAINER_STYLE,
-    TABLE_HEADER_STYLE,
-    TABLE_ROW_STYLE,
-    TABLE_CELL_STYLE,
-    
-    # Formularios
-    FORM_GROUP_STYLE,
-    FORM_LABEL_STYLE,
-    FORM_INPUT_STYLE,
-    FORM_ERROR_STYLE,
-    FORM_HELP_STYLE,
-    
-    # Otros
-    PAGE_HEADER_STYLE,
-    TOOLBAR_STYLE,
-    EMPTY_STATE_STYLE,
-)
-
-# Uso
-rx.box(**CARD_BASE_STYLE)
-rx.box(**TABLE_CONTAINER_STYLE)
-```
-
----
-
 ## 📦 CONVENCIONES DE IMPORTS (UI)
 
 ```python
@@ -610,6 +809,11 @@ from app.presentation.components.ui import (
     status_badge,
     modal_formulario,
 )
+
+# 5️⃣ Componentes comunes (rama SUPABASE)
+from app.presentation.components.common import (
+    archivo_uploader,
+)
 ```
 
 ---
@@ -626,9 +830,11 @@ from app.presentation.components.ui import (
 ### Componentes
 
 - [ ] Se reutilizan componentes de `app/presentation/components/ui/`
+- [ ] Se usa `archivo_uploader` para carga de archivos (no crear manualmente)
 - [ ] No se recrean componentes que ya existen
 - [ ] `form_input` usa `label=` y `placeholder=` de ejemplo (Ej: ...)
 - [ ] Todos los `rx.cond` tienen ambas ramas
+- [ ] **Ningún `rx.select.item` tiene `value=""`** (usar `"all"` + mapeo en State)
 
 ### Accesibilidad
 
@@ -643,6 +849,13 @@ from app.presentation.components.ui import (
 - [ ] Validación on_blur configurada
 - [ ] Errores se muestran bajo el campo
 - [ ] Espacio reservado para errores (`rx.text("")`)
+
+### Archivos (Rama SUPABASE)
+
+- [ ] Se usa `archivo_uploader` de `components/common/`
+- [ ] El State tiene `archivos_entidad: list[dict]` y `subiendo_archivo: bool`
+- [ ] Handler `handle_upload_archivo` usa `archivo_service.subir_archivo()`
+- [ ] Se muestra badge "Comprimido" para archivos procesados
 
 ---
 
@@ -703,15 +916,15 @@ def _modal_crear():
             form_input(
                 label="Nombre",
                 required=True,
-                placeholder="Ej: Juan Perez",
+                placeholder="Ej: Juan Pérez",
                 value=MiState.form_nombre,
                 on_change=MiState.set_form_nombre,
                 on_blur=MiState.validar_nombre_campo,
                 error=MiState.error_nombre,
             ),
             form_input(
-                label="Descripcion",
-                placeholder="Ej: Descripcion breve",
+                label="Descripción",
+                placeholder="Ej: Descripción breve",
                 value=MiState.form_descripcion,
                 on_change=MiState.set_form_descripcion,
                 error=MiState.error_descripcion,
@@ -722,16 +935,57 @@ def _modal_crear():
     )
 ```
 
+### Formulario con Archivos (Rama SUPABASE)
+
+```python
+from app.presentation.components.common import archivo_uploader
+
+def _tab_archivos():
+    """Tab de archivos en formulario."""
+    return rx.vstack(
+        rx.cond(
+            MiState.es_edicion,
+            rx.vstack(
+                rx.callout(
+                    "Las imágenes se comprimen automáticamente a WebP.",
+                    icon="info",
+                    color_scheme="blue",
+                    size="1",
+                ),
+                archivo_uploader(
+                    upload_id="archivos_modulo",
+                    archivos=MiState.archivos_entidad,
+                    on_upload=MiState.handle_upload_archivo,
+                    on_delete=MiState.eliminar_archivo_entidad,
+                    subiendo=MiState.subiendo_archivo,
+                ),
+                spacing="3",
+                width="100%",
+            ),
+            rx.callout(
+                "Guarde primero para poder adjuntar archivos.",
+                icon="info",
+                color_scheme="gray",
+                size="1",
+            ),
+        ),
+        spacing="3",
+        width="100%",
+    )
+```
+
 ---
 
 ## 📝 NOTAS IMPORTANTES
 
 1. **Consistencia Visual**: Siempre usar tokens, nunca valores mágicos
 
-2. **Componentes Primero**: Revisar `app/presentation/components/ui/` antes de crear
+2. **Componentes Primero**: Revisar `app/presentation/components/ui/` y `components/common/` antes de crear
 
 3. **Accesibilidad**: Diseñar para usuarios +42 años desde el inicio
 
 4. **Feedback**: Siempre mostrar estados de loading, error, vacío
 
 5. **Espacio para Errores**: Usar `rx.text("")` para reservar espacio y evitar saltos de layout
+
+6. **Archivos (Rama SUPABASE)**: Usar `archivo_uploader` + `archivo_service` para compresión automática y almacenamiento en Supabase Storage

@@ -133,6 +133,22 @@ from .fields_catalog import (
     CAMPO_SEGMENTO_ASIGNACION,
     CAMPO_SEDE_CAMPUS,
     CAMPO_POLIZA_DETALLE,
+    # Secciones - Sedes
+    SECCION_SEDE_INFO,
+    SECCION_SEDE_JERARQUIA,
+    SECCION_SEDE_CONTACTO,
+    # Campos Sede
+    CAMPO_CODIGO_SEDE,
+    CAMPO_NOMBRE_SEDE,
+    CAMPO_NOMBRE_CORTO_SEDE,
+    CAMPO_DIRECCION_SEDE,
+    CAMPO_NOTAS_SEDE,
+    CAMPOS_SEDE,
+    # Campos Contacto BUAP
+    CAMPO_NOMBRE_CONTACTO,
+    CAMPO_CARGO_CONTACTO,
+    CAMPO_EXTENSION_CONTACTO,
+    CAMPOS_CONTACTO_BUAP,
 )
 
 # Constantes (re-export para conveniencia)
@@ -198,6 +214,24 @@ from .constants import (
     SEGMENTO_ASIGNACION_MAX,
     SEDE_CAMPUS_MAX,
     POLIZA_DETALLE_MAX,
+    # Patrón - Sedes
+    CODIGO_SEDE_PATTERN,
+    # Longitudes - Sedes
+    CODIGO_SEDE_MAX,
+    NOMBRE_SEDE_MIN,
+    NOMBRE_SEDE_MAX,
+    NOMBRE_CORTO_SEDE_MAX,
+    # Longitudes - Contactos BUAP
+    NOMBRE_CONTACTO_MAX,
+    CARGO_CONTACTO_MAX,
+    EXTENSION_MAX,
+    # Longitudes - Usuarios
+    NOMBRE_COMPLETO_MIN,
+    NOMBRE_COMPLETO_MAX,
+    PASSWORD_MIN,
+    # Longitudes - Restricciones
+    MOTIVO_RESTRICCION_MIN,
+    MOTIVO_RESTRICCION_MAX,
 )
 
 __all__ = [
@@ -351,4 +385,38 @@ __all__ = [
     "SEGMENTO_ASIGNACION_MAX",
     "SEDE_CAMPUS_MAX",
     "POLIZA_DETALLE_MAX",
+    # Patrón - Sedes
+    "CODIGO_SEDE_PATTERN",
+    # Longitudes - Sedes
+    "CODIGO_SEDE_MAX",
+    "NOMBRE_SEDE_MIN",
+    "NOMBRE_SEDE_MAX",
+    "NOMBRE_CORTO_SEDE_MAX",
+    # Longitudes - Contactos BUAP
+    "NOMBRE_CONTACTO_MAX",
+    "CARGO_CONTACTO_MAX",
+    "EXTENSION_MAX",
+    # Longitudes - Usuarios
+    "NOMBRE_COMPLETO_MIN",
+    "NOMBRE_COMPLETO_MAX",
+    "PASSWORD_MIN",
+    # Longitudes - Restricciones
+    "MOTIVO_RESTRICCION_MIN",
+    "MOTIVO_RESTRICCION_MAX",
+    # Secciones - Sedes
+    "SECCION_SEDE_INFO",
+    "SECCION_SEDE_JERARQUIA",
+    "SECCION_SEDE_CONTACTO",
+    # Campos - Sedes
+    "CAMPO_CODIGO_SEDE",
+    "CAMPO_NOMBRE_SEDE",
+    "CAMPO_NOMBRE_CORTO_SEDE",
+    "CAMPO_DIRECCION_SEDE",
+    "CAMPO_NOTAS_SEDE",
+    "CAMPOS_SEDE",
+    # Campos - Contacto BUAP
+    "CAMPO_NOMBRE_CONTACTO",
+    "CAMPO_CARGO_CONTACTO",
+    "CAMPO_EXTENSION_CONTACTO",
+    "CAMPOS_CONTACTO_BUAP",
 ]

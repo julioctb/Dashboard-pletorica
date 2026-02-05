@@ -3,23 +3,36 @@ Estado base para todos los módulos.
 
 Incluye helpers para:
 - Manejo centralizado de errores
+- Carga de catálogos genérica
+- Limpieza de formularios
+- Manejo de filtros y paginación
 - Reducir código repetitivo en los states de Reflex
 
 Nota: Los setters deben definirse explícitamente en cada state.
 Reflex no reconoce funciones asignadas dinámicamente como event handlers.
 """
+import logging
 import reflex as rx
-from typing import Optional
+from typing import Optional, List, Dict, Any, Callable, Awaitable
+
+from app.core.config import Config
+from app.core.ui_helpers import (
+    FILTRO_TODOS,
+    FILTRO_SIN_SELECCION,
+    calcular_paginas,
+    calcular_offset,
+)
 
 # Importar excepciones para manejo centralizado
 from app.core.exceptions import (
-    ApplicationError,
     ValidationError,
     NotFoundError,
     DuplicateError,
     DatabaseError,
     BusinessRuleError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -135,6 +148,8 @@ class BaseState(rx.State):
 
         else:
             # Error inesperado
+            if Config.DEBUG:
+                logger.error(f"{prefijo}{type(error).__name__}: {error}", exc_info=True)
             self.mostrar_mensaje(f"{prefijo}Error inesperado: {str(error)}", "error")
 
         return None
@@ -177,6 +192,8 @@ class BaseState(rx.State):
             mensaje = f"{prefijo}Error de base de datos: {str(error)}"
         else:
             mensaje = f"{prefijo}Error inesperado: {str(error)}"
+            if Config.DEBUG:
+                logger.error(f"{prefijo}{type(error).__name__}: {error}", exc_info=True)
 
         return rx.toast.error(mensaje, position="top-center")
 
@@ -195,3 +212,271 @@ class BaseState(rx.State):
     def finalizar_carga(self):
         """Finaliza estado de carga (loading=False)"""
         self.loading = False
+
+    # ========================
+    # CONVERSIÓN DE IDS
+    # ========================
+    @staticmethod
+    def parse_id(value: str) -> Optional[int]:
+        """
+        Convierte un ID de string (rx.select) a int para servicios.
+
+        rx.select requiere valores string, pero los servicios esperan int.
+        Este helper centraliza la conversión para evitar int() dispersos.
+
+        Args:
+            value: ID como string desde un rx.select
+
+        Returns:
+            int si value es no vacío, None si vacío/falsy
+        """
+        return int(value) if value else None
+
+    # ========================
+    # OPERACIONES CRUD GENÉRICAS
+    # ========================
+    async def ejecutar_guardado(
+        self,
+        operacion,
+        mensaje_exito: str,
+        on_exito=None,
+    ):
+        """
+        Ejecuta una operación de guardado con manejo de errores estándar.
+
+        Patrón: saving=True → operación → toast success → on_exito → saving=False
+        En caso de error: toast error → saving=False
+
+        Args:
+            operacion: Callable async que ejecuta la operación (crear, actualizar, etc.)
+            mensaje_exito: Mensaje para el toast de éxito
+            on_exito: Callable async opcional a ejecutar tras éxito (cerrar modal, recargar, etc.)
+
+        Returns:
+            rx.toast.success en éxito, rx.toast.error en fallo
+        """
+        self.saving = True
+        try:
+            resultado = await operacion()
+            if on_exito:
+                await on_exito()
+            return rx.toast.success(mensaje_exito, position="top-center")
+        except (DuplicateError, NotFoundError, BusinessRuleError, ValidationError) as e:
+            return rx.toast.error(str(e), position="top-center")
+        except DatabaseError as e:
+            return rx.toast.error(
+                f"Error de base de datos: {str(e)}", position="top-center"
+            )
+        except Exception as e:
+            if Config.DEBUG:
+                logger.error(f"Error inesperado en guardado: {type(e).__name__}: {e}", exc_info=True)
+            return rx.toast.error(
+                f"Error inesperado: {str(e)}", position="top-center"
+            )
+        finally:
+            self.saving = False
+
+    async def ejecutar_carga(
+        self,
+        operacion,
+        contexto: str = "",
+    ):
+        """
+        Ejecuta una operación de carga con manejo de loading y errores.
+
+        Patrón: loading=True → operación → loading=False
+        En caso de error: manejar_error → loading=False
+
+        Args:
+            operacion: Callable async que carga los datos
+            contexto: Descripción para el mensaje de error
+
+        Returns:
+            Resultado de la operación, o None si falla
+        """
+        self.loading = True
+        try:
+            return await operacion()
+        except Exception as e:
+            if Config.DEBUG:
+                logger.error(f"Error en carga ({contexto}): {type(e).__name__}: {e}", exc_info=True)
+            self.manejar_error(e, contexto)
+            return None
+        finally:
+            self.loading = False
+
+    # ========================
+    # CARGA DE CATÁLOGOS
+    # ========================
+    async def cargar_catalogo(
+        self,
+        campo_destino: str,
+        servicio_metodo: Callable[..., Awaitable[List[Any]]],
+        transformar: Optional[Callable[[Any], dict]] = None,
+        **kwargs
+    ) -> List[dict]:
+        """
+        Carga un catálogo desde un servicio y lo asigna a un campo.
+
+        Patrón común: cargar lista de empresas, categorías, tipos, etc.
+        para usar en selects.
+
+        Args:
+            campo_destino: Nombre del atributo donde guardar (ej: "empresas")
+            servicio_metodo: Método async del servicio (ej: empresa_service.obtener_todas)
+            transformar: Función para transformar cada item (default: model_dump)
+            **kwargs: Argumentos para el método del servicio
+
+        Returns:
+            Lista de dicts cargados
+
+        Ejemplo:
+            await self.cargar_catalogo(
+                "empresas",
+                empresa_service.obtener_todas,
+                incluir_inactivas=False
+            )
+        """
+        try:
+            items = await servicio_metodo(**kwargs)
+            if transformar:
+                datos = [transformar(item) for item in items]
+            else:
+                datos = [
+                    item.model_dump(mode='json') if hasattr(item, 'model_dump') else item
+                    for item in items
+                ]
+            setattr(self, campo_destino, datos)
+            return datos
+        except Exception as e:
+            logger.warning(f"Error cargando catálogo {campo_destino}: {e}")
+            setattr(self, campo_destino, [])
+            return []
+
+    # ========================
+    # LIMPIEZA DE FORMULARIOS
+    # ========================
+    def limpiar_formulario(
+        self,
+        campos_default: Dict[str, Any],
+        campos_error: Optional[List[str]] = None,
+        campos_extra: Optional[Dict[str, Any]] = None
+    ):
+        """
+        Limpia formulario asignando valores por defecto.
+
+        Args:
+            campos_default: Dict de {campo: valor_default} para form_*
+            campos_error: Lista de nombres de campos error_* a limpiar
+            campos_extra: Dict de otros campos a resetear
+
+        Ejemplo:
+            self.limpiar_formulario(
+                campos_default={"nombre": "", "email": "", "activo": True},
+                campos_error=["nombre", "email"],
+                campos_extra={"es_edicion": False, "id_edicion": 0}
+            )
+        """
+        # Limpiar campos del formulario
+        for campo, valor in campos_default.items():
+            setattr(self, f"form_{campo}", valor)
+
+        # Limpiar errores
+        if campos_error:
+            for campo in campos_error:
+                setattr(self, f"error_{campo}", "")
+
+        # Limpiar campos extra
+        if campos_extra:
+            for campo, valor in campos_extra.items():
+                setattr(self, campo, valor)
+
+    def limpiar_errores(self, campos: List[str]):
+        """
+        Limpia solo los campos de error especificados.
+
+        Args:
+            campos: Lista de nombres (sin prefijo error_)
+        """
+        for campo in campos:
+            setattr(self, f"error_{campo}", "")
+
+    # ========================
+    # FILTROS Y PAGINACIÓN
+    # ========================
+    def resetear_filtros(
+        self,
+        filtros_default: Dict[str, Any],
+        resetear_pagina: bool = True
+    ):
+        """
+        Resetea filtros a sus valores por defecto.
+
+        Args:
+            filtros_default: Dict de {campo_filtro: valor_default}
+            resetear_pagina: Si True, resetea self.pagina a 1
+        """
+        for campo, valor in filtros_default.items():
+            setattr(self, campo, valor)
+
+        if resetear_pagina and hasattr(self, 'pagina'):
+            self.pagina = 1
+
+    def es_filtro_activo(self, valor: Any) -> bool:
+        """
+        Verifica si un valor de filtro está activo.
+
+        Args:
+            valor: Valor del filtro
+
+        Returns:
+            True si no es "todos" ni vacío
+        """
+        return valor not in (FILTRO_TODOS, FILTRO_SIN_SELECCION, "", None, "__TODAS__")
+
+    def obtener_filtros_activos(self, filtros: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Filtra solo los filtros que están activos.
+
+        Args:
+            filtros: Dict de {nombre: valor}
+
+        Returns:
+            Dict solo con filtros activos
+        """
+        return {k: v for k, v in filtros.items() if self.es_filtro_activo(v)}
+
+    # ========================
+    # HELPERS DE PAGINACIÓN
+    # ========================
+    def calcular_total_paginas(self, total_items: int, items_por_pagina: int = 20) -> int:
+        """Calcula número total de páginas."""
+        return calcular_paginas(total_items, items_por_pagina)
+
+    def calcular_offset_actual(self, items_por_pagina: int = 20) -> int:
+        """Calcula offset basado en self.pagina."""
+        pagina = getattr(self, 'pagina', 1)
+        return calcular_offset(pagina, items_por_pagina)
+
+    # ========================
+    # NORMALIZACIÓN DE SETTERS
+    # ========================
+    @staticmethod
+    def normalizar_mayusculas(valor: str) -> str:
+        """Normaliza string a mayúsculas (para CURP, RFC, etc.)"""
+        return valor.upper().strip() if valor else ""
+
+    @staticmethod
+    def normalizar_minusculas(valor: str) -> str:
+        """Normaliza string a minúsculas (para emails)."""
+        return valor.lower().strip() if valor else ""
+
+    @staticmethod
+    def normalizar_texto(valor: str) -> str:
+        """Normaliza texto removiendo espacios extra."""
+        return " ".join(valor.split()) if valor else ""
+
+    @staticmethod
+    def normalizar_digitos(valor: str) -> str:
+        """Extrae solo dígitos de un string (para teléfonos, NSS)."""
+        return "".join(c for c in valor if c.isdigit()) if valor else ""

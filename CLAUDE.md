@@ -9,6 +9,15 @@ Dashboard application built with Reflex (v0.8.21) for managing dependency contra
 **Author**: Julio C Tello (julioc.tello@me.com)
 **Status**: Production - Scalable Layered Architecture
 
+> **📌 Branch Note (SUPABASE)**
+> Esta rama usa **Supabase** (PostgreSQL) como base de datos y almacenamiento de archivos.
+> - **Database**: Supabase PostgreSQL (hosted)
+> - **Storage**: Supabase Storage (buckets: `archivos`)
+> - **Migrations**: Manual SQL scripts in `migrations/` directory
+> - **Connection**: Singleton client (`app/database/connection.py`)
+>
+> Si esta rama se fusiona con `main`, este será el sistema de base de datos definitivo del proyecto.
+
 ## Development Commands
 
 ### Running the Application
@@ -160,19 +169,60 @@ app/
 
 ### Dependency Flow
 
+**Two Patterns** (see [Repository Pattern](#2-repository-pattern-two-approaches)):
+
+**Pattern A - With Repository** (complex queries):
 ```
-Presentation → Services → Repositories → Database
-                   ↓           ↓
-               Entities    Entities
-                   ↓
-                Core
+Presentation → Service → Repository → Database
+                  ↓          ↓
+              Entities   Entities
+                  ↓
+               Core
+```
+
+**Pattern B - Direct Access** (simple CRUD):
+```
+Presentation → Service → Database
+                  ↓
+              Entities
+                  ↓
+               Core
 ```
 
 **Rules:**
-- Presentation ONLY imports from Services and Entities
-- Services ONLY import from Repositories and Entities
+- Presentation ONLY imports from Services and Entities (never Database or Repositories)
+- Services import from Repositories (if exists) OR Database (direct access)
+- Services ONLY import from Repositories and Entities (if using repository pattern)
+- Services ONLY import from Database and Entities (if using direct access pattern)
 - Repositories ONLY import from Database and Entities
-- Entities are pure (no dependencies)
+- Entities are pure (no dependencies except Pydantic and Python stdlib)
+- Core is shared by all layers (exceptions, enums, utils, validation)
+
+**Dependency Examples:**
+
+```python
+# ✅ CORRECT - Presentation imports Service
+from app.services import empresa_service
+empresas = await empresa_service.obtener_todas()
+
+# ❌ WRONG - Presentation imports Repository directly
+from app.repositories import SupabaseEmpresaRepository
+repo = SupabaseEmpresaRepository()  # NO!
+
+# ❌ WRONG - Presentation imports Database directly
+from app.database import db_manager
+result = db_manager.get_client().table('empresas').select('*')  # NO!
+
+# ✅ CORRECT - Service with Repository
+class EmpleadoService:
+    def __init__(self):
+        self.repository = SupabaseEmpleadoRepository()
+
+# ✅ CORRECT - Service with Direct Access
+class EmpresaService:
+    def __init__(self):
+        self.supabase = db_manager.get_client()
+```
 
 ## Key Patterns
 
@@ -198,20 +248,217 @@ if empresa.puede_tener_empleados():
     ...
 ```
 
-### 2. Repositories (Data Access)
+### 2. Repository Pattern: Two Approaches
 
-Repositories abstract database operations:
+**Philosophy**: Use the **simplest pattern that works**. Don't over-engineer.
 
+The codebase uses **two data access patterns** depending on complexity:
+
+#### **Pattern A: Repository Layer** (Complex Queries)
+
+For modules with **complex database operations**:
+- Multi-table JOINs
+- Aggregations (COUNT, SUM, GROUP BY)
+- Complex filtering (multi-field search, date ranges)
+- Business logic in queries (availability checks, recursive queries)
+
+**Modules using Repository**:
+- `empleado` → `SupabaseEmpleadoRepository`
+- `plaza` → `SupabasePlazaRepository`
+- `contrato` → `SupabaseContratoRepository`
+- `requisicion` → `SupabaseRequisicionRepository`
+
+**Structure**:
+```
+Service → Repository → Database
+```
+
+**Example** (`empleado`):
 ```python
-from app.repositories import SupabaseEmpresaRepository
+# app/repositories/empleado_repository.py
+class SupabaseEmpleadoRepository:
+    def __init__(self, db_manager=None):
+        if db_manager is None:
+            from app.database import db_manager as default_db
+            db_manager = default_db
+        self.supabase = db_manager.get_client()
+        self.tabla = 'empleados'
 
-# Create repository
-repository = SupabaseEmpresaRepository()
+    async def obtener_resumen_por_empresa(
+        self,
+        empresa_id: int,
+        incluir_inactivos: bool = False,
+        limite: int = 50,
+        offset: int = 0
+    ) -> List[dict]:
+        """Complex query with JOIN to empresas table"""
+        query = self.supabase.table(self.tabla)\
+            .select('*, empresas(nombre_comercial)')\  # JOIN
+            .eq('empresa_id', empresa_id)
 
-# CRUD operations
-empresa = await repository.obtener_por_id(1)
-empresas = await repository.obtener_todas(incluir_inactivas=False)
-nueva = await repository.crear(empresa)
+        if not incluir_inactivos:
+            query = query.eq('estatus', 'ACTIVO')
+
+        query = query.order('apellido_paterno')\
+            .range(offset, offset + limite - 1)
+
+        result = query.execute()
+
+        # Custom aggregation/transformation
+        resumenes = []
+        for data in result.data:
+            empresa_nombre = data.get('empresas', {}).get('nombre_comercial')
+            nombre_completo = f"{data['nombre']} {data['apellido_paterno']}"
+            resumenes.append({
+                'id': data['id'],
+                'nombre_completo': nombre_completo,
+                'empresa_nombre': empresa_nombre,
+                # ...
+            })
+        return resumenes
+
+# app/services/empleado_service.py
+class EmpleadoService:
+    def __init__(self):
+        self.repository = SupabaseEmpleadoRepository()
+
+    async def obtener_resumen_por_empresa(self, empresa_id: int):
+        return await self.repository.obtener_resumen_por_empresa(empresa_id)
+```
+
+#### **Pattern B: Direct Access** (Simple CRUD)
+
+For modules with **simple database operations**:
+- Basic CRUD (Create, Read, Update, Delete)
+- Single table queries
+- Simple filters (status, ID lookup)
+- No JOINs or aggregations
+
+**Modules using Direct Access**:
+- `empresa` → `EmpresaService` (no repository)
+- `tipo_servicio` → `TipoServicioService` (no repository)
+- `categoria_puesto` → `CategoriaPuestoService` (no repository)
+- `pago` → `PagoService` (no repository)
+- `historial_laboral` → `HistorialLaboralService` (no repository)
+- `archivo` → `ArchivoService` (no repository)
+
+**Structure**:
+```
+Service → Database (direct)
+```
+
+**Example** (`empresa`):
+```python
+# app/services/empresa_service.py
+class EmpresaService:
+    def __init__(self):
+        """Direct connection to Supabase (no repository)"""
+        self.supabase = db_manager.get_client()
+        self.tabla = 'empresas'
+
+    async def obtener_por_id(self, empresa_id: int) -> Empresa:
+        """Simple query - no need for repository"""
+        try:
+            result = self.supabase.table(self.tabla)\
+                .select('*')\
+                .eq('id', empresa_id)\
+                .execute()
+
+            if not result.data:
+                raise NotFoundError(f"Empresa con ID {empresa_id} no encontrada")
+
+            return Empresa(**result.data[0])
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error obteniendo empresa {empresa_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def crear(self, empresa_create: EmpresaCreate) -> Empresa:
+        """Simple insert - no business logic in query"""
+        empresa = Empresa(**empresa_create.model_dump())
+
+        # Validate uniqueness (simple query)
+        if await self._existe_rfc(empresa.rfc):
+            raise DuplicateError(f"RFC {empresa.rfc} ya existe", field="rfc")
+
+        # Insert
+        datos = empresa.model_dump(mode='json', exclude={'id', 'fecha_creacion'})
+        result = self.supabase.table(self.tabla).insert(datos).execute()
+
+        return Empresa(**result.data[0])
+```
+
+#### **Decision Tree: When to Use Each Pattern**
+
+```
+Is your module doing any of the following?
+├─ Multi-table JOINs (2+ tables)? ────────────────────────────┐
+├─ Aggregations (COUNT, SUM, GROUP BY, HAVING)? ──────────────┤
+├─ Complex filtering (multi-field OR, date ranges, ILIKE)? ───┤
+├─ Custom data transformations after query? ──────────────────┤
+├─ Business logic embedded in queries? ───────────────────────┤
+├─ Recursive queries or CTEs? ────────────────────────────────┤
+└─ Query logic changes frequently? ───────────────────────────┤
+                                                              │
+                                                              ├─ YES → Use Repository
+                                                              │
+                                                              └─ NO  → Use Direct Access
+```
+
+#### **Comparison Table**
+
+| Aspect | Repository Pattern | Direct Access |
+|--------|-------------------|---------------|
+| **Complexity** | Medium (extra layer) | Low (one less file) |
+| **Testability** | High (mock repository) | Medium (mock db_manager) |
+| **Maintainability** | High (logic centralized) | Medium (logic in service) |
+| **Performance** | Same (no overhead) | Same |
+| **When to Use** | Complex queries, JOINs, aggregations | Simple CRUD, single table |
+| **Example Modules** | Empleado, Plaza, Contrato, Requisicion | Empresa, TipoServicio, CategoriaPuesto, Pago |
+
+#### **Refactoring Guidelines**
+
+**When to extract a Repository** (from Direct Access):
+
+1. You add a JOIN to another table
+2. You need aggregations (COUNT users per empresa)
+3. You have >3 query methods with similar filters
+4. Query logic is duplicated in multiple services
+5. Testing becomes difficult without mocking queries
+
+**When to collapse a Repository** (to Direct Access):
+
+1. Repository only has basic CRUD (no complex queries)
+2. All queries are single-table
+3. No JOINs or aggregations
+4. Repository is just a thin wrapper with no value
+
+#### **File Structure for New Modules**
+
+**Option A: With Repository** (complex)
+```
+app/
+├── entities/
+│   └── nuevo_modulo.py          # Entity, Create, Update models
+├── repositories/
+│   └── nuevo_modulo_repository.py  # SupabaseNuevoModuloRepository
+├── services/
+│   └── nuevo_modulo_service.py     # Service uses repository
+└── presentation/
+    └── pages/nuevo_modulo/
+```
+
+**Option B: Direct Access** (simple)
+```
+app/
+├── entities/
+│   └── nuevo_modulo.py          # Entity, Create, Update models
+├── services/
+│   └── nuevo_modulo_service.py     # Service uses db_manager directly
+└── presentation/
+    └── pages/nuevo_modulo/
 ```
 
 ### 3. Services (Business Logic)
@@ -266,6 +513,347 @@ if db_manager.test_connection():
     print("Connected!")
 ```
 
+**Implementation Details:**
+- Located in: `app/database/connection.py`
+- Singleton pattern: `db_manager` is instantiated globally
+- Uses `supabase-py` client library
+- Credentials loaded from environment variables (`.env`)
+- **Supabase Storage**: File uploads handled via same client (see `app/services/archivo_service.py`)
+
+## Database Migrations (Supabase)
+
+**Location**: `migrations/` directory in project root
+
+**Naming Convention**: `{number}_{description}.sql`
+- Examples: `001_add_search_indices.sql`, `003_create_empleados_table.sql`
+
+### Executing Migrations
+
+Migrations are executed **manually** in Supabase Dashboard:
+
+1. Go to **Supabase Dashboard** → Your Project → **SQL Editor**
+2. Copy migration content from `migrations/` directory
+3. Paste and click **Run**
+4. Verify changes in **Table Editor** or **Database** tab
+
+**Important Notes:**
+- No automatic migration tool (like Alembic/Flyway) - migrations are manual
+- Always test migrations in a dev environment first
+- Each migration includes rollback instructions (commented at bottom)
+- Migrations are idempotent (use `IF NOT EXISTS`, `DO $$`, etc.)
+
+### Migration Structure
+
+All migrations follow this structure:
+
+```sql
+-- ============================================================================
+-- Migration: Create Empleados Table
+-- Fecha: 2025-01-21
+-- Descripción: [What this migration does]
+-- ============================================================================
+
+-- 1. Create ENUMs (if needed)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'estatus_empleado') THEN
+        CREATE TYPE estatus_empleado AS ENUM ('ACTIVO', 'INACTIVO', 'SUSPENDIDO');
+    END IF;
+END $$;
+
+-- 2. Create table
+CREATE TABLE IF NOT EXISTS public.empleados (
+    id SERIAL PRIMARY KEY,
+    -- ... columns
+    CONSTRAINT uk_empleados_curp UNIQUE (curp)
+);
+
+-- 3. Add comments (documentation)
+COMMENT ON TABLE public.empleados IS 'Description...';
+
+-- 4. Create indices
+CREATE INDEX IF NOT EXISTS idx_empleados_empresa
+ON public.empleados USING btree (empresa_id);
+
+-- 5. Create triggers (audit fields)
+CREATE OR REPLACE FUNCTION update_empleados_fecha_actualizacion()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.fecha_actualizacion = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_empleados_fecha_actualizacion
+    BEFORE UPDATE ON public.empleados
+    FOR EACH ROW
+    EXECUTE FUNCTION update_empleados_fecha_actualizacion();
+
+-- ============================================================================
+-- Rollback (if you need to revert)
+-- ============================================================================
+-- DROP TRIGGER IF EXISTS trg_empleados_fecha_actualizacion ON public.empleados;
+-- DROP FUNCTION IF EXISTS update_empleados_fecha_actualizacion();
+-- DROP TABLE IF EXISTS public.empleados;
+-- DROP TYPE IF EXISTS estatus_empleado;
+```
+
+### Common Migration Patterns
+
+**1. Adding Performance Indices**
+
+```sql
+-- Case-insensitive search (LOWER indices for ilike queries)
+CREATE INDEX IF NOT EXISTS idx_empleados_nombre_lower
+ON public.empleados USING btree (LOWER(nombre));
+
+-- Composite index for common filter combinations
+CREATE INDEX IF NOT EXISTS idx_empleados_empresa_estatus
+ON public.empleados USING btree (empresa_id, estatus);
+
+-- Ordering index (DESC for recent-first)
+CREATE INDEX IF NOT EXISTS idx_empleados_fecha_creacion
+ON public.empleados USING btree (fecha_creacion DESC);
+```
+
+**2. Creating PostgreSQL ENUMs**
+
+```sql
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tipo_empresa') THEN
+        CREATE TYPE tipo_empresa AS ENUM ('NOMINA', 'SUMINISTRO', 'SERVICIOS');
+    END IF;
+END $$;
+```
+
+**3. Audit Triggers (fecha_actualizacion)**
+
+All tables include `fecha_creacion` and `fecha_actualizacion`. Update trigger is created in each table's migration.
+
+### Existing Migrations
+
+| Migration | Description |
+|-----------|-------------|
+| `001_add_search_indices.sql` | Performance indices for empresas table |
+| `002_create_plazas_table.sql` | Plazas table (job positions) |
+| `003_create_empleados_table.sql` | Empleados table (employees) |
+| `004_create_historial_laboral_table.sql` | Employee assignment history |
+| `006_create_requisiciones.sql` | Requisiciones + items tables |
+| `007_create_lugares_entrega.sql` | Delivery locations |
+| `008_permitir_borradores_requisicion.sql` | Allow draft requisitions |
+| `009_create_archivo_sistema.sql` | File upload system (generic) |
+
+### Database Schema (Current Tables)
+
+**Core Business Tables:**
+
+| Table | Description | Key Fields | Foreign Keys |
+|-------|-------------|------------|--------------|
+| `empresas` | Companies/providers | id, rfc (unique), nombre_comercial, tipo_empresa, estatus | - |
+| `empleados` | Employees | id, clave (unique), curp (unique), empresa_id, estatus | empresa_id → empresas |
+| `contratos` | Service contracts | id, empresa_id, numero_contrato, estatus | empresa_id → empresas |
+| `plazas` | Job positions/slots | id, contrato_id, clave, estatus | contrato_id → contratos |
+| `historial_laboral` | Employee assignments | id, empleado_id, plaza_id, estatus | empleado_id → empleados, plaza_id → plazas |
+
+**Requisiciones (Purchase Orders):**
+
+| Table | Description | Key Fields | Foreign Keys |
+|-------|-------------|------------|--------------|
+| `requisiciones` | Requisition headers | id, numero, empresa_id, estatus | empresa_id → empresas |
+| `requisicion_items` | Requisition line items | id, requisicion_id, cantidad, precio | requisicion_id → requisiciones |
+| `lugares_entrega` | Delivery locations | id, nombre, direccion | - |
+
+**Configuration & Catalogs:**
+
+| Table | Description | Key Fields |
+|-------|-------------|------------|
+| `categorias_puesto` | Job categories | id, nombre, nivel |
+| `tipos_servicio` | Service types | id, nombre, descripcion |
+| `contrato_categoria` | Contract-category pricing | contrato_id, categoria_id, tarifa |
+| `archivo_sistema` | Generic file storage | id, entidad_tipo, entidad_id, archivo_url |
+
+**PostgreSQL ENUMs Created:**
+
+- `estatus_empresa`: ACTIVO, INACTIVO, SUSPENDIDO
+- `tipo_empresa`: NOMINA, SUMINISTRO, SERVICIOS
+- `estatus_empleado`: ACTIVO, INACTIVO, SUSPENDIDO
+- `genero_empleado`: MASCULINO, FEMENINO
+- `motivo_baja`: RENUNCIA, DESPIDO, FIN_CONTRATO, JUBILACION, FALLECIMIENTO, OTRO
+- `estatus_plaza`: DISPONIBLE, OCUPADA, SUSPENDIDA, CANCELADA
+- `estatus_historial`: ACTIVA, FINALIZADA, SUSPENDIDA
+- `estatus_requisicion`: BORRADOR, PENDIENTE, APROBADA, RECHAZADA, CANCELADA
+
+**Supabase Storage Buckets:**
+
+- `archivos` - All uploaded files (PDFs, images, documents)
+  - Path structure: `{entidad_tipo}/{year}/{filename}`
+  - Example: `requisiciones/2025/REQ-001.pdf`
+  - Compression: Images → WebP, PDFs → compressed (see `app/core/compresores/`)
+
+## Supabase Query Patterns
+
+Repositories use the Supabase Python client with a fluent query builder API:
+
+### Basic CRUD
+
+```python
+# SELECT
+result = self.supabase.table('empleados').select('*').eq('id', 1).execute()
+empleado = result.data[0]  # First row
+
+# INSERT
+datos = empleado.model_dump(mode='json', exclude={'id', 'fecha_creacion'})
+result = self.supabase.table('empleados').insert(datos).execute()
+
+# UPDATE
+result = self.supabase.table('empleados')\
+    .update({'estatus': 'INACTIVO'})\
+    .eq('id', 1)\
+    .execute()
+
+# DELETE (not recommended - use soft delete instead)
+result = self.supabase.table('empleados').delete().eq('id', 1).execute()
+```
+
+### Filtering
+
+```python
+# Equality
+.eq('estatus', 'ACTIVO')
+
+# Not equal
+.neq('estatus', 'INACTIVO')
+
+# Case-insensitive LIKE (requires LOWER() index)
+.ilike('nombre', f'%{texto}%')
+
+# OR conditions (multiple fields)
+.or_(
+    f"nombre.ilike.%{texto}%,"
+    f"apellido_paterno.ilike.%{texto}%,"
+    f"curp.ilike.%{texto}%"
+)
+
+# Multiple filters (AND)
+query = query.eq('empresa_id', 1).eq('estatus', 'ACTIVO')
+```
+
+### Joins (Foreign Table Select)
+
+```python
+# Select with join (empresa data)
+result = self.supabase.table('empleados')\
+    .select('*, empresas(nombre_comercial, rfc)')\
+    .eq('id', 1)\
+    .execute()
+
+# Access nested data
+data = result.data[0]
+empleado_nombre = data['nombre']
+empresa_nombre = data['empresas']['nombre_comercial']  # From join
+```
+
+### Pagination & Ordering
+
+```python
+# Pagination with range (inclusive)
+.range(offset, offset + limite - 1)
+
+# Example: page 2, 50 per page
+offset = 50  # page * limit
+limite = 50
+.range(50, 99)  # Records 50-99 (50 total)
+
+# Ordering
+.order('apellido_paterno', desc=False)  # ASC
+.order('fecha_creacion', desc=True)     # DESC (most recent first)
+
+# Multiple order fields
+.order('empresa_id').order('apellido_paterno')
+```
+
+### Counting
+
+```python
+# Get total count (with filters)
+result = self.supabase.table('empleados')\
+    .select('id', count='exact')\
+    .eq('estatus', 'ACTIVO')\
+    .execute()
+
+total = result.count  # Total matching records
+```
+
+### Complete Query Example
+
+```python
+async def buscar(
+    self,
+    texto: str,
+    empresa_id: Optional[int] = None,
+    limite: int = 20,
+    offset: int = 0
+) -> List[Empleado]:
+    """Search employees with filters, joins, pagination"""
+    query = self.supabase.table('empleados')\
+        .select('*, empresas(nombre_comercial)')\
+        .or_(
+            f"nombre.ilike.%{texto}%,"
+            f"apellido_paterno.ilike.%{texto}%,"
+            f"curp.ilike.%{texto}%"
+        )
+
+    if empresa_id:
+        query = query.eq('empresa_id', empresa_id)
+
+    query = query.order('apellido_paterno')\
+        .range(offset, offset + limite - 1)
+
+    result = query.execute()
+    return [Empleado(**data) for data in result.data]
+```
+
+### Supabase Storage (Files)
+
+For file uploads (PDFs, images, documents):
+
+```python
+from app.database import db_manager
+
+supabase = db_manager.get_client()
+
+# Upload file
+file_bytes = ...
+file_path = "requisiciones/2025/REQ-001.pdf"
+
+supabase.storage.from_('archivos')\
+    .upload(file_path, file_bytes, file_options={'content-type': 'application/pdf'})
+
+# Get public URL
+url = supabase.storage.from_('archivos').get_public_url(file_path)
+
+# Download file
+file_bytes = supabase.storage.from_('archivos').download(file_path)
+
+# Delete file
+supabase.storage.from_('archivos').remove([file_path])
+```
+
+**See**: `app/services/archivo_service.py` for complete file upload pipeline with compression.
+
+### Important: Date Serialization
+
+Pydantic models with `date`/`datetime` fields must use `mode='json'` for Supabase:
+
+```python
+# ❌ Wrong - Supabase can't serialize date objects
+datos = empleado.model_dump(exclude={'id'})
+
+# ✅ Correct - Converts dates to ISO strings
+datos = empleado.model_dump(mode='json', exclude={'id', 'fecha_creacion'})
+```
+
 ## Environment Configuration
 
 **Required** `.env` variables:
@@ -289,14 +877,34 @@ Configuration is validated on startup by `app/core/config.py`.
 3. **Add service method**: `app/services/empresa_service.py`
 4. **Update presentation**: `app/presentation/pages/empresas/` or `app/presentation/components/empresas/`
 
-### Adding a New Module (e.g., Empleados)
+### Adding a New Module (e.g., Nóminas)
 
-1. Create entity: `app/entities/empleado.py`
-2. Create repository: `app/repositories/empleado_repository.py`
-3. Create service: `app/services/empleado_service.py`
+**Step 1: Decide on data access pattern** (see [Repository Pattern](#2-repository-pattern-two-approaches))
+
+**If Simple CRUD** (single table, no JOINs):
+1. Create entity: `app/entities/nomina.py`
+2. Create service with direct access: `app/services/nomina_service.py`
+3. Create presentation:
+   - Page: `app/presentation/pages/nominas/`
+   - Components: `app/presentation/components/nominas/`
+
+**If Complex Queries** (JOINs, aggregations):
+1. Create entity: `app/entities/nomina.py`
+2. Create repository: `app/repositories/nomina_repository.py`
+3. Create service using repository: `app/services/nomina_service.py`
 4. Create presentation:
-   - Page: `app/presentation/pages/empleados/`
-   - Components: `app/presentation/components/empleados/`
+   - Page: `app/presentation/pages/nominas/`
+   - Components: `app/presentation/components/nominas/`
+
+**Database Migration**:
+5. Create migration: `migrations/XXX_create_nominas.sql`
+   - Include: Table, ENUMs, Indices, Triggers, Comments
+   - Execute in Supabase Dashboard SQL Editor
+
+**Update Exports**:
+6. Add to `app/entities/__init__.py`
+7. Add to `app/repositories/__init__.py` (if using repository)
+8. Add to `app/services/__init__.py`
 
 **Much simpler** - Just add files, no need to create nested directory structures!
 
@@ -317,14 +925,18 @@ Configuration is validated on startup by `app/core/config.py`.
 # Entities
 from app.entities import Empresa, TipoEmpresa, EstatusEmpresa
 
-# Repository
-from app.repositories import SupabaseEmpresaRepository
+# Repository (only for complex modules: empleado, plaza, contrato, requisicion)
+from app.repositories import SupabaseEmpleadoRepository
 
-# Service (use singleton)
-from app.services import empresa_service
+# Service (use singleton - always imported)
+from app.services import empresa_service, empleado_service
 
-# Database
+# Database (only needed for direct access pattern in services)
 from app.database import db_manager
+
+# Core utilities
+from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
+from app.core.text_utils import capitalizar_con_preposiciones, formatear_telefono
 
 # UI Components
 from app.presentation.components.ui import (
@@ -341,6 +953,33 @@ from app.presentation.theme import Colors, Spacing, Typography
 # Presentation
 from app.presentation.pages.empresas import empresas_page, EmpresasState
 from app.presentation.components.shared.base_state import BaseState
+```
+
+**Import Pattern for New Services**:
+
+**Pattern A - With Repository** (complex queries):
+```python
+# app/services/empleado_service.py
+from app.repositories import SupabaseEmpleadoRepository
+from app.entities import Empleado, EmpleadoCreate, EmpleadoUpdate
+from app.core.exceptions import NotFoundError, DatabaseError
+
+class EmpleadoService:
+    def __init__(self):
+        self.repository = SupabaseEmpleadoRepository()
+```
+
+**Pattern B - Direct Access** (simple CRUD):
+```python
+# app/services/empresa_service.py
+from app.database import db_manager
+from app.entities import Empresa, EmpresaCreate, EmpresaUpdate
+from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
+
+class EmpresaService:
+    def __init__(self):
+        self.supabase = db_manager.get_client()
+        self.tabla = 'empresas'
 ```
 
 ### Form Input Pattern (Standard)
@@ -792,17 +1431,40 @@ These are independent utilities used across modules.
 
 ## Important Files
 
-- **`app/app.py`**: Application entry point, routes
+### Core Architecture
+- **`app/app.py`**: Application entry point, routes, API transformer
 - **`rxconfig.py`**: Reflex config (Sitemap, TailwindV4 plugins)
-- **`app/core/config/`**: Environment configuration
+- **`app/database/connection.py`**: Supabase singleton (db_manager)
+- **`app/repositories/__init__.py`**: Documents repository pattern philosophy (complex vs simple)
+
+### Entities & Business Logic
+- **`app/entities/`**: All domain models (Pydantic entities)
 - **`app/core/enums.py`**: All enums (Estatus, TipoEmpresa, TipoEntidadArchivo, TipoArchivo, etc.)
 - **`app/core/exceptions.py`**: Custom exception hierarchy (ApplicationError base)
-- **`app/core/text_utils.py`**: Text normalization (normalizar_por_sufijo, capitalizar_con_preposiciones, formatear_telefono, etc.)
 - **`app/core/validation/`**: FieldConfig, constants, custom validators
-- **`app/database/connection.py`**: Database singleton (db_manager)
+- **`app/core/text_utils.py`**: Text normalization (normalizar_por_sufijo, capitalizar_con_preposiciones, formatear_telefono, etc.)
+- **`app/core/calculations/`**: Business calculations (IMSS, ISR, payroll)
+- **`app/core/compresores/`**: Image (WebP) and PDF compression
+
+### Data Access
+- **`app/repositories/`**: Complex query repositories (empleado, plaza, contrato, requisicion)
+- **`app/services/`**: Business logic services (all modules - some use repositories, some use direct access)
+
+### Presentation Layer
 - **`app/presentation/components/ui/form_input.py`**: form_input, form_select, form_textarea, form_date, form_row
+- **`app/presentation/components/ui/tables.py`**: tabla, tabla_vacia, skeleton_tabla
+- **`app/presentation/components/ui/modals.py`**: modal_formulario, modal_confirmar_eliminar
 - **`app/presentation/theme/`**: Colors, Spacing, Typography, StatusColors tokens
+- **`app/presentation/components/shared/base_state.py`**: BaseState for all page states
+
+### Configuration & Environment
+- **`app/core/config/`**: Environment configuration (Supabase credentials, app settings)
+- **`.env`**: Environment variables (SUPABASE_URL, SUPABASE_KEY, etc.)
 - **`pyproject.toml`**: Dependencies and project metadata
+
+### Database Migrations
+- **`migrations/`**: SQL migration scripts (manually executed in Supabase Dashboard)
+- See [Database Migrations](#database-migrations-supabase) section for details
 
 ## Next Steps
 

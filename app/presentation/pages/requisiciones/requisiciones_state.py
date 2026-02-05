@@ -21,7 +21,6 @@ from app.entities.requisicion import (
     RequisicionItemCreate,
     RequisicionPartidaCreate,
 )
-from app.core.enums import EstadoRequisicion, TipoContratacion
 from app.core.exceptions import (
     NotFoundError,
     DuplicateError,
@@ -1024,7 +1023,7 @@ class RequisicionesState(BaseState):
         try:
             req_id = self.requisicion_seleccionada.get("id")
             data = RequisicionAdjudicar(
-                empresa_id=int(self.form_adjudicar_empresa_id),
+                empresa_id=self.parse_id(self.form_adjudicar_empresa_id),
                 fecha_adjudicacion=date.fromisoformat(self.form_adjudicar_fecha),
             )
             await requisicion_service.adjudicar(req_id, data)

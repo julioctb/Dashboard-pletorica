@@ -22,17 +22,6 @@ from app.presentation.pages.historial_laboral.historial_laboral_modals import mo
 # HELPERS
 # =============================================================================
 
-def estatus_badge(estatus: str) -> rx.Component:
-    """Badge para estatus del empleado en el historial"""
-    return rx.match(
-        estatus,
-        ("ACTIVO", rx.badge("Activo", color_scheme="green", size="1")),
-        ("INACTIVO", rx.badge("Inactivo", color_scheme="gray", size="1")),
-        ("SUSPENDIDO", rx.badge("Suspendido", color_scheme="amber", size="1")),
-        rx.badge(estatus, color_scheme="gray", size="1"),
-    )
-
-
 def tipo_movimiento_badge(tipo: str) -> rx.Component:
     """Badge para tipo de movimiento"""
     return rx.match(
@@ -118,10 +107,6 @@ def fila_historial(registro: dict) -> rx.Component:
         rx.table.cell(
             rx.text(registro["duracion_texto"], size="2"),
         ),
-        # Estatus
-        rx.table.cell(
-            estatus_badge(registro["estatus"]),
-        ),
         # Acciones
         rx.table.cell(
             acciones_historial(registro),
@@ -139,7 +124,6 @@ ENCABEZADOS_HISTORIAL = [
     {"nombre": "Empresa", "ancho": "140px"},
     {"nombre": "Período", "ancho": "140px"},
     {"nombre": "Duración", "ancho": "100px"},
-    {"nombre": "Estatus", "ancho": "90px"},
     {"nombre": "", "ancho": "50px"},
 ]
 
@@ -195,7 +179,7 @@ def card_historial(registro: dict) -> rx.Component:
     """Card individual para un registro de historial"""
     return rx.card(
         rx.vstack(
-            # Header con empleado y estatus
+            # Header con empleado y tipo de movimiento
             rx.hstack(
                 rx.vstack(
                     rx.badge(registro["empleado_clave"], variant="outline", size="2"),
@@ -204,12 +188,7 @@ def card_historial(registro: dict) -> rx.Component:
                     align_items="start",
                 ),
                 rx.spacer(),
-                rx.vstack(
-                    estatus_badge(registro["estatus"]),
-                    tipo_movimiento_badge(registro["tipo_movimiento"]),
-                    spacing="1",
-                    align_items="end",
-                ),
+                tipo_movimiento_badge(registro["tipo_movimiento"]),
                 width="100%",
                 align="start",
             ),
@@ -320,18 +299,6 @@ def grid_historial() -> rx.Component:
 def filtros_historial() -> rx.Component:
     """Filtros para historial"""
     return rx.hstack(
-        # Filtro por estatus
-        rx.select.root(
-            rx.select.trigger(placeholder="Estatus", width="140px"),
-            rx.select.content(
-                rx.foreach(
-                    HistorialLaboralState.opciones_estatus,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
-            value=HistorialLaboralState.filtro_estatus,
-            on_change=HistorialLaboralState.set_filtro_estatus,
-        ),
         # Botón aplicar
         rx.button(
             "Aplicar",

@@ -6,7 +6,6 @@ from app.presentation.pages.plazas.plazas_state import PlazasState
 from app.presentation.components.ui.form_input import form_input, form_textarea, form_date, form_select
 from app.presentation.components.ui.modals import modal_confirmar_accion
 from app.presentation.components.ui import status_badge_reactive
-from app.presentation.theme import Colors
 
 
 def modal_plaza() -> rx.Component:

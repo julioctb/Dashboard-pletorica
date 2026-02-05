@@ -7,7 +7,7 @@ del sistema mediante relacion polimorfica (entidad_tipo + entidad_id).
 Uso:
     from app.entities.archivo import (
         EntidadArchivo, TipoArchivo, OrigenArchivo,
-        ArchivoSistema, ArchivoSistemaCreate,
+        ArchivoSistema, ArchivoSistemaUpdate,
     )
 """
 
@@ -111,21 +111,6 @@ class ArchivoSistema(BaseModel):
 # =============================================================================
 
 
-class ArchivoSistemaCreate(BaseModel):
-    """Para crear un archivo (el contenido binario se maneja por separado)."""
-
-    model_config = ConfigDict(
-        use_enum_values=True,
-        str_strip_whitespace=True,
-    )
-
-    entidad_tipo: EntidadArchivo
-    entidad_id: int
-    tipo_archivo: TipoArchivo
-    descripcion: Optional[str] = Field(None, max_length=255)
-    orden: int = Field(default=0, ge=0)
-
-
 class ArchivoSistemaUpdate(BaseModel):
     """Para actualizar metadata del archivo."""
 
@@ -141,25 +126,6 @@ class ArchivoSistemaUpdate(BaseModel):
 # =============================================================================
 # MODELOS DE RESUMEN Y RESPUESTA
 # =============================================================================
-
-
-class ArchivoSistemaResumen(BaseModel):
-    """Vista resumida para listados."""
-
-    model_config = ConfigDict(
-        use_enum_values=True,
-        from_attributes=True,
-    )
-
-    id: int
-    nombre_original: str
-    tipo_mime: str
-    tamanio_bytes: int
-    tipo_archivo: TipoArchivo
-    descripcion: Optional[str] = None
-    fue_comprimido: bool = False
-    created_at: Optional[datetime] = None
-    url_temporal: Optional[str] = None
 
 
 class ArchivoUploadResponse(BaseModel):

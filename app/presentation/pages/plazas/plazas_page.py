@@ -11,7 +11,6 @@ from app.presentation.layout import (
 )
 from app.presentation.components.ui import (
     status_badge_reactive,
-    tabla,
     tabla_vacia,
     skeleton_tabla,
     breadcrumb_dynamic,
