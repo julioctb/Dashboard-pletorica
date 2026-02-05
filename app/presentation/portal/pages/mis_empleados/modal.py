@@ -3,6 +3,8 @@ Modal para crear/editar empleados en el portal.
 """
 import reflex as rx
 
+from app.presentation.theme import Colors
+
 from .state import MisEmpleadosState
 
 
@@ -114,7 +116,7 @@ def _campo_curp() -> rx.Component:
         ),
         rx.cond(
             MisEmpleadosState.error_curp != "",
-            rx.text(MisEmpleadosState.error_curp, size="1", color="red"),
+            rx.text(MisEmpleadosState.error_curp, size="1", color=Colors.ERROR),
         ),
         width="100%",
         spacing="1",
@@ -135,7 +137,7 @@ def _campos_nombre() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_nombre != "",
-                rx.text(MisEmpleadosState.error_nombre, size="1", color="red"),
+                rx.text(MisEmpleadosState.error_nombre, size="1", color=Colors.ERROR),
             ),
             width="100%",
             spacing="1",
@@ -151,7 +153,7 @@ def _campos_nombre() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_apellido_paterno != "",
-                rx.text(MisEmpleadosState.error_apellido_paterno, size="1", color="red"),
+                rx.text(MisEmpleadosState.error_apellido_paterno, size="1", color=Colors.ERROR),
             ),
             width="100%",
             spacing="1",
@@ -167,7 +169,7 @@ def _campos_nombre() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_apellido_materno != "",
-                rx.text(MisEmpleadosState.error_apellido_materno, size="1", color="red"),
+                rx.text(MisEmpleadosState.error_apellido_materno, size="1", color=Colors.ERROR),
             ),
             width="100%",
             spacing="1",
@@ -192,7 +194,7 @@ def _campos_rfc_nss() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_rfc != "",
-                rx.text(MisEmpleadosState.error_rfc, size="1", color="red"),
+                rx.text(MisEmpleadosState.error_rfc, size="1", color=Colors.ERROR),
             ),
             width="100%",
             spacing="1",
@@ -209,7 +211,7 @@ def _campos_rfc_nss() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_nss != "",
-                rx.text(MisEmpleadosState.error_nss, size="1", color="red"),
+                rx.text(MisEmpleadosState.error_nss, size="1", color=Colors.ERROR),
             ),
             width="100%",
             spacing="1",
@@ -233,7 +235,7 @@ def _campos_fecha_genero() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_fecha_nacimiento != "",
-                rx.text(MisEmpleadosState.error_fecha_nacimiento, size="1", color="red"),
+                rx.text(MisEmpleadosState.error_fecha_nacimiento, size="1", color=Colors.ERROR),
             ),
             width="100%",
             spacing="1",
@@ -256,7 +258,7 @@ def _campos_fecha_genero() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_genero != "",
-                rx.text(MisEmpleadosState.error_genero, size="1", color="red"),
+                rx.text(MisEmpleadosState.error_genero, size="1", color=Colors.ERROR),
             ),
             width="100%",
             spacing="1",
@@ -281,7 +283,7 @@ def _campos_telefono_email() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_telefono != "",
-                rx.text(MisEmpleadosState.error_telefono, size="1", color="red"),
+                rx.text(MisEmpleadosState.error_telefono, size="1", color=Colors.ERROR),
             ),
             width="100%",
             spacing="1",
@@ -297,7 +299,7 @@ def _campos_telefono_email() -> rx.Component:
             ),
             rx.cond(
                 MisEmpleadosState.error_email != "",
-                rx.text(MisEmpleadosState.error_email, size="1", color="red"),
+                rx.text(MisEmpleadosState.error_email, size="1", color=Colors.ERROR),
             ),
             width="100%",
             spacing="1",
@@ -339,7 +341,7 @@ def _seccion_contacto_emergencia() -> rx.Component:
                 ),
                 rx.cond(
                     MisEmpleadosState.error_contacto_nombre != "",
-                    rx.text(MisEmpleadosState.error_contacto_nombre, size="1", color="red"),
+                    rx.text(MisEmpleadosState.error_contacto_nombre, size="1", color=Colors.ERROR),
                 ),
                 width="100%",
                 spacing="1",
@@ -356,7 +358,7 @@ def _seccion_contacto_emergencia() -> rx.Component:
                 ),
                 rx.cond(
                     MisEmpleadosState.error_contacto_telefono != "",
-                    rx.text(MisEmpleadosState.error_contacto_telefono, size="1", color="red"),
+                    rx.text(MisEmpleadosState.error_contacto_telefono, size="1", color=Colors.ERROR),
                 ),
                 width="100%",
                 spacing="1",
@@ -379,7 +381,7 @@ def _seccion_contacto_emergencia() -> rx.Component:
                 ),
                 rx.cond(
                     MisEmpleadosState.error_contacto_parentesco != "",
-                    rx.text(MisEmpleadosState.error_contacto_parentesco, size="1", color="red"),
+                    rx.text(MisEmpleadosState.error_contacto_parentesco, size="1", color=Colors.ERROR),
                 ),
                 width="100%",
                 spacing="1",
@@ -390,7 +392,7 @@ def _seccion_contacto_emergencia() -> rx.Component:
         width="100%",
         spacing="2",
         padding="3",
-        border="1px solid var(--gray-5)",
+        border=f"1px solid {Colors.BORDER}",
         border_radius="var(--radius-2)",
     )
 

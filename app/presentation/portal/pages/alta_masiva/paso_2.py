@@ -3,6 +3,8 @@ Paso 2: Preview de validacion.
 """
 import reflex as rx
 
+from app.presentation.theme import Colors
+
 from .state import AltaMasivaState
 from .components import card_resumen, badge_resultado
 
@@ -28,7 +30,7 @@ def _fila_validacion(reg: dict) -> rx.Component:
             badge_resultado(reg["resultado"]),
         ),
         rx.table.cell(
-            rx.text(reg["mensaje"], size="2", color="gray"),
+            rx.text(reg["mensaje"], size="2", color=Colors.TEXT_SECONDARY),
         ),
     )
 
@@ -106,7 +108,7 @@ def paso_2_preview() -> rx.Component:
             " | Total filas: ",
             AltaMasivaState.validacion_total,
             size="2",
-            color="gray",
+            color=Colors.TEXT_SECONDARY,
         ),
 
         # Botones de accion

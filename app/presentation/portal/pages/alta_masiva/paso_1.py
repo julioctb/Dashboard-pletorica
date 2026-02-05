@@ -18,12 +18,12 @@ def paso_1_subir() -> rx.Component:
                     AltaMasivaState.validando_archivo,
                     rx.vstack(
                         rx.spinner(size="3"),
-                        rx.text("Validando archivo...", size="2", color="gray"),
+                        rx.text("Validando archivo...", size="2", color=Colors.TEXT_SECONDARY),
                         align="center",
                         spacing="2",
                     ),
                     rx.vstack(
-                        rx.icon("upload", size=32, color="var(--teal-9)"),
+                        rx.icon("upload", size=32, color=Colors.PORTAL_PRIMARY),
                         rx.text(
                             "Click o arrastra tu archivo CSV o Excel",
                             size="3",
@@ -53,10 +53,10 @@ def paso_1_subir() -> rx.Component:
             max_files=1,
             no_click=AltaMasivaState.validando_archivo,
             no_drag=AltaMasivaState.validando_archivo,
-            border=f"2px dashed var(--gray-6)",
+            border=f"2px dashed {Colors.TEXT_MUTED}",
             border_radius="8px",
             cursor=rx.cond(AltaMasivaState.validando_archivo, "wait", "pointer"),
-            _hover={"borderColor": "var(--teal-8)", "background": "var(--teal-2)"},
+            _hover={"borderColor": Colors.PORTAL_PRIMARY_HOVER, "background": Colors.PORTAL_PRIMARY_LIGHTER},
             width="100%",
         ),
 
@@ -65,7 +65,7 @@ def paso_1_subir() -> rx.Component:
             rx.selected_files(UPLOAD_ID).length() > 0,
             rx.vstack(
                 rx.hstack(
-                    rx.icon("file", size=16, color="var(--teal-9)"),
+                    rx.icon("file", size=16, color=Colors.PORTAL_PRIMARY),
                     rx.foreach(
                         rx.selected_files(UPLOAD_ID),
                         lambda f: rx.text(f, size="2", color=Colors.TEXT_SECONDARY),

@@ -121,7 +121,7 @@ def _fila_contrato(cto: dict) -> rx.Component:
     """Fila de la tabla de contratos."""
     return rx.table.row(
         rx.table.cell(
-            rx.text(cto["codigo"], size="2", weight="medium", color="var(--teal-11)"),
+            rx.text(cto["codigo"], size="2", weight="medium", color=Colors.PORTAL_PRIMARY_TEXT),
         ),
         rx.table.cell(
             rx.text(
@@ -130,7 +130,7 @@ def _fila_contrato(cto: dict) -> rx.Component:
             ),
         ),
         rx.table.cell(
-            rx.text(cto["tipo_contrato"], size="2", color="gray"),
+            rx.text(cto["tipo_contrato"], size="2", color=Colors.TEXT_SECONDARY),
         ),
         rx.table.cell(
             rx.hstack(
@@ -138,7 +138,7 @@ def _fila_contrato(cto: dict) -> rx.Component:
                     rx.cond(cto["fecha_inicio"], cto["fecha_inicio"], "-"),
                     size="2",
                 ),
-                rx.text(" - ", size="2", color="gray"),
+                rx.text(" - ", size="2", color=Colors.TEXT_SECONDARY),
                 rx.text(
                     rx.cond(cto["fecha_fin"], cto["fecha_fin"], "Indefinido"),
                     size="2",
@@ -205,19 +205,20 @@ def _tabla_contratos() -> rx.Component:
                     MisContratosState.total_contratos_lista,
                     " contrato(s)",
                     size="2",
-                    color="gray",
+                    color=Colors.TEXT_SECONDARY,
                 ),
                 width="100%",
                 spacing="3",
             ),
             rx.center(
                 rx.vstack(
-                    rx.icon("file-text", size=48, color="var(--gray-6)"),
-                    rx.text("No hay contratos registrados", color="gray", size="3"),
+                    rx.icon("file-text", size=48, color=Colors.TEXT_MUTED),
+                    rx.text("No hay contratos registrados", color=Colors.TEXT_SECONDARY, size="3"),
                     spacing="3",
                     align="center",
                 ),
                 padding="12",
+                width="100%",
             ),
         ),
     )
@@ -281,14 +282,14 @@ def _modal_detalle_contrato() -> rx.Component:
         rx.dialog.content(
             rx.dialog.title(
                 rx.hstack(
-                    rx.icon("file-text", size=20, color="var(--teal-9)"),
+                    rx.icon("file-text", size=20, color=Colors.PORTAL_PRIMARY),
                     rx.text("Detalle del Contrato"),
                     spacing="2",
                     align="center",
                 ),
             ),
             rx.dialog.description(
-                rx.text(datos["codigo"], size="2", color="gray"),
+                rx.text(datos["codigo"], size="2", color=Colors.TEXT_SECONDARY),
             ),
             rx.separator(),
             rx.vstack(

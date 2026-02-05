@@ -39,8 +39,16 @@ class Colors:
     SECONDARY_HOVER = "#334155"   # Hover en elementos secundarios
     SECONDARY_LIGHT = "#F1F5F9"   # Fondos secundarios
     
+    # === PORTAL (Teal como primario) ===
+    PORTAL_PRIMARY = "var(--teal-9)"          # Color primario del portal
+    PORTAL_PRIMARY_HOVER = "var(--teal-10)"   # Hover en elementos primarios
+    PORTAL_PRIMARY_TEXT = "var(--teal-11)"    # Texto con color primario
+    PORTAL_PRIMARY_LIGHT = "var(--teal-3)"    # Fondos sutiles
+    PORTAL_PRIMARY_LIGHTER = "var(--teal-2)"  # Fondos muy sutiles
+
     # === FONDOS ===
     BG_APP = "#F8FAFC"            # Fondo general de la aplicación
+    BACKGROUND = "var(--gray-2)"  # Alias para fondos de contenido (Radix)
     SURFACE = "#FFFFFF"           # Cards, modales, sidebar
     SURFACE_HOVER = "#F8FAFC"     # Hover en superficies
     

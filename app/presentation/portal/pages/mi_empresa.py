@@ -176,7 +176,7 @@ def _datos_empresa() -> rx.Component:
                 rx.card(
                     rx.vstack(
                         rx.hstack(
-                            rx.icon("building-2", size=18, color="var(--teal-9)"),
+                            rx.icon("building-2", size=18, color=Colors.PORTAL_PRIMARY),
                             rx.text(
                                 "Datos Generales",
                                 font_size=Typography.SIZE_SM,
@@ -224,7 +224,7 @@ def _datos_empresa() -> rx.Component:
                 width="100%",
             ),
             rx.center(
-                rx.text("No se encontraron datos de la empresa", color="gray"),
+                rx.text("No se encontraron datos de la empresa", color=Colors.TEXT_SECONDARY),
                 padding="12",
             ),
         ),
@@ -335,7 +335,7 @@ def _seccion_contacto() -> rx.Component:
             # Header con boton editar
             rx.hstack(
                 rx.hstack(
-                    rx.icon("phone", size=18, color="var(--teal-9)"),
+                    rx.icon("phone", size=18, color=Colors.PORTAL_PRIMARY),
                     rx.text(
                         "Contacto",
                         font_size=Typography.SIZE_SM,

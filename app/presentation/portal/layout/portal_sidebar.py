@@ -42,6 +42,8 @@ PORTAL_NAVIGATION = [
         "label": "Operacion",
         "items": [
             {"text": "Contratos", "icon": "file-text", "href": "/portal/contratos"},
+            #TODO implementar sistema de entregables ligado al contrato
+            {"text": "Entregables", "icon": "book-check", "href": "/portal/contratos"},
             {"text": "Plazas", "icon": "briefcase", "href": "/portal/plazas"},
             {"text": "Requisiciones", "icon": "clipboard-list", "href": "/portal/requisiciones"},
         ],
@@ -57,11 +59,11 @@ def _portal_header() -> rx.Component:
     """Header del sidebar con nombre de la empresa."""
     return rx.hstack(
         rx.center(
-            rx.icon("building-2", size=20, color="var(--teal-9)"),
+            rx.icon("building-2", size=20, color=Colors.PORTAL_PRIMARY),
             width="36px",
             height="36px",
             border_radius="8px",
-            background="var(--teal-3)",
+            background=Colors.PORTAL_PRIMARY_LIGHT,
             flex_shrink="0",
         ),
         rx.vstack(
@@ -191,11 +193,11 @@ def _portal_user_section() -> rx.Component:
             rx.menu.trigger(
                 rx.hstack(
                     rx.center(
-                        rx.icon("user", size=18, color="var(--teal-9)"),
+                        rx.icon("user", size=18, color=Colors.PORTAL_PRIMARY),
                         width="32px",
                         height="32px",
                         border_radius="50%",
-                        background="var(--teal-3)",
+                        background=Colors.PORTAL_PRIMARY_LIGHT,
                         flex_shrink="0",
                     ),
                     rx.vstack(
@@ -256,7 +258,7 @@ def _portal_user_section() -> rx.Component:
                         spacing="2",
                         align="center",
                     ),
-                    color="red",
+                    color=Colors.ERROR,
                     on_click=PortalState.cerrar_sesion,
                 ),
                 side="top",
@@ -286,12 +288,12 @@ def _dev_simulation_banner() -> rx.Component:
         AuthState.simulando_cliente,
         rx.vstack(
             rx.hstack(
-                rx.icon("bug", size=14, color="white"),
+                rx.icon("bug", size=14, color=Colors.TEXT_INVERSE),
                 rx.text(
                     "SIMULACION",
                     font_size="11px",
                     font_weight=Typography.WEIGHT_BOLD,
-                    color="white",
+                    color=Colors.TEXT_INVERSE,
                     letter_spacing=Typography.LETTER_SPACING_WIDE,
                 ),
                 align="center",
@@ -308,7 +310,7 @@ def _dev_simulation_banner() -> rx.Component:
                 on_click=AuthState.desactivar_simulacion_cliente,
                 cursor="pointer",
                 style={
-                    "color": "white",
+                    "color": Colors.TEXT_INVERSE,
                     "border_color": "var(--red-7)",
                     "_hover": {"background": "var(--red-8)"},
                 },

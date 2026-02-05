@@ -3,6 +3,8 @@ Paso 3: Resultados del procesamiento.
 """
 import reflex as rx
 
+from app.presentation.theme import Colors
+
 from .state import AltaMasivaState
 from .components import card_resumen, badge_resultado
 
@@ -32,12 +34,12 @@ def _fila_resultado(det: dict) -> rx.Component:
             rx.text(
                 rx.cond(det["clave"], det["clave"], "-"),
                 size="2",
-                color="var(--teal-11)",
+                color=Colors.PORTAL_PRIMARY_TEXT,
                 weight="medium",
             ),
         ),
         rx.table.cell(
-            rx.text(det["mensaje"], size="2", color="gray"),
+            rx.text(det["mensaje"], size="2", color=Colors.TEXT_SECONDARY),
         ),
     )
 

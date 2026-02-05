@@ -21,8 +21,8 @@ def indicador_pasos() -> rx.Component:
                 width="32px",
                 height="32px",
                 border_radius="50%",
-                background=rx.cond(es_activo, "var(--teal-9)", "var(--gray-4)"),
-                color=rx.cond(es_activo, "white", "var(--gray-9)"),
+                background=rx.cond(es_activo, Colors.PORTAL_PRIMARY, "var(--gray-4)"),
+                color=rx.cond(es_activo, Colors.TEXT_INVERSE, "var(--gray-9)"),
                 flex_shrink="0",
             ),
             rx.text(
@@ -41,7 +41,7 @@ def indicador_pasos() -> rx.Component:
             height="2px",
             flex="1",
             max_width="80px",
-            background="var(--gray-5)",
+            background=Colors.BORDER,
         )
 
     return rx.hstack(

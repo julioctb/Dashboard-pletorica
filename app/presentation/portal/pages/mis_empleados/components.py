@@ -6,6 +6,7 @@ Tabla, filtros y badges.
 import reflex as rx
 
 from app.presentation.components.ui import skeleton_tabla
+from app.presentation.theme import Colors
 
 from .state import MisEmpleadosState
 
@@ -27,13 +28,13 @@ def fila_empleado(emp: dict) -> rx.Component:
     puede_editar = (emp["estatus"] == "ACTIVO") & (~emp["is_restricted"])
     return rx.table.row(
         rx.table.cell(
-            rx.text(emp["clave"], size="2", weight="medium", color="var(--teal-11)"),
+            rx.text(emp["clave"], size="2", weight="medium", color=Colors.PORTAL_PRIMARY_TEXT),
         ),
         rx.table.cell(
             rx.text(emp["nombre_completo"], size="2", weight="medium"),
         ),
         rx.table.cell(
-            rx.text(emp["curp"], size="2", color="gray"),
+            rx.text(emp["curp"], size="2", color=Colors.TEXT_SECONDARY),
         ),
         rx.table.cell(
             badge_estatus(emp["estatus"]),
@@ -98,19 +99,20 @@ def tabla_empleados() -> rx.Component:
                     MisEmpleadosState.total_empleados_lista,
                     " empleado(s)",
                     size="2",
-                    color="gray",
+                    color=Colors.TEXT_SECONDARY,
                 ),
                 width="100%",
                 spacing="3",
             ),
             rx.center(
                 rx.vstack(
-                    rx.icon("users", size=48, color="var(--gray-6)"),
-                    rx.text("No hay empleados registrados", color="gray", size="3"),
+                    rx.icon("users", size=48, color=Colors.TEXT_MUTED),
+                    rx.text("No hay empleados registrados", color=Colors.TEXT_SECONDARY, size="3"),
                     spacing="3",
                     align="center",
                 ),
                 padding="12",
+                width="100%",
             ),
         ),
     )

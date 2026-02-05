@@ -6,6 +6,7 @@ con el sidebar de cliente y el area de contenido.
 """
 import reflex as rx
 
+from app.presentation.theme import Colors
 from app.presentation.portal.layout.portal_sidebar import portal_sidebar
 
 
@@ -23,7 +24,7 @@ def portal_index(content: rx.Component) -> rx.Component:
         portal_sidebar(),
         rx.box(
             content,
-            background_color="var(--gray-2)",
+            background_color=Colors.BACKGROUND,
             width="100%",
             flex="1",
             overflow_y="auto",
