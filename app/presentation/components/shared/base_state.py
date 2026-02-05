@@ -3,17 +3,25 @@ Estado base para todos los módulos.
 
 Incluye helpers para:
 - Manejo centralizado de errores
+- Carga de catálogos genérica
+- Limpieza de formularios
+- Manejo de filtros y paginación
 - Reducir código repetitivo en los states de Reflex
 
 Nota: Los setters deben definirse explícitamente en cada state.
 Reflex no reconoce funciones asignadas dinámicamente como event handlers.
 """
 import logging
-import traceback
 import reflex as rx
-from typing import Optional
+from typing import Optional, List, Dict, Any, Callable, Awaitable
 
 from app.core.config import Config
+from app.core.ui_helpers import (
+    FILTRO_TODOS,
+    FILTRO_SIN_SELECCION,
+    calcular_paginas,
+    calcular_offset,
+)
 
 # Importar excepciones para manejo centralizado
 from app.core.exceptions import (
@@ -296,3 +304,179 @@ class BaseState(rx.State):
             return None
         finally:
             self.loading = False
+
+    # ========================
+    # CARGA DE CATÁLOGOS
+    # ========================
+    async def cargar_catalogo(
+        self,
+        campo_destino: str,
+        servicio_metodo: Callable[..., Awaitable[List[Any]]],
+        transformar: Optional[Callable[[Any], dict]] = None,
+        **kwargs
+    ) -> List[dict]:
+        """
+        Carga un catálogo desde un servicio y lo asigna a un campo.
+
+        Patrón común: cargar lista de empresas, categorías, tipos, etc.
+        para usar en selects.
+
+        Args:
+            campo_destino: Nombre del atributo donde guardar (ej: "empresas")
+            servicio_metodo: Método async del servicio (ej: empresa_service.obtener_todas)
+            transformar: Función para transformar cada item (default: model_dump)
+            **kwargs: Argumentos para el método del servicio
+
+        Returns:
+            Lista de dicts cargados
+
+        Ejemplo:
+            await self.cargar_catalogo(
+                "empresas",
+                empresa_service.obtener_todas,
+                incluir_inactivas=False
+            )
+        """
+        try:
+            items = await servicio_metodo(**kwargs)
+            if transformar:
+                datos = [transformar(item) for item in items]
+            else:
+                datos = [
+                    item.model_dump(mode='json') if hasattr(item, 'model_dump') else item
+                    for item in items
+                ]
+            setattr(self, campo_destino, datos)
+            return datos
+        except Exception as e:
+            logger.warning(f"Error cargando catálogo {campo_destino}: {e}")
+            setattr(self, campo_destino, [])
+            return []
+
+    # ========================
+    # LIMPIEZA DE FORMULARIOS
+    # ========================
+    def limpiar_formulario(
+        self,
+        campos_default: Dict[str, Any],
+        campos_error: Optional[List[str]] = None,
+        campos_extra: Optional[Dict[str, Any]] = None
+    ):
+        """
+        Limpia formulario asignando valores por defecto.
+
+        Args:
+            campos_default: Dict de {campo: valor_default} para form_*
+            campos_error: Lista de nombres de campos error_* a limpiar
+            campos_extra: Dict de otros campos a resetear
+
+        Ejemplo:
+            self.limpiar_formulario(
+                campos_default={"nombre": "", "email": "", "activo": True},
+                campos_error=["nombre", "email"],
+                campos_extra={"es_edicion": False, "id_edicion": 0}
+            )
+        """
+        # Limpiar campos del formulario
+        for campo, valor in campos_default.items():
+            setattr(self, f"form_{campo}", valor)
+
+        # Limpiar errores
+        if campos_error:
+            for campo in campos_error:
+                setattr(self, f"error_{campo}", "")
+
+        # Limpiar campos extra
+        if campos_extra:
+            for campo, valor in campos_extra.items():
+                setattr(self, campo, valor)
+
+    def limpiar_errores(self, campos: List[str]):
+        """
+        Limpia solo los campos de error especificados.
+
+        Args:
+            campos: Lista de nombres (sin prefijo error_)
+        """
+        for campo in campos:
+            setattr(self, f"error_{campo}", "")
+
+    # ========================
+    # FILTROS Y PAGINACIÓN
+    # ========================
+    def resetear_filtros(
+        self,
+        filtros_default: Dict[str, Any],
+        resetear_pagina: bool = True
+    ):
+        """
+        Resetea filtros a sus valores por defecto.
+
+        Args:
+            filtros_default: Dict de {campo_filtro: valor_default}
+            resetear_pagina: Si True, resetea self.pagina a 1
+        """
+        for campo, valor in filtros_default.items():
+            setattr(self, campo, valor)
+
+        if resetear_pagina and hasattr(self, 'pagina'):
+            self.pagina = 1
+
+    def es_filtro_activo(self, valor: Any) -> bool:
+        """
+        Verifica si un valor de filtro está activo.
+
+        Args:
+            valor: Valor del filtro
+
+        Returns:
+            True si no es "todos" ni vacío
+        """
+        return valor not in (FILTRO_TODOS, FILTRO_SIN_SELECCION, "", None, "__TODAS__")
+
+    def obtener_filtros_activos(self, filtros: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Filtra solo los filtros que están activos.
+
+        Args:
+            filtros: Dict de {nombre: valor}
+
+        Returns:
+            Dict solo con filtros activos
+        """
+        return {k: v for k, v in filtros.items() if self.es_filtro_activo(v)}
+
+    # ========================
+    # HELPERS DE PAGINACIÓN
+    # ========================
+    def calcular_total_paginas(self, total_items: int, items_por_pagina: int = 20) -> int:
+        """Calcula número total de páginas."""
+        return calcular_paginas(total_items, items_por_pagina)
+
+    def calcular_offset_actual(self, items_por_pagina: int = 20) -> int:
+        """Calcula offset basado en self.pagina."""
+        pagina = getattr(self, 'pagina', 1)
+        return calcular_offset(pagina, items_por_pagina)
+
+    # ========================
+    # NORMALIZACIÓN DE SETTERS
+    # ========================
+    @staticmethod
+    def normalizar_mayusculas(valor: str) -> str:
+        """Normaliza string a mayúsculas (para CURP, RFC, etc.)"""
+        return valor.upper().strip() if valor else ""
+
+    @staticmethod
+    def normalizar_minusculas(valor: str) -> str:
+        """Normaliza string a minúsculas (para emails)."""
+        return valor.lower().strip() if valor else ""
+
+    @staticmethod
+    def normalizar_texto(valor: str) -> str:
+        """Normaliza texto removiendo espacios extra."""
+        return " ".join(valor.split()) if valor else ""
+
+    @staticmethod
+    def normalizar_digitos(valor: str) -> str:
+        """Extrae solo dígitos de un string (para teléfonos, NSS)."""
+        return "".join(c for c in valor if c.isdigit()) if valor else ""

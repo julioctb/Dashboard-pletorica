@@ -26,6 +26,7 @@ Uso:
 
 import reflex as rx
 from app.core.config import Config
+from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.layout.sidebar_state import SidebarState
 from app.presentation.theme import (
     Colors,
@@ -525,9 +526,9 @@ def _dev_view_switcher() -> rx.Component:
         rx.icon("shield", size=14),
         rx.cond(~SidebarState.is_collapsed, rx.text("Admin", font_size="12px"), rx.fragment()),
         size="1",
-        variant=rx.cond(~SidebarState.dev_modo_cliente_activo, "solid", "outline"),
+        variant=rx.cond(~AuthState.dev_modo_cliente_activo, "solid", "outline"),
         color_scheme="gray",
-        on_click=SidebarState.on_dev_view_change("admin"),
+        on_click=AuthState.on_dev_view_change("admin"),
         flex="1",
         cursor="pointer",
     )
@@ -537,26 +538,26 @@ def _dev_view_switcher() -> rx.Component:
         rx.icon("building-2", size=14),
         rx.cond(~SidebarState.is_collapsed, rx.text("Cliente", font_size="12px"), rx.fragment()),
         size="1",
-        variant=rx.cond(SidebarState.dev_modo_cliente_activo, "solid", "outline"),
+        variant=rx.cond(AuthState.dev_modo_cliente_activo, "solid", "outline"),
         color_scheme="teal",
-        on_click=SidebarState.on_dev_view_change("cliente"),
+        on_click=AuthState.on_dev_view_change("cliente"),
         flex="1",
         cursor="pointer",
     )
 
     # Select de empresas (solo visible in modo cliente expandido)
     empresa_select = rx.cond(
-        SidebarState.dev_modo_cliente_activo & ~SidebarState.is_collapsed,
+        AuthState.dev_modo_cliente_activo & ~SidebarState.is_collapsed,
         rx.select.root(
             rx.select.trigger(placeholder="Seleccionar empresa...", width="100%"),
             rx.select.content(
                 rx.foreach(
-                    SidebarState.opciones_empresas_simulacion,
+                    AuthState.opciones_empresas_simulacion,
                     lambda opt: rx.select.item(opt["label"], value=opt["value"]),
                 ),
             ),
-            value=SidebarState.valor_empresa_simulada,
-            on_change=SidebarState.activar_simulacion_cliente,
+            value=AuthState.valor_empresa_simulada,
+            on_change=AuthState.activar_simulacion_cliente,
             size="1",
         ),
         rx.fragment(),

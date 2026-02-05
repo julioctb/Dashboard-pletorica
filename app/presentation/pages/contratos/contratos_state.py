@@ -1,14 +1,23 @@
 """
 Estado de Reflex para el módulo de Contratos.
 Maneja el estado de la UI y las operaciones del módulo.
+
+Refactorizado para usar:
+- CRUDStateMixin para operaciones CRUD genéricas
+- ui_helpers para opciones de enums
 """
 import reflex as rx
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Dict, Any
 from decimal import Decimal, InvalidOperation
 from datetime import date
 
 from app.presentation.components.shared.base_state import BaseState
-from app.presentation.constants import FILTRO_TODOS, FILTRO_SIN_SELECCION
+from app.presentation.components.shared.crud_state_mixin import CRUDStateMixin
+from app.core.ui_helpers import (
+    FILTRO_TODOS,
+    FILTRO_SIN_SELECCION,
+    opciones_desde_enum,
+)
 from app.services import contrato_service, empresa_service, tipo_servicio_service, pago_service, categoria_puesto_service
 from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
 
@@ -89,8 +98,21 @@ FORM_DEFAULTS = {
 }
 
 
-class ContratosState(BaseState):
+class ContratosState(BaseState, CRUDStateMixin):
     """Estado para el módulo de Contratos"""
+
+    # ========================
+    # CONFIGURACIÓN DEL MIXIN
+    # ========================
+    _entidad_nombre: str = "Contrato"
+    _modal_principal: str = "mostrar_modal_contrato"
+    _campos_error: List[str] = [
+        "empresa_id", "tipo_servicio_id", "codigo", "folio_buap",
+        "tipo_contrato", "modalidad_adjudicacion", "tipo_duracion",
+        "fecha_inicio", "fecha_fin", "descripcion_objeto",
+        "monto_minimo", "monto_maximo", "origen_recurso",
+        "segmento_asignacion", "sede_campus", "poliza_detalle"
+    ]
 
     # ========================
     # ESTADO DE DATOS
@@ -533,28 +555,17 @@ class ContratosState(BaseState):
     @rx.var
     def opciones_modalidad(self) -> List[dict]:
         """Opciones para el select de modalidad de adjudicación"""
-        return [
-            {"value": ModalidadAdjudicacion.ADJUDICACION_DIRECTA.value, "label": "Adjudicación directa"},
-            {"value": ModalidadAdjudicacion.INVITACION_3.value, "label": "Invitación a 3 personas"},
-            {"value": ModalidadAdjudicacion.LICITACION_PUBLICA.value, "label": "Licitación pública"},
-        ]
+        return opciones_desde_enum(ModalidadAdjudicacion)
 
     @rx.var
     def opciones_tipo_duracion(self) -> List[dict]:
         """Opciones para el select de tipo de duración"""
-        return [
-            {"value": TipoDuracion.TIEMPO_DETERMINADO.value, "label": "Tiempo determinado"},
-            {"value": TipoDuracion.TIEMPO_INDEFINIDO.value, "label": "Tiempo indefinido"},
-            {"value": TipoDuracion.OBRA_DETERMINADA.value, "label": "Obra determinada"},
-        ]
+        return opciones_desde_enum(TipoDuracion)
 
     @rx.var
     def opciones_tipo_contrato(self) -> List[dict]:
         """Opciones para el select de tipo de contrato"""
-        return [
-            {"value": TipoContrato.ADQUISICION.value, "label": "Adquisición"},
-            {"value": TipoContrato.SERVICIOS.value, "label": "Servicios"},
-        ]
+        return opciones_desde_enum(TipoContrato)
 
     # ========================
     # VARS CONDICIONALES DE NEGOCIO
@@ -614,14 +625,7 @@ class ContratosState(BaseState):
     @rx.var
     def opciones_estatus(self) -> List[dict]:
         """Opciones para el select de estatus"""
-        return [
-            {"value": EstatusContrato.BORRADOR.value, "label": "Borrador"},
-            {"value": EstatusContrato.ACTIVO.value, "label": "Activo"},
-            {"value": EstatusContrato.SUSPENDIDO.value, "label": "Suspendido"},
-            {"value": EstatusContrato.VENCIDO.value, "label": "Vencido"},
-            {"value": EstatusContrato.CANCELADO.value, "label": "Cancelado"},
-            {"value": EstatusContrato.CERRADO.value, "label": "Cerrado"},
-        ]
+        return opciones_desde_enum(EstatusContrato)
 
     # ========================
     # OPERACIONES PRINCIPALES

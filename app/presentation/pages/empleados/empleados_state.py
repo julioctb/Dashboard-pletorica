@@ -1,20 +1,30 @@
 """
 Estado de Reflex para el módulo de Empleados.
 Maneja el estado de la UI y las operaciones del módulo.
+
+Refactorizado para usar:
+- CRUDStateMixin para operaciones CRUD genéricas
+- ui_helpers para opciones de enums
+- BaseState.limpiar_formulario para limpieza de formularios
 """
 import reflex as rx
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import date
 
 from app.presentation.components.shared.auth_state import AuthState
-from app.presentation.constants import FILTRO_TODOS, FILTRO_TODAS
+from app.presentation.components.shared.crud_state_mixin import CRUDStateMixin
+from app.core.ui_helpers import (
+    FILTRO_TODOS,
+    FILTRO_TODAS,
+    opciones_desde_enum,
+)
 from app.services import empleado_service, empresa_service
 from app.core.text_utils import formatear_fecha
+from app.core.enums import EstatusEmpleado, GeneroEmpleado, MotivoBaja
 
 from app.entities import (
     EmpleadoCreate,
     EmpleadoUpdate,
-    MotivoBaja,
 )
 
 from app.core.exceptions import (
@@ -35,8 +45,39 @@ from .empleados_validators import (
 )
 
 
-class EmpleadosState(AuthState):
+class EmpleadosState(AuthState, CRUDStateMixin):
     """Estado para el módulo de Empleados"""
+
+    # ========================
+    # CONFIGURACIÓN DEL MIXIN
+    # ========================
+    _entidad_nombre: str = "Empleado"
+    _modal_principal: str = "mostrar_modal_empleado"
+    _campos_formulario: Dict[str, Any] = {
+        "empresa_id": "",
+        "curp": "",
+        "rfc": "",
+        "nss": "",
+        "nombre": "",
+        "apellido_paterno": "",
+        "apellido_materno": "",
+        "fecha_nacimiento": "",
+        "genero": "",
+        "telefono": "",
+        "email": "",
+        "direccion": "",
+        "contacto_emergencia": "",
+        "notas": "",
+        "motivo_baja": "",
+        "motivo_restriccion": "",
+        "notas_restriccion": "",
+        "motivo_liberacion": "",
+        "notas_liberacion": "",
+    }
+    _campos_error: List[str] = [
+        "curp", "rfc", "nss", "nombre", "apellido_paterno",
+        "email", "telefono", "empresa_id"
+    ]
 
     # ========================
     # ESTADO DE VISTA
@@ -267,32 +308,17 @@ class EmpleadosState(AuthState):
     @rx.var
     def opciones_estatus(self) -> List[dict]:
         """Opciones para el select de estatus"""
-        return [
-            {"value": FILTRO_TODOS, "label": "Todos"},
-            {"value": "ACTIVO", "label": "Activo"},
-            {"value": "INACTIVO", "label": "Inactivo"},
-            {"value": "SUSPENDIDO", "label": "Suspendido"},
-        ]
+        return opciones_desde_enum(EstatusEmpleado, incluir_todos=True)
 
     @rx.var
     def opciones_genero(self) -> List[dict]:
         """Opciones para el select de género"""
-        return [
-            {"value": "MASCULINO", "label": "Masculino"},
-            {"value": "FEMENINO", "label": "Femenino"},
-        ]
+        return opciones_desde_enum(GeneroEmpleado)
 
     @rx.var
     def opciones_motivo_baja(self) -> List[dict]:
         """Opciones para el select de motivo de baja"""
-        return [
-            {"value": "RENUNCIA", "label": "Renuncia voluntaria"},
-            {"value": "DESPIDO", "label": "Despido"},
-            {"value": "FIN_CONTRATO", "label": "Fin de contrato"},
-            {"value": "JUBILACION", "label": "Jubilación"},
-            {"value": "FALLECIMIENTO", "label": "Fallecimiento"},
-            {"value": "OTRO", "label": "Otro motivo"},
-        ]
+        return opciones_desde_enum(MotivoBaja)
 
     @rx.var
     def empleados_filtrados(self) -> List[dict]:
@@ -1069,34 +1095,9 @@ class EmpleadosState(AuthState):
     # MÉTODOS PRIVADOS
     # ========================
     def _limpiar_formulario(self):
-        """Limpia el formulario"""
+        """Limpia el formulario usando configuración del mixin"""
         self.empleado_id_edicion = 0
-        self.form_empresa_id = ""
-        self.form_curp = ""
-        self.form_rfc = ""
-        self.form_nss = ""
-        self.form_nombre = ""
-        self.form_apellido_paterno = ""
-        self.form_apellido_materno = ""
-        self.form_fecha_nacimiento = ""
-        self.form_genero = ""
-        self.form_telefono = ""
-        self.form_email = ""
-        self.form_direccion = ""
-        self.form_contacto_emergencia = ""
-        self.form_notas = ""
-        self._limpiar_errores()
-
-    def _limpiar_errores(self):
-        """Limpia los errores de validación"""
-        self.error_curp = ""
-        self.error_rfc = ""
-        self.error_nss = ""
-        self.error_nombre = ""
-        self.error_apellido_paterno = ""
-        self.error_email = ""
-        self.error_telefono = ""
-        self.error_empresa_id = ""
+        self._limpiar_formulario_crud()  # Usa _campos_formulario y _campos_error
 
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es válido."""

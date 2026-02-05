@@ -8,6 +8,7 @@ y opciones para cambiar empresa (si tiene multiples asignadas).
 import reflex as rx
 
 from app.core.config import Config
+from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.theme import (
     Colors,
@@ -276,13 +277,13 @@ def _portal_user_section() -> rx.Component:
 def _dev_simulation_banner() -> rx.Component:
     """
     Banner rojo SIMULACION con botón Volver a Admin.
-    Solo visible si Config.DEBUG y PortalState.simulando_cliente.
+    Solo visible si Config.DEBUG y AuthState.simulando_cliente.
     """
     if not Config.DEBUG:
         return rx.fragment()
 
     return rx.cond(
-        PortalState.simulando_cliente,
+        AuthState.simulando_cliente,
         rx.vstack(
             rx.hstack(
                 rx.icon("bug", size=14, color="white"),
@@ -304,7 +305,7 @@ def _dev_simulation_banner() -> rx.Component:
                 variant="outline",
                 color_scheme="red",
                 width="100%",
-                on_click=PortalState.desactivar_simulacion_cliente,
+                on_click=AuthState.desactivar_simulacion_cliente,
                 cursor="pointer",
                 style={
                     "color": "white",
