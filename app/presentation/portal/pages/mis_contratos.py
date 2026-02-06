@@ -358,22 +358,18 @@ def _modal_detalle_contrato() -> rx.Component:
                 width="100%",
                 padding_y=Spacing.BASE,
             ),
-            rx.dialog.close(
-                rx.button(
-                    "Cerrar",
-                    variant="outline",
-                    size="2",
-                    width="100%",
-                ),
+            rx.button(
+                "Cerrar",
+                variant="outline",
+                size="2",
+                width="100%",
+                on_click=MisContratosState.cerrar_detalle,
             ),
             max_width="600px",
         ),
         open=MisContratosState.modal_detalle_abierto,
-        on_open_change=lambda open: rx.cond(
-            open,
-            MisContratosState.abrir_detalle(MisContratosState.contrato_detalle),
-            MisContratosState.cerrar_detalle(),
-        ),
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 

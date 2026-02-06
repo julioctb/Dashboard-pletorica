@@ -142,13 +142,11 @@ def modal_sede() -> rx.Component:
 
             # Botones de accion
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=SedesState.cerrar_modal_sede,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=SedesState.cerrar_modal_sede,
                 ),
                 rx.button(
                     rx.cond(
@@ -173,7 +171,8 @@ def modal_sede() -> rx.Component:
             max_width="550px",
         ),
         open=SedesState.mostrar_modal_sede,
-        on_open_change=SedesState.set_mostrar_modal_sede,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 

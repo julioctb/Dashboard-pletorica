@@ -280,13 +280,11 @@ def modal_empleado() -> rx.Component:
 
             # Botones de acción
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=EmpleadosState.cerrar_modal_empleado,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=EmpleadosState.cerrar_modal_empleado,
                 ),
                 rx.button(
                     rx.cond(
@@ -307,7 +305,8 @@ def modal_empleado() -> rx.Component:
             max_width="600px",
         ),
         open=EmpleadosState.mostrar_modal_empleado,
-        on_open_change=lambda open: rx.cond(~open, EmpleadosState.cerrar_modal_empleado(), None),
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -329,15 +328,13 @@ def modal_detalle_empleado() -> rx.Component:
                     ),
                 ),
                 rx.spacer(),
-                rx.dialog.close(
-                    rx.button(
-                        rx.icon("x", size=16),
-                        variant="ghost",
-                        color_scheme="gray",
-                        size="1",
-                        on_click=EmpleadosState.cerrar_modal_detalle,
-                        cursor="pointer",
-                    ),
+                rx.button(
+                    rx.icon("x", size=16),
+                    variant="ghost",
+                    color_scheme="gray",
+                    size="1",
+                    on_click=EmpleadosState.cerrar_modal_detalle,
+                    cursor="pointer",
                 ),
                 align="center",
                 width="100%",
@@ -574,7 +571,8 @@ def modal_detalle_empleado() -> rx.Component:
             max_width="650px",
         ),
         open=EmpleadosState.mostrar_modal_detalle,
-        on_open_change=lambda open: rx.cond(~open, EmpleadosState.cerrar_modal_detalle(), None),
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -621,13 +619,11 @@ def modal_baja() -> rx.Component:
             ),
 
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=EmpleadosState.cerrar_modal_baja,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=EmpleadosState.cerrar_modal_baja,
                 ),
                 rx.button(
                     rx.cond(
@@ -648,7 +644,8 @@ def modal_baja() -> rx.Component:
             max_width="400px",
         ),
         open=EmpleadosState.mostrar_modal_baja,
-        on_open_change=lambda open: rx.cond(~open, EmpleadosState.cerrar_modal_baja(), None),
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -749,13 +746,11 @@ def modal_restriccion() -> rx.Component:
 
                 # Botones
                 rx.hstack(
-                    rx.dialog.close(
-                        rx.button(
-                            "Cancelar",
-                            variant="soft",
-                            color_scheme="gray",
-                            on_click=EmpleadosState.cerrar_modal_restriccion,
-                        ),
+                    rx.button(
+                        "Cancelar",
+                        variant="soft",
+                        color_scheme="gray",
+                        on_click=EmpleadosState.cerrar_modal_restriccion,
                     ),
                     rx.button(
                         rx.cond(
@@ -788,11 +783,8 @@ def modal_restriccion() -> rx.Component:
             max_width="500px",
         ),
         open=EmpleadosState.mostrar_modal_restriccion,
-        on_open_change=lambda open: rx.cond(
-            ~open,
-            EmpleadosState.cerrar_modal_restriccion(),
-            None
-        ),
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -902,13 +894,11 @@ def modal_liberacion() -> rx.Component:
 
             # Botones
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=EmpleadosState.cerrar_modal_liberacion,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=EmpleadosState.cerrar_modal_liberacion,
                 ),
                 rx.button(
                     rx.cond(
@@ -936,11 +926,8 @@ def modal_liberacion() -> rx.Component:
             max_width="500px",
         ),
         open=EmpleadosState.mostrar_modal_liberacion,
-        on_open_change=lambda open: rx.cond(
-            ~open,
-            EmpleadosState.cerrar_modal_liberacion(),
-            None
-        ),
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -1080,13 +1067,11 @@ def modal_historial_restricciones() -> rx.Component:
 
             # Boton cerrar
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cerrar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=EmpleadosState.cerrar_modal_historial,
-                    ),
+                rx.button(
+                    "Cerrar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=EmpleadosState.cerrar_modal_historial,
                 ),
                 justify="end",
                 width="100%",
@@ -1095,9 +1080,6 @@ def modal_historial_restricciones() -> rx.Component:
             max_width="550px",
         ),
         open=EmpleadosState.mostrar_modal_historial,
-        on_open_change=lambda open: rx.cond(
-            ~open,
-            EmpleadosState.cerrar_modal_historial(),
-            None
-        ),
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )

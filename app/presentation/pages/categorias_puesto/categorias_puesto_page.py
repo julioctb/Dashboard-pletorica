@@ -13,8 +13,10 @@ from app.presentation.components.ui import (
     status_badge_reactive,
     tabla_vacia,
     skeleton_tabla,
+    action_buttons_reactive,
+    switch_inactivos,
 )
-from app.presentation.theme import Colors, Spacing, Shadows
+from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.categorias_puesto.categorias_puesto_modals import (
     modal_categoria_puesto,
     modal_confirmar_eliminar,
@@ -27,50 +29,30 @@ from app.presentation.components.categorias_puesto.categorias_puesto_modals impo
 
 def acciones_categoria(categoria: dict) -> rx.Component:
     """Acciones para cada categoria"""
-    return rx.hstack(
-        # Editar
-        rx.cond(
-            categoria["estatus"] == "ACTIVO",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pencil", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    on_click=lambda: CategoriasPuestoState.abrir_modal_editar(categoria),
-                ),
-                content="Editar",
+    # Boton de reactivar (solo visible si inactivo)
+    boton_reactivar = rx.cond(
+        categoria["estatus"] == "INACTIVO",
+        rx.tooltip(
+            rx.icon_button(
+                rx.icon("rotate-ccw", size=14),
+                size="1",
+                variant="ghost",
+                color_scheme="green",
+                cursor="pointer",
+                on_click=lambda: CategoriasPuestoState.activar_categoria(categoria),
             ),
+            content="Reactivar",
         ),
-        # Reactivar (si inactivo)
-        rx.cond(
-            categoria["estatus"] == "INACTIVO",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("rotate-ccw", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    on_click=lambda: CategoriasPuestoState.activar_categoria(categoria),
-                ),
-                content="Reactivar",
-            ),
-        ),
-        # Eliminar (si activo)
-        rx.cond(
-            categoria["estatus"] == "ACTIVO",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("trash-2", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    on_click=lambda: CategoriasPuestoState.abrir_confirmar_eliminar(categoria),
-                ),
-                content="Eliminar",
-            ),
-        ),
-        spacing="1",
+        rx.fragment(),
+    )
+
+    return action_buttons_reactive(
+        item=categoria,
+        editar_action=lambda: CategoriasPuestoState.abrir_modal_editar(categoria),
+        eliminar_action=lambda: CategoriasPuestoState.abrir_confirmar_eliminar(categoria),
+        puede_editar=categoria["estatus"] == "ACTIVO",
+        puede_eliminar=categoria["estatus"] == "ACTIVO",
+        acciones_extra=[boton_reactivar],
     )
 
 
@@ -83,22 +65,30 @@ def fila_categoria(categoria: dict) -> rx.Component:
     return rx.table.row(
         # Clave
         rx.table.cell(
-            rx.text(categoria["clave"], weight="bold", size="2"),
+            rx.text(
+                categoria["clave"],
+                font_weight=Typography.WEIGHT_BOLD,
+                font_size=Typography.SIZE_SM,
+            ),
         ),
         # Nombre
         rx.table.cell(
-            rx.text(categoria["nombre"], size="2"),
+            rx.text(categoria["nombre"], font_size=Typography.SIZE_SM),
         ),
         # Orden
         rx.table.cell(
-            rx.text(categoria["orden"].to(str), size="2"),
+            rx.text(categoria["orden"].to(str), font_size=Typography.SIZE_SM),
         ),
         # Descripcion
         rx.table.cell(
             rx.cond(
                 categoria["descripcion"],
-                rx.text(categoria["descripcion"], size="2", color="gray"),
-                rx.text("-", size="2", color="gray"),
+                rx.text(
+                    categoria["descripcion"],
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
+                ),
+                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
             ),
         ),
         # Estatus
@@ -154,8 +144,8 @@ def tabla_categorias() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", CategoriasPuestoState.total_categorias, " categoria(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
@@ -191,17 +181,22 @@ def card_categoria(categoria: dict) -> rx.Component:
             ),
 
             # Nombre
-            rx.text(categoria["nombre"], weight="bold", size="3"),
+            rx.text(
+                categoria["nombre"],
+                font_weight=Typography.WEIGHT_BOLD,
+                font_size=Typography.SIZE_BASE,
+            ),
 
             # Descripcion
             rx.cond(
                 categoria["descripcion"],
                 rx.text(
                     categoria["descripcion"],
-                    size="2",
+                    font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_SECONDARY,
                     style={"max_width": "100%", "overflow": "hidden", "text_overflow": "ellipsis"},
                 ),
+                rx.fragment(),
             ),
 
             # Acciones
@@ -246,8 +241,8 @@ def grid_categorias() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", CategoriasPuestoState.total_categorias, " categoria(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
@@ -277,6 +272,12 @@ def filtros_categorias() -> rx.Component:
             value=CategoriasPuestoState.filtro_tipo_servicio_id,
             on_change=CategoriasPuestoState.set_filtro_tipo_servicio_id,
         ),
+        # Switch para mostrar inactivas
+        switch_inactivos(
+            checked=CategoriasPuestoState.incluir_inactivas,
+            on_change=CategoriasPuestoState.toggle_inactivas,
+            label="Mostrar inactivas",
+        ),
         # Boton limpiar filtros
         rx.cond(
             CategoriasPuestoState.tiene_filtros_activos,
@@ -287,6 +288,7 @@ def filtros_categorias() -> rx.Component:
                 variant="ghost",
                 size="2",
             ),
+            rx.fragment(),
         ),
         spacing="3",
         align="center",
@@ -301,30 +303,42 @@ def breadcrumbs() -> rx.Component:
     """Breadcrumbs de navegacion"""
     return rx.hstack(
         rx.link(
-            rx.hstack(rx.icon("home", size=14), rx.text("Inicio", size="2"), spacing="1"),
+            rx.hstack(
+                rx.icon("home", size=14),
+                rx.text("Inicio", font_size=Typography.SIZE_SM),
+                spacing="1",
+            ),
             href="/",
-            color="gray",
+            color=Colors.TEXT_MUTED,
             underline="none",
             _hover={"color": "blue"},
         ),
-        rx.text("/", color="gray", size="2"),
+        rx.text("/", color=Colors.TEXT_MUTED, font_size=Typography.SIZE_SM),
         rx.link(
-            rx.text("Tipos de Servicio", size="2"),
+            rx.text("Tipos de Servicio", font_size=Typography.SIZE_SM),
             href="/tipos-servicio",
-            color="gray",
+            color=Colors.TEXT_MUTED,
             underline="none",
             _hover={"color": "blue"},
         ),
         rx.cond(
             CategoriasPuestoState.filtro_tipo_servicio_id != "0",
             rx.hstack(
-                rx.text("/", color="gray", size="2"),
-                rx.text(CategoriasPuestoState.nombre_tipo_filtrado, size="2", weight="medium"),
+                rx.text("/", color=Colors.TEXT_MUTED, font_size=Typography.SIZE_SM),
+                rx.text(
+                    CategoriasPuestoState.nombre_tipo_filtrado,
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                ),
                 spacing="1",
             ),
             rx.hstack(
-                rx.text("/", color="gray", size="2"),
-                rx.text("Categorias", size="2", weight="medium"),
+                rx.text("/", color=Colors.TEXT_MUTED, font_size=Typography.SIZE_SM),
+                rx.text(
+                    "Categorias",
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                ),
                 spacing="1",
             ),
         ),

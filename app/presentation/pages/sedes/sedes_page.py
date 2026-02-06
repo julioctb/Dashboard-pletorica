@@ -13,8 +13,10 @@ from app.presentation.components.ui import (
     status_badge_reactive,
     tabla_vacia,
     skeleton_tabla,
+    action_buttons_reactive,
+    switch_inactivos,
 )
-from app.presentation.theme import Colors, Spacing, Shadows
+from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.sedes.sedes_modals import (
     modal_sede,
     modal_confirmar_eliminar,
@@ -27,50 +29,30 @@ from app.presentation.components.sedes.sedes_modals import (
 
 def acciones_sede(sede: dict) -> rx.Component:
     """Acciones para cada sede"""
-    return rx.hstack(
-        # Editar
-        rx.cond(
-            sede["estatus"] == "ACTIVO",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pencil", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    on_click=lambda: SedesState.abrir_modal_editar(sede),
-                ),
-                content="Editar",
+    # Boton de reactivar (solo visible si inactivo)
+    btn_reactivar = rx.cond(
+        sede["estatus"] == "INACTIVO",
+        rx.tooltip(
+            rx.icon_button(
+                rx.icon("rotate-ccw", size=14),
+                size="1",
+                variant="ghost",
+                color_scheme="green",
+                cursor="pointer",
+                on_click=lambda: SedesState.activar_sede(sede),
             ),
+            content="Reactivar",
         ),
-        # Reactivar (si inactivo)
-        rx.cond(
-            sede["estatus"] == "INACTIVO",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("rotate-ccw", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    on_click=lambda: SedesState.activar_sede(sede),
-                ),
-                content="Reactivar",
-            ),
-        ),
-        # Eliminar (si activo)
-        rx.cond(
-            sede["estatus"] == "ACTIVO",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("trash-2", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    on_click=lambda: SedesState.abrir_confirmar_eliminar(sede),
-                ),
-                content="Eliminar",
-            ),
-        ),
-        spacing="1",
+        rx.fragment(),
+    )
+
+    return action_buttons_reactive(
+        item=sede,
+        editar_action=lambda: SedesState.abrir_modal_editar(sede),
+        eliminar_action=lambda: SedesState.abrir_confirmar_eliminar(sede),
+        puede_editar=sede["estatus"] == "ACTIVO",
+        puede_eliminar=sede["estatus"] == "ACTIVO",
+        acciones_extra=[btn_reactivar],
     )
 
 
@@ -83,29 +65,42 @@ def fila_sede(sede: dict) -> rx.Component:
     return rx.table.row(
         # Codigo
         rx.table.cell(
-            rx.text(sede["codigo"], weight="bold", size="2"),
+            rx.text(
+                sede["codigo"],
+                font_weight=Typography.WEIGHT_BOLD,
+                font_size=Typography.SIZE_SM,
+            ),
         ),
         # Nombre
         rx.table.cell(
             rx.vstack(
-                rx.text(sede["nombre"], size="2"),
+                rx.text(sede["nombre"], font_size=Typography.SIZE_SM),
                 rx.cond(
                     sede["nombre_corto"],
-                    rx.text(sede["nombre_corto"], size="1", color="gray"),
+                    rx.text(
+                        sede["nombre_corto"],
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.TEXT_MUTED,
+                    ),
+                    rx.fragment(),
                 ),
                 spacing="0",
             ),
         ),
         # Tipo
         rx.table.cell(
-            rx.text(sede["tipo_descripcion"], size="2"),
+            rx.text(sede["tipo_descripcion"], font_size=Typography.SIZE_SM),
         ),
         # Ubicacion (padre o ubicacion fisica)
         rx.table.cell(
             rx.cond(
                 sede["sede_padre_nombre"] != "",
-                rx.text(sede["sede_padre_nombre"], size="2", color="gray"),
-                rx.text("-", size="2", color="gray"),
+                rx.text(
+                    sede["sede_padre_nombre"],
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
+                ),
+                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
             ),
         ),
         # Estatus
@@ -161,8 +156,8 @@ def tabla_sedes() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", SedesState.total_sedes, " sede(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
@@ -190,12 +185,21 @@ def card_sede(sede: dict) -> rx.Component:
             ),
 
             # Nombre
-            rx.text(sede["nombre"], weight="bold", size="3"),
+            rx.text(
+                sede["nombre"],
+                font_weight=Typography.WEIGHT_BOLD,
+                font_size=Typography.SIZE_LG,
+            ),
 
             # Nombre corto
             rx.cond(
                 sede["nombre_corto"],
-                rx.text(sede["nombre_corto"], size="2", color=Colors.TEXT_SECONDARY),
+                rx.text(
+                    sede["nombre_corto"],
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                rx.fragment(),
             ),
 
             # Tipo y ubicacion
@@ -203,7 +207,12 @@ def card_sede(sede: dict) -> rx.Component:
                 rx.badge(sede["tipo_descripcion"], variant="soft", size="1"),
                 rx.cond(
                     sede["sede_padre_nombre"] != "",
-                    rx.text(sede["sede_padre_nombre"], size="1", color="gray"),
+                    rx.text(
+                        sede["sede_padre_nombre"],
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.TEXT_MUTED,
+                    ),
+                    rx.fragment(),
                 ),
                 spacing="2",
                 wrap="wrap",
@@ -251,8 +260,8 @@ def grid_sedes() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", SedesState.total_sedes, " sede(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",

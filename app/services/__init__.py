@@ -108,6 +108,12 @@ from app.services.reporte_alta_masiva_service import (
     reporte_alta_masiva_service,
 )
 
+# Entregable
+from app.services.entregable_service import (
+    EntregableService,
+    entregable_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -160,4 +166,7 @@ __all__ = [
     "plantilla_service",
     "ReporteAltaMasivaService",
     "reporte_alta_masiva_service",
+    # Entregable
+    "EntregableService",
+    "entregable_service",
 ]

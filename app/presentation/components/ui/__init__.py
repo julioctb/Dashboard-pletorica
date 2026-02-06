@@ -32,9 +32,21 @@ from .breadcrumb import (
     breadcrumb_dynamic,
 )
 
+from .action_buttons import (
+    action_buttons,
+    action_button_config,
+    action_buttons_reactive,
+)
+
+from .entity_card import (
+    entity_card,
+    entity_grid,
+)
+
 
 __all__ = [
     'page_header',
+    # formularios
     'form_input',
     'form_select',
     'form_textarea',
@@ -63,4 +75,11 @@ __all__ = [
     "view_toggle",
     # Breadcrumb
     "breadcrumb_dynamic",
+    # Action buttons
+    "action_buttons",
+    "action_button_config",
+    "action_buttons_reactive",
+    # Entity cards
+    "entity_card",
+    "entity_grid",
 ]

@@ -3,6 +3,7 @@ import reflex as rx
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 from app.presentation.components.requisiciones.requisicion_estado_badge import estado_requisicion_badge
 from app.presentation.components.ui import tabla_vacia, skeleton_tabla
+from app.presentation.theme import Colors, Typography
 
 
 # =============================================================================
@@ -148,11 +149,15 @@ def _fila_requisicion(req: dict) -> rx.Component:
     return rx.table.row(
         # Numero
         rx.table.cell(
-            rx.text(req["numero_requisicion"], weight="bold", size="2"),
+            rx.text(
+                req["numero_requisicion"],
+                font_weight=Typography.WEIGHT_BOLD,
+                font_size=Typography.SIZE_SM,
+            ),
         ),
         # Fecha
         rx.table.cell(
-            rx.text(req["fecha_elaboracion"], size="2"),
+            rx.text(req["fecha_elaboracion"], font_size=Typography.SIZE_SM),
         ),
         # Estado
         rx.table.cell(
@@ -160,26 +165,26 @@ def _fila_requisicion(req: dict) -> rx.Component:
         ),
         # Tipo
         rx.table.cell(
-            rx.text(req["tipo_contratacion"], size="2"),
+            rx.text(req["tipo_contratacion"], font_size=Typography.SIZE_SM),
         ),
         # Objeto (truncado)
         rx.table.cell(
             rx.text(
                 req["objeto_contratacion"],
-                size="2",
+                font_size=Typography.SIZE_SM,
                 style={"max_width": "200px", "overflow": "hidden", "text_overflow": "ellipsis", "white_space": "nowrap"},
             ),
         ),
         # Dependencia
         rx.table.cell(
-            rx.text(req["dependencia_requirente"], size="2"),
+            rx.text(req["dependencia_requirente"], font_size=Typography.SIZE_SM),
         ),
         # Empresa (si adjudicada)
         rx.table.cell(
             rx.cond(
                 req["empresa_nombre"],
-                rx.text(req["empresa_nombre"], size="2"),
-                rx.text("-", size="2", color="gray"),
+                rx.text(req["empresa_nombre"], font_size=Typography.SIZE_SM),
+                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
             ),
         ),
         # Acciones
@@ -238,8 +243,8 @@ def requisicion_tabla() -> rx.Component:
                     "Mostrando ",
                     RequisicionesState.total_filtrado,
                     " requisicion(es)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",

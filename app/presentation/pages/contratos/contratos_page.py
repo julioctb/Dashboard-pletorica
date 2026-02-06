@@ -15,7 +15,7 @@ from app.presentation.components.ui import (
     skeleton_tabla,
     switch_inactivos,
 )
-from app.presentation.theme import Colors, Spacing, Shadows
+from app.presentation.theme import Colors, Spacing, Shadows, Typography
 
 from app.presentation.pages.contratos.contratos_modals import (
     modal_contrato,
@@ -210,7 +210,7 @@ def fila_contrato(contrato: dict) -> rx.Component:
             rx.cond(
                 contrato["nombre_empresa"],
                 rx.text(contrato["nombre_empresa"], size="2"),
-                rx.text("Sin empresa", size="2", color="gray"),
+                rx.text("Sin empresa", size="2", color=Colors.TEXT_MUTED),
             ),
         ),
         # Estatus
@@ -270,7 +270,7 @@ def tabla_contratos() -> rx.Component:
                 rx.text(
                     "Mostrando ", ContratosState.total_contratos, " contrato(s)",
                     size="2",
-                    color="gray",
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
@@ -394,7 +394,7 @@ def grid_contratos() -> rx.Component:
                 rx.text(
                     "Mostrando ", ContratosState.total_contratos, " contrato(s)",
                     size="2",
-                    color="gray",
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
@@ -414,7 +414,7 @@ def filtros_contratos() -> rx.Component:
         # Filtro de fecha inicio (rango)
         rx.hstack(
             rx.vstack(
-                rx.text("Desde", size="1", color="gray"),
+                rx.text("Desde", size="1", color=Colors.TEXT_MUTED),
                 rx.input(
                     type="date",
                     value=ContratosState.filtro_fecha_desde,
@@ -425,7 +425,7 @@ def filtros_contratos() -> rx.Component:
                 spacing="1",
             ),
             rx.vstack(
-                rx.text("Hasta", size="1", color="gray"),
+                rx.text("Hasta", size="1", color=Colors.TEXT_MUTED),
                 rx.input(
                     type="date",
                     value=ContratosState.filtro_fecha_hasta,

@@ -88,21 +88,17 @@ def modal_confirmar_eliminar(
                 ),
             ),
             rx.hstack(
-                rx.alert_dialog.cancel(
-                    rx.button(
-                        texto_cancelar,
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=on_cancelar,
-                    ),
+                rx.button(
+                    texto_cancelar,
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=on_cancelar,
                 ),
-                rx.alert_dialog.action(
-                    rx.button(
-                        texto_confirmar,
-                        color_scheme="red",
-                        on_click=on_confirmar,
-                        loading=loading,
-                    ),
+                rx.button(
+                    texto_confirmar,
+                    color_scheme="red",
+                    on_click=on_confirmar,
+                    loading=loading,
                 ),
                 justify="end",
                 spacing="3",
@@ -111,6 +107,8 @@ def modal_confirmar_eliminar(
             max_width=max_width,
         ),
         open=open,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -182,21 +180,17 @@ def modal_confirmar_accion(
                 ),
             ),
             rx.hstack(
-                rx.alert_dialog.cancel(
-                    rx.button(
-                        texto_cancelar,
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=on_cancelar,
-                    ),
+                rx.button(
+                    texto_cancelar,
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=on_cancelar,
                 ),
-                rx.alert_dialog.action(
-                    rx.button(
-                        texto_confirmar,
-                        color_scheme=color_confirmar,
-                        on_click=on_confirmar,
-                        loading=loading,
-                    ),
+                rx.button(
+                    texto_confirmar,
+                    color_scheme=color_confirmar,
+                    on_click=on_confirmar,
+                    loading=loading,
                 ),
                 justify="end",
                 spacing="3",
@@ -205,6 +199,8 @@ def modal_confirmar_accion(
             max_width=max_width,
         ),
         open=open,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -249,13 +245,11 @@ def modal_formulario(
             ),
             contenido,
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        texto_cancelar,
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=on_cancelar,
-                    ),
+                rx.button(
+                    texto_cancelar,
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=on_cancelar,
                 ),
                 rx.button(
                     texto_guardar,
@@ -272,6 +266,8 @@ def modal_formulario(
             padding="6",
         ),
         open=open,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -298,13 +294,11 @@ def modal_detalle(
         Componente rx.dialog configurado
     """
     botones = [
-        rx.dialog.close(
-            rx.button(
-                "Cerrar",
-                variant="soft",
-                color_scheme="gray",
-                on_click=on_cerrar,
-            ),
+        rx.button(
+            "Cerrar",
+            variant="soft",
+            color_scheme="gray",
+            on_click=on_cerrar,
         ),
     ]
 
@@ -325,4 +319,6 @@ def modal_detalle(
             padding="6",
         ),
         open=open,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )

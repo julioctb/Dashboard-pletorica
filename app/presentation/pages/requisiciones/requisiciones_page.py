@@ -4,6 +4,14 @@ Muestra tabla con requisiciones, filtros y acciones CRUD + transiciones de estad
 """
 import reflex as rx
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
+from app.presentation.components.ui import (
+    status_badge_reactive,
+    tabla_vacia,
+    skeleton_tabla,
+    action_buttons_reactive,
+    switch_inactivos,
+)
+from app.presentation.theme import Colors, Spacing, Typography
 from app.presentation.layout import (
     page_layout,
     page_header,

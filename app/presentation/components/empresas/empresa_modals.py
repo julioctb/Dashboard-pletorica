@@ -231,13 +231,11 @@ def modal_empresa() -> rx.Component:
 
             # Botones dinámicos
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        size="2",
-                        on_click=EmpresasState.cerrar_modal_empresa
-                    )
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    size="2",
+                    on_click=EmpresasState.cerrar_modal_empresa
                 ),
                 rx.button(
                     # Texto dinámico del botón con loading state
@@ -276,7 +274,8 @@ def modal_empresa() -> rx.Component:
             spacing="7"  # Spacing GRANDE entre: header → formulario → botones
         ),
         open=EmpresasState.mostrar_modal_empresa,
-        on_open_change=EmpresasState.set_mostrar_modal_empresa
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -384,8 +383,11 @@ def modal_detalle_empresa() -> rx.Component:
                     ),
 
                     rx.hstack(
-                        rx.dialog.close(
-                            rx.button("Cerrar", variant="soft", size="2")
+                        rx.button(
+                            "Cerrar",
+                            variant="soft",
+                            size="2",
+                            on_click=EmpresasState.cerrar_modal_detalle,
                         ),
                         rx.button(
                             "Editar",
@@ -403,5 +405,6 @@ def modal_detalle_empresa() -> rx.Component:
             max_width="500px"
         ),
         open=EmpresasState.mostrar_modal_detalle,
-        on_open_change=EmpresasState.set_mostrar_modal_detalle
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )

@@ -32,9 +32,11 @@ class SidebarState(AuthState):
 
     Attributes:
         is_collapsed: True si el sidebar está en modo icono-only
+        entregables_pendientes: Contador de entregables en revisión
     """
 
     is_collapsed: bool = False
+    entregables_pendientes: int = 0
 
     def toggle(self):
         """Alterna entre expandido y colapsado."""
@@ -47,6 +49,19 @@ class SidebarState(AuthState):
     def collapse(self):
         """Colapsa el sidebar."""
         self.is_collapsed = True
+
+    async def cargar_alertas(self):
+        """Carga el contador de entregables pendientes de revisión."""
+        try:
+            from app.services import entregable_service
+            self.entregables_pendientes = await entregable_service.contar_en_revision()
+        except Exception:
+            self.entregables_pendientes = 0
+
+    @rx.var
+    def tiene_alertas_entregables(self) -> bool:
+        """True si hay entregables pendientes de revisión."""
+        return self.entregables_pendientes > 0
 
     @rx.var
     def sidebar_width(self) -> str:

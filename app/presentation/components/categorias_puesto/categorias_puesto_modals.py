@@ -4,6 +4,7 @@ Componentes de modal para Categorías de Puesto.
 import reflex as rx
 from app.presentation.pages.categorias_puesto.categorias_puesto_state import CategoriasPuestoState
 from app.presentation.components.ui.form_input import form_input, form_textarea, form_select
+from app.presentation.components.ui.modals import modal_confirmar_accion
 
 
 def modal_categoria_puesto() -> rx.Component:
@@ -97,13 +98,11 @@ def modal_categoria_puesto() -> rx.Component:
 
             # Botones de acción
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=CategoriasPuestoState.cerrar_modal_categoria,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=CategoriasPuestoState.cerrar_modal_categoria,
                 ),
                 rx.button(
                     rx.cond(
@@ -128,76 +127,35 @@ def modal_categoria_puesto() -> rx.Component:
             max_width="500px",
         ),
         open=CategoriasPuestoState.mostrar_modal_categoria,
-        on_open_change=CategoriasPuestoState.set_mostrar_modal_categoria,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
 def modal_confirmar_eliminar() -> rx.Component:
-    """Modal de confirmación para eliminar categoría"""
-    return rx.alert_dialog.root(
-        rx.alert_dialog.content(
-            rx.alert_dialog.title("Eliminar Categoría de Puesto"),
-            rx.alert_dialog.description(
-                rx.vstack(
-                    rx.text(
-                        "¿Estás seguro de que deseas eliminar esta categoría?"
-                    ),
-                    rx.cond(
-                        CategoriasPuestoState.categoria_seleccionada,
-                        rx.callout(
-                            rx.text(
-                                rx.text(
-                                    CategoriasPuestoState.categoria_seleccionada["clave"],
-                                    weight="bold"
-                                ),
-                                " - ",
-                                CategoriasPuestoState.categoria_seleccionada["nombre"],
-                            ),
-                            icon="info",
-                            color_scheme="blue",
-                        ),
-                        rx.text("")
-                    ),
-                    rx.text(
-                        "Esta acción desactivará la categoría. Podrás reactivarla después.",
-                        size="2",
-                        color="gray"
-                    ),
-                    spacing="3",
-                    width="100%"
-                ),
-            ),
-            rx.hstack(
-                rx.alert_dialog.cancel(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=CategoriasPuestoState.cerrar_confirmar_eliminar,
-                    ),
-                ),
-                rx.alert_dialog.action(
-                    rx.button(
-                        rx.cond(
-                            CategoriasPuestoState.saving,
-                            rx.hstack(
-                                rx.spinner(size="1"),
-                                rx.text("Eliminando..."),
-                                spacing="2"
-                            ),
-                            rx.text("Eliminar")
-                        ),
-                        color_scheme="red",
-                        on_click=CategoriasPuestoState.eliminar_categoria,
-                    ),
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-                padding_top="4",
-            ),
-            max_width="400px",
-        ),
+    """Modal de confirmación para eliminar categoría (usa componente genérico)"""
+    return modal_confirmar_accion(
         open=CategoriasPuestoState.mostrar_modal_confirmar_eliminar,
-        on_open_change=CategoriasPuestoState.set_mostrar_modal_confirmar_eliminar,
+        titulo="Eliminar Categoría de Puesto",
+        mensaje="¿Estás seguro de que deseas eliminar esta categoría?",
+        detalle_contenido=rx.cond(
+            CategoriasPuestoState.categoria_seleccionada,
+            rx.text(
+                rx.text(
+                    CategoriasPuestoState.categoria_seleccionada["clave"],
+                    weight="bold"
+                ),
+                " - ",
+                CategoriasPuestoState.categoria_seleccionada["nombre"],
+            ),
+            rx.text(""),
+        ),
+        nota_adicional="Esta acción desactivará la categoría. Podrás reactivarla después.",
+        on_confirmar=CategoriasPuestoState.eliminar_categoria,
+        on_cancelar=CategoriasPuestoState.cerrar_confirmar_eliminar,
+        loading=CategoriasPuestoState.saving,
+        texto_confirmar="Eliminar",
+        color_confirmar="red",
+        icono_detalle="info",
+        color_detalle="blue",
     )

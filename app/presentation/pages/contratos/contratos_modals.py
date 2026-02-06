@@ -3,7 +3,9 @@ Modales para el módulo de Contratos.
 """
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea, form_date
+from app.presentation.components.ui import status_badge_reactive
 from app.presentation.pages.contratos.contratos_state import ContratosState
+from app.presentation.theme import Colors
 
 
 def _seccion_info_basica() -> rx.Component:
@@ -321,6 +323,137 @@ def _tab_config_personal() -> rx.Component:
     )
 
 
+def _fila_config_entregable(config: dict) -> rx.Component:
+    """Fila de tipo de entregable configurado"""
+    return rx.hstack(
+        rx.vstack(
+            rx.hstack(
+                rx.text(config["tipo_label"], weight="medium", size="2"),
+                rx.cond(
+                    config["requerido"],
+                    rx.badge("Requerido", color_scheme="red", size="1"),
+                    rx.badge("Opcional", color_scheme="gray", size="1"),
+                ),
+                spacing="2",
+                align="center",
+            ),
+            rx.text(config["periodicidad_label"], size="1", color=Colors.TEXT_MUTED),
+            rx.cond(
+                config["descripcion"],
+                rx.text(config["descripcion"], size="1", color=Colors.TEXT_SECONDARY),
+                rx.fragment(),
+            ),
+            spacing="0",
+            align="start",
+        ),
+        rx.spacer(),
+        rx.button(
+            rx.icon("trash-2", size=14),
+            size="1",
+            variant="ghost",
+            color_scheme="red",
+            on_click=lambda: ContratosState.eliminar_tipo_entregable(config["tipo_entregable"]),
+        ),
+        width="100%",
+        padding="3",
+        background=Colors.SECONDARY_LIGHT,
+        border_radius="6px",
+        align="center",
+    )
+
+
+def _tab_config_entregables() -> rx.Component:
+    """Pestaña de configuración de entregables"""
+    return rx.vstack(
+        rx.callout(
+            "Configure los tipos de entregables que el proveedor debe entregar periódicamente.",
+            icon="info",
+            color_scheme="blue",
+            size="2",
+        ),
+
+        # Lista de tipos configurados
+        rx.cond(
+            ContratosState.tiene_config_entregables,
+            rx.vstack(
+                rx.text("Tipos configurados:", weight="bold", size="2"),
+                rx.foreach(
+                    ContratosState.config_entregables,
+                    _fila_config_entregable,
+                ),
+                spacing="2",
+                width="100%",
+            ),
+            rx.center(
+                rx.text("No hay tipos de entregable configurados", size="2", color=Colors.TEXT_MUTED),
+                padding="4",
+            ),
+        ),
+
+        rx.divider(),
+
+        # Formulario para agregar nuevo tipo
+        rx.vstack(
+            rx.text("Agregar tipo de entregable", weight="bold", size="2"),
+            rx.hstack(
+                form_select(
+                    label="Tipo",
+                    required=True,
+                    placeholder="Seleccione tipo",
+                    value=ContratosState.form_tipo_entregable,
+                    on_change=ContratosState.set_form_tipo_entregable,
+                    options=ContratosState.opciones_tipo_entregable,
+                ),
+                form_select(
+                    label="Periodicidad",
+                    required=True,
+                    placeholder="Seleccione periodicidad",
+                    value=ContratosState.form_periodicidad_entregable,
+                    on_change=ContratosState.set_form_periodicidad_entregable,
+                    options=ContratosState.opciones_periodicidad_entregable,
+                ),
+                spacing="2",
+                width="100%",
+            ),
+            rx.hstack(
+                rx.checkbox(
+                    "Requerido para aprobar período",
+                    checked=ContratosState.form_entregable_requerido,
+                    on_change=ContratosState.set_form_entregable_requerido,
+                ),
+                spacing="2",
+            ),
+            form_input(
+                label="Descripción personalizada",
+                placeholder="Ej: Fotos de limpieza de áreas comunes",
+                value=ContratosState.form_entregable_descripcion,
+                on_change=ContratosState.set_form_entregable_descripcion,
+            ),
+            form_textarea(
+                label="Instrucciones para el proveedor",
+                placeholder="Ej: Incluir fecha y hora visible en cada foto",
+                value=ContratosState.form_entregable_instrucciones,
+                on_change=ContratosState.set_form_entregable_instrucciones,
+                rows="2",
+            ),
+            rx.button(
+                rx.icon("plus", size=14),
+                "Agregar tipo",
+                variant="soft",
+                size="2",
+                on_click=ContratosState.agregar_tipo_entregable,
+                disabled=~ContratosState.puede_agregar_entregable,
+            ),
+            spacing="3",
+            width="100%",
+        ),
+
+        spacing="4",
+        width="100%",
+        min_height="300px",
+    )
+
+
 def modal_contrato() -> rx.Component:
     """Modal unificado para crear o editar contrato"""
     return rx.dialog.root(
@@ -374,6 +507,7 @@ def modal_contrato() -> rx.Component:
                     rx.tabs.list(
                         rx.tabs.trigger("Detalles", value="detalles"),
                         rx.tabs.trigger("Config. Personal", value="personal"),
+                        rx.tabs.trigger("Config. Entregables", value="entregables"),
                     ),
                     rx.tabs.content(
                         _contenido_detalles(),
@@ -383,6 +517,11 @@ def modal_contrato() -> rx.Component:
                     rx.tabs.content(
                         _tab_config_personal(),
                         value="personal",
+                        padding_top="16px",
+                    ),
+                    rx.tabs.content(
+                        _tab_config_entregables(),
+                        value="entregables",
                         padding_top="16px",
                     ),
                     default_value="detalles",
@@ -396,13 +535,11 @@ def modal_contrato() -> rx.Component:
 
             # Botones
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        size="2",
-                        on_click=ContratosState.cerrar_modal_contrato
-                    )
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    size="2",
+                    on_click=ContratosState.cerrar_modal_contrato
                 ),
                 rx.button(
                     rx.cond(
@@ -431,12 +568,268 @@ def modal_contrato() -> rx.Component:
             spacing="4"
         ),
         open=ContratosState.mostrar_modal_contrato,
-        on_open_change=ContratosState.set_mostrar_modal_contrato
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
+    )
+
+
+def _tab_informacion_contrato() -> rx.Component:
+    """Pestaña de información del contrato"""
+    return rx.vstack(
+        # Información principal
+        rx.card(
+            rx.vstack(
+                rx.hstack(
+                    rx.text("Información General", weight="bold", size="4"),
+                    rx.spacer(),
+                    rx.badge(
+                        ContratosState.contrato_seleccionado["codigo"],
+                        color_scheme="blue",
+                        size="2",
+                        variant="solid",
+                    ),
+                    align="center",
+                    width="100%",
+                ),
+                rx.grid(
+                    rx.vstack(
+                        rx.text("Empresa:", weight="bold", size="2"),
+                        rx.text(
+                            rx.cond(
+                                ContratosState.contrato_seleccionado["nombre_empresa"],
+                                ContratosState.contrato_seleccionado["nombre_empresa"],
+                                "Sin empresa"
+                            ),
+                            size="2"
+                        ),
+                        align="start"
+                    ),
+                    rx.vstack(
+                        rx.text("Tipo de Servicio:", weight="bold", size="2"),
+                        rx.text(
+                            rx.cond(
+                                ContratosState.contrato_seleccionado["nombre_servicio"],
+                                ContratosState.contrato_seleccionado["nombre_servicio"],
+                                "Sin tipo"
+                            ),
+                            size="2"
+                        ),
+                        align="start"
+                    ),
+                    rx.vstack(
+                        rx.text("Tipo de Contrato:", weight="bold", size="2"),
+                        rx.text(ContratosState.contrato_seleccionado["tipo_contrato"], size="2"),
+                        align="start"
+                    ),
+                    rx.vstack(
+                        rx.text("Modalidad:", weight="bold", size="2"),
+                        rx.text(ContratosState.contrato_seleccionado["modalidad_adjudicacion"], size="2"),
+                        align="start"
+                    ),
+                    rx.vstack(
+                        rx.text("Estatus:", weight="bold", size="2"),
+                        rx.badge(ContratosState.contrato_seleccionado["estatus"]),
+                        align="start"
+                    ),
+                    columns="2",
+                    spacing="4"
+                ),
+                spacing="3"
+            ),
+            width="100%"
+        ),
+
+        # Vigencia
+        rx.card(
+            rx.vstack(
+                rx.text("Vigencia", weight="bold", size="4"),
+                rx.hstack(
+                    rx.vstack(
+                        rx.text("Fecha inicio:", weight="bold", size="2"),
+                        rx.text(
+                            ContratosState.contrato_seleccionado["fecha_inicio"].to(str),
+                            size="2",
+                        ),
+                        align="start"
+                    ),
+                    rx.vstack(
+                        rx.text("Fecha fin:", weight="bold", size="2"),
+                        rx.text(
+                            rx.cond(
+                                ContratosState.contrato_seleccionado["fecha_fin"],
+                                ContratosState.contrato_seleccionado["fecha_fin"].to(str),
+                                "Indefinido"
+                            ),
+                            size="2"
+                        ),
+                        align="start"
+                    ),
+                    rx.vstack(
+                        rx.text("Tipo duración:", weight="bold", size="2"),
+                        rx.text(ContratosState.contrato_seleccionado["tipo_duracion"], size="2"),
+                        align="start"
+                    ),
+                    spacing="6"
+                ),
+                spacing="3"
+            ),
+            width="100%"
+        ),
+
+        # Montos (si existen)
+        rx.cond(
+            ContratosState.contrato_seleccionado["monto_minimo"] |
+            ContratosState.contrato_seleccionado["monto_maximo"],
+            rx.card(
+                rx.vstack(
+                    rx.text("Montos", weight="bold", size="4"),
+                    rx.hstack(
+                        rx.cond(
+                            ContratosState.contrato_seleccionado["monto_minimo"],
+                            rx.vstack(
+                                rx.text("Monto mínimo:", weight="bold", size="2"),
+                                rx.text(
+                                    f"${ContratosState.contrato_seleccionado['monto_minimo'].to(str)}",
+                                    size="2"
+                                ),
+                                align="start"
+                            ),
+                        ),
+                        rx.cond(
+                            ContratosState.contrato_seleccionado["monto_maximo"],
+                            rx.vstack(
+                                rx.text("Monto máximo:", weight="bold", size="2"),
+                                rx.text(
+                                    f"${ContratosState.contrato_seleccionado['monto_maximo'].to(str)}",
+                                    size="2"
+                                ),
+                                align="start"
+                            ),
+                        ),
+                        rx.vstack(
+                            rx.text("Incluye IVA:", weight="bold", size="2"),
+                            rx.text(
+                                rx.cond(
+                                    ContratosState.contrato_seleccionado["incluye_iva"],
+                                    "Sí",
+                                    "No"
+                                ),
+                                size="2"
+                            ),
+                            align="start"
+                        ),
+                        spacing="6"
+                    ),
+                    spacing="3"
+                ),
+                width="100%"
+            ),
+        ),
+
+        # Descripción (si existe)
+        rx.cond(
+            ContratosState.contrato_seleccionado["descripcion_objeto"],
+            rx.card(
+                rx.vstack(
+                    rx.text("Descripción", weight="bold", size="4"),
+                    rx.text(
+                        ContratosState.contrato_seleccionado["descripcion_objeto"],
+                        size="2"
+                    ),
+                    spacing="2"
+                ),
+                width="100%"
+            ),
+        ),
+
+        # Notas (si existen)
+        rx.cond(
+            ContratosState.contrato_seleccionado["notas"],
+            rx.card(
+                rx.vstack(
+                    rx.text("Notas", weight="bold", size="4"),
+                    rx.text(ContratosState.contrato_seleccionado["notas"], size="2"),
+                    spacing="2"
+                ),
+                width="100%"
+            ),
+        ),
+
+        spacing="4",
+        width="100%",
+    )
+
+
+def _fila_entregable(entregable: dict) -> rx.Component:
+    """Fila de entregable en la tabla"""
+    return rx.table.row(
+        rx.table.cell(rx.text(f"Período {entregable['numero_periodo']}", weight="medium")),
+        rx.table.cell(rx.text(entregable["periodo_texto"], size="2", color=Colors.TEXT_SECONDARY)),
+        rx.table.cell(status_badge_reactive(entregable["estatus"])),
+        rx.table.cell(
+            rx.cond(
+                entregable["monto_aprobado"],
+                rx.text(f"${entregable['monto_aprobado']}", size="2", weight="medium"),
+                rx.text("-", size="2", color=Colors.TEXT_MUTED),
+            ),
+        ),
+        rx.table.cell(
+            rx.button(
+                rx.icon("eye", size=14),
+                size="1",
+                variant="ghost",
+                on_click=rx.redirect(f"/entregables/{entregable['id']}"),
+            ),
+        ),
+    )
+
+
+def _tab_entregables_contrato() -> rx.Component:
+    """Pestaña de entregables del contrato"""
+    return rx.vstack(
+        rx.cond(
+            ContratosState.cargando_entregables,
+            rx.center(rx.spinner(size="3"), padding="8"),
+            rx.cond(
+                ContratosState.tiene_entregables_contrato,
+                rx.box(
+                    rx.table.root(
+                        rx.table.header(
+                            rx.table.row(
+                                rx.table.column_header_cell("Período"),
+                                rx.table.column_header_cell("Fechas"),
+                                rx.table.column_header_cell("Estado"),
+                                rx.table.column_header_cell("Monto"),
+                                rx.table.column_header_cell(""),
+                            ),
+                        ),
+                        rx.table.body(
+                            rx.foreach(ContratosState.entregables_contrato, _fila_entregable),
+                        ),
+                        width="100%",
+                    ),
+                    overflow_x="auto",
+                ),
+                rx.center(
+                    rx.vstack(
+                        rx.icon("package", size=40, color=Colors.TEXT_MUTED),
+                        rx.text("No hay entregables para este contrato", color=Colors.TEXT_MUTED),
+                        rx.text("Los entregables se generan automáticamente según la configuración", size="1", color=Colors.TEXT_MUTED),
+                        spacing="2",
+                        align="center",
+                    ),
+                    padding="8",
+                ),
+            ),
+        ),
+        spacing="4",
+        width="100%",
+        min_height="200px",
     )
 
 
 def modal_detalle_contrato() -> rx.Component:
-    """Modal para mostrar detalles del contrato"""
+    """Modal para mostrar detalles del contrato con pestañas"""
     return rx.dialog.root(
         rx.dialog.content(
             rx.cond(
@@ -444,192 +837,51 @@ def modal_detalle_contrato() -> rx.Component:
                 rx.vstack(
                     rx.dialog.title("Detalle del Contrato"),
 
-                    # Información principal
-                    rx.card(
-                        rx.vstack(
-                            rx.hstack(
-                                rx.text("Información General", weight="bold", size="4"),
-                                rx.spacer(),
-                                rx.badge(
-                                    ContratosState.contrato_seleccionado["codigo"],
-                                    color_scheme="blue",
-                                    size="2",
-                                    variant="solid",
-                                ),
-                                align="center",
-                                width="100%",
-                            ),
-                            rx.grid(
-                                rx.vstack(
-                                    rx.text("Empresa:", weight="bold", size="2"),
-                                    rx.text(
-                                        rx.cond(
-                                            ContratosState.contrato_seleccionado["nombre_empresa"],
-                                            ContratosState.contrato_seleccionado["nombre_empresa"],
-                                            "Sin empresa"
-                                        ),
-                                        size="2"
-                                    ),
-                                    align="start"
-                                ),
-                                rx.vstack(
-                                    rx.text("Tipo de Servicio:", weight="bold", size="2"),
-                                    rx.text(
-                                        rx.cond(
-                                            ContratosState.contrato_seleccionado["nombre_servicio"],
-                                            ContratosState.contrato_seleccionado["nombre_servicio"],
-                                            "Sin tipo"
-                                        ),
-                                        size="2"
-                                    ),
-                                    align="start"
-                                ),
-                                rx.vstack(
-                                    rx.text("Tipo de Contrato:", weight="bold", size="2"),
-                                    rx.text(ContratosState.contrato_seleccionado["tipo_contrato"], size="2"),
-                                    align="start"
-                                ),
-                                rx.vstack(
-                                    rx.text("Modalidad:", weight="bold", size="2"),
-                                    rx.text(ContratosState.contrato_seleccionado["modalidad_adjudicacion"], size="2"),
-                                    align="start"
-                                ),
-                                rx.vstack(
-                                    rx.text("Estatus:", weight="bold", size="2"),
-                                    rx.badge(ContratosState.contrato_seleccionado["estatus"]),
-                                    align="start"
-                                ),
-                                columns="2",
-                                spacing="4"
-                            ),
-                            spacing="3"
-                        ),
-                        width="100%"
-                    ),
-
-                    # Vigencia
-                    rx.card(
-                        rx.vstack(
-                            rx.text("Vigencia", weight="bold", size="4"),
-                            rx.hstack(
-                                rx.vstack(
-                                    rx.text("Fecha inicio:", weight="bold", size="2"),
-                                    rx.text(
-                                        ContratosState.contrato_seleccionado["fecha_inicio"].to(str),
-                                        size="2",
-                                        
-                                    ),
-                                    align="start"
-                                ),
-                                rx.vstack(
-                                    rx.text("Fecha fin:", weight="bold", size="2"),
-                                    rx.text(
-                                        rx.cond(
-                                            ContratosState.contrato_seleccionado["fecha_fin"],
-                                            ContratosState.contrato_seleccionado["fecha_fin"].to(str),
-                                            "Indefinido"
-                                        ),
-                                        size="2"
-                                    ),
-                                    align="start"
-                                ),
-                                rx.vstack(
-                                    rx.text("Tipo duración:", weight="bold", size="2"),
-                                    rx.text(ContratosState.contrato_seleccionado["tipo_duracion"], size="2"),
-                                    align="start"
-                                ),
-                                spacing="6"
-                            ),
-                            spacing="3"
-                        ),
-                        width="100%"
-                    ),
-
-                    # Montos (si existen)
-                    rx.cond(
-                        ContratosState.contrato_seleccionado["monto_minimo"] |
-                        ContratosState.contrato_seleccionado["monto_maximo"],
-                        rx.card(
-                            rx.vstack(
-                                rx.text("Montos", weight="bold", size="4"),
+                    # Tabs de contenido
+                    rx.tabs.root(
+                        rx.tabs.list(
+                            rx.tabs.trigger("Información", value="info"),
+                            rx.tabs.trigger(
                                 rx.hstack(
+                                    rx.text("Entregables"),
                                     rx.cond(
-                                        ContratosState.contrato_seleccionado["monto_minimo"],
-                                        rx.vstack(
-                                            rx.text("Monto mínimo:", weight="bold", size="2"),
-                                            rx.text(
-                                                f"${ContratosState.contrato_seleccionado['monto_minimo'].to(str)}",
-                                                size="2"
-                                            ),
-                                            align="start"
+                                        ContratosState.tiene_entregables_contrato,
+                                        rx.badge(
+                                            ContratosState.entregables_contrato.length(),
+                                            color_scheme="blue",
+                                            size="1",
                                         ),
+                                        rx.fragment(),
                                     ),
-                                    rx.cond(
-                                        ContratosState.contrato_seleccionado["monto_maximo"],
-                                        rx.vstack(
-                                            rx.text("Monto máximo:", weight="bold", size="2"),
-                                            rx.text(
-                                                f"${ContratosState.contrato_seleccionado['monto_maximo'].to(str)}",
-                                                size="2"
-                                            ),
-                                            align="start"
-                                        ),
-                                    ),
-                                    rx.vstack(
-                                        rx.text("Incluye IVA:", weight="bold", size="2"),
-                                        rx.text(
-                                            rx.cond(
-                                                ContratosState.contrato_seleccionado["incluye_iva"],
-                                                "Sí",
-                                                "No"
-                                            ),
-                                            size="2"
-                                        ),
-                                        align="start"
-                                    ),
-                                    spacing="6"
+                                    spacing="2",
+                                    align="center",
                                 ),
-                                spacing="3"
+                                value="entregables",
                             ),
-                            width="100%"
                         ),
-                    ),
-
-                    # Descripción (si existe)
-                    rx.cond(
-                        ContratosState.contrato_seleccionado["descripcion_objeto"],
-                        rx.card(
-                            rx.vstack(
-                                rx.text("Descripción", weight="bold", size="4"),
-                                rx.text(
-                                    ContratosState.contrato_seleccionado["descripcion_objeto"],
-                                    size="2"
-                                ),
-                                spacing="2"
-                            ),
-                            width="100%"
+                        rx.tabs.content(
+                            _tab_informacion_contrato(),
+                            value="info",
+                            padding_top="16px",
                         ),
-                    ),
-
-                    # Notas (si existen)
-                    rx.cond(
-                        ContratosState.contrato_seleccionado["notas"],
-                        rx.card(
-                            rx.vstack(
-                                rx.text("Notas", weight="bold", size="4"),
-                                rx.text(ContratosState.contrato_seleccionado["notas"], size="2"),
-                                spacing="2"
-                            ),
-                            width="100%"
+                        rx.tabs.content(
+                            _tab_entregables_contrato(),
+                            value="entregables",
+                            padding_top="16px",
                         ),
+                        default_value="info",
+                        width="100%",
                     ),
 
                     # Botones
                     rx.hstack(
-                        rx.dialog.close(
-                            rx.button("Cerrar", variant="soft", size="2")
+                        rx.button(
+                            "Cerrar",
+                            variant="soft",
+                            size="2",
+                            on_click=ContratosState.cerrar_modal_detalle,
                         ),
-                        # Editar solo si está en BORRADOR o SUSPENDIDO (contratos ACTIVOS no se pueden editar)
+                        # Editar solo si está en BORRADOR o SUSPENDIDO
                         rx.cond(
                             (ContratosState.contrato_seleccionado["estatus"] == "BORRADOR") |
                             (ContratosState.contrato_seleccionado["estatus"] == "SUSPENDIDO"),
@@ -642,17 +894,19 @@ def modal_detalle_contrato() -> rx.Component:
                             ),
                         ),
                         spacing="2",
-                        justify="end"
+                        justify="end",
+                        margin_top="16px",
                     ),
 
                     spacing="4",
                     width="100%"
                 ),
             ),
-            max_width="600px"
+            max_width="700px"
         ),
         open=ContratosState.mostrar_modal_detalle,
-        on_open_change=ContratosState.set_mostrar_modal_detalle
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -676,29 +930,26 @@ def modal_confirmar_cancelar() -> rx.Component:
                 )
             ),
             rx.hstack(
-                rx.alert_dialog.cancel(
-                    rx.button(
-                        "No, mantener",
-                        variant="soft",
-                        on_click=ContratosState.cerrar_confirmar_cancelar
-                    )
+                rx.button(
+                    "No, mantener",
+                    variant="soft",
+                    on_click=ContratosState.cerrar_confirmar_cancelar
                 ),
-                rx.alert_dialog.action(
-                    rx.button(
-                        rx.cond(
-                            ContratosState.saving,
-                            rx.hstack(rx.spinner(size="1"), "Cancelando...", spacing="2"),
-                            "Sí, cancelar"
-                        ),
-                        color_scheme="red",
-                        on_click=ContratosState.cancelar_contrato,
-                        disabled=ContratosState.saving,
-                    )
+                rx.button(
+                    rx.cond(
+                        ContratosState.saving,
+                        rx.hstack(rx.spinner(size="1"), "Cancelando...", spacing="2"),
+                        "Sí, cancelar"
+                    ),
+                    color_scheme="red",
+                    on_click=ContratosState.cancelar_contrato,
+                    disabled=ContratosState.saving,
                 ),
                 spacing="3",
                 justify="end"
             ),
         ),
         open=ContratosState.mostrar_modal_confirmar_cancelar,
-        on_open_change=ContratosState.set_mostrar_modal_confirmar_cancelar
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )

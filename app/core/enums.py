@@ -425,3 +425,114 @@ class RolUsuario(str, Enum):
     def es_admin(self) -> bool:
         """Indica si el rol tiene privilegios de administrador"""
         return self == RolUsuario.ADMIN
+    
+# =============================================================================
+# ENUMS DE ENTREGABLES
+# =============================================================================
+
+class TipoEntregable(str, Enum):
+    """Tipos de entregable según formato de archivo permitido"""
+    FOTOGRAFICO = 'FOTOGRAFICO'
+    REPORTE = 'REPORTE'
+    LISTADO = 'LISTADO'
+    DOCUMENTAL = 'DOCUMENTAL'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del tipo"""
+        descripciones = {
+            'FOTOGRAFICO': 'Evidencia fotográfica',
+            'REPORTE': 'Reporte de actividades',
+            'LISTADO': 'Listado de personal',
+            'DOCUMENTAL': 'Documento oficial',
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def formatos_permitidos(self) -> set:
+        """MIME types permitidos para este tipo"""
+        formatos = {
+            'FOTOGRAFICO': {'image/jpeg', 'image/png', 'application/pdf'},
+            'REPORTE': {'application/pdf'},
+            'LISTADO': {
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'text/csv',
+            },
+            'DOCUMENTAL': {'application/pdf'},
+        }
+        return formatos.get(self.value, set())
+
+    @property
+    def extensiones_permitidas(self) -> set:
+        """Extensiones de archivo permitidas"""
+        extensiones = {
+            'FOTOGRAFICO': {'.jpg', '.jpeg', '.png', '.pdf'},
+            'REPORTE': {'.pdf'},
+            'LISTADO': {'.xls', '.xlsx', '.csv'},
+            'DOCUMENTAL': {'.pdf'},
+        }
+        return extensiones.get(self.value, set())
+
+
+class PeriodicidadEntregable(str, Enum):
+    """Periodicidad de entrega de entregables"""
+    MENSUAL = 'MENSUAL'
+    QUINCENAL = 'QUINCENAL'
+    UNICO = 'UNICO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible de la periodicidad"""
+        descripciones = {
+            'MENSUAL': 'Mensual',
+            'QUINCENAL': 'Quincenal',
+            'UNICO': 'Único (al finalizar contrato)',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class EstatusEntregable(str, Enum):
+    """Estados del ciclo de vida de un entregable"""
+    PENDIENTE = 'PENDIENTE'
+    EN_REVISION = 'EN_REVISION'
+    APROBADO = 'APROBADO'
+    RECHAZADO = 'RECHAZADO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del estatus"""
+        descripciones = {
+            'PENDIENTE': 'Pendiente de entrega',
+            'EN_REVISION': 'En revisión',
+            'APROBADO': 'Aprobado',
+            'RECHAZADO': 'Rechazado',
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def es_estado_final(self) -> bool:
+        """Indica si es un estado final"""
+        return self == EstatusEntregable.APROBADO
+
+    @property
+    def permite_edicion_cliente(self) -> bool:
+        """Indica si el cliente puede editar/subir archivos"""
+        return self in (EstatusEntregable.PENDIENTE, EstatusEntregable.RECHAZADO)
+
+
+class EstatusPago(str, Enum):
+    """Estados del pago"""
+    PENDIENTE = 'PENDIENTE'
+    EN_PROCESO = 'EN_PROCESO'
+    PAGADO = 'PAGADO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del estatus"""
+        descripciones = {
+            'PENDIENTE': 'Pendiente (esperando factura)',
+            'EN_PROCESO': 'En proceso de pago',
+            'PAGADO': 'Pagado',
+        }
+        return descripciones.get(self.value, self.value)

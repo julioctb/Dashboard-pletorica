@@ -54,6 +54,7 @@ NAVIGATION_GROUPS = [
         "items": [
             {"text": "Requisiciones", "icon": "clipboard-list", "href": "/requisiciones"},
             {"text": "Contratos", "icon": "file-text", "href": "/contratos"},
+            {"text": "Entregables", "icon": "package-check", "href": "/entregables"},
             {"text": "Pagos", "icon": "credit-card", "href": "/pagos"},
             {"text": "Empresas", "icon": "building-2", "href": "/empresas"},
             {"text": "Sedes", "icon": "map-pin-house", "href": "/sedes"},
@@ -140,10 +141,11 @@ def sidebar_header() -> rx.Component:
     )
 
 
-def sidebar_item(text: str, icon: str, href: str) -> rx.Component:
+def sidebar_item(text: str, icon: str, href: str, badge: rx.Component = None) -> rx.Component:
     """
     Item de navegacion individual.
     Muestra tooltip en modo colapsado.
+    Soporta badge opcional para alertas.
     """
     # Contenido base del item
     item_content = rx.hstack(
@@ -156,12 +158,18 @@ def sidebar_item(text: str, icon: str, href: str) -> rx.Component:
         # Texto solo visible cuando esta expandido
         rx.cond(
             ~SidebarState.is_collapsed,
-            rx.text(
-                text,
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
-                color=Colors.TEXT_PRIMARY,
-                white_space="nowrap",
+            rx.hstack(
+                rx.text(
+                    text,
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_PRIMARY,
+                    white_space="nowrap",
+                ),
+                rx.spacer(),
+                badge if badge else rx.fragment(),
+                width="100%",
+                align="center",
             ),
         ),
         width="100%",
@@ -225,18 +233,44 @@ def sidebar_group_label(label: str) -> rx.Component:
     )
 
 
+def _entregables_badge() -> rx.Component:
+    """Badge de alertas para el item de Entregables."""
+    return rx.cond(
+        SidebarState.tiene_alertas_entregables,
+        rx.badge(
+            SidebarState.entregables_pendientes,
+            color_scheme="red",
+            variant="solid",
+            size="1",
+        ),
+        rx.fragment(),
+    )
+
+
 def sidebar_group(group: dict) -> rx.Component:
     """
     Renderiza un grupo de navegacion con su etiqueta e items.
     """
-    items = [
-        sidebar_item(
-            text=item["text"],
-            icon=item["icon"],
-            href=item["href"],
-        )
-        for item in group["items"]
-    ]
+    items = []
+    for item in group["items"]:
+        # Item especial para Entregables con badge
+        if item["text"] == "Entregables":
+            items.append(
+                sidebar_item(
+                    text=item["text"],
+                    icon=item["icon"],
+                    href=item["href"],
+                    badge=_entregables_badge(),
+                )
+            )
+        else:
+            items.append(
+                sidebar_item(
+                    text=item["text"],
+                    icon=item["icon"],
+                    href=item["href"],
+                )
+            )
 
     if group["label"]:
         return rx.vstack(
@@ -696,6 +730,7 @@ def sidebar() -> rx.Component:
         transition=f"width {Transitions.NORMAL}, min-width {Transitions.NORMAL}",
         flex_shrink="0",
         overflow="visible",  # Para que el boton toggle se vea
+        on_mount=SidebarState.cargar_alertas,
     )
 
 

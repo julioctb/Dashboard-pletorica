@@ -39,6 +39,8 @@ class ArchivosConfig:
         "REPORTE_ACTIVIDAD": 10,
         "CONTRATO": 10,
         "EMPLEADO": 5,
+        "ENTREGABLE": 20,  # Puede tener múltiples fotos, reportes, etc.
+        "PAGO": 2,        # Factura PDF y XML
     }
 
     # === COMPRESION PDF (Ghostscript) ===
@@ -74,6 +76,10 @@ class ArchivosConfig:
             "REPORTE_ACTIVIDAD": f"reportes/{identificador}/actividades/{sub_identificador}/{nombre_archivo}",
             "CONTRATO": f"contratos/{identificador}/{nombre_archivo}",
             "EMPLEADO": f"empleados/{identificador}/{nombre_archivo}",
+            "ENTREGABLE": f"entregables/{identificador}/{sub_identificador}/{nombre_archivo}",
+            # identificador = contrato_id, sub_identificador = entregable_id/tipo
+            "PAGO": f"pagos/{identificador}/{nombre_archivo}",
+            # identificador = pago_id
         }
         return rutas.get(entidad_tipo, f"otros/{identificador}/{nombre_archivo}")
 

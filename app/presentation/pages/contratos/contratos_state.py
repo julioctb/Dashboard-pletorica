@@ -18,7 +18,7 @@ from app.core.ui_helpers import (
     FILTRO_SIN_SELECCION,
     opciones_desde_enum,
 )
-from app.services import contrato_service, empresa_service, tipo_servicio_service, pago_service, categoria_puesto_service
+from app.services import contrato_service, empresa_service, tipo_servicio_service, pago_service, categoria_puesto_service, entregable_service
 from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
 
 from app.entities import (
@@ -29,6 +29,8 @@ from app.entities import (
     TipoDuracion,
     TipoContrato,
 )
+from app.core.enums import TipoEntregable, PeriodicidadEntregable
+from app.entities.entregable import ContratoTipoEntregableCreate
 
 from app.core.exceptions import (
     DuplicateError,
@@ -135,6 +137,10 @@ class ContratosState(BaseState, CRUDStateMixin):
     mostrar_modal_confirmar_cancelar: bool = False
     es_edicion: bool = False
 
+    # Entregables del contrato seleccionado (para modal detalle)
+    entregables_contrato: List[dict] = []
+    cargando_entregables: bool = False
+
     # ========================
     # ESTADO DE VISTA (tabla/cards)
     # ========================
@@ -176,6 +182,16 @@ class ContratosState(BaseState, CRUDStateMixin):
     form_tiene_personal: bool = True
     form_estatus: str = EstatusContrato.BORRADOR.value
     form_notas: str = ""
+
+    # ========================
+    # CONFIGURACIÓN DE ENTREGABLES
+    # ========================
+    config_entregables: List[dict] = []  # Lista de tipos de entregable configurados
+    form_tipo_entregable: str = ""
+    form_periodicidad_entregable: str = PeriodicidadEntregable.MENSUAL.value
+    form_entregable_requerido: bool = True
+    form_entregable_descripcion: str = ""
+    form_entregable_instrucciones: str = ""
 
     # ========================
     # ERRORES DE VALIDACIÓN
@@ -309,6 +325,22 @@ class ContratosState(BaseState, CRUDStateMixin):
 
     def set_form_notas(self, value):
         self.form_notas = value if value else ""
+
+    # --- Configuración de entregables ---
+    def set_form_tipo_entregable(self, value):
+        self.form_tipo_entregable = value if value else ""
+
+    def set_form_periodicidad_entregable(self, value):
+        self.form_periodicidad_entregable = value if value else PeriodicidadEntregable.MENSUAL.value
+
+    def set_form_entregable_requerido(self, value):
+        self.form_entregable_requerido = bool(value)
+
+    def set_form_entregable_descripcion(self, value):
+        self.form_entregable_descripcion = value if value else ""
+
+    def set_form_entregable_instrucciones(self, value):
+        self.form_entregable_instrucciones = value if value else ""
 
     # --- Formulario: setters con lógica de negocio (mantener explícitos) ---
     def set_form_tipo_contrato(self, value):
@@ -627,6 +659,26 @@ class ContratosState(BaseState, CRUDStateMixin):
         """Opciones para el select de estatus"""
         return opciones_desde_enum(EstatusContrato)
 
+    @rx.var
+    def opciones_tipo_entregable(self) -> List[dict]:
+        """Opciones para el select de tipo de entregable"""
+        return opciones_desde_enum(TipoEntregable)
+
+    @rx.var
+    def opciones_periodicidad_entregable(self) -> List[dict]:
+        """Opciones para el select de periodicidad"""
+        return opciones_desde_enum(PeriodicidadEntregable)
+
+    @rx.var
+    def tiene_config_entregables(self) -> bool:
+        """True si hay tipos de entregable configurados"""
+        return len(self.config_entregables) > 0
+
+    @rx.var
+    def puede_agregar_entregable(self) -> bool:
+        """True si se puede agregar un tipo de entregable"""
+        return bool(self.form_tipo_entregable)
+
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
@@ -834,13 +886,42 @@ class ContratosState(BaseState, CRUDStateMixin):
                     break
             self.contrato_seleccionado = contrato_dict
             self.mostrar_modal_detalle = True
+            # Cargar entregables del contrato
+            await self._cargar_entregables_contrato(contrato_id)
         except Exception as e:
             self.manejar_error(e, "al abrir detalles")
+
+    async def _cargar_entregables_contrato(self, contrato_id: int):
+        """Cargar entregables del contrato seleccionado"""
+        self.cargando_entregables = True
+        try:
+            entregables = await entregable_service.obtener_por_contrato(contrato_id, sincronizar=True)
+            self.entregables_contrato = [
+                {
+                    "id": e.id,
+                    "numero_periodo": e.numero_periodo,
+                    "periodo_texto": e.periodo_texto,
+                    "estatus": e.estatus.value if hasattr(e.estatus, 'value') else e.estatus,
+                    "fecha_entrega": str(e.fecha_entrega) if e.fecha_entrega else None,
+                    "monto_aprobado": str(e.monto_aprobado) if e.monto_aprobado else None,
+                    "puede_revisar": e.puede_revisar_admin,
+                }
+                for e in entregables
+            ]
+        except Exception:
+            self.entregables_contrato = []
+        finally:
+            self.cargando_entregables = False
+
+    @rx.var
+    def tiene_entregables_contrato(self) -> bool:
+        return len(self.entregables_contrato) > 0
 
     def cerrar_modal_detalle(self):
         """Cerrar modal de detalles"""
         self.mostrar_modal_detalle = False
         self.contrato_seleccionado = None
+        self.entregables_contrato = []
 
     def abrir_confirmar_cancelar(self, contrato: dict):
         """Abrir modal de confirmación para cancelar"""
@@ -944,6 +1025,19 @@ class ContratosState(BaseState, CRUDStateMixin):
             codigo_empresa,
             clave_servicio
         )
+
+        # Guardar configuración de entregables si hay tipos configurados
+        if self.config_entregables:
+            for config in self.config_entregables:
+                tipo_config = ContratoTipoEntregableCreate(
+                    contrato_id=contrato_creado.id,
+                    tipo_entregable=TipoEntregable(config["tipo_entregable"]),
+                    periodicidad=PeriodicidadEntregable(config["periodicidad"]),
+                    requerido=config["requerido"],
+                    descripcion=config.get("descripcion"),
+                    instrucciones=config.get("instrucciones"),
+                )
+                await entregable_service.configurar_tipo_entregable(tipo_config)
 
         return f"Contrato '{contrato_creado.codigo}' creado exitosamente"
 
@@ -1105,6 +1199,59 @@ class ContratosState(BaseState, CRUDStateMixin):
             yield self.manejar_error_con_toast(e, "al reactivar contrato")
 
     # ========================
+    # CONFIGURACIÓN DE ENTREGABLES
+    # ========================
+    def agregar_tipo_entregable(self):
+        """Agregar tipo de entregable a la configuración"""
+        if not self.form_tipo_entregable:
+            return
+
+        # Verificar si ya existe este tipo
+        for config in self.config_entregables:
+            if config["tipo_entregable"] == self.form_tipo_entregable:
+                return rx.toast.warning("Este tipo de entregable ya está configurado")
+
+        # Obtener descripción del enum
+        try:
+            tipo_enum = TipoEntregable(self.form_tipo_entregable)
+            tipo_label = tipo_enum.descripcion
+        except ValueError:
+            tipo_label = self.form_tipo_entregable
+
+        try:
+            periodicidad_enum = PeriodicidadEntregable(self.form_periodicidad_entregable)
+            periodicidad_label = periodicidad_enum.descripcion
+        except ValueError:
+            periodicidad_label = self.form_periodicidad_entregable
+
+        nuevo_config = {
+            "tipo_entregable": self.form_tipo_entregable,
+            "tipo_label": tipo_label,
+            "periodicidad": self.form_periodicidad_entregable,
+            "periodicidad_label": periodicidad_label,
+            "requerido": self.form_entregable_requerido,
+            "descripcion": self.form_entregable_descripcion.strip() or None,
+            "instrucciones": self.form_entregable_instrucciones.strip() or None,
+        }
+
+        self.config_entregables = self.config_entregables + [nuevo_config]
+        self._limpiar_form_entregable()
+
+    def eliminar_tipo_entregable(self, tipo: str):
+        """Eliminar tipo de entregable de la configuración por tipo"""
+        self.config_entregables = [
+            c for c in self.config_entregables if c["tipo_entregable"] != tipo
+        ]
+
+    def _limpiar_form_entregable(self):
+        """Limpiar formulario de entregable"""
+        self.form_tipo_entregable = ""
+        self.form_periodicidad_entregable = PeriodicidadEntregable.MENSUAL.value
+        self.form_entregable_requerido = True
+        self.form_entregable_descripcion = ""
+        self.form_entregable_instrucciones = ""
+
+    # ========================
     # HELPERS
     # ========================
     def _limpiar_formulario(self):
@@ -1112,6 +1259,8 @@ class ContratosState(BaseState, CRUDStateMixin):
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
         self._limpiar_errores()
+        self._limpiar_form_entregable()
+        self.config_entregables = []
         self.contrato_seleccionado = None
         self.es_edicion = False
 

@@ -6,8 +6,14 @@ Tabla, cards, badges, acciones y filtros.
 import reflex as rx
 
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
-from app.presentation.components.ui import tabla_vacia, skeleton_tabla
-from app.presentation.theme import Colors, Spacing, Shadows
+from app.presentation.components.ui import (
+    status_badge_reactive,
+    tabla_vacia,
+    skeleton_tabla,
+    action_buttons_reactive,
+    switch_inactivos,
+)
+from app.presentation.theme import Colors, Spacing, Shadows, Typography
 
 
 # =============================================================================
@@ -48,92 +54,94 @@ def restriccion_badge(is_restricted) -> rx.Component:
 # =============================================================================
 
 def acciones_empleado(empleado: dict) -> rx.Component:
-    """Acciones para cada empleado"""
-    return rx.hstack(
-        # Ver detalle
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("eye", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="gray",
-                on_click=lambda: EmpleadosState.abrir_modal_detalle(empleado),
-            ),
-            content="Ver detalle",
-        ),
-        # Editar (si activo o suspendido Y no restringido)
+    """Acciones para cada empleado usando action_buttons_reactive con acciones extra."""
+    # Condiciones de visibilidad
+    puede_editar = (
+        ((empleado["estatus"] == "ACTIVO") | (empleado["estatus"] == "SUSPENDIDO"))
+        & ~empleado["is_restricted"]
+    )
+    puede_suspender = (empleado["estatus"] == "ACTIVO") & ~empleado["is_restricted"]
+    puede_reactivar = (
+        ((empleado["estatus"] == "SUSPENDIDO") | (empleado["estatus"] == "INACTIVO"))
+        & ~empleado["is_restricted"]
+    )
+    puede_restringir = EmpleadosState.es_admin & ~empleado["is_restricted"]
+    puede_liberar = EmpleadosState.es_admin & empleado["is_restricted"]
+
+    # Acciones extra especificas de empleados
+    acciones_extra = [
+        # Suspender
         rx.cond(
-            ((empleado["estatus"] == "ACTIVO") | (empleado["estatus"] == "SUSPENDIDO"))
-            & ~empleado["is_restricted"],
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pencil", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    on_click=lambda: EmpleadosState.abrir_modal_editar(empleado),
-                ),
-                content="Editar",
-            ),
-        ),
-        # Suspender (si activo Y no restringido)
-        rx.cond(
-            (empleado["estatus"] == "ACTIVO") & ~empleado["is_restricted"],
+            puede_suspender,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("pause", size=14),
                     size="1",
                     variant="ghost",
                     color_scheme="amber",
+                    cursor="pointer",
                     on_click=lambda: EmpleadosState.suspender_desde_lista(empleado["id"]),
                 ),
                 content="Suspender",
             ),
+            rx.fragment(),
         ),
-        # Reactivar (si suspendido o inactivo Y no restringido)
+        # Reactivar
         rx.cond(
-            ((empleado["estatus"] == "SUSPENDIDO") | (empleado["estatus"] == "INACTIVO"))
-            & ~empleado["is_restricted"],
+            puede_reactivar,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("play", size=14),
                     size="1",
                     variant="ghost",
                     color_scheme="green",
+                    cursor="pointer",
                     on_click=lambda: EmpleadosState.reactivar_desde_lista(empleado["id"]),
                 ),
                 content="Reactivar",
             ),
+            rx.fragment(),
         ),
-        # Restringir (solo admin, solo si no restringido)
+        # Restringir
         rx.cond(
-            EmpleadosState.es_admin & ~empleado["is_restricted"],
+            puede_restringir,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("ban", size=14),
                     size="1",
                     variant="ghost",
                     color_scheme="red",
+                    cursor="pointer",
                     on_click=lambda: EmpleadosState.abrir_modal_restriccion_desde_lista(empleado),
                 ),
                 content="Restringir",
             ),
+            rx.fragment(),
         ),
-        # Liberar (solo admin, solo si restringido)
+        # Liberar
         rx.cond(
-            EmpleadosState.es_admin & empleado["is_restricted"],
+            puede_liberar,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("circle-check", size=14),
                     size="1",
                     variant="ghost",
                     color_scheme="green",
+                    cursor="pointer",
                     on_click=lambda: EmpleadosState.abrir_modal_liberacion_desde_lista(empleado),
                 ),
                 content="Liberar restriccion",
             ),
+            rx.fragment(),
         ),
-        spacing="1",
+    ]
+
+    return action_buttons_reactive(
+        item=empleado,
+        ver_action=lambda: EmpleadosState.abrir_modal_detalle(empleado),
+        editar_action=lambda: EmpleadosState.abrir_modal_editar(empleado),
+        puede_editar=puede_editar,
+        acciones_extra=acciones_extra,
     )
 
 
@@ -158,22 +166,30 @@ def fila_empleado(empleado: dict) -> rx.Component:
     return rx.table.row(
         # Clave
         rx.table.cell(
-            rx.text(empleado["clave"], weight="bold", size="2"),
+            rx.text(
+                empleado["clave"],
+                font_weight=Typography.WEIGHT_BOLD,
+                font_size=Typography.SIZE_SM,
+            ),
             on_click=_abrir, style=_cell_style,
         ),
         # Nombre completo
         rx.table.cell(
-            rx.text(empleado["nombre_completo"], size="2"),
+            rx.text(empleado["nombre_completo"], font_size=Typography.SIZE_SM),
             on_click=_abrir, style=_cell_style,
         ),
         # CURP
         rx.table.cell(
-            rx.text(empleado["curp"], size="2", color="gray"),
+            rx.text(
+                empleado["curp"],
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_MUTED,
+            ),
             on_click=_abrir, style=_cell_style,
         ),
         # Empresa
         rx.table.cell(
-            rx.text(empleado["empresa_nombre"], size="2"),
+            rx.text(empleado["empresa_nombre"], font_size=Typography.SIZE_SM),
             on_click=_abrir, style=_cell_style,
         ),
         # Estatus
@@ -243,8 +259,8 @@ def tabla_empleados() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", EmpleadosState.total_empleados, " empleado(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 _boton_ver_mas(),
                 width="100%",
@@ -280,12 +296,20 @@ def card_empleado(empleado: dict) -> rx.Component:
                 ),
 
                 # Nombre completo
-                rx.text(empleado["nombre_completo"], weight="bold", size="3"),
+                rx.text(
+                    empleado["nombre_completo"],
+                    font_weight=Typography.WEIGHT_BOLD,
+                    font_size=Typography.SIZE_BASE,
+                ),
 
                 # CURP
                 rx.hstack(
                     rx.icon("fingerprint", size=14, color=Colors.TEXT_MUTED),
-                    rx.text(empleado["curp"], size="2", color=Colors.TEXT_SECONDARY),
+                    rx.text(
+                        empleado["curp"],
+                        font_size=Typography.SIZE_SM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
                     spacing="2",
                     align="center",
                 ),
@@ -293,7 +317,7 @@ def card_empleado(empleado: dict) -> rx.Component:
                 # Empresa
                 rx.hstack(
                     rx.icon("building-2", size=14, color=Colors.TEXT_MUTED),
-                    rx.text(empleado["empresa_nombre"], size="2"),
+                    rx.text(empleado["empresa_nombre"], font_size=Typography.SIZE_SM),
                     spacing="2",
                     align="center",
                 ),
@@ -303,7 +327,7 @@ def card_empleado(empleado: dict) -> rx.Component:
                     empleado["email"],
                     rx.hstack(
                         rx.icon("mail", size=14, color=Colors.TEXT_MUTED),
-                        rx.text(empleado["email"], size="2"),
+                        rx.text(empleado["email"], font_size=Typography.SIZE_SM),
                         spacing="2",
                         align="center",
                     ),
@@ -314,7 +338,7 @@ def card_empleado(empleado: dict) -> rx.Component:
                     empleado["telefono"],
                     rx.hstack(
                         rx.icon("phone", size=14, color=Colors.TEXT_MUTED),
-                        rx.text(empleado["telefono"], size="2"),
+                        rx.text(empleado["telefono"], font_size=Typography.SIZE_SM),
                         spacing="2",
                         align="center",
                     ),
@@ -368,8 +392,8 @@ def grid_empleados() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", EmpleadosState.total_empleados, " empleado(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 _boton_ver_mas(),
                 width="100%",

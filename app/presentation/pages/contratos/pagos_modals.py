@@ -215,13 +215,11 @@ def modal_pagos() -> rx.Component:
 
             # Footer
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cerrar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=PagosState.cerrar_modal_pagos,
-                    ),
+                rx.button(
+                    "Cerrar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=PagosState.cerrar_modal_pagos,
                 ),
                 justify="end",
                 margin_top="4",
@@ -231,6 +229,8 @@ def modal_pagos() -> rx.Component:
             padding="6",
         ),
         open=PagosState.mostrar_modal_pagos,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -330,13 +330,11 @@ def modal_pago_form() -> rx.Component:
 
             # Footer
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=PagosState.cerrar_modal_pago_form,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=PagosState.cerrar_modal_pago_form,
                 ),
                 rx.button(
                     rx.cond(
@@ -358,6 +356,8 @@ def modal_pago_form() -> rx.Component:
             padding="6",
         ),
         open=PagosState.mostrar_modal_pago_form,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 

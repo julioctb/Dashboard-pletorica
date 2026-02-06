@@ -175,13 +175,11 @@ def modal_detalle() -> rx.Component:
 
             # Botones
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cerrar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=HistorialLaboralState.cerrar_modal_detalle,
-                    ),
+                rx.button(
+                    "Cerrar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=HistorialLaboralState.cerrar_modal_detalle,
                 ),
                 spacing="3",
                 width="100%",
@@ -191,5 +189,6 @@ def modal_detalle() -> rx.Component:
             max_width="450px",
         ),
         open=HistorialLaboralState.mostrar_modal_detalle,
-        on_open_change=lambda open: rx.cond(~open, HistorialLaboralState.cerrar_modal_detalle(), None),
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )

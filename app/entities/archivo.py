@@ -32,6 +32,8 @@ class EntidadArchivo(str, Enum):
     REPORTE_ACTIVIDAD = "REPORTE_ACTIVIDAD"
     CONTRATO = "CONTRATO"
     EMPLEADO = "EMPLEADO"
+    ENTREGABLE = "ENTREGABLE"
+    PAGO = "PAGO"
 
 
 class TipoArchivo(str, Enum):

@@ -200,13 +200,11 @@ def modal_categorias() -> rx.Component:
 
             # Footer
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cerrar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=ContratoCategoriaState.cerrar_modal_categorias,
-                    ),
+                rx.button(
+                    "Cerrar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=ContratoCategoriaState.cerrar_modal_categorias,
                 ),
                 justify="end",
                 margin_top="4",
@@ -216,6 +214,8 @@ def modal_categorias() -> rx.Component:
             padding="6",
         ),
         open=ContratoCategoriaState.mostrar_modal_categorias,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -309,13 +309,11 @@ def modal_categoria_form() -> rx.Component:
 
             # Footer
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=ContratoCategoriaState.cerrar_modal_categoria_form,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=ContratoCategoriaState.cerrar_modal_categoria_form,
                 ),
                 rx.button(
                     rx.cond(
@@ -337,6 +335,8 @@ def modal_categoria_form() -> rx.Component:
             padding="6",
         ),
         open=ContratoCategoriaState.mostrar_modal_categoria_form,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 

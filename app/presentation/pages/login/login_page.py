@@ -270,7 +270,7 @@ def _card_login() -> rx.Component:
                     weight="bold",
                 ),
                 rx.text(
-                    "Sistema de Administración de Personal",
+                    "Sistema de Gestión de la Secretaria de Administración",
                     size="2",
                     color="gray",
                     text_align="center",

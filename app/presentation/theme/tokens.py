@@ -159,6 +159,57 @@ class StatusColors:
     SUSPENDIDA_ICON = "user-x"    # Icono sugerido
     SUSPENDIDA_SCHEME = "amber"   # Color scheme para rx.badge
 
+    # =========================================================================
+    # Estados de Entregable
+    # =========================================================================
+
+    # Estado: PENDIENTE (entregable - esperando que cliente suba archivos)
+    # Nota: Diferente de PENDIENTE de pago, pero mismo color por consistencia
+    PENDIENTE_ENTREGABLE = "#64748B"      # Gris slate - neutral/esperando
+    PENDIENTE_ENTREGABLE_BG = "#F1F5F9"
+    PENDIENTE_ENTREGABLE_ICON = "clock"
+    PENDIENTE_ENTREGABLE_SCHEME = "gray"
+
+    # Estado: EN_REVISION (cliente subió archivos, admin debe revisar)
+    EN_REVISION = "#0284C7"               # Azul info - requiere atención
+    EN_REVISION_BG = "#E0F2FE"
+    EN_REVISION_ICON = "search"
+    EN_REVISION_SCHEME = "sky"
+
+    # Estado: APROBADO (admin aprobó el entregable)
+    APROBADO = "#059669"                  # Verde - completado correctamente
+    APROBADO_BG = "#D1FAE5"
+    APROBADO_ICON = "circle-check"
+    APROBADO_SCHEME = "green"
+
+    # Estado: RECHAZADO (admin rechazó, cliente debe corregir)
+    RECHAZADO = "#DC2626"                 # Rojo - requiere corrección
+    RECHAZADO_BG = "#FEE2E2"
+    RECHAZADO_ICON = "circle-x"
+    RECHAZADO_SCHEME = "red"
+
+    # =========================================================================
+    # Estados de Pago
+    # =========================================================================
+
+    # Estado: PENDIENTE_PAGO (esperando factura del cliente)
+    PENDIENTE_PAGO = "#D97706"            # Ámbar - esperando acción
+    PENDIENTE_PAGO_BG = "#FEF3C7"
+    PENDIENTE_PAGO_ICON = "receipt"
+    PENDIENTE_PAGO_SCHEME = "amber"
+
+    # Estado: EN_PROCESO (factura subida, esperando pago)
+    EN_PROCESO = "#0284C7"                # Azul info - en trámite
+    EN_PROCESO_BG = "#E0F2FE"
+    EN_PROCESO_ICON = "loader"
+    EN_PROCESO_SCHEME = "sky"
+
+    # Estado: PAGADO (pago realizado)
+    PAGADO = "#059669"                    # Verde - completado
+    PAGADO_BG = "#D1FAE5"
+    PAGADO_ICON = "badge-check"
+    PAGADO_SCHEME = "green"
+
     @classmethod
     def get_color(cls, status: str) -> str:
         """Obtiene el color para un estado dado."""
@@ -174,6 +225,15 @@ class StatusColors:
             "VACANTE": cls.VACANTE,
             "OCUPADA": cls.OCUPADA,
             "SUSPENDIDA": cls.SUSPENDIDA,
+            # Estados de Entregable
+            "PENDIENTE": cls.PENDIENTE_ENTREGABLE,  # Para entregables
+            "EN_REVISION": cls.EN_REVISION,
+            "APROBADO": cls.APROBADO,
+            "RECHAZADO": cls.RECHAZADO,
+            # Estados de Pago
+            "PENDIENTE_PAGO": cls.PENDIENTE_PAGO,
+            "EN_PROCESO": cls.EN_PROCESO,
+            "PAGADO": cls.PAGADO,
         }
         return mapping.get(status.upper(), cls.BORRADOR)
     
@@ -192,6 +252,15 @@ class StatusColors:
             "VACANTE": cls.VACANTE_BG,
             "OCUPADA": cls.OCUPADA_BG,
             "SUSPENDIDA": cls.SUSPENDIDA_BG,
+            # Estados de Entregable
+            "PENDIENTE": cls.PENDIENTE_ENTREGABLE_BG,
+            "EN_REVISION": cls.EN_REVISION_BG,
+            "APROBADO": cls.APROBADO_BG,
+            "RECHAZADO": cls.RECHAZADO_BG,
+            # Estados de Pago
+            "PENDIENTE_PAGO": cls.PENDIENTE_PAGO_BG,
+            "EN_PROCESO": cls.EN_PROCESO_BG,
+            "PAGADO": cls.PAGADO_BG,
         }
         return mapping.get(status.upper(), cls.BORRADOR_BG)
     
@@ -210,6 +279,15 @@ class StatusColors:
             "VACANTE": cls.VACANTE_ICON,
             "OCUPADA": cls.OCUPADA_ICON,
             "SUSPENDIDA": cls.SUSPENDIDA_ICON,
+            # Estados de Entregable
+            "PENDIENTE": cls.PENDIENTE_ENTREGABLE_ICON,
+            "EN_REVISION": cls.EN_REVISION_ICON,
+            "APROBADO": cls.APROBADO_ICON,
+            "RECHAZADO": cls.RECHAZADO_ICON,
+            # Estados de Pago
+            "PENDIENTE_PAGO": cls.PENDIENTE_PAGO_ICON,
+            "EN_PROCESO": cls.EN_PROCESO_ICON,
+            "PAGADO": cls.PAGADO_ICON,
         }
         return mapping.get(status.upper(), cls.BORRADOR_ICON)
     
@@ -233,6 +311,15 @@ class StatusColors:
             "VACANTE": cls.VACANTE_SCHEME,
             "OCUPADA": cls.OCUPADA_SCHEME,
             "SUSPENDIDA": cls.SUSPENDIDA_SCHEME,
+            # Estados de Entregable
+            "PENDIENTE": cls.PENDIENTE_ENTREGABLE_SCHEME,
+            "EN_REVISION": cls.EN_REVISION_SCHEME,
+            "APROBADO": cls.APROBADO_SCHEME,
+            "RECHAZADO": cls.RECHAZADO_SCHEME,
+            # Estados de Pago
+            "PENDIENTE_PAGO": cls.PENDIENTE_PAGO_SCHEME,
+            "EN_PROCESO": cls.EN_PROCESO_SCHEME,
+            "PAGADO": cls.PAGADO_SCHEME,
         }
         return mapping.get(status.upper(), cls.BORRADOR_SCHEME)
 

@@ -108,8 +108,11 @@ def modal_detalle_requisicion() -> rx.Component:
 
                     # Botones
                     rx.hstack(
-                        rx.dialog.close(
-                            rx.button("Cerrar", variant="soft", size="2"),
+                        rx.button(
+                            "Cerrar",
+                            variant="soft",
+                            size="2",
+                            on_click=RequisicionesState.cerrar_modal_detalle,
                         ),
                         rx.cond(
                             RequisicionesState.requisicion_seleccionada["estado"] == "BORRADOR",
@@ -132,7 +135,8 @@ def modal_detalle_requisicion() -> rx.Component:
             max_width="600px",
         ),
         open=RequisicionesState.mostrar_modal_detalle,
-        on_open_change=RequisicionesState.set_mostrar_modal_detalle,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -168,30 +172,28 @@ def modal_confirmar_eliminar_requisicion() -> rx.Component:
                 ),
             ),
             rx.hstack(
-                rx.alert_dialog.cancel(
-                    rx.button(
-                        "No, mantener",
-                        variant="soft",
-                        on_click=RequisicionesState.cerrar_confirmar_eliminar,
-                    ),
+                rx.button(
+                    "No, mantener",
+                    variant="soft",
+                    on_click=RequisicionesState.cerrar_confirmar_eliminar,
                 ),
-                rx.alert_dialog.action(
-                    rx.button(
-                        rx.cond(
-                            RequisicionesState.saving,
-                            rx.hstack(rx.spinner(size="1"), "Eliminando...", spacing="2"),
-                            "Si, eliminar",
-                        ),
-                        color_scheme="red",
-                        on_click=RequisicionesState.eliminar_requisicion,
-                        disabled=RequisicionesState.saving,
+                rx.button(
+                    rx.cond(
+                        RequisicionesState.saving,
+                        rx.hstack(rx.spinner(size="1"), "Eliminando...", spacing="2"),
+                        "Si, eliminar",
                     ),
+                    color_scheme="red",
+                    on_click=RequisicionesState.eliminar_requisicion,
+                    disabled=RequisicionesState.saving,
                 ),
                 spacing="3",
                 justify="end",
             ),
         ),
         open=RequisicionesState.mostrar_modal_confirmar_eliminar,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -252,38 +254,36 @@ def modal_confirmar_estado() -> rx.Component:
                 ),
             ),
             rx.hstack(
-                rx.alert_dialog.cancel(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        on_click=RequisicionesState.cerrar_confirmar_estado,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    on_click=RequisicionesState.cerrar_confirmar_estado,
                 ),
-                rx.alert_dialog.action(
-                    rx.button(
-                        rx.cond(
-                            RequisicionesState.saving,
-                            rx.hstack(rx.spinner(size="1"), "Procesando...", spacing="2"),
-                            "Confirmar",
-                        ),
-                        color_scheme=rx.match(
-                            RequisicionesState.accion_estado_pendiente,
-                            ("enviar", "blue"),
-                            ("revisar", "orange"),
-                            ("aprobar", "green"),
-                            ("devolver", "orange"),
-                            ("cancelar", "red"),
-                            "blue",
-                        ),
-                        on_click=RequisicionesState.confirmar_cambio_estado,
-                        disabled=RequisicionesState.saving,
+                rx.button(
+                    rx.cond(
+                        RequisicionesState.saving,
+                        rx.hstack(rx.spinner(size="1"), "Procesando...", spacing="2"),
+                        "Confirmar",
                     ),
+                    color_scheme=rx.match(
+                        RequisicionesState.accion_estado_pendiente,
+                        ("enviar", "blue"),
+                        ("revisar", "orange"),
+                        ("aprobar", "green"),
+                        ("devolver", "orange"),
+                        ("cancelar", "red"),
+                        "blue",
+                    ),
+                    on_click=RequisicionesState.confirmar_cambio_estado,
+                    disabled=RequisicionesState.saving,
                 ),
                 spacing="3",
                 justify="end",
             ),
         ),
         open=RequisicionesState.mostrar_modal_confirmar_estado,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -334,12 +334,10 @@ def modal_adjudicar_requisicion() -> rx.Component:
             rx.box(height="16px"),
 
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        on_click=RequisicionesState.cerrar_modal_adjudicar,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    on_click=RequisicionesState.cerrar_modal_adjudicar,
                 ),
                 rx.button(
                     rx.cond(
@@ -358,4 +356,6 @@ def modal_adjudicar_requisicion() -> rx.Component:
             max_width="450px",
         ),
         open=RequisicionesState.mostrar_modal_adjudicar,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )

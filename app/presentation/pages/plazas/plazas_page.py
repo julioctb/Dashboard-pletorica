@@ -14,6 +14,8 @@ from app.presentation.components.ui import (
     tabla_vacia,
     skeleton_tabla,
     breadcrumb_dynamic,
+    action_buttons_reactive,
+    switch_inactivos,
 )
 from app.presentation.components.plazas.plazas_modals import (
     modal_plaza,
@@ -22,7 +24,7 @@ from app.presentation.components.plazas.plazas_modals import (
     modal_crear_lote,
     modal_asignar_empleado,
 )
-from app.presentation.theme import Colors, Spacing, Shadows, Radius
+from app.presentation.theme import Colors, Spacing, Shadows, Radius, Typography
 
 
 # =============================================================================
@@ -31,32 +33,8 @@ from app.presentation.theme import Colors, Spacing, Shadows, Radius
 
 def acciones_plaza(plaza: dict) -> rx.Component:
     """Acciones específicas para cada plaza según su estatus"""
-    return rx.hstack(
-        # Ver detalle
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("eye", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="gray",
-                on_click=lambda: PlazasState.abrir_modal_detalle(plaza),
-            ),
-            content="Ver detalle",
-        ),
-        # Editar (si no está cancelada)
-        rx.cond(
-            plaza["estatus"] != "CANCELADA",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pencil", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    on_click=lambda: PlazasState.abrir_modal_editar(plaza),
-                ),
-                content="Editar",
-            ),
-        ),
+    # Acciones extra específicas de plazas
+    acciones_extra = [
         # Asignar empleado (si está vacante)
         rx.cond(
             plaza["estatus"] == "VACANTE",
@@ -66,10 +44,12 @@ def acciones_plaza(plaza: dict) -> rx.Component:
                     size="1",
                     variant="ghost",
                     color_scheme="green",
+                    cursor="pointer",
                     on_click=lambda: PlazasState.abrir_asignar_empleado(plaza),
                 ),
                 content="Asignar empleado",
             ),
+            rx.fragment(),
         ),
         # Liberar plaza (si está ocupada)
         rx.cond(
@@ -80,10 +60,12 @@ def acciones_plaza(plaza: dict) -> rx.Component:
                     size="1",
                     variant="ghost",
                     color_scheme="orange",
+                    cursor="pointer",
                     on_click=lambda: PlazasState.liberar_plaza(plaza["id"]),
                 ),
                 content="Liberar plaza",
             ),
+            rx.fragment(),
         ),
         # Suspender (si está vacante u ocupada)
         rx.cond(
@@ -94,10 +76,12 @@ def acciones_plaza(plaza: dict) -> rx.Component:
                     size="1",
                     variant="ghost",
                     color_scheme="amber",
+                    cursor="pointer",
                     on_click=lambda: PlazasState.suspender_plaza(plaza["id"]),
                 ),
                 content="Suspender",
             ),
+            rx.fragment(),
         ),
         # Reactivar (si está suspendida)
         rx.cond(
@@ -108,10 +92,12 @@ def acciones_plaza(plaza: dict) -> rx.Component:
                     size="1",
                     variant="ghost",
                     color_scheme="green",
+                    cursor="pointer",
                     on_click=lambda: PlazasState.reactivar_plaza(plaza["id"]),
                 ),
                 content="Reactivar",
             ),
+            rx.fragment(),
         ),
         # Cancelar (si no está cancelada)
         rx.cond(
@@ -122,44 +108,57 @@ def acciones_plaza(plaza: dict) -> rx.Component:
                     size="1",
                     variant="ghost",
                     color_scheme="red",
+                    cursor="pointer",
                     on_click=lambda: PlazasState.abrir_confirmar_cancelar(plaza),
                 ),
                 content="Cancelar",
             ),
+            rx.fragment(),
         ),
-        spacing="1",
+    ]
+
+    return action_buttons_reactive(
+        item=plaza,
+        ver_action=lambda: PlazasState.abrir_modal_detalle(plaza),
+        editar_action=lambda: PlazasState.abrir_modal_editar(plaza),
+        puede_editar=plaza["estatus"] != "CANCELADA",
+        acciones_extra=acciones_extra,
     )
 
 
 def fila_plaza(plaza: dict) -> rx.Component:
     """Fila de la tabla para una plaza"""
     return rx.table.row(
-        # Número de plaza
+        # Numero de plaza
         rx.table.cell(
-            rx.text("#", plaza["numero_plaza"], weight="bold", size="2"),
+            rx.text(
+                "#", plaza["numero_plaza"],
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_BOLD,
+            ),
         ),
-        # Código
+        # Codigo
         rx.table.cell(
             rx.cond(
                 plaza["codigo"],
-                rx.text(plaza["codigo"], size="2"),
-                rx.text("-", size="2"),
+                rx.text(plaza["codigo"], font_size=Typography.SIZE_SM),
+                rx.text("-", font_size=Typography.SIZE_SM),
             ),
         ),
         # Fecha inicio
         rx.table.cell(
-            rx.text(plaza["fecha_inicio_fmt"], size="2"),
+            rx.text(plaza["fecha_inicio_fmt"], font_size=Typography.SIZE_SM),
         ),
         # Salario
         rx.table.cell(
-            rx.text(plaza["salario_fmt"], size="2"),
+            rx.text(plaza["salario_fmt"], font_size=Typography.SIZE_SM),
         ),
         # Empleado
         rx.table.cell(
             rx.cond(
                 plaza["empleado_nombre"],
-                rx.text(plaza["empleado_nombre"], size="2"),
-                rx.text("-", size="2", color="gray"),
+                rx.text(plaza["empleado_nombre"], font_size=Typography.SIZE_SM),
+                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
             ),
         ),
         # Estatus
@@ -216,8 +215,8 @@ def tabla_plazas() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", PlazasState.total_plazas, " plaza(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
@@ -235,13 +234,18 @@ def card_plaza(plaza: dict) -> rx.Component:
     """Card individual para una plaza"""
     return rx.card(
         rx.vstack(
-            # Header con número y estatus
+            # Header con numero y estatus
             rx.hstack(
                 rx.hstack(
-                    rx.text("Plaza #", plaza["numero_plaza"], weight="bold", size="3"),
+                    rx.text(
+                        "Plaza #", plaza["numero_plaza"],
+                        font_size=Typography.SIZE_LG,
+                        font_weight=Typography.WEIGHT_BOLD,
+                    ),
                     rx.cond(
                         plaza["codigo"],
                         rx.badge(plaza["codigo"], variant="outline", size="1"),
+                        rx.fragment(),
                     ),
                     spacing="2",
                     align="center",
@@ -258,15 +262,19 @@ def card_plaza(plaza: dict) -> rx.Component:
             rx.vstack(
                 rx.hstack(
                     rx.icon("calendar", size=14, color=Colors.TEXT_MUTED),
-                    rx.text("Inicio:", size="2", color=Colors.TEXT_SECONDARY),
-                    rx.text(plaza["fecha_inicio_fmt"], size="2"),
+                    rx.text("Inicio:", font_size=Typography.SIZE_SM, color=Colors.TEXT_SECONDARY),
+                    rx.text(plaza["fecha_inicio_fmt"], font_size=Typography.SIZE_SM),
                     spacing="2",
                     align="center",
                 ),
                 rx.hstack(
                     rx.icon("dollar-sign", size=14, color=Colors.TEXT_MUTED),
-                    rx.text("Salario:", size="2", color=Colors.TEXT_SECONDARY),
-                    rx.text(plaza["salario_fmt"], size="2", weight="medium"),
+                    rx.text("Salario:", font_size=Typography.SIZE_SM, color=Colors.TEXT_SECONDARY),
+                    rx.text(
+                        plaza["salario_fmt"],
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
                     spacing="2",
                     align="center",
                 ),
@@ -274,11 +282,12 @@ def card_plaza(plaza: dict) -> rx.Component:
                     plaza["empleado_nombre"],
                     rx.hstack(
                         rx.icon("user", size=14, color=Colors.TEXT_MUTED),
-                        rx.text("Empleado:", size="2", color=Colors.TEXT_SECONDARY),
-                        rx.text(plaza["empleado_nombre"], size="2"),
+                        rx.text("Empleado:", font_size=Typography.SIZE_SM, color=Colors.TEXT_SECONDARY),
+                        rx.text(plaza["empleado_nombre"], font_size=Typography.SIZE_SM),
                         spacing="2",
                         align="center",
                     ),
+                    rx.fragment(),
                 ),
                 spacing="2",
                 align_items="start",
@@ -327,8 +336,8 @@ def grid_plazas() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", PlazasState.total_plazas, " plaza(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
@@ -356,8 +365,12 @@ def resumen_plazas() -> rx.Component:
                     border_radius=Radius.MD,
                 ),
                 rx.vstack(
-                    rx.text("Total", size="1", color=Colors.TEXT_SECONDARY),
-                    rx.text(PlazasState.total_plazas, size="4", weight="bold"),
+                    rx.text("Total", font_size=Typography.SIZE_XS, color=Colors.TEXT_SECONDARY),
+                    rx.text(
+                        PlazasState.total_plazas,
+                        font_size=Typography.SIZE_XL,
+                        font_weight=Typography.WEIGHT_BOLD,
+                    ),
                     spacing="0",
                     align_items="start",
                 ),
@@ -377,8 +390,13 @@ def resumen_plazas() -> rx.Component:
                     border_radius=Radius.MD,
                 ),
                 rx.vstack(
-                    rx.text("Vacantes", size="1", color=Colors.TEXT_SECONDARY),
-                    rx.text(PlazasState.plazas_vacantes, size="4", weight="bold", color=Colors.INFO),
+                    rx.text("Vacantes", font_size=Typography.SIZE_XS, color=Colors.TEXT_SECONDARY),
+                    rx.text(
+                        PlazasState.plazas_vacantes,
+                        font_size=Typography.SIZE_XL,
+                        font_weight=Typography.WEIGHT_BOLD,
+                        color=Colors.INFO,
+                    ),
                     spacing="0",
                     align_items="start",
                 ),
@@ -398,8 +416,13 @@ def resumen_plazas() -> rx.Component:
                     border_radius=Radius.MD,
                 ),
                 rx.vstack(
-                    rx.text("Ocupadas", size="1", color=Colors.TEXT_SECONDARY),
-                    rx.text(PlazasState.plazas_ocupadas, size="4", weight="bold", color=Colors.SUCCESS),
+                    rx.text("Ocupadas", font_size=Typography.SIZE_XS, color=Colors.TEXT_SECONDARY),
+                    rx.text(
+                        PlazasState.plazas_ocupadas,
+                        font_size=Typography.SIZE_XL,
+                        font_weight=Typography.WEIGHT_BOLD,
+                        color=Colors.SUCCESS,
+                    ),
                     spacing="0",
                     align_items="start",
                 ),
@@ -419,8 +442,13 @@ def resumen_plazas() -> rx.Component:
                     border_radius=Radius.MD,
                 ),
                 rx.vstack(
-                    rx.text("Suspendidas", size="1", color=Colors.TEXT_SECONDARY),
-                    rx.text(PlazasState.plazas_suspendidas, size="4", weight="bold", color=Colors.WARNING),
+                    rx.text("Suspendidas", font_size=Typography.SIZE_XS, color=Colors.TEXT_SECONDARY),
+                    rx.text(
+                        PlazasState.plazas_suspendidas,
+                        font_size=Typography.SIZE_XL,
+                        font_weight=Typography.WEIGHT_BOLD,
+                        color=Colors.WARNING,
+                    ),
                     spacing="0",
                     align_items="start",
                 ),
@@ -463,24 +491,32 @@ def fila_resumen(item: dict) -> rx.Component:
     return rx.table.row(
         # Empresa
         rx.table.cell(
-            rx.text(item["empresa_nombre"], size="2", weight="medium"),
+            rx.text(
+                item["empresa_nombre"],
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
         ),
         # Contrato
         rx.table.cell(
-            rx.text(item["contrato_codigo"], size="2"),
+            rx.text(item["contrato_codigo"], font_size=Typography.SIZE_SM),
         ),
-        # Categoría
+        # Categoria
         rx.table.cell(
             rx.hstack(
                 rx.badge(item["categoria_clave"], variant="outline", size="1"),
-                rx.text(item["categoria_nombre"], size="2"),
+                rx.text(item["categoria_nombre"], font_size=Typography.SIZE_SM),
                 spacing="2",
                 align="center",
             ),
         ),
         # Total plazas
         rx.table.cell(
-            rx.text(item["total_plazas"], size="2", weight="medium"),
+            rx.text(
+                item["total_plazas"],
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
             align="center",
         ),
         # Vacantes
@@ -509,6 +545,7 @@ def fila_resumen(item: dict) -> rx.Component:
                     size="1",
                     variant="ghost",
                     color_scheme="blue",
+                    cursor="pointer",
                     on_click=lambda: PlazasState.seleccionar_categoria_resumen(item),
                 ),
                 content="Ver plazas",
@@ -563,9 +600,9 @@ def tabla_resumen_inicial() -> rx.Component:
                         variant="surface",
                     ),
                     rx.text(
-                        PlazasState.resumen_categorias.length(), " categoría(s) con plazas",
-                        size="2",
-                        color="gray",
+                        PlazasState.resumen_categorias.length(), " categoria(s) con plazas",
+                        font_size=Typography.SIZE_SM,
+                        color=Colors.TEXT_MUTED,
                     ),
                     width="100%",
                     spacing="3",
@@ -599,10 +636,14 @@ def selector_contrato_categoria() -> rx.Component:
                     border_radius=Radius.MD,
                 ),
                 rx.vstack(
-                    rx.text("Seleccionar Contrato y Categoría", size="4", weight="bold"),
+                    rx.text(
+                        "Seleccionar Contrato y Categoria",
+                        font_size=Typography.SIZE_XL,
+                        font_weight=Typography.WEIGHT_BOLD,
+                    ),
                     rx.text(
                         "Seleccione un contrato con personal para gestionar sus plazas",
-                        size="2",
+                        font_size=Typography.SIZE_SM,
                         color=Colors.TEXT_SECONDARY,
                     ),
                     spacing="1",
@@ -619,7 +660,11 @@ def selector_contrato_categoria() -> rx.Component:
             rx.hstack(
                 # Selector de contrato
                 rx.vstack(
-                    rx.text("Contrato", size="2", weight="medium"),
+                    rx.text(
+                        "Contrato",
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
                     rx.select.root(
                         rx.select.trigger(
                             placeholder="Seleccionar contrato...",
@@ -645,14 +690,18 @@ def selector_contrato_categoria() -> rx.Component:
                     align_items="start",
                 ),
 
-                # Selector de categoría (solo si hay contrato seleccionado)
+                # Selector de categoria (solo si hay contrato seleccionado)
                 rx.cond(
                     PlazasState.contrato_seleccionado_id != "",
                     rx.vstack(
-                        rx.text("Categoría", size="2", weight="medium"),
+                        rx.text(
+                            "Categoria",
+                            font_size=Typography.SIZE_SM,
+                            font_weight=Typography.WEIGHT_MEDIUM,
+                        ),
                         rx.select.root(
                             rx.select.trigger(
-                                placeholder="Seleccionar categoría...",
+                                placeholder="Seleccionar categoria...",
                                 width="300px",
                             ),
                             rx.select.content(
@@ -669,7 +718,7 @@ def selector_contrato_categoria() -> rx.Component:
                                             ),
                                         ),
                                         rx.select.item(
-                                            "Sin categorías asignadas",
+                                            "Sin categorias asignadas",
                                             value="empty",
                                             disabled=True,
                                         ),
@@ -682,6 +731,7 @@ def selector_contrato_categoria() -> rx.Component:
                         spacing="1",
                         align_items="start",
                     ),
+                    rx.fragment(),
                 ),
 
                 spacing="4",

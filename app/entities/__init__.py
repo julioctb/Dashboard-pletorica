@@ -181,6 +181,7 @@ from app.entities.alta_masiva import (
     ResultadoProcesamiento,
     DetalleResultado,
 )
+from app.repositories.entregable_repository import SupabaseEntregableRepository
 
 # Costo Patronal (si existe)
 try:
@@ -314,4 +315,6 @@ __all__ = [
     "ResultadoValidacion",
     "ResultadoProcesamiento",
     "DetalleResultado",
+    # Entregables
+     "SupabaseEntregableRepository",
 ]

@@ -14,8 +14,11 @@ from app.presentation.components.ui import (
     status_badge_reactive,
     tabla_vacia,
     skeleton_tabla,
+    action_buttons_reactive,
+    entity_card,
+    switch_inactivos,
 )
-from app.presentation.theme import Colors, Spacing, Shadows
+from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.empresas.empresa_modals import (
     modal_empresa,
     modal_detalle_empresa,
@@ -23,37 +26,13 @@ from app.presentation.components.empresas.empresa_modals import (
 
 
 # =============================================================================
-# ACCIONES
+# ACCIONES Y BADGES
 # =============================================================================
 
 def acciones_empresa(empresa: dict) -> rx.Component:
-    """Acciones para cada empresa"""
-    return rx.hstack(
-        # Ver detalle
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("eye", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="gray",
-                on_click=lambda: EmpresasState.abrir_modal_detalle(empresa["id"]),
-            ),
-            content="Ver detalle",
-        ),
-        # Editar (si activo)
-        rx.cond(
-            empresa["estatus"] == "ACTIVO",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pencil", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    on_click=lambda: EmpresasState.abrir_modal_editar(empresa["id"]),
-                ),
-                content="Editar",
-            ),
-        ),
+    """Acciones para cada empresa usando componente genérico."""
+    # Botones adicionales condicionales
+    acciones_extra = [
         # Reactivar (si inactivo)
         rx.cond(
             empresa["estatus"] == "INACTIVO",
@@ -63,10 +42,12 @@ def acciones_empresa(empresa: dict) -> rx.Component:
                     size="1",
                     variant="ghost",
                     color_scheme="green",
-                    on_click=lambda: EmpresasState.cambiar_estatus_empresa(empresa["id"], "ACTIVO"),
+                    cursor="pointer",
+                    on_click=EmpresasState.cambiar_estatus_empresa(empresa["id"], "ACTIVO"),
                 ),
                 content="Reactivar",
             ),
+            rx.fragment(),
         ),
         # Desactivar (si activo)
         rx.cond(
@@ -77,17 +58,26 @@ def acciones_empresa(empresa: dict) -> rx.Component:
                     size="1",
                     variant="ghost",
                     color_scheme="red",
-                    on_click=lambda: EmpresasState.cambiar_estatus_empresa(empresa["id"], "INACTIVO"),
+                    cursor="pointer",
+                    on_click=EmpresasState.cambiar_estatus_empresa(empresa["id"], "INACTIVO"),
                 ),
                 content="Desactivar",
             ),
+            rx.fragment(),
         ),
-        spacing="1",
+    ]
+
+    return action_buttons_reactive(
+        item=empresa,
+        ver_action=EmpresasState.abrir_modal_detalle(empresa["id"]),
+        editar_action=EmpresasState.abrir_modal_editar(empresa["id"]),
+        puede_editar=empresa["estatus"] == "ACTIVO",
+        acciones_extra=acciones_extra,
     )
 
 
 def tipo_empresa_badge(tipo: str) -> rx.Component:
-    """Badge para tipo de empresa"""
+    """Badge para tipo de empresa."""
     return rx.match(
         tipo,
         ("NOMINA", rx.badge("NOMINA", color_scheme="blue", size="1")),
@@ -101,19 +91,30 @@ def tipo_empresa_badge(tipo: str) -> rx.Component:
 # =============================================================================
 
 def fila_empresa(empresa: dict) -> rx.Component:
-    """Fila de la tabla para una empresa"""
+    """Fila de la tabla para una empresa."""
     return rx.table.row(
         # Codigo
         rx.table.cell(
-            rx.text(empresa["codigo_corto"], weight="bold", size="2"),
+            rx.text(
+                empresa["codigo_corto"],
+                font_weight=Typography.WEIGHT_BOLD,
+                font_size=Typography.SIZE_SM,
+            ),
         ),
         # Nombre comercial
         rx.table.cell(
-            rx.text(empresa["nombre_comercial"], size="2"),
+            rx.text(
+                empresa["nombre_comercial"],
+                font_size=Typography.SIZE_SM,
+            ),
         ),
         # Razon social
         rx.table.cell(
-            rx.text(empresa["razon_social"], size="2", color="gray"),
+            rx.text(
+                empresa["razon_social"],
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_SECONDARY,
+            ),
         ),
         # Tipo
         rx.table.cell(
@@ -174,15 +175,14 @@ def tabla_empresas() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", EmpresasState.total_empresas, " empresa(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
             ),
             tabla_vacia(onclick=EmpresasState.abrir_modal_crear),
         ),
-    
     )
 
 
@@ -191,7 +191,7 @@ def tabla_empresas() -> rx.Component:
 # =============================================================================
 
 def card_empresa(empresa: dict) -> rx.Component:
-    """Card individual para una empresa"""
+    """Card individual para una empresa."""
     return rx.card(
         rx.vstack(
             # Header con codigo y estatus
@@ -208,17 +208,30 @@ def card_empresa(empresa: dict) -> rx.Component:
             ),
 
             # Nombre comercial
-            rx.text(empresa["nombre_comercial"], weight="bold", size="3"),
+            rx.text(
+                empresa["nombre_comercial"],
+                font_weight=Typography.WEIGHT_BOLD,
+                font_size=Typography.SIZE_BASE,
+                color=Colors.TEXT_PRIMARY,
+            ),
 
             # Razon social
-            rx.text(empresa["razon_social"], size="2", color=Colors.TEXT_SECONDARY),
+            rx.text(
+                empresa["razon_social"],
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_SECONDARY,
+            ),
 
             # Email (si existe)
             rx.cond(
                 empresa["email"],
                 rx.hstack(
                     rx.icon("mail", size=14, color=Colors.TEXT_MUTED),
-                    rx.text(empresa["email"], size="2"),
+                    rx.text(
+                        empresa["email"],
+                        font_size=Typography.SIZE_SM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
                     spacing="2",
                     align="center",
                 ),
@@ -266,8 +279,8 @@ def grid_empresas() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", EmpresasState.total_empresas, " empresa(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
@@ -282,7 +295,7 @@ def grid_empresas() -> rx.Component:
 # =============================================================================
 
 def filtros_empresas() -> rx.Component:
-    """Filtros para empresas"""
+    """Filtros para empresas."""
     return rx.hstack(
         # Filtro por tipo
         rx.select.root(
@@ -297,16 +310,11 @@ def filtros_empresas() -> rx.Component:
             value=EmpresasState.filtro_tipo,
             on_change=EmpresasState.set_filtro_tipo,
         ),
-        # Switch mostrar inactivas
-        rx.hstack(
-            rx.switch(
-                checked=~EmpresasState.solo_activas,
-                on_change=lambda v: EmpresasState.set_solo_activas(~v),
-                size="1",
-            ),
-            rx.text("Mostrar inactivas", size="2", color="gray"),
-            spacing="2",
-            align="center",
+        # Switch mostrar inactivas (usando componente reutilizable)
+        switch_inactivos(
+            checked=~EmpresasState.solo_activas,
+            on_change=lambda v: EmpresasState.set_solo_activas(~v),
+            label="Mostrar inactivas",
         ),
         spacing="3",
         align="center",

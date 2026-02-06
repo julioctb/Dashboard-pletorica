@@ -13,8 +13,10 @@ from app.presentation.components.ui import (
     status_badge_reactive,
     tabla_vacia,
     skeleton_tabla,
+    action_buttons_reactive,
+    switch_inactivos,
 )
-from app.presentation.theme import Colors, Spacing, Shadows
+from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.tipo_servicio.tipo_servicio_modals import (
     modal_tipo_servicio,
     modal_confirmar_eliminar,
@@ -27,63 +29,43 @@ from app.presentation.components.tipo_servicio.tipo_servicio_modals import (
 
 def acciones_tipo(tipo: dict) -> rx.Component:
     """Acciones para cada tipo de servicio"""
-    return rx.hstack(
-        # Ver categorias
+    # Boton para ver categorias (siempre visible)
+    btn_ver_categorias = rx.tooltip(
+        rx.link(
+            rx.icon_button(
+                rx.icon("folder", size=14),
+                size="1",
+                variant="ghost",
+                color_scheme="teal",
+            ),
+            href="/categorias-puesto?tipo=" + tipo["id"].to(str),
+        ),
+        content="Ver categorias",
+    )
+
+    # Boton para reactivar (solo si inactivo)
+    btn_reactivar = rx.cond(
+        tipo["estatus"] == "INACTIVO",
         rx.tooltip(
-            rx.link(
-                rx.icon_button(
-                    rx.icon("folder", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="teal",
-                ),
-                href="/categorias-puesto?tipo=" + tipo["id"].to(str),
+            rx.icon_button(
+                rx.icon("rotate-ccw", size=14),
+                size="1",
+                variant="ghost",
+                color_scheme="green",
+                on_click=lambda: TipoServicioState.activar_tipo(tipo),
             ),
-            content="Ver categorias",
+            content="Reactivar",
         ),
-        # Editar
-        rx.cond(
-            tipo["estatus"] == "ACTIVO",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pencil", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    on_click=lambda: TipoServicioState.abrir_modal_editar(tipo),
-                ),
-                content="Editar",
-            ),
-        ),
-        # Reactivar (si inactivo)
-        rx.cond(
-            tipo["estatus"] == "INACTIVO",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("rotate-ccw", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    on_click=lambda: TipoServicioState.activar_tipo(tipo),
-                ),
-                content="Reactivar",
-            ),
-        ),
-        # Eliminar (si activo)
-        rx.cond(
-            tipo["estatus"] == "ACTIVO",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("trash-2", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    on_click=lambda: TipoServicioState.abrir_confirmar_eliminar(tipo),
-                ),
-                content="Eliminar",
-            ),
-        ),
-        spacing="1",
+        rx.fragment(),
+    )
+
+    return action_buttons_reactive(
+        item=tipo,
+        editar_action=lambda: TipoServicioState.abrir_modal_editar(tipo),
+        eliminar_action=lambda: TipoServicioState.abrir_confirmar_eliminar(tipo),
+        puede_editar=tipo["estatus"] == "ACTIVO",
+        puede_eliminar=tipo["estatus"] == "ACTIVO",
+        acciones_extra=[btn_ver_categorias, btn_reactivar],
     )
 
 
@@ -96,12 +78,20 @@ def fila_tipo(tipo: dict) -> rx.Component:
     return rx.table.row(
         # Clave
         rx.table.cell(
-            rx.text(tipo["clave"], weight="bold", size="2"),
+            rx.text(
+                tipo["clave"],
+                font_weight=Typography.WEIGHT_BOLD,
+                font_size=Typography.SIZE_SM,
+            ),
         ),
         # Nombre
         rx.table.cell(
             rx.link(
-                rx.text(tipo["nombre"], size="2", _hover={"text_decoration": "underline"}),
+                rx.text(
+                    tipo["nombre"],
+                    font_size=Typography.SIZE_SM,
+                    _hover={"text_decoration": "underline"},
+                ),
                 href="/categorias-puesto?tipo=" + tipo["id"].to(str),
                 color="inherit",
                 underline="none",
@@ -111,8 +101,12 @@ def fila_tipo(tipo: dict) -> rx.Component:
         rx.table.cell(
             rx.cond(
                 tipo["descripcion"],
-                rx.text(tipo["descripcion"], size="2", color="gray"),
-                rx.text("-", size="2", color="gray"),
+                rx.text(
+                    tipo["descripcion"],
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
+                ),
+                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
             ),
         ),
         # Estatus
@@ -167,8 +161,8 @@ def tabla_tipos() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", TipoServicioState.total_tipos, " tipo(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
@@ -197,7 +191,12 @@ def card_tipo(tipo: dict) -> rx.Component:
 
             # Nombre
             rx.link(
-                rx.text(tipo["nombre"], weight="bold", size="3", _hover={"text_decoration": "underline"}),
+                rx.text(
+                    tipo["nombre"],
+                    font_weight=Typography.WEIGHT_BOLD,
+                    font_size=Typography.SIZE_LG,
+                    _hover={"text_decoration": "underline"},
+                ),
                 href="/categorias-puesto?tipo=" + tipo["id"].to(str),
                 color="inherit",
                 underline="none",
@@ -208,7 +207,7 @@ def card_tipo(tipo: dict) -> rx.Component:
                 tipo["descripcion"],
                 rx.text(
                     tipo["descripcion"],
-                    size="2",
+                    font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_SECONDARY,
                     style={"max_width": "100%", "overflow": "hidden", "text_overflow": "ellipsis"},
                 ),
@@ -256,8 +255,8 @@ def grid_tipos() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", TipoServicioState.total_tipos, " tipo(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",

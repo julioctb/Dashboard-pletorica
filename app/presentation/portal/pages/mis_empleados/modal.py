@@ -66,13 +66,11 @@ def modal_empleado() -> rx.Component:
 
             # Botones de accion
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="outline",
-                        color_scheme="gray",
-                        on_click=MisEmpleadosState.cerrar_modal_empleado,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="outline",
+                    color_scheme="gray",
+                    on_click=MisEmpleadosState.cerrar_modal_empleado,
                 ),
                 rx.button(
                     rx.cond(
@@ -93,7 +91,8 @@ def modal_empleado() -> rx.Component:
             max_width="600px",
         ),
         open=MisEmpleadosState.mostrar_modal_empleado,
-        on_open_change=lambda open: rx.cond(~open, MisEmpleadosState.cerrar_modal_empleado(), None),
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 

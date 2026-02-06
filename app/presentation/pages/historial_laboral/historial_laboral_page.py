@@ -12,9 +12,12 @@ from app.presentation.layout import (
     page_header,
     page_toolbar,
 )
-from app.presentation.components.ui import (skeleton_tabla,
+from app.presentation.components.ui import (
+    skeleton_tabla,
+    tabla_vacia,
+    action_buttons_reactive,
 )
-from app.presentation.theme import Colors, Spacing, Shadows
+from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.pages.historial_laboral.historial_laboral_modals import modal_detalle
 
 
@@ -41,20 +44,13 @@ def tipo_movimiento_badge(tipo: str) -> rx.Component:
     )
 
 
-def acciones_historial(registro: dict) -> rx.Component:
+def acciones_historial(registro: rx.Var) -> rx.Component:
     """Acciones para cada registro de historial (solo ver detalle)"""
-    return rx.hstack(
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("eye", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="gray",
-                on_click=lambda: HistorialLaboralState.abrir_modal_detalle(registro),
-            ),
-            content="Ver detalle",
-        ),
-        spacing="1",
+    return action_buttons_reactive(
+        item=registro,
+        ver_action=HistorialLaboralState.abrir_modal_detalle(registro),
+        puede_editar=False,
+        puede_eliminar=False,
     )
 
 
@@ -68,8 +64,8 @@ def fila_historial(registro: dict) -> rx.Component:
         # Empleado
         rx.table.cell(
             rx.vstack(
-                rx.text(registro["empleado_clave"], weight="bold", size="2"),
-                rx.text(registro["empleado_nombre"], size="1", color="gray"),
+                rx.text(registro["empleado_clave"], font_weight=Typography.WEIGHT_BOLD, font_size=Typography.SIZE_SM),
+                rx.text(registro["empleado_nombre"], font_size=Typography.SIZE_XS, color=Colors.TEXT_MUTED),
                 spacing="0",
                 align_items="start",
             ),
@@ -83,29 +79,29 @@ def fila_historial(registro: dict) -> rx.Component:
             rx.cond(
                 registro["plaza_numero"],
                 rx.vstack(
-                    rx.text(f"#{registro['plaza_numero']}", size="2"),
-                    rx.text(registro["categoria_nombre"], size="1", color="gray"),
+                    rx.text(f"#{registro['plaza_numero']}", font_size=Typography.SIZE_SM),
+                    rx.text(registro["categoria_nombre"], font_size=Typography.SIZE_XS, color=Colors.TEXT_MUTED),
                     spacing="0",
                     align_items="start",
                 ),
-                rx.text("Sin plaza", size="2", color="gray", style={"fontStyle": "italic"}),
+                rx.text("Sin plaza", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED, style={"fontStyle": "italic"}),
             ),
         ),
         # Empresa (puede ser None)
         rx.table.cell(
             rx.cond(
                 registro["empresa_nombre"],
-                rx.text(registro["empresa_nombre"], size="2"),
-                rx.text("-", size="2", color="gray"),
+                rx.text(registro["empresa_nombre"], font_size=Typography.SIZE_SM),
+                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
             ),
         ),
-        # Período
+        # Periodo
         rx.table.cell(
-            rx.text(registro["periodo_texto"], size="2"),
+            rx.text(registro["periodo_texto"], font_size=Typography.SIZE_SM),
         ),
-        # Duración
+        # Duracion
         rx.table.cell(
-            rx.text(registro["duracion_texto"], size="2"),
+            rx.text(registro["duracion_texto"], font_size=Typography.SIZE_SM),
         ),
         # Acciones
         rx.table.cell(
@@ -160,13 +156,16 @@ def tabla_historial() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", HistorialLaboralState.total_filtrado, " registro(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
             ),
-            
+            tabla_vacia(
+                mensaje="No hay registros de historial laboral",
+                submensaje="Los registros se crean automaticamente cuando se realizan cambios en empleados.",
+            ),
         ),
     )
 
@@ -183,7 +182,7 @@ def card_historial(registro: dict) -> rx.Component:
             rx.hstack(
                 rx.vstack(
                     rx.badge(registro["empleado_clave"], variant="outline", size="2"),
-                    rx.text(registro["empleado_nombre"], weight="bold", size="3"),
+                    rx.text(registro["empleado_nombre"], font_weight=Typography.WEIGHT_BOLD, font_size=Typography.SIZE_BASE),
                     spacing="1",
                     align_items="start",
                 ),
@@ -201,8 +200,8 @@ def card_historial(registro: dict) -> rx.Component:
                     rx.icon("briefcase", size=14, color=Colors.TEXT_MUTED),
                     rx.cond(
                         registro["plaza_numero"],
-                        rx.text(f"Plaza #{registro['plaza_numero']} - {registro['categoria_nombre']}", size="2"),
-                        rx.text("Sin plaza asignada", size="2", color="gray", style={"fontStyle": "italic"}),
+                        rx.text(f"Plaza #{registro['plaza_numero']} - {registro['categoria_nombre']}", font_size=Typography.SIZE_SM),
+                        rx.text("Sin plaza asignada", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED, style={"fontStyle": "italic"}),
                     ),
                     spacing="2",
                     align="center",
@@ -211,26 +210,27 @@ def card_historial(registro: dict) -> rx.Component:
                     registro["empresa_nombre"],
                     rx.hstack(
                         rx.icon("building-2", size=14, color=Colors.TEXT_MUTED),
-                        rx.text(registro["empresa_nombre"], size="2"),
+                        rx.text(registro["empresa_nombre"], font_size=Typography.SIZE_SM),
                         spacing="2",
                         align="center",
                     ),
+                    rx.fragment(),
                 ),
                 spacing="2",
                 align_items="start",
                 width="100%",
             ),
 
-            # Período y duración
+            # Periodo y duracion
             rx.hstack(
                 rx.vstack(
-                    rx.text("Período", size="1", color="gray"),
-                    rx.text(registro["periodo_texto"], size="2"),
+                    rx.text("Periodo", font_size=Typography.SIZE_XS, color=Colors.TEXT_MUTED),
+                    rx.text(registro["periodo_texto"], font_size=Typography.SIZE_SM),
                     spacing="0",
                 ),
                 rx.vstack(
-                    rx.text("Duración", size="1", color="gray"),
-                    rx.text(registro["duracion_texto"], size="2", weight="medium"),
+                    rx.text("Duracion", font_size=Typography.SIZE_XS, color=Colors.TEXT_MUTED),
+                    rx.text(registro["duracion_texto"], font_size=Typography.SIZE_SM, font_weight=Typography.WEIGHT_MEDIUM),
                     spacing="0",
                 ),
                 spacing="4",
@@ -281,13 +281,16 @@ def grid_historial() -> rx.Component:
                 # Contador
                 rx.text(
                     "Mostrando ", HistorialLaboralState.total_filtrado, " registro(s)",
-                    size="2",
-                    color="gray",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 width="100%",
                 spacing="3",
             ),
-            
+            tabla_vacia(
+                mensaje="No hay registros de historial laboral",
+                submensaje="Los registros se crean automaticamente cuando se realizan cambios en empleados.",
+            ),
         ),
     )
 

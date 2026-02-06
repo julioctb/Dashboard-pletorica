@@ -42,8 +42,7 @@ PORTAL_NAVIGATION = [
         "label": "Operacion",
         "items": [
             {"text": "Contratos", "icon": "file-text", "href": "/portal/contratos"},
-            #TODO implementar sistema de entregables ligado al contrato
-            {"text": "Entregables", "icon": "book-check", "href": "/portal/contratos"},
+            {"text": "Entregables", "icon": "package-check", "href": "/portal/entregables"},
             {"text": "Plazas", "icon": "briefcase", "href": "/portal/plazas"},
             {"text": "Requisiciones", "icon": "clipboard-list", "href": "/portal/requisiciones"},
         ],

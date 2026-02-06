@@ -63,13 +63,11 @@ def modal_tipo_servicio() -> rx.Component:
 
             # Botones de acción
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=TipoServicioState.cerrar_modal_tipo,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=TipoServicioState.cerrar_modal_tipo,
                 ),
                 rx.button(
                     rx.cond(
@@ -94,7 +92,8 @@ def modal_tipo_servicio() -> rx.Component:
             max_width="450px",
         ),
         open=TipoServicioState.mostrar_modal_tipo,
-        on_open_change=TipoServicioState.set_mostrar_modal_tipo,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 

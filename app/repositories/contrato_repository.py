@@ -496,7 +496,7 @@ class SupabaseContratoRepository:
                 .eq('estatus', EstatusContrato.ACTIVO.value)\
                 .lte('fecha_inicio', hoy)\
                 .or_(f"fecha_fin.is.null,fecha_fin.gte.{hoy}")\
-                .order('fecha_fin', desc=False, nulls_first=False)\
+                .order('fecha_fin', desc=False, nullsfirst=False)\
                 .execute()
 
             return [Contrato(**data) for data in result.data]

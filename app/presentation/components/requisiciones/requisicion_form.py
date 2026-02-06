@@ -506,13 +506,11 @@ def requisicion_form_modal(
 
             # Botones
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        size="2",
-                        on_click=on_close,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    size="2",
+                    on_click=on_close,
                 ),
                 rx.button(
                     rx.cond(
@@ -553,4 +551,6 @@ def requisicion_form_modal(
             spacing="4",
         ),
         open=open_var,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )

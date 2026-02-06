@@ -86,13 +86,11 @@ def modal_crear_usuario() -> rx.Component:
 
             # Botones
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=UsuariosAdminState.cerrar_modal_crear,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=UsuariosAdminState.cerrar_modal_crear,
                 ),
                 rx.button(
                     rx.cond(
@@ -113,7 +111,8 @@ def modal_crear_usuario() -> rx.Component:
             max_width="450px",
         ),
         open=UsuariosAdminState.mostrar_modal_crear,
-        on_open_change=UsuariosAdminState.set_mostrar_modal_crear,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -188,13 +187,11 @@ def modal_editar_usuario() -> rx.Component:
 
             # Botones
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=UsuariosAdminState.cerrar_modal_editar,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=UsuariosAdminState.cerrar_modal_editar,
                 ),
                 rx.button(
                     rx.cond(
@@ -215,7 +212,8 @@ def modal_editar_usuario() -> rx.Component:
             max_width="450px",
         ),
         open=UsuariosAdminState.mostrar_modal_editar,
-        on_open_change=UsuariosAdminState.set_mostrar_modal_editar,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -374,13 +372,11 @@ def modal_gestionar_empresas() -> rx.Component:
 
             # Boton cerrar
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cerrar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=UsuariosAdminState.cerrar_modal_empresas,
-                    ),
+                rx.button(
+                    "Cerrar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=UsuariosAdminState.cerrar_modal_empresas,
                 ),
                 justify="end",
                 width="100%",
@@ -392,7 +388,8 @@ def modal_gestionar_empresas() -> rx.Component:
             overflow_x="hidden",
         ),
         open=UsuariosAdminState.mostrar_modal_empresas,
-        on_open_change=UsuariosAdminState.set_mostrar_modal_empresas,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 

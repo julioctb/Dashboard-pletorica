@@ -16,6 +16,7 @@ from .presentation.pages.historial_laboral.historial_laboral_page import histori
 from .presentation.pages.requisiciones.requisiciones_page import requisiciones_page
 from .presentation.pages.configuracion.configuracion_page import configuracion_page
 from .presentation.pages.sedes.sedes_page import sedes_page
+from .presentation.pages.entregables import entregables_page, entregable_detalle_page
 from .presentation.pages.login.login_page import login_page
 from .presentation.pages.admin.usuarios.usuarios_page import usuarios_admin_page
 
@@ -28,6 +29,7 @@ from .presentation.portal.pages.mi_empresa import mi_empresa_page
 from .presentation.portal.pages.mis_empleados import mis_empleados_page
 from .presentation.portal.pages.mis_contratos import mis_contratos_page
 from .presentation.portal.pages.alta_masiva import alta_masiva_page
+from .presentation.portal.pages.mis_entregables import mis_entregables_page
 
 #se dibuja el layout para todas las paginas
 def index(content: rx.Component) -> rx.Component:
@@ -76,6 +78,8 @@ app.add_page(lambda: index(historial_laboral_page()), route="/historial-laboral"
 app.add_page(lambda: index(requisiciones_page()), route="/requisiciones")
 app.add_page(lambda: index(configuracion_page()), route="/configuracion")
 app.add_page(lambda: index(sedes_page()), route="/sedes")
+app.add_page(lambda: index(entregables_page()), route="/entregables")
+app.add_page(lambda: index(entregable_detalle_page()), route="/entregables/[entregable_id]")
 app.add_page(login_page, route="/login")
 app.add_page(lambda: index(usuarios_admin_page()), route="/admin/usuarios")
 
@@ -85,3 +89,4 @@ app.add_page(lambda: portal_index(mi_empresa_page()), route="/portal/mi-empresa"
 app.add_page(lambda: portal_index(mis_empleados_page()), route="/portal/empleados")
 app.add_page(lambda: portal_index(mis_contratos_page()), route="/portal/contratos")
 app.add_page(lambda: portal_index(alta_masiva_page()), route="/portal/alta-masiva")
+app.add_page(lambda: portal_index(mis_entregables_page()), route="/portal/entregables")

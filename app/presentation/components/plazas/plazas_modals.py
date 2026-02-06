@@ -88,13 +88,11 @@ def modal_plaza() -> rx.Component:
 
             # Botones de accion
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=PlazasState.cerrar_modal_plaza,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=PlazasState.cerrar_modal_plaza,
                 ),
                 rx.button(
                     rx.cond(
@@ -119,6 +117,8 @@ def modal_plaza() -> rx.Component:
             max_width="450px",
         ),
         open=PlazasState.mostrar_modal_plaza,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -229,13 +229,11 @@ def modal_detalle_plaza() -> rx.Component:
 
             # Botones
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cerrar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=PlazasState.cerrar_modal_detalle,
-                    ),
+                rx.button(
+                    "Cerrar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=PlazasState.cerrar_modal_detalle,
                 ),
                 rx.cond(
                     PlazasState.plaza_seleccionada,
@@ -260,6 +258,8 @@ def modal_detalle_plaza() -> rx.Component:
             max_width="450px",
         ),
         open=PlazasState.mostrar_modal_detalle,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -376,13 +376,11 @@ def modal_asignar_empleado() -> rx.Component:
 
             # Botones de acción
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=PlazasState.cerrar_modal_asignar_empleado,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=PlazasState.cerrar_modal_asignar_empleado,
                 ),
                 rx.button(
                     rx.cond(
@@ -411,6 +409,8 @@ def modal_asignar_empleado() -> rx.Component:
             max_width="450px",
         ),
         open=PlazasState.mostrar_modal_asignar_empleado,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
 
 
@@ -513,13 +513,11 @@ def modal_crear_lote() -> rx.Component:
 
             # Botones de accion
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
-                        on_click=PlazasState.cerrar_modal_crear_lote,
-                    ),
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=PlazasState.cerrar_modal_crear_lote,
                 ),
                 rx.button(
                     rx.cond(
@@ -548,4 +546,6 @@ def modal_crear_lote() -> rx.Component:
             max_width="450px",
         ),
         open=PlazasState.mostrar_modal_crear_lote,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
     )
