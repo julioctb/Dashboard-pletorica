@@ -4,18 +4,18 @@ Gestiona visualización de archivos, detalle de personal, flujo de aprobación/r
 """
 
 import reflex as rx
-from typing import List, Optional
+from typing import List
 from decimal import Decimal
 from uuid import UUID
 
-from app.presentation.components.shared.base_state import BaseState
+from app.presentation.components.shared.auth_state import AuthState
 from app.services import entregable_service, archivo_service
 from app.entities.archivo import EntidadArchivo
-from app.core.enums import EstatusEntregable
 from app.core.exceptions import NotFoundError, BusinessRuleError
+from app.core.text_utils import formatear_moneda
 
 
-class EntregableDetalleState(BaseState):
+class EntregableDetalleState(AuthState):
     """Estado para la página de detalle y revisión de entregable."""
 
     # =========================================================================
@@ -26,6 +26,7 @@ class EntregableDetalleState(BaseState):
     entregable: dict = {}
     contrato_info: dict = {}
     archivos: List[dict] = []
+    archivos_pago: List[dict] = []
     detalle_personal: List[dict] = []
 
     # =========================================================================
@@ -42,16 +43,38 @@ class EntregableDetalleState(BaseState):
     imagen_seleccionada: str = ""
     mostrar_galeria: bool = False
 
+    # --- Prefactura ---
+    mostrar_modal_rechazar_prefactura: bool = False
+    observaciones_prefactura: str = ""
+    error_observaciones_prefactura: str = ""
+
+    # --- Registrar Pago ---
+    mostrar_modal_registrar_pago: bool = False
+    fecha_pago: str = ""
+    referencia_pago: str = ""
+    error_fecha_pago: str = ""
+
     # =========================================================================
     # SETTERS
     # =========================================================================
     def set_monto_a_aprobar(self, value: str):
-        self.monto_a_aprobar = value
+        self.monto_a_aprobar = formatear_moneda(value) if value else ""
         self.error_monto = ""
 
     def set_observaciones_rechazo(self, value: str):
         self.observaciones_rechazo = value
         self.error_observaciones = ""
+
+    def set_observaciones_prefactura(self, value: str):
+        self.observaciones_prefactura = value
+        self.error_observaciones_prefactura = ""
+
+    def set_fecha_pago(self, value: str):
+        self.fecha_pago = value
+        self.error_fecha_pago = ""
+
+    def set_referencia_pago(self, value: str):
+        self.referencia_pago = value
 
     # =========================================================================
     # COMPUTED VARS
@@ -105,6 +128,58 @@ class EntregableDetalleState(BaseState):
     def puede_guardar_rechazo(self) -> bool:
         return len(self.observaciones_rechazo.strip()) >= 10
 
+    @rx.var
+    def puede_revisar_prefactura(self) -> bool:
+        return self.entregable.get("estatus") == "PREFACTURA_ENVIADA"
+
+    @rx.var
+    def es_facturado(self) -> bool:
+        return self.entregable.get("estatus") == "FACTURADO"
+
+    @rx.var
+    def es_prefactura_aprobada(self) -> bool:
+        return self.entregable.get("estatus") == "PREFACTURA_APROBADA"
+
+    @rx.var
+    def es_pagado(self) -> bool:
+        return self.entregable.get("estatus") == "PAGADO"
+
+    @rx.var
+    def tiene_archivos_pago(self) -> bool:
+        return len(self.archivos_pago) > 0
+
+    @rx.var
+    def puede_guardar_rechazo_prefactura(self) -> bool:
+        return len(self.observaciones_prefactura.strip()) >= 10
+
+    @rx.var
+    def puede_guardar_pago(self) -> bool:
+        return bool(self.fecha_pago) and not self.error_fecha_pago
+
+    @rx.var
+    def folio_fiscal_entregable(self) -> str:
+        return self.entregable.get("folio_fiscal", "") or ""
+
+    @rx.var
+    def observaciones_prefactura_texto(self) -> str:
+        return self.entregable.get("observaciones_prefactura", "") or ""
+
+    @rx.var
+    def monto_aprobado_texto(self) -> str:
+        return self.entregable.get("monto_aprobado", "") or "0"
+
+    @rx.var
+    def referencia_pago_entregable(self) -> str:
+        return self.entregable.get("referencia_pago", "") or ""
+
+    @rx.var
+    def es_post_aprobacion(self) -> bool:
+        """Si el entregable está en algún estado post-aprobación."""
+        return self.entregable.get("estatus", "") in [
+            "APROBADO", "PREFACTURA_ENVIADA", "PREFACTURA_RECHAZADA",
+            "PREFACTURA_APROBADA", "FACTURADO", "PAGADO",
+        ]
+
     # =========================================================================
     # CARGA DE DATOS
     # =========================================================================
@@ -137,11 +212,20 @@ class EntregableDetalleState(BaseState):
                 "observaciones_rechazo": entregable.observaciones_rechazo,
                 "puede_revisar": entregable.puede_revisar_admin,
                 "tiene_pago": entregable.tiene_pago,
+                "pago_id": entregable.pago_id,
+                # Campos de facturación
+                "observaciones_prefactura": getattr(entregable, 'observaciones_prefactura', None),
+                "fecha_prefactura": str(entregable.fecha_prefactura) if getattr(entregable, 'fecha_prefactura', None) else None,
+                "fecha_factura": str(entregable.fecha_factura) if getattr(entregable, 'fecha_factura', None) else None,
+                "fecha_pago_registrado": str(entregable.fecha_pago_registrado) if getattr(entregable, 'fecha_pago_registrado', None) else None,
+                "folio_fiscal": getattr(entregable, 'folio_fiscal', None),
+                "referencia_pago": getattr(entregable, 'referencia_pago', None),
             }
             if entregable.monto_calculado:
                 self.monto_a_aprobar = str(entregable.monto_calculado)
             await self._cargar_info_contrato(entregable.contrato_id)
             await self._cargar_archivos()
+            await self._cargar_archivos_pago()
             await self._cargar_detalle_personal()
         except NotFoundError:
             self.mostrar_mensaje("Entregable no encontrado", "error")
@@ -181,6 +265,29 @@ class EntregableDetalleState(BaseState):
             ]
         except Exception:
             self.archivos = []
+
+    async def _cargar_archivos_pago(self):
+        """Carga archivos de la entidad PAGO asociados al entregable (prefacturas, facturas)."""
+        try:
+            pago_id = self.entregable.get("pago_id")
+            if pago_id:
+                archivos = await archivo_service.obtener_archivos_entidad(EntidadArchivo.PAGO, int(pago_id))
+                self.archivos_pago = [
+                    {
+                        "id": a.id,
+                        "nombre": a.nombre_original,
+                        "tipo_mime": a.tipo_mime,
+                        "tamanio_mb": a.tamanio_mb,
+                        "es_imagen": a.es_imagen,
+                        "es_pdf": a.es_pdf,
+                        "categoria": getattr(a, 'categoria', '') or '',
+                    }
+                    for a in archivos
+                ]
+            else:
+                self.archivos_pago = []
+        except Exception:
+            self.archivos_pago = []
 
     async def _cargar_detalle_personal(self):
         try:
@@ -238,10 +345,11 @@ class EntregableDetalleState(BaseState):
     # FLUJO DE APROBACIÓN
     # =========================================================================
     def abrir_modal_aprobar(self):
-        if not self.puede_revisar:
+        if self.entregable.get("estatus") != "EN_REVISION":
             self.mostrar_mensaje("Este entregable no está en revisión", "warning")
             return
-        self.monto_a_aprobar = self.entregable.get("monto_calculado", "0")
+        raw = self.entregable.get("monto_calculado", "0")
+        self.monto_a_aprobar = formatear_moneda(raw) if raw else ""
         self.error_monto = ""
         self.mostrar_modal_aprobar = True
 
@@ -250,12 +358,16 @@ class EntregableDetalleState(BaseState):
         self.monto_a_aprobar = ""
         self.error_monto = ""
 
+    def _limpiar_monto(self, valor: str) -> str:
+        """Remueve formato de moneda para obtener valor numérico limpio."""
+        return valor.replace(",", "").replace("$", "").strip()
+
     def validar_monto(self):
         if not self.monto_a_aprobar:
             self.error_monto = "El monto es requerido"
             return
         try:
-            monto = Decimal(self.monto_a_aprobar.replace(",", "").replace("$", ""))
+            monto = Decimal(self._limpiar_monto(self.monto_a_aprobar))
             if monto <= 0:
                 self.error_monto = "El monto debe ser mayor a cero"
             else:
@@ -269,20 +381,20 @@ class EntregableDetalleState(BaseState):
             return
         self.procesando = True
         try:
-            monto = Decimal(self.monto_a_aprobar.replace(",", "").replace("$", ""))
-            usuario_id = await self._obtener_usuario_actual()
+            monto = Decimal(self._limpiar_monto(self.monto_a_aprobar))
+            usuario_id = self._obtener_usuario_actual()
             await entregable_service.aprobar(
                 entregable_id=self.current_id,
                 monto_aprobado=monto,
                 revisado_por=usuario_id,
             )
-            self.mostrar_mensaje("Entregable aprobado correctamente", "success")
             self.cerrar_modal_aprobar()
             await self.cargar_entregable(self.current_id)
+            return rx.toast.success("Entregable aprobado correctamente", position="top-center")
         except BusinessRuleError as e:
-            self.mostrar_mensaje(str(e), "error")
+            return rx.toast.error(str(e), position="top-center")
         except Exception as e:
-            self.mostrar_mensaje(f"Error al aprobar: {str(e)}", "error")
+            return rx.toast.error(f"Error al aprobar: {str(e)}", position="top-center")
         finally:
             self.procesando = False
 
@@ -290,7 +402,7 @@ class EntregableDetalleState(BaseState):
     # FLUJO DE RECHAZO
     # =========================================================================
     def abrir_modal_rechazar(self):
-        if not self.puede_revisar:
+        if self.entregable.get("estatus") != "EN_REVISION":
             self.mostrar_mensaje("Este entregable no está en revisión", "warning")
             return
         self.observaciones_rechazo = ""
@@ -314,28 +426,156 @@ class EntregableDetalleState(BaseState):
             return
         self.procesando = True
         try:
-            usuario_id = await self._obtener_usuario_actual()
+            usuario_id = self._obtener_usuario_actual()
             await entregable_service.rechazar(
                 entregable_id=self.current_id,
                 observaciones=self.observaciones_rechazo.strip(),
                 revisado_por=usuario_id,
             )
-            self.mostrar_mensaje("Entregable rechazado", "warning")
             self.cerrar_modal_rechazar()
             await self.cargar_entregable(self.current_id)
+            return rx.toast.success("Entregable rechazado", position="top-center")
         except BusinessRuleError as e:
-            self.mostrar_mensaje(str(e), "error")
+            return rx.toast.error(str(e), position="top-center")
         except Exception as e:
-            self.mostrar_mensaje(f"Error al rechazar: {str(e)}", "error")
+            return rx.toast.error(f"Error al rechazar: {str(e)}", position="top-center")
         finally:
             self.procesando = False
 
     # =========================================================================
+    # FLUJO DE PREFACTURA (ADMIN)
+    # =========================================================================
+    async def aprobar_prefactura(self):
+        """Aprueba la prefactura del entregable."""
+        self.procesando = True
+        try:
+            usuario_id = self._obtener_usuario_actual()
+            await entregable_service.aprobar_prefactura(
+                entregable_id=self.current_id,
+                revisado_por=usuario_id,
+            )
+            await self.cargar_entregable(self.current_id)
+            return rx.toast.success("Prefactura aprobada correctamente", position="top-center")
+        except BusinessRuleError as e:
+            return rx.toast.error(str(e), position="top-center")
+        except Exception as e:
+            return rx.toast.error(f"Error al aprobar prefactura: {str(e)}", position="top-center")
+        finally:
+            self.procesando = False
+
+    def abrir_modal_rechazar_prefactura(self):
+        if self.entregable.get("estatus") != "PREFACTURA_ENVIADA":
+            self.mostrar_mensaje("Este entregable no tiene prefactura en revisión", "warning")
+            return
+        self.observaciones_prefactura = ""
+        self.error_observaciones_prefactura = ""
+        self.mostrar_modal_rechazar_prefactura = True
+
+    def cerrar_modal_rechazar_prefactura(self):
+        self.mostrar_modal_rechazar_prefactura = False
+        self.observaciones_prefactura = ""
+        self.error_observaciones_prefactura = ""
+
+    def validar_observaciones_prefactura(self):
+        if not self.observaciones_prefactura or len(self.observaciones_prefactura.strip()) < 10:
+            self.error_observaciones_prefactura = "Las observaciones deben tener al menos 10 caracteres"
+        else:
+            self.error_observaciones_prefactura = ""
+
+    async def confirmar_rechazo_prefactura(self):
+        self.validar_observaciones_prefactura()
+        if self.error_observaciones_prefactura:
+            return
+        self.procesando = True
+        try:
+            usuario_id = self._obtener_usuario_actual()
+            await entregable_service.rechazar_prefactura(
+                entregable_id=self.current_id,
+                observaciones=self.observaciones_prefactura.strip(),
+                revisado_por=usuario_id,
+            )
+            self.cerrar_modal_rechazar_prefactura()
+            await self.cargar_entregable(self.current_id)
+            return rx.toast.success("Prefactura rechazada", position="top-center")
+        except BusinessRuleError as e:
+            return rx.toast.error(str(e), position="top-center")
+        except Exception as e:
+            return rx.toast.error(f"Error al rechazar prefactura: {str(e)}", position="top-center")
+        finally:
+            self.procesando = False
+
+    # =========================================================================
+    # REGISTRAR PAGO (ADMIN)
+    # =========================================================================
+    def abrir_modal_registrar_pago(self):
+        if self.entregable.get("estatus") != "FACTURADO":
+            self.mostrar_mensaje("Este entregable no está facturado", "warning")
+            return
+        self.fecha_pago = ""
+        self.referencia_pago = ""
+        self.error_fecha_pago = ""
+        self.mostrar_modal_registrar_pago = True
+
+    def cerrar_modal_registrar_pago(self):
+        self.mostrar_modal_registrar_pago = False
+        self.fecha_pago = ""
+        self.referencia_pago = ""
+        self.error_fecha_pago = ""
+
+    def validar_fecha_pago(self):
+        if not self.fecha_pago:
+            self.error_fecha_pago = "La fecha de pago es requerida"
+        else:
+            self.error_fecha_pago = ""
+
+    async def confirmar_registrar_pago(self):
+        self.validar_fecha_pago()
+        if self.error_fecha_pago:
+            return
+        self.procesando = True
+        try:
+            from datetime import date as date_type
+            fecha = date_type.fromisoformat(self.fecha_pago)
+            usuario_id = self._obtener_usuario_actual()
+            await entregable_service.registrar_pago(
+                entregable_id=self.current_id,
+                fecha_pago=fecha,
+                referencia=self.referencia_pago.strip() if self.referencia_pago else "",
+                revisado_por=usuario_id,
+            )
+            self.cerrar_modal_registrar_pago()
+            await self.cargar_entregable(self.current_id)
+            return rx.toast.success("Pago registrado correctamente", position="top-center")
+        except BusinessRuleError as e:
+            return rx.toast.error(str(e), position="top-center")
+        except ValueError:
+            self.error_fecha_pago = "Fecha inválida"
+        except Exception as e:
+            return rx.toast.error(f"Error al registrar pago: {str(e)}", position="top-center")
+        finally:
+            self.procesando = False
+
+    # =========================================================================
+    # DESCARGA ARCHIVOS PAGO
+    # =========================================================================
+    async def descargar_archivo_pago(self, archivo_id: int):
+        """Descarga un archivo de pago (prefactura/factura)."""
+        try:
+            url = await archivo_service.obtener_url_temporal(archivo_id)
+            if url:
+                return rx.redirect(url, external=True)
+            else:
+                self.mostrar_mensaje("No se pudo obtener el archivo", "error")
+        except Exception as e:
+            self.mostrar_mensaje(f"Error al descargar: {str(e)}", "error")
+
+    # =========================================================================
     # HELPERS
     # =========================================================================
-    async def _obtener_usuario_actual(self) -> UUID:
-        import uuid
-        return uuid.uuid4()
+    def _obtener_usuario_actual(self) -> UUID:
+        if not self.id_usuario:
+            raise BusinessRuleError("No se pudo identificar al usuario actual. Inicie sesión nuevamente.")
+        return UUID(self.id_usuario)
 
     def volver_a_listado(self):
         """Vuelve al listado de entregables."""

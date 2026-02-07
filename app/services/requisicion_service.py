@@ -7,7 +7,7 @@ Patrón de manejo de errores:
 - Valida reglas de negocio y lanza BusinessRuleError cuando corresponde
 """
 import logging
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Dict, List, Optional
 
@@ -128,15 +128,24 @@ class RequisicionService:
                 total_items=total_items,
                 presupuesto_total=presupuesto_total,
                 empresa_nombre=empresa_nombre,
+                creado_por=req.creado_por,
+                aprobado_por=req.aprobado_por,
+                fecha_aprobacion=req.fecha_aprobacion,
                 created_at=req.created_at,
             ))
 
         return resumenes
 
-    async def crear(self, data: RequisicionCreate) -> Requisicion:
+    async def crear(
+        self, data: RequisicionCreate, creado_por: Optional[str] = None
+    ) -> Requisicion:
         """
         Crea una nueva requisición con número auto-generado.
         Permite borradores sin items ni partidas.
+
+        Args:
+            data: Datos de la requisición a crear
+            creado_por: UUID del usuario que crea la requisición
 
         Raises:
             DuplicateError: Si el número ya existe
@@ -149,6 +158,10 @@ class RequisicionService:
         requisicion_data = data.model_dump(exclude={'items', 'partidas'})
         requisicion_data['numero_requisicion'] = numero
         requisicion_data['estado'] = EstadoRequisicion.BORRADOR
+
+        # Auditoría: registrar quién crea
+        if creado_por:
+            requisicion_data['creado_por'] = creado_por
 
         # Construir items
         items = []
@@ -372,15 +385,37 @@ class RequisicionService:
             requisicion_id, EstadoRequisicion.EN_REVISION
         )
 
-    async def aprobar(self, requisicion_id: int) -> Requisicion:
-        """Aprueba una requisición (EN_REVISION → APROBADA)."""
+    async def aprobar(
+        self, requisicion_id: int, aprobado_por: Optional[str] = None
+    ) -> Requisicion:
+        """
+        Aprueba una requisición (EN_REVISION → APROBADA).
+
+        Args:
+            requisicion_id: ID de la requisición
+            aprobado_por: UUID del usuario que aprueba
+
+        Raises:
+            BusinessRuleError: Si el aprobador es el mismo que el creador
+        """
         requisicion = await self.repository.obtener_por_id(requisicion_id)
         self._validar_transicion(
             EstadoRequisicion(requisicion.estado), EstadoRequisicion.APROBADA
         )
-        return await self.repository.cambiar_estado(
-            requisicion_id, EstadoRequisicion.APROBADA
-        )
+
+        # Validar que el aprobador sea diferente al creador
+        if aprobado_por and requisicion.creado_por and aprobado_por == requisicion.creado_por:
+            raise BusinessRuleError(
+                "El usuario que aprueba no puede ser el mismo que creó la requisición"
+            )
+
+        # Actualizar campos de aprobación
+        requisicion.estado = EstadoRequisicion.APROBADA
+        if aprobado_por:
+            requisicion.aprobado_por = aprobado_por
+        requisicion.fecha_aprobacion = datetime.now()
+
+        return await self.repository.actualizar(requisicion)
 
     async def adjudicar(
         self, requisicion_id: int, data: RequisicionAdjudicar

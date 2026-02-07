@@ -6,7 +6,6 @@ tanto en entities (Pydantic) como en validators (frontend).
 
 IMPORTANTE: Cualquier cambio aquí afecta ambas capas.
 """
-import re
 from datetime import date, datetime
 from typing import Optional, Union
 

@@ -15,7 +15,7 @@ from app.presentation.components.ui import (
     skeleton_tabla,
     switch_inactivos,
 )
-from app.presentation.theme import Colors, Spacing, Shadows, Typography
+from app.presentation.theme import Colors, Spacing, Shadows
 
 from app.presentation.pages.contratos.contratos_modals import (
     modal_contrato,

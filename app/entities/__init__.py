@@ -33,6 +33,9 @@ from app.core.enums import (
     # Enums de Sede
     TipoSede,
     NivelContacto,
+    # Enums de Entregable y Pago
+    EstatusEntregable,
+    EstatusPago,
 )
 
 # Empresa
@@ -133,6 +136,12 @@ from app.entities.archivo import (
     ArchivoUploadResponse,
 )
 
+# Contrato Item
+from app.entities.contrato_item import (
+    ContratoItem,
+    ContratoItemCreate,
+)
+
 # Requisicion
 from app.entities.requisicion import (
     LugarEntrega,
@@ -181,7 +190,27 @@ from app.entities.alta_masiva import (
     ResultadoProcesamiento,
     DetalleResultado,
 )
-from app.repositories.entregable_repository import SupabaseEntregableRepository
+
+# Dashboard
+from app.entities.dashboard import DashboardMetricas
+
+# Notificacion
+from app.entities.notificacion import (
+    Notificacion,
+    NotificacionCreate,
+)
+
+# Entregables
+from app.entities.entregable import (
+    Entregable,
+    EntregableCreate,
+    EntregableUpdate,
+    EntregableResumen,
+    ContratoTipoEntregable,
+    ContratoTipoEntregableCreate,
+    ContratoTipoEntregableUpdate,
+    AlertaEntregables,
+)
 
 # Costo Patronal (si existe)
 try:
@@ -212,6 +241,8 @@ __all__ = [
     "TipoContratacion",
     "GrupoConfiguracion",
     "RolUsuario",
+    "EstatusEntregable",
+    "EstatusPago",
     # Empresa
     "Empresa",
     "EmpresaCreate",
@@ -274,6 +305,9 @@ __all__ = [
     "ArchivoSistema",
     "ArchivoSistemaUpdate",
     "ArchivoUploadResponse",
+    # Contrato Item
+    "ContratoItem",
+    "ContratoItemCreate",
     # Requisicion
     "LugarEntrega",
     "ConfiguracionRequisicion",
@@ -316,5 +350,17 @@ __all__ = [
     "ResultadoProcesamiento",
     "DetalleResultado",
     # Entregables
-     "SupabaseEntregableRepository",
+    "Entregable",
+    "EntregableCreate",
+    "EntregableUpdate",
+    "EntregableResumen",
+    "ContratoTipoEntregable",
+    "ContratoTipoEntregableCreate",
+    "ContratoTipoEntregableUpdate",
+    "AlertaEntregables",
+    # Dashboard
+    "DashboardMetricas",
+    # Notificacion
+    "Notificacion",
+    "NotificacionCreate",
 ]

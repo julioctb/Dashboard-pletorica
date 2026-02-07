@@ -77,50 +77,85 @@ def _stat_card(
 
 def _seccion_estadisticas() -> rx.Component:
     """Cards de estadísticas que actúan como filtros."""
-    return rx.hstack(
-        _stat_card(
-            "Total",
-            EntregablesState.stats_total,
-            "calendar",
-            "gray",
-            EntregablesState.filtrar_todos,
-            EntregablesState.filtro_activo_es_todos,
+    return rx.vstack(
+        # Fila 1: Flujo de revisión
+        rx.hstack(
+            _stat_card(
+                "Total",
+                EntregablesState.stats_total,
+                "calendar",
+                "gray",
+                EntregablesState.filtrar_todos,
+                EntregablesState.filtro_activo_es_todos,
+            ),
+            _stat_card(
+                "En Revisión",
+                EntregablesState.stats_en_revision,
+                "search",
+                "sky",
+                EntregablesState.filtrar_en_revision,
+                EntregablesState.filtro_activo_es_en_revision,
+            ),
+            _stat_card(
+                "Pendientes",
+                EntregablesState.stats_pendientes,
+                "clock",
+                "amber",
+                EntregablesState.filtrar_pendientes,
+                EntregablesState.filtro_activo_es_pendiente,
+            ),
+            _stat_card(
+                "Aprobados",
+                EntregablesState.stats_aprobados,
+                "circle-check",
+                "green",
+                EntregablesState.filtrar_aprobados,
+                EntregablesState.filtro_activo_es_aprobado,
+            ),
+            _stat_card(
+                "Rechazados",
+                EntregablesState.stats_rechazados,
+                "circle-x",
+                "red",
+                EntregablesState.filtrar_rechazados,
+                EntregablesState.filtro_activo_es_rechazado,
+            ),
+            spacing="4",
+            width="100%",
+            flex_wrap="wrap",
         ),
-        _stat_card(
-            "En Revisión",
-            EntregablesState.stats_en_revision,
-            "search",
-            "sky",
-            EntregablesState.filtrar_en_revision,
-            EntregablesState.filtro_activo_es_en_revision,
+        # Fila 2: Flujo de facturación
+        rx.hstack(
+            _stat_card(
+                "Prefacturas",
+                EntregablesState.stats_prefactura_enviada,
+                "file-search",
+                "sky",
+                EntregablesState.filtrar_prefacturas,
+                EntregablesState.filtro_activo_es_prefactura,
+            ),
+            _stat_card(
+                "Facturados",
+                EntregablesState.stats_facturados,
+                "receipt",
+                "amber",
+                EntregablesState.filtrar_facturados,
+                EntregablesState.filtro_activo_es_facturado,
+            ),
+            _stat_card(
+                "Pagados",
+                EntregablesState.stats_pagados,
+                "badge-check",
+                "green",
+                EntregablesState.filtrar_pagados,
+                EntregablesState.filtro_activo_es_pagado,
+            ),
+            spacing="4",
+            width="100%",
+            flex_wrap="wrap",
         ),
-        _stat_card(
-            "Pendientes",
-            EntregablesState.stats_pendientes,
-            "clock",
-            "amber",
-            EntregablesState.filtrar_pendientes,
-            EntregablesState.filtro_activo_es_pendiente,
-        ),
-        _stat_card(
-            "Aprobados",
-            EntregablesState.stats_aprobados,
-            "circle-check",
-            "green",
-            EntregablesState.filtrar_aprobados,
-            EntregablesState.filtro_activo_es_aprobado,
-        ),
-        _stat_card(
-            "Rechazados",
-            EntregablesState.stats_rechazados,
-            "circle-x",
-            "red",
-            EntregablesState.filtrar_rechazados,
-            EntregablesState.filtro_activo_es_rechazado,
-        ),
-        spacing="4",
+        spacing="3",
         width="100%",
-        flex_wrap="wrap",
     )
 
 
@@ -219,8 +254,8 @@ def _fila_entregable(entregable: dict) -> rx.Component:
                     on_click=lambda: EntregablesState.ir_a_detalle(entregable["id"]),
                 ),
                 rx.cond(
-                    entregable["puede_revisar"],
-                    rx.badge("Revisar", color_scheme="sky", size="1"),
+                    entregable["requiere_accion"],
+                    rx.badge("Acción", color_scheme="sky", size="1"),
                     rx.fragment(),
                 ),
                 spacing="2",

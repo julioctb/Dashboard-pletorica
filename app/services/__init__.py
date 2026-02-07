@@ -72,6 +72,12 @@ from app.services.requisicion_service import (
     requisicion_service,
 )
 
+# Requisicion PDF
+from app.services.requisicion_pdf_service import (
+    RequisicionPDFService,
+    requisicion_pdf_service,
+)
+
 # Sede
 from app.services.sede_service import (
     SedeService,
@@ -114,6 +120,18 @@ from app.services.entregable_service import (
     entregable_service,
 )
 
+# Dashboard
+from app.services.dashboard_service import (
+    DashboardService,
+    dashboard_service
+)
+
+# Notificacion
+from app.services.notificacion_service import (
+    NotificacionService,
+    notificacion_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -149,6 +167,9 @@ __all__ = [
     # Requisicion
     "RequisicionService",
     "requisicion_service",
+    # Requisicion PDF
+    "RequisicionPDFService",
+    "requisicion_pdf_service",
     # Sede
     "SedeService",
     "sede_service",
@@ -169,4 +190,10 @@ __all__ = [
     # Entregable
     "EntregableService",
     "entregable_service",
+    # Dasboard
+    "DashboardService",
+    "dashboard_service",
+    # Notificacion
+    "NotificacionService",
+    "notificacion_service",
 ]

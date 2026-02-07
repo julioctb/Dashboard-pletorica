@@ -151,7 +151,7 @@ def archivo_uploader(
             max_files=max_archivos,
             no_click=subiendo,
             no_drag=subiendo,
-            border=f"2px dashed var(--gray-6)",
+            border="2px dashed var(--gray-6)",
             border_radius="var(--radius-2)",
             cursor=rx.cond(subiendo, "wait", "pointer"),
             _hover={"borderColor": "var(--blue-8)", "background": "var(--blue-2)"},

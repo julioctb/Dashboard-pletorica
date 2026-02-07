@@ -142,7 +142,7 @@ def modal_pagos() -> rx.Component:
             rx.dialog.title(
                 rx.hstack(
                     rx.icon("credit-card", size=20),
-                    rx.text(f"Pagos del Contrato"),
+                    rx.text("Pagos del Contrato"),
                     rx.badge(PagosState.contrato_codigo, color_scheme="blue"),
                     spacing="2",
                     align="center",

@@ -3,7 +3,7 @@ import reflex as rx
 from app.presentation.theme import GLOBAL_STYLES
 from app.api.main import api_app
 
-from .presentation.pages.dashboard import dashboard_page
+from .presentation.pages.dashboard.dashboard_page import dashboard_page
 from .presentation.pages.empresas.empresas_page import empresas_page
 
 from .presentation.pages.simulador.simulador_page import simulador_page

@@ -43,6 +43,14 @@ from .entity_card import (
     entity_grid,
 )
 
+from .metric_card import metric_card
+
+from .notification_bell import (
+    notification_bell,
+    notification_bell_portal,
+    NotificationBellState,
+)
+
 
 __all__ = [
     'page_header',
@@ -82,4 +90,10 @@ __all__ = [
     # Entity cards
     "entity_card",
     "entity_grid",
+    # Metric card
+    "metric_card",
+    # Notification bell
+    "notification_bell",
+    "notification_bell_portal",
+    "NotificationBellState",
 ]

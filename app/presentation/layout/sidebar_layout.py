@@ -28,6 +28,7 @@ import reflex as rx
 from app.core.config import Config
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.layout.sidebar_state import SidebarState
+from app.presentation.components.ui.notification_bell import notification_bell, NotificationBellState
 from app.presentation.theme import (
     Colors,
     Spacing,
@@ -98,7 +99,7 @@ ADMIN_NAVIGATION_GROUP = {
 
 def sidebar_header() -> rx.Component:
     """
-    Header del sidebar con logo y titulo.
+    Header del sidebar con logo, titulo y campana de notificaciones.
     En modo colapsado solo muestra el logo.
     """
     return rx.hstack(
@@ -114,22 +115,28 @@ def sidebar_header() -> rx.Component:
         rx.cond(
             SidebarState.is_collapsed,
             rx.fragment(),
-            rx.vstack(
-                rx.text(
-                    "BUAP",
-                    font_size=Typography.SIZE_LG,
-                    font_weight=Typography.WEIGHT_BOLD,
-                    color=Colors.TEXT_PRIMARY,
-                    line_height="1.2",
+            rx.hstack(
+                rx.vstack(
+                    rx.text(
+                        "BUAP",
+                        font_size=Typography.SIZE_LG,
+                        font_weight=Typography.WEIGHT_BOLD,
+                        color=Colors.TEXT_PRIMARY,
+                        line_height="1.2",
+                    ),
+                    rx.text(
+                        "Sistema de Gestion",
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.TEXT_SECONDARY,
+                        line_height="1.2",
+                    ),
+                    spacing="0",
+                    align_items="start",
                 ),
-                rx.text(
-                    "Sistema de Gestion",
-                    font_size=Typography.SIZE_XS,
-                    color=Colors.TEXT_SECONDARY,
-                    line_height="1.2",
-                ),
-                spacing="0",
-                align_items="start",
+                rx.spacer(),
+                notification_bell(),
+                align="center",
+                flex="1",
             ),
         ),
         padding_x=Spacing.MD,
@@ -618,7 +625,7 @@ def _dev_view_switcher() -> rx.Component:
         padding=Spacing.SM,
         background="var(--red-2)",
         border_radius="8px",
-        border=f"1px dashed var(--red-6)",
+        border="1px dashed var(--red-6)",
     )
 
     # Versión colapsada: solo icono bug con tooltip
@@ -629,7 +636,7 @@ def _dev_view_switcher() -> rx.Component:
             height="36px",
             border_radius="8px",
             background="var(--red-2)",
-            border=f"1px dashed var(--red-6)",
+            border="1px dashed var(--red-6)",
             cursor="pointer",
         ),
         content="Dev View Switcher",
@@ -730,7 +737,7 @@ def sidebar() -> rx.Component:
         transition=f"width {Transitions.NORMAL}, min-width {Transitions.NORMAL}",
         flex_shrink="0",
         overflow="visible",  # Para que el boton toggle se vea
-        on_mount=SidebarState.cargar_alertas,
+        on_mount=[SidebarState.cargar_alertas, NotificationBellState.cargar_notificaciones],
     )
 
 

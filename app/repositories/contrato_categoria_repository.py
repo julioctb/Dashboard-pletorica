@@ -110,7 +110,7 @@ class SupabaseContratoCategoriaRepository:
                 contrato_categoria.categoria_puesto_id
             ):
                 raise DuplicateError(
-                    f"La categoria ya esta asignada a este contrato",
+                    "La categoria ya esta asignada a este contrato",
                     field="categoria_puesto_id",
                     value=str(contrato_categoria.categoria_puesto_id)
                 )

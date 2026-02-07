@@ -72,6 +72,10 @@ class EntregablesState(BaseState):
             {"value": "PENDIENTE", "label": "Pendientes"},
             {"value": "APROBADO", "label": "Aprobados"},
             {"value": "RECHAZADO", "label": "Rechazados"},
+            {"value": "PREFACTURA_ENVIADA", "label": "Prefactura enviada"},
+            {"value": "PREFACTURA_APROBADA", "label": "Prefactura aprobada"},
+            {"value": "FACTURADO", "label": "Facturado"},
+            {"value": "PAGADO", "label": "Pagado"},
         ]
 
     @rx.var
@@ -99,6 +103,18 @@ class EntregablesState(BaseState):
         return self.estadisticas.get("rechazados", 0)
 
     @rx.var
+    def stats_prefactura_enviada(self) -> int:
+        return self.estadisticas.get("prefactura_enviada", 0)
+
+    @rx.var
+    def stats_facturados(self) -> int:
+        return self.estadisticas.get("facturados", 0)
+
+    @rx.var
+    def stats_pagados(self) -> int:
+        return self.estadisticas.get("pagados", 0)
+
+    @rx.var
     def filtro_activo_es_todos(self) -> bool:
         return self.filtro_estatus == "all"
 
@@ -119,19 +135,32 @@ class EntregablesState(BaseState):
         return self.filtro_estatus == "RECHAZADO"
 
     @rx.var
+    def filtro_activo_es_prefactura(self) -> bool:
+        return self.filtro_estatus == "PREFACTURA_ENVIADA"
+
+    @rx.var
+    def filtro_activo_es_facturado(self) -> bool:
+        return self.filtro_estatus == "FACTURADO"
+
+    @rx.var
+    def filtro_activo_es_pagado(self) -> bool:
+        return self.filtro_estatus == "PAGADO"
+
+    @rx.var
     def titulo_filtro_actual(self) -> str:
         """Título descriptivo del filtro actual."""
-        if self.filtro_estatus == "all":
-            return "Todos los Entregables"
-        elif self.filtro_estatus == "EN_REVISION":
-            return "Entregables en Revisión"
-        elif self.filtro_estatus == "PENDIENTE":
-            return "Entregables Pendientes"
-        elif self.filtro_estatus == "APROBADO":
-            return "Entregables Aprobados"
-        elif self.filtro_estatus == "RECHAZADO":
-            return "Entregables Rechazados"
-        return "Entregables"
+        titulos = {
+            "all": "Todos los Entregables",
+            "EN_REVISION": "Entregables en Revisión",
+            "PENDIENTE": "Entregables Pendientes",
+            "APROBADO": "Entregables Aprobados",
+            "RECHAZADO": "Entregables Rechazados",
+            "PREFACTURA_ENVIADA": "Prefacturas por Revisar",
+            "PREFACTURA_APROBADA": "Prefacturas Aprobadas",
+            "FACTURADO": "Entregables Facturados",
+            "PAGADO": "Entregables Pagados",
+        }
+        return titulos.get(self.filtro_estatus, "Entregables")
 
     # =========================================================================
     # CARGA DE DATOS
@@ -164,6 +193,10 @@ class EntregablesState(BaseState):
                 "en_revision": 0,
                 "aprobados": 0,
                 "rechazados": 0,
+                "prefactura_enviada": 0,
+                "por_facturar": 0,
+                "facturados": 0,
+                "pagados": 0,
             }
 
     async def _cargar_entregables(self):
@@ -192,7 +225,12 @@ class EntregablesState(BaseState):
                     "estatus": e.estatus.value if hasattr(e.estatus, 'value') else e.estatus,
                     "fecha_entrega": str(e.fecha_entrega) if e.fecha_entrega else None,
                     "monto_aprobado": str(e.monto_aprobado) if e.monto_aprobado else None,
-                    "puede_revisar": e.estatus == EstatusEntregable.EN_REVISION or e.estatus == "EN_REVISION",
+                    "puede_revisar": (e.estatus == EstatusEntregable.EN_REVISION or e.estatus == "EN_REVISION"),
+                    "requiere_accion": (
+                        e.estatus in [EstatusEntregable.EN_REVISION, "EN_REVISION",
+                                      EstatusEntregable.PREFACTURA_ENVIADA, "PREFACTURA_ENVIADA",
+                                      EstatusEntregable.FACTURADO, "FACTURADO"]
+                    ),
                 }
                 for e in entregables
             ]
@@ -228,6 +266,18 @@ class EntregablesState(BaseState):
     async def filtrar_rechazados(self):
         """Filtra solo rechazados."""
         await self.filtrar_por_estatus("RECHAZADO")
+
+    async def filtrar_prefacturas(self):
+        """Filtra prefacturas pendientes de revisión."""
+        await self.filtrar_por_estatus("PREFACTURA_ENVIADA")
+
+    async def filtrar_facturados(self):
+        """Filtra entregables facturados."""
+        await self.filtrar_por_estatus("FACTURADO")
+
+    async def filtrar_pagados(self):
+        """Filtra entregables pagados."""
+        await self.filtrar_por_estatus("PAGADO")
 
     async def set_filtro_contrato(self, contrato_id: str):
         """Cambia el filtro de contrato y recarga."""

@@ -7,11 +7,9 @@ import reflex as rx
 
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
 from app.presentation.components.ui import (
-    status_badge_reactive,
     tabla_vacia,
     skeleton_tabla,
     action_buttons_reactive,
-    switch_inactivos,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 

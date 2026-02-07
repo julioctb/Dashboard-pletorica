@@ -7,7 +7,8 @@ Patrón de manejo de errores:
 - Logging de errores solo para debugging, NO para control de flujo
 """
 import logging
-from typing import List, Optional
+from decimal import Decimal
+from typing import Dict, List, Optional
 from datetime import date
 from app.entities import (
     Contrato,
@@ -16,6 +17,7 @@ from app.entities import (
     ContratoResumen,
     EstatusContrato,
 )
+from app.entities.contrato_item import ContratoItem, ContratoItemCreate
 from app.repositories import SupabaseContratoRepository
 from app.core.exceptions import BusinessRuleError
 
@@ -549,6 +551,131 @@ class ContratoService:
             True si el código ya existe
         """
         return await self.repository.existe_codigo(codigo, excluir_id)
+
+    # ==========================================
+    # CREACIÓN DESDE REQUISICIÓN
+    # ==========================================
+
+    async def crear_desde_requisicion(
+        self,
+        requisicion_id: int,
+        contrato_create: ContratoCreate,
+        codigo_empresa: str,
+        clave_servicio: str,
+        items_contrato: Optional[List[ContratoItemCreate]] = None,
+    ) -> Contrato:
+        """
+        Crea un contrato vinculado a una requisición.
+
+        1. Valida que la requisición esté en estado ADJUDICADA
+        2. Crea el contrato con requisicion_id
+        3. Copia items si se proporcionan (para ADQUISICION)
+        4. Marca la requisición como CONTRATADA
+
+        Args:
+            requisicion_id: ID de la requisición origen
+            contrato_create: Datos del contrato a crear
+            codigo_empresa: Código corto de la empresa (3 letras)
+            clave_servicio: Clave del tipo de servicio
+            items_contrato: Items con precios para ADQUISICION
+
+        Returns:
+            Contrato creado
+
+        Raises:
+            BusinessRuleError: Si la requisición no está en estado ADJUDICADA
+            DuplicateError: Si el código ya existe
+            DatabaseError: Si hay error de BD
+        """
+        from app.services.requisicion_service import requisicion_service
+        from app.core.enums import EstadoRequisicion
+
+        # Validar estado de requisición
+        requisicion = await requisicion_service.obtener_por_id(requisicion_id)
+        if requisicion.estado != EstadoRequisicion.ADJUDICADA:
+            raise BusinessRuleError(
+                f"Solo se pueden crear contratos desde requisiciones ADJUDICADAS. "
+                f"Estado actual: {requisicion.estado}"
+            )
+
+        # Asegurar que el contrato lleve requisicion_id
+        datos = contrato_create.model_dump()
+        datos['requisicion_id'] = requisicion_id
+
+        contrato_create_con_req = ContratoCreate(**datos)
+
+        # Crear contrato con código autogenerado
+        contrato = await self.crear_con_codigo_auto(
+            contrato_create_con_req,
+            codigo_empresa,
+            clave_servicio
+        )
+
+        # Crear items de contrato si se proporcionan
+        if items_contrato:
+            items = []
+            for item_create in items_contrato:
+                item = ContratoItem(
+                    **item_create.model_dump(),
+                    subtotal=item_create.cantidad * item_create.precio_unitario,
+                )
+                items.append(item)
+            await self.repository.crear_items_batch(contrato.id, items)
+
+        # Marcar requisición como contratada
+        await requisicion_service.marcar_contratada(requisicion_id, contrato.id)
+
+        return contrato
+
+    # ==========================================
+    # CONTRATO ITEMS
+    # ==========================================
+
+    async def obtener_items(self, contrato_id: int) -> List[ContratoItem]:
+        """Obtiene todos los items de un contrato."""
+        return await self.repository.obtener_items(contrato_id)
+
+    async def copiar_items_desde_requisicion(
+        self,
+        contrato_id: int,
+        requisicion_items: list,
+        precios: Dict[int, Decimal],
+    ) -> List[ContratoItem]:
+        """
+        Copia items desde una requisición a un contrato con precios definidos.
+
+        Args:
+            contrato_id: ID del contrato destino
+            requisicion_items: Items de la requisición origen
+            precios: Dict {requisicion_item_id: precio_unitario}
+
+        Returns:
+            Lista de items creados en el contrato
+        """
+        items = []
+        for req_item in requisicion_items:
+            req_item_id = req_item.id if hasattr(req_item, 'id') else req_item.get('id')
+            precio = precios.get(req_item_id, Decimal('0'))
+
+            cantidad = req_item.cantidad if hasattr(req_item, 'cantidad') else Decimal(str(req_item.get('cantidad', 1)))
+            descripcion = req_item.descripcion if hasattr(req_item, 'descripcion') else req_item.get('descripcion', '')
+            unidad = req_item.unidad_medida if hasattr(req_item, 'unidad_medida') else req_item.get('unidad_medida', 'Pieza')
+            numero = req_item.numero_item if hasattr(req_item, 'numero_item') else req_item.get('numero_item', 1)
+            specs = req_item.especificaciones_tecnicas if hasattr(req_item, 'especificaciones_tecnicas') else req_item.get('especificaciones_tecnicas')
+
+            item = ContratoItem(
+                requisicion_item_id=req_item_id,
+                numero_item=numero,
+                unidad_medida=unidad,
+                cantidad=cantidad,
+                descripcion=descripcion,
+                precio_unitario=precio,
+                subtotal=cantidad * precio,
+                especificaciones_tecnicas=specs,
+            )
+            items.append(item)
+
+        return await self.repository.crear_items_batch(contrato_id, items)
 
 
 # Instancia global del servicio (singleton)

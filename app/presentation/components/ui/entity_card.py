@@ -93,7 +93,7 @@ def entity_card(
         font_size=Typography.SIZE_SM,
         color=Colors.TEXT_SECONDARY,
         no_of_lines=1,
-    ) if subtitulo else None
+    ) if subtitulo is not None else None
 
     # Campos adicionales
     campos_component = None

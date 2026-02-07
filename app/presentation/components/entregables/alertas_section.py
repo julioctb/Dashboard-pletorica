@@ -1,12 +1,12 @@
 """
 Sección de Alertas de Entregables para el Dashboard.
-Muestra resumen de entregables pendientes de revisión con acceso rápido.
+Muestra resumen de entregables pendientes de revisión, prefacturas y facturas con acceso rápido.
 """
 
 import reflex as rx
 from typing import List
 
-from app.presentation.theme import Colors, Spacing, Typography, Radius, Shadows
+from app.presentation.theme import Colors, Spacing, Radius
 
 
 # =============================================================================
@@ -17,20 +17,31 @@ class AlertasEntregablesState(rx.State):
 
     alertas: List[dict] = []
     total_en_revision: int = 0
+    total_prefacturas: int = 0
+    total_facturados: int = 0
     cargando: bool = False
 
     @rx.var
     def tiene_alertas(self) -> bool:
-        return self.total_en_revision > 0
+        return (self.total_en_revision + self.total_prefacturas + self.total_facturados) > 0
+
+    @rx.var
+    def total_alertas(self) -> int:
+        return self.total_en_revision + self.total_prefacturas + self.total_facturados
 
     @rx.var
     def mensaje_alerta(self) -> str:
-        if self.total_en_revision == 0:
+        total = self.total_en_revision + self.total_prefacturas + self.total_facturados
+        if total == 0:
             return "No hay entregables pendientes"
-        elif self.total_en_revision == 1:
-            return "1 entregable pendiente de revisión"
-        else:
-            return f"{self.total_en_revision} entregables pendientes de revisión"
+        partes = []
+        if self.total_en_revision > 0:
+            partes.append(f"{self.total_en_revision} en revisión")
+        if self.total_prefacturas > 0:
+            partes.append(f"{self.total_prefacturas} prefactura(s)")
+        if self.total_facturados > 0:
+            partes.append(f"{self.total_facturados} por pagar")
+        return ", ".join(partes)
 
     async def cargar_alertas(self):
         self.cargando = True
@@ -49,9 +60,15 @@ class AlertasEntregablesState(rx.State):
                 }
                 for e in alertas.entregables
             ]
+            # Cargar estadísticas de facturación
+            stats = await entregable_service.obtener_estadisticas_global()
+            self.total_prefacturas = stats.get("prefactura_enviada", 0)
+            self.total_facturados = stats.get("facturados", 0)
         except Exception:
             self.alertas = []
             self.total_en_revision = 0
+            self.total_prefacturas = 0
+            self.total_facturados = 0
         finally:
             self.cargando = False
 
@@ -59,6 +76,12 @@ class AlertasEntregablesState(rx.State):
         return rx.redirect(f"/entregables/{entregable_id}")
 
     def ir_a_entregables(self):
+        return rx.redirect("/entregables")
+
+    def ir_a_prefacturas(self):
+        return rx.redirect("/entregables")
+
+    def ir_a_facturados(self):
         return rx.redirect("/entregables")
 
 
@@ -101,6 +124,88 @@ def _alerta_item(alerta: dict) -> rx.Component:
     )
 
 
+def _alerta_prefacturas() -> rx.Component:
+    """Alerta de prefacturas pendientes de revisión."""
+    return rx.cond(
+        AlertasEntregablesState.total_prefacturas > 0,
+        rx.hstack(
+            rx.center(
+                rx.icon("file-search", size=16, color=Colors.WARNING),
+                width="32px",
+                height="32px",
+                background=Colors.WARNING_LIGHT,
+                border_radius=Radius.MD,
+            ),
+            rx.vstack(
+                rx.text("Prefacturas por revisar", size="2", weight="medium"),
+                rx.text(
+                    AlertasEntregablesState.total_prefacturas,
+                    " pendiente(s)",
+                    size="1",
+                    color=Colors.TEXT_MUTED,
+                ),
+                spacing="0",
+                align="start",
+            ),
+            rx.spacer(),
+            rx.button(
+                rx.icon("arrow-right", size=14),
+                size="1",
+                variant="ghost",
+                on_click=AlertasEntregablesState.ir_a_prefacturas,
+            ),
+            padding=Spacing.SM,
+            border_radius=Radius.MD,
+            _hover={"background": Colors.SURFACE_HOVER},
+            cursor="pointer",
+            width="100%",
+            on_click=AlertasEntregablesState.ir_a_prefacturas,
+        ),
+        rx.fragment(),
+    )
+
+
+def _alerta_facturados() -> rx.Component:
+    """Alerta de facturas pendientes de pago."""
+    return rx.cond(
+        AlertasEntregablesState.total_facturados > 0,
+        rx.hstack(
+            rx.center(
+                rx.icon("receipt", size=16, color=Colors.WARNING),
+                width="32px",
+                height="32px",
+                background=Colors.WARNING_LIGHT,
+                border_radius=Radius.MD,
+            ),
+            rx.vstack(
+                rx.text("Facturas pendientes de pago", size="2", weight="medium"),
+                rx.text(
+                    AlertasEntregablesState.total_facturados,
+                    " pendiente(s)",
+                    size="1",
+                    color=Colors.TEXT_MUTED,
+                ),
+                spacing="0",
+                align="start",
+            ),
+            rx.spacer(),
+            rx.button(
+                rx.icon("arrow-right", size=14),
+                size="1",
+                variant="ghost",
+                on_click=AlertasEntregablesState.ir_a_facturados,
+            ),
+            padding=Spacing.SM,
+            border_radius=Radius.MD,
+            _hover={"background": Colors.SURFACE_HOVER},
+            cursor="pointer",
+            width="100%",
+            on_click=AlertasEntregablesState.ir_a_facturados,
+        ),
+        rx.fragment(),
+    )
+
+
 def alertas_entregables_card() -> rx.Component:
     """
     Card de alertas de entregables para el dashboard.
@@ -113,7 +218,7 @@ def alertas_entregables_card() -> rx.Component:
                 rx.spacer(),
                 rx.cond(
                     AlertasEntregablesState.tiene_alertas,
-                    rx.badge(AlertasEntregablesState.total_en_revision, color_scheme="sky", variant="solid", radius="full"),
+                    rx.badge(AlertasEntregablesState.total_alertas, color_scheme="sky", variant="solid", radius="full"),
                     rx.badge("0", color_scheme="gray", variant="soft", radius="full"),
                 ),
                 width="100%",
@@ -140,7 +245,11 @@ def alertas_entregables_card() -> rx.Component:
                 rx.cond(
                     AlertasEntregablesState.tiene_alertas,
                     rx.vstack(
+                        # Alertas de entregables en revisión
                         rx.foreach(AlertasEntregablesState.alertas, _alerta_item),
+                        # Alertas de prefacturas y facturas
+                        _alerta_prefacturas(),
+                        _alerta_facturados(),
                         rx.cond(
                             AlertasEntregablesState.total_en_revision > 5,
                             rx.button(
@@ -179,8 +288,8 @@ def alertas_entregables_badge() -> rx.Component:
     Uso: rx.hstack(rx.icon("package-check"), rx.text("Entregables"), rx.spacer(), alertas_entregables_badge())
     """
     return rx.cond(
-        AlertasEntregablesState.total_en_revision > 0,
-        rx.badge(AlertasEntregablesState.total_en_revision, color_scheme="sky", variant="solid", radius="full", size="1"),
+        AlertasEntregablesState.total_alertas > 0,
+        rx.badge(AlertasEntregablesState.total_alertas, color_scheme="sky", variant="solid", radius="full", size="1"),
         rx.fragment(),
     )
 

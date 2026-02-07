@@ -172,7 +172,27 @@ class Entregable(BaseModel):
     pago_id: Optional[int] = Field(
         None, description="FK al pago creado al aprobar"
     )
-    
+
+    # Flujo de facturacion (post-aprobacion)
+    observaciones_prefactura: Optional[str] = Field(
+        None, max_length=OBSERVACIONES_MAX, description="Observaciones de BUAP al rechazar prefactura"
+    )
+    fecha_prefactura: Optional[datetime] = Field(
+        None, description="Cuando se envio la prefactura"
+    )
+    fecha_factura: Optional[datetime] = Field(
+        None, description="Cuando se envio la factura definitiva"
+    )
+    fecha_pago_registrado: Optional[datetime] = Field(
+        None, description="Cuando BUAP registro el pago"
+    )
+    folio_fiscal: Optional[str] = Field(
+        None, max_length=100, description="UUID/folio fiscal del CFDI"
+    )
+    referencia_pago: Optional[str] = Field(
+        None, max_length=200, description="Referencia bancaria del pago"
+    )
+
     fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None
     
@@ -207,20 +227,49 @@ class Entregable(BaseModel):
             EstatusEntregable.PENDIENTE,
             EstatusEntregable.RECHAZADO,
         )
-    
+
     @property
     def puede_revisar_admin(self) -> bool:
         """El admin puede revisar si está EN_REVISION"""
         return self.estatus == EstatusEntregable.EN_REVISION
-    
+
     @property
     def esta_aprobado(self) -> bool:
         return self.estatus == EstatusEntregable.APROBADO
-    
+
     @property
     def tiene_pago(self) -> bool:
         return self.pago_id is not None
-    
+
+    # --- Propiedades de flujo de facturacion ---
+
+    @property
+    def puede_subir_prefactura(self) -> bool:
+        """El cliente puede subir prefactura si APROBADO o PREFACTURA_RECHAZADA"""
+        return self.estatus in (
+            EstatusEntregable.APROBADO,
+            EstatusEntregable.PREFACTURA_RECHAZADA,
+        )
+
+    @property
+    def puede_revisar_prefactura(self) -> bool:
+        """El admin puede revisar prefactura si PREFACTURA_ENVIADA"""
+        return self.estatus == EstatusEntregable.PREFACTURA_ENVIADA
+
+    @property
+    def puede_subir_factura(self) -> bool:
+        """El cliente puede subir factura si PREFACTURA_APROBADA"""
+        return self.estatus == EstatusEntregable.PREFACTURA_APROBADA
+
+    @property
+    def requiere_accion_cliente(self) -> bool:
+        """Indica si el cliente debe actuar"""
+        return self.estatus in (
+            EstatusEntregable.APROBADO,
+            EstatusEntregable.PREFACTURA_RECHAZADA,
+            EstatusEntregable.PREFACTURA_APROBADA,
+        )
+
     @property
     def periodo_texto(self) -> str:
         """Retorna el período en formato legible usando formatear_fecha existente"""
@@ -243,9 +292,9 @@ class EntregableCreate(BaseModel):
 
 class EntregableUpdate(BaseModel):
     """DTO para actualizar un entregable."""
-    
+
     model_config = ConfigDict(str_strip_whitespace=True, use_enum_values=True)
-    
+
     estatus: Optional[EstatusEntregable] = None
     fecha_entrega: Optional[datetime] = None
     fecha_revision: Optional[datetime] = None
@@ -254,13 +303,20 @@ class EntregableUpdate(BaseModel):
     monto_calculado: Optional[Decimal] = Field(None, ge=0)
     monto_aprobado: Optional[Decimal] = Field(None, ge=0)
     pago_id: Optional[int] = None
+    # Flujo de facturacion
+    observaciones_prefactura: Optional[str] = Field(None, max_length=OBSERVACIONES_MAX)
+    fecha_prefactura: Optional[datetime] = None
+    fecha_factura: Optional[datetime] = None
+    fecha_pago_registrado: Optional[datetime] = None
+    folio_fiscal: Optional[str] = Field(None, max_length=100)
+    referencia_pago: Optional[str] = Field(None, max_length=200)
 
 
 class EntregableResumen(BaseModel):
     """Resumen de entregable para listados con datos enriquecidos."""
-    
+
     model_config = ConfigDict(use_enum_values=True, from_attributes=True)
-    
+
     id: int
     contrato_id: int
     numero_periodo: int
@@ -269,11 +325,18 @@ class EntregableResumen(BaseModel):
     estatus: str
     fecha_entrega: Optional[datetime] = None
     monto_aprobado: Optional[Decimal] = None
-    
+
     contrato_codigo: Optional[str] = None
     empresa_id: Optional[int] = None
     empresa_nombre: Optional[str] = None
     observaciones_rechazo: Optional[str] = None
+    # Campos de facturacion
+    observaciones_prefactura: Optional[str] = None
+    folio_fiscal: Optional[str] = None
+    fecha_prefactura: Optional[datetime] = None
+    fecha_factura: Optional[datetime] = None
+    fecha_pago_registrado: Optional[datetime] = None
+    referencia_pago: Optional[str] = None
 
     @property
     def periodo_texto(self) -> str:
@@ -379,26 +442,34 @@ class EntregableDetallePersonalResumen(BaseModel):
 
 class ResumenEntregablesContrato(BaseModel):
     """Resumen de entregables para un contrato específico."""
-    
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     contrato_id: int
     codigo_contrato: str = ""
-    
+
     total_periodos: int = 0
     pendientes: int = 0
     en_revision: int = 0
     aprobados: int = 0
     rechazados: int = 0
-    
+    # Contadores de flujo de facturacion
+    por_prefacturar: int = 0
+    prefactura_enviada: int = 0
+    prefactura_rechazada: int = 0
+    por_facturar: int = 0
+    facturados: int = 0
+    pagados: int = 0
+
     monto_total_aprobado: Decimal = Decimal("0")
     monto_total_pagado: Decimal = Decimal("0")
-    
+
     @property
     def porcentaje_cumplimiento(self) -> Decimal:
         if self.total_periodos == 0:
             return Decimal("0")
-        return (Decimal(str(self.aprobados)) / Decimal(str(self.total_periodos))) * 100
+        completados = self.pagados + self.facturados
+        return (Decimal(str(completados)) / Decimal(str(self.total_periodos))) * 100
 
 
 class AlertaEntregables(BaseModel):

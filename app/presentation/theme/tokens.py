@@ -188,6 +188,36 @@ class StatusColors:
     RECHAZADO_ICON = "circle-x"
     RECHAZADO_SCHEME = "red"
 
+    # Estado: PREFACTURA_ENVIADA (en revision por BUAP)
+    PREFACTURA_ENVIADA = "#0284C7"        # Azul sky - en revision
+    PREFACTURA_ENVIADA_BG = "#E0F2FE"
+    PREFACTURA_ENVIADA_ICON = "file-search"
+    PREFACTURA_ENVIADA_SCHEME = "sky"
+
+    # Estado: PREFACTURA_RECHAZADA (BUAP rechazo, cliente debe corregir)
+    PREFACTURA_RECHAZADA = "#DC2626"      # Rojo - requiere correccion
+    PREFACTURA_RECHAZADA_BG = "#FEE2E2"
+    PREFACTURA_RECHAZADA_ICON = "file-x"
+    PREFACTURA_RECHAZADA_SCHEME = "red"
+
+    # Estado: PREFACTURA_APROBADA (cliente debe subir factura definitiva)
+    PREFACTURA_APROBADA = "#059669"       # Verde - por facturar
+    PREFACTURA_APROBADA_BG = "#D1FAE5"
+    PREFACTURA_APROBADA_ICON = "file-check"
+    PREFACTURA_APROBADA_SCHEME = "green"
+
+    # Estado: FACTURADO (pendiente de pago por BUAP)
+    FACTURADO = "#D97706"                 # Amber - esperando pago
+    FACTURADO_BG = "#FEF3C7"
+    FACTURADO_ICON = "receipt"
+    FACTURADO_SCHEME = "amber"
+
+    # Estado: PAGADO (entregable - proceso completado)
+    PAGADO_ENTREGABLE = "#059669"         # Verde - completado
+    PAGADO_ENTREGABLE_BG = "#D1FAE5"
+    PAGADO_ENTREGABLE_ICON = "badge-check"
+    PAGADO_ENTREGABLE_SCHEME = "green"
+
     # =========================================================================
     # Estados de Pago
     # =========================================================================
@@ -226,10 +256,14 @@ class StatusColors:
             "OCUPADA": cls.OCUPADA,
             "SUSPENDIDA": cls.SUSPENDIDA,
             # Estados de Entregable
-            "PENDIENTE": cls.PENDIENTE_ENTREGABLE,  # Para entregables
+            "PENDIENTE": cls.PENDIENTE_ENTREGABLE,
             "EN_REVISION": cls.EN_REVISION,
             "APROBADO": cls.APROBADO,
             "RECHAZADO": cls.RECHAZADO,
+            "PREFACTURA_ENVIADA": cls.PREFACTURA_ENVIADA,
+            "PREFACTURA_RECHAZADA": cls.PREFACTURA_RECHAZADA,
+            "PREFACTURA_APROBADA": cls.PREFACTURA_APROBADA,
+            "FACTURADO": cls.FACTURADO,
             # Estados de Pago
             "PENDIENTE_PAGO": cls.PENDIENTE_PAGO,
             "EN_PROCESO": cls.EN_PROCESO,
@@ -257,6 +291,10 @@ class StatusColors:
             "EN_REVISION": cls.EN_REVISION_BG,
             "APROBADO": cls.APROBADO_BG,
             "RECHAZADO": cls.RECHAZADO_BG,
+            "PREFACTURA_ENVIADA": cls.PREFACTURA_ENVIADA_BG,
+            "PREFACTURA_RECHAZADA": cls.PREFACTURA_RECHAZADA_BG,
+            "PREFACTURA_APROBADA": cls.PREFACTURA_APROBADA_BG,
+            "FACTURADO": cls.FACTURADO_BG,
             # Estados de Pago
             "PENDIENTE_PAGO": cls.PENDIENTE_PAGO_BG,
             "EN_PROCESO": cls.EN_PROCESO_BG,
@@ -284,6 +322,10 @@ class StatusColors:
             "EN_REVISION": cls.EN_REVISION_ICON,
             "APROBADO": cls.APROBADO_ICON,
             "RECHAZADO": cls.RECHAZADO_ICON,
+            "PREFACTURA_ENVIADA": cls.PREFACTURA_ENVIADA_ICON,
+            "PREFACTURA_RECHAZADA": cls.PREFACTURA_RECHAZADA_ICON,
+            "PREFACTURA_APROBADA": cls.PREFACTURA_APROBADA_ICON,
+            "FACTURADO": cls.FACTURADO_ICON,
             # Estados de Pago
             "PENDIENTE_PAGO": cls.PENDIENTE_PAGO_ICON,
             "EN_PROCESO": cls.EN_PROCESO_ICON,
@@ -316,6 +358,10 @@ class StatusColors:
             "EN_REVISION": cls.EN_REVISION_SCHEME,
             "APROBADO": cls.APROBADO_SCHEME,
             "RECHAZADO": cls.RECHAZADO_SCHEME,
+            "PREFACTURA_ENVIADA": cls.PREFACTURA_ENVIADA_SCHEME,
+            "PREFACTURA_RECHAZADA": cls.PREFACTURA_RECHAZADA_SCHEME,
+            "PREFACTURA_APROBADA": cls.PREFACTURA_APROBADA_SCHEME,
+            "FACTURADO": cls.FACTURADO_SCHEME,
             # Estados de Pago
             "PENDIENTE_PAGO": cls.PENDIENTE_PAGO_SCHEME,
             "EN_PROCESO": cls.EN_PROCESO_SCHEME,

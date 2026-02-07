@@ -15,6 +15,7 @@ from app.entities import (
     Contrato,
     EstatusContrato,
 )
+from app.entities.contrato_item import ContratoItem
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
 
 logger = logging.getLogger(__name__)
@@ -534,6 +535,117 @@ class SupabaseContratoRepository:
             return [Contrato(**data) for data in result.data]
         except Exception as e:
             logger.error(f"Error obteniendo contratos por vencer: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    # ==========================================
+    # CONTRATO ITEMS (ADQUISICION)
+    # ==========================================
+
+    async def obtener_items(self, contrato_id: int) -> List[ContratoItem]:
+        """
+        Obtiene todos los items de un contrato.
+
+        Args:
+            contrato_id: ID del contrato
+
+        Returns:
+            Lista de items del contrato
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
+        try:
+            result = self.supabase.table('contrato_item')\
+                .select('*')\
+                .eq('contrato_id', contrato_id)\
+                .order('numero_item')\
+                .execute()
+            return [ContratoItem(**data) for data in result.data]
+        except Exception as e:
+            logger.error(f"Error obteniendo items de contrato {contrato_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def crear_item(self, contrato_id: int, item: ContratoItem) -> ContratoItem:
+        """
+        Crea un item de contrato.
+
+        Args:
+            contrato_id: ID del contrato
+            item: Item a crear
+
+        Returns:
+            Item creado con ID
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
+        try:
+            datos = item.model_dump(mode='json', exclude={'id', 'created_at'})
+            datos['contrato_id'] = contrato_id
+            # Calcular subtotal
+            datos['subtotal'] = str(item.cantidad * item.precio_unitario)
+            result = self.supabase.table('contrato_item').insert(datos).execute()
+            if not result.data:
+                raise DatabaseError("No se pudo crear el item de contrato")
+            return ContratoItem(**result.data[0])
+        except Exception as e:
+            logger.error(f"Error creando item de contrato: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def crear_items_batch(
+        self, contrato_id: int, items: List[ContratoItem]
+    ) -> List[ContratoItem]:
+        """
+        Crea múltiples items de contrato en batch.
+
+        Args:
+            contrato_id: ID del contrato
+            items: Lista de items a crear
+
+        Returns:
+            Lista de items creados
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
+        try:
+            registros = []
+            for item in items:
+                datos = item.model_dump(mode='json', exclude={'id', 'created_at'})
+                datos['contrato_id'] = contrato_id
+                datos['subtotal'] = str(item.cantidad * item.precio_unitario)
+                registros.append(datos)
+
+            if not registros:
+                return []
+
+            result = self.supabase.table('contrato_item').insert(registros).execute()
+            return [ContratoItem(**data) for data in result.data]
+        except Exception as e:
+            logger.error(f"Error creando items batch de contrato {contrato_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def eliminar_items(self, contrato_id: int) -> bool:
+        """
+        Elimina todos los items de un contrato.
+
+        Args:
+            contrato_id: ID del contrato
+
+        Returns:
+            True si se eliminaron
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura
+        """
+        try:
+            self.supabase.table('contrato_item')\
+                .delete()\
+                .eq('contrato_id', contrato_id)\
+                .execute()
+            return True
+        except Exception as e:
+            logger.error(f"Error eliminando items de contrato {contrato_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def cambiar_estatus(self, contrato_id: int, nuevo_estatus: EstatusContrato) -> Contrato:

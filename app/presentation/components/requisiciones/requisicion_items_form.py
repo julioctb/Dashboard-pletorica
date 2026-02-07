@@ -40,16 +40,6 @@ def _fila_item(item: dict, index: int) -> rx.Component:
                 width="100%",
             ),
         ),
-        # Precio unitario
-        rx.table.cell(
-            rx.input(
-                value=item["precio_unitario_estimado"],
-                on_change=lambda v: RequisicionesState.actualizar_item_campo(index, "precio_unitario_estimado", v),
-                placeholder="0.00",
-                size="2",
-                width="100px",
-            ),
-        ),
         # Acciones
         rx.table.cell(
             rx.tooltip(
@@ -72,8 +62,6 @@ def requisicion_items_form() -> rx.Component:
         rx.hstack(
             rx.text("Items", weight="bold", size="3"),
             rx.spacer(),
-            rx.text("Total estimado: ", size="2", color="gray"),
-            rx.text(RequisicionesState.total_estimado_items, size="2", weight="bold"),
             align="center",
             width="100%",
         ),
@@ -84,7 +72,6 @@ def requisicion_items_form() -> rx.Component:
                     rx.table.column_header_cell("Unidad", width="100px"),
                     rx.table.column_header_cell("Cant.", width="80px"),
                     rx.table.column_header_cell("Descripcion"),
-                    rx.table.column_header_cell("Precio Unit.", width="110px"),
                     rx.table.column_header_cell("", width="50px"),
                 ),
             ),

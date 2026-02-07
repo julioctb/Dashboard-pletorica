@@ -235,12 +235,12 @@ class SupabaseEntregableRepository:
                 .eq('contrato_id', contrato_id)\
                 .order('numero_periodo', desc=False)\
                 .execute()
-            
+
             resumenes = []
             for data in result.data:
                 contrato = data.pop('contratos', {})
                 empresa = contrato.pop('empresas', {}) if contrato else {}
-                
+
                 resumen = EntregableResumen(
                     id=data['id'],
                     contrato_id=data['contrato_id'],
@@ -253,11 +253,17 @@ class SupabaseEntregableRepository:
                     contrato_codigo=contrato.get('codigo', ''),
                     empresa_id=contrato.get('empresa_id'),
                     empresa_nombre=empresa.get('nombre_comercial', ''),
+                    observaciones_prefactura=data.get('observaciones_prefactura'),
+                    folio_fiscal=data.get('folio_fiscal'),
+                    fecha_prefactura=data.get('fecha_prefactura'),
+                    fecha_factura=data.get('fecha_factura'),
+                    fecha_pago_registrado=data.get('fecha_pago_registrado'),
+                    referencia_pago=data.get('referencia_pago'),
                 )
                 resumenes.append(resumen)
-            
+
             return resumenes
-        
+
         except Exception as e:
             logger.error(f"Error obteniendo resumen de entregables: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
@@ -366,6 +372,12 @@ class SupabaseEntregableRepository:
                     contrato_codigo=contrato.get('codigo', ''),
                     empresa_id=contrato.get('empresa_id'),
                     empresa_nombre=empresa.get('nombre_comercial', ''),
+                    observaciones_prefactura=data.get('observaciones_prefactura'),
+                    folio_fiscal=data.get('folio_fiscal'),
+                    fecha_prefactura=data.get('fecha_prefactura'),
+                    fecha_factura=data.get('fecha_factura'),
+                    fecha_pago_registrado=data.get('fecha_pago_registrado'),
+                    referencia_pago=data.get('referencia_pago'),
                 )
                 resumenes.append(resumen)
 
@@ -393,6 +405,13 @@ class SupabaseEntregableRepository:
                 "en_revision": 0,
                 "aprobados": 0,
                 "rechazados": 0,
+                "prefactura_enviada": 0,
+                "prefactura_rechazada": 0,
+                "prefactura_aprobada": 0,
+                "facturados": 0,
+                "pagados": 0,
+                "por_prefacturar": 0,
+                "por_facturar": 0,
             }
 
             for ent in result.data:
@@ -404,8 +423,21 @@ class SupabaseEntregableRepository:
                     stats["en_revision"] += 1
                 elif estatus == EstatusEntregable.APROBADO.value:
                     stats["aprobados"] += 1
+                    stats["por_prefacturar"] += 1
                 elif estatus == EstatusEntregable.RECHAZADO.value:
                     stats["rechazados"] += 1
+                elif estatus == EstatusEntregable.PREFACTURA_ENVIADA.value:
+                    stats["prefactura_enviada"] += 1
+                elif estatus == EstatusEntregable.PREFACTURA_RECHAZADA.value:
+                    stats["prefactura_rechazada"] += 1
+                    stats["por_prefacturar"] += 1
+                elif estatus == EstatusEntregable.PREFACTURA_APROBADA.value:
+                    stats["prefactura_aprobada"] += 1
+                    stats["por_facturar"] += 1
+                elif estatus == EstatusEntregable.FACTURADO.value:
+                    stats["facturados"] += 1
+                elif estatus == EstatusEntregable.PAGADO.value:
+                    stats["pagados"] += 1
 
             return stats
 
@@ -472,15 +504,26 @@ class SupabaseEntregableRepository:
                     empresa_id=contrato.get('empresa_id'),
                     empresa_nombre=empresa.get('nombre_comercial', ''),
                     observaciones_rechazo=data.get('observaciones_rechazo'),
+                    observaciones_prefactura=data.get('observaciones_prefactura'),
+                    folio_fiscal=data.get('folio_fiscal'),
+                    fecha_prefactura=data.get('fecha_prefactura'),
+                    fecha_factura=data.get('fecha_factura'),
+                    fecha_pago_registrado=data.get('fecha_pago_registrado'),
+                    referencia_pago=data.get('referencia_pago'),
                 )
                 resumenes.append(resumen)
 
-            # Ordenar: RECHAZADO primero, luego PENDIENTE, luego el resto
+            # Ordenar: accion requerida primero, luego por estado
             orden_estatus = {
                 EstatusEntregable.RECHAZADO.value: 0,
-                EstatusEntregable.PENDIENTE.value: 1,
-                EstatusEntregable.EN_REVISION.value: 2,
+                EstatusEntregable.PREFACTURA_RECHAZADA.value: 1,
+                EstatusEntregable.PENDIENTE.value: 2,
                 EstatusEntregable.APROBADO.value: 3,
+                EstatusEntregable.PREFACTURA_APROBADA.value: 4,
+                EstatusEntregable.EN_REVISION.value: 5,
+                EstatusEntregable.PREFACTURA_ENVIADA.value: 6,
+                EstatusEntregable.FACTURADO.value: 7,
+                EstatusEntregable.PAGADO.value: 8,
             }
             resumenes.sort(key=lambda r: (
                 orden_estatus.get(r.estatus.value if hasattr(r.estatus, 'value') else r.estatus, 99),
@@ -516,6 +559,13 @@ class SupabaseEntregableRepository:
                     "en_revision": 0,
                     "aprobados": 0,
                     "rechazados": 0,
+                    "prefactura_enviada": 0,
+                    "prefactura_rechazada": 0,
+                    "prefactura_aprobada": 0,
+                    "facturados": 0,
+                    "pagados": 0,
+                    "por_prefacturar": 0,
+                    "por_facturar": 0,
                 }
 
             result = self.supabase.table(self.tabla)\
@@ -529,6 +579,13 @@ class SupabaseEntregableRepository:
                 "en_revision": 0,
                 "aprobados": 0,
                 "rechazados": 0,
+                "prefactura_enviada": 0,
+                "prefactura_rechazada": 0,
+                "prefactura_aprobada": 0,
+                "facturados": 0,
+                "pagados": 0,
+                "por_prefacturar": 0,
+                "por_facturar": 0,
             }
 
             for ent in result.data:
@@ -540,8 +597,21 @@ class SupabaseEntregableRepository:
                     stats["en_revision"] += 1
                 elif estatus == EstatusEntregable.APROBADO.value:
                     stats["aprobados"] += 1
+                    stats["por_prefacturar"] += 1
                 elif estatus == EstatusEntregable.RECHAZADO.value:
                     stats["rechazados"] += 1
+                elif estatus == EstatusEntregable.PREFACTURA_ENVIADA.value:
+                    stats["prefactura_enviada"] += 1
+                elif estatus == EstatusEntregable.PREFACTURA_RECHAZADA.value:
+                    stats["prefactura_rechazada"] += 1
+                    stats["por_prefacturar"] += 1
+                elif estatus == EstatusEntregable.PREFACTURA_APROBADA.value:
+                    stats["prefactura_aprobada"] += 1
+                    stats["por_facturar"] += 1
+                elif estatus == EstatusEntregable.FACTURADO.value:
+                    stats["facturados"] += 1
+                elif estatus == EstatusEntregable.PAGADO.value:
+                    stats["pagados"] += 1
 
             return stats
 
@@ -608,17 +678,19 @@ class SupabaseEntregableRepository:
                 .select('codigo')\
                 .eq('id', contrato_id)\
                 .execute()
-            
+
             codigo_contrato = contrato_result.data[0]['codigo'] if contrato_result.data else ''
-            
+
             result = self.supabase.table(self.tabla)\
                 .select('estatus, monto_aprobado')\
                 .eq('contrato_id', contrato_id)\
                 .execute()
-            
+
             pendientes = en_revision = aprobados = rechazados = 0
+            prefactura_enviada = prefactura_rechazada = prefactura_aprobada = 0
+            facturados = pagados = por_prefacturar = por_facturar = 0
             monto_total = Decimal("0")
-            
+
             for ent in result.data:
                 estatus = ent['estatus']
                 if estatus == EstatusEntregable.PENDIENTE.value:
@@ -627,21 +699,44 @@ class SupabaseEntregableRepository:
                     en_revision += 1
                 elif estatus == EstatusEntregable.APROBADO.value:
                     aprobados += 1
+                    por_prefacturar += 1
                     if ent['monto_aprobado']:
                         monto_total += Decimal(str(ent['monto_aprobado']))
                 elif estatus == EstatusEntregable.RECHAZADO.value:
                     rechazados += 1
-            
+                elif estatus == EstatusEntregable.PREFACTURA_ENVIADA.value:
+                    prefactura_enviada += 1
+                    if ent['monto_aprobado']:
+                        monto_total += Decimal(str(ent['monto_aprobado']))
+                elif estatus == EstatusEntregable.PREFACTURA_RECHAZADA.value:
+                    prefactura_rechazada += 1
+                    por_prefacturar += 1
+                    if ent['monto_aprobado']:
+                        monto_total += Decimal(str(ent['monto_aprobado']))
+                elif estatus == EstatusEntregable.PREFACTURA_APROBADA.value:
+                    prefactura_aprobada += 1
+                    por_facturar += 1
+                    if ent['monto_aprobado']:
+                        monto_total += Decimal(str(ent['monto_aprobado']))
+                elif estatus == EstatusEntregable.FACTURADO.value:
+                    facturados += 1
+                    if ent['monto_aprobado']:
+                        monto_total += Decimal(str(ent['monto_aprobado']))
+                elif estatus == EstatusEntregable.PAGADO.value:
+                    pagados += 1
+                    if ent['monto_aprobado']:
+                        monto_total += Decimal(str(ent['monto_aprobado']))
+
             pagos_result = self.supabase.table('pagos')\
                 .select('monto')\
                 .eq('contrato_id', contrato_id)\
                 .eq('estatus', 'PAGADO')\
                 .execute()
-            
+
             monto_pagado = sum(
                 Decimal(str(p['monto'])) for p in pagos_result.data
             ) if pagos_result.data else Decimal("0")
-            
+
             return ResumenEntregablesContrato(
                 contrato_id=contrato_id,
                 codigo_contrato=codigo_contrato,
@@ -650,10 +745,16 @@ class SupabaseEntregableRepository:
                 en_revision=en_revision,
                 aprobados=aprobados,
                 rechazados=rechazados,
+                por_prefacturar=por_prefacturar,
+                prefactura_enviada=prefactura_enviada,
+                prefactura_rechazada=prefactura_rechazada,
+                por_facturar=por_facturar,
+                facturados=facturados,
+                pagados=pagados,
                 monto_total_aprobado=monto_total,
                 monto_total_pagado=monto_pagado,
             )
-        
+
         except Exception as e:
             logger.error(f"Error obteniendo estadísticas del contrato {contrato_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")

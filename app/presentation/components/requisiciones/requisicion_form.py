@@ -395,31 +395,18 @@ def _tab_firmas() -> rx.Component:
 def _tab_archivos() -> rx.Component:
     """Tab 8: Archivos adjuntos de la requisicion."""
     return rx.vstack(
-        rx.cond(
-            RequisicionesState.es_edicion,
-            rx.vstack(
-                rx.callout(
-                    "Suba imagenes (JPG, PNG) o documentos PDF. Las imagenes se comprimen automaticamente.",
-                    icon="info",
-                    color_scheme="blue",
-                    size="1",
-                ),
-                archivo_uploader(
-                    upload_id="archivos_requisicion",
-                    archivos=RequisicionesState.archivos_entidad,
-                    on_upload=RequisicionesState.handle_upload_archivo,
-                    on_delete=RequisicionesState.eliminar_archivo_entidad,
-                    subiendo=RequisicionesState.subiendo_archivo,
-                ),
-                spacing="3",
-                width="100%",
-            ),
-            rx.callout(
-                "Guarde la requisicion primero para poder adjuntar archivos.",
-                icon="info",
-                color_scheme="gray",
-                size="1",
-            ),
+        rx.callout(
+            "Suba imagenes (JPG, PNG) o documentos PDF. Las imagenes se comprimen automaticamente.",
+            icon="info",
+            color_scheme="blue",
+            size="1",
+        ),
+        archivo_uploader(
+            upload_id="archivos_requisicion",
+            archivos=RequisicionesState.archivos_entidad,
+            on_upload=RequisicionesState.handle_upload_archivo,
+            on_delete=RequisicionesState.eliminar_archivo_entidad,
+            subiendo=RequisicionesState.subiendo_archivo,
         ),
         spacing="3",
         width="100%",
@@ -442,14 +429,14 @@ def requisicion_form_modal(
             # Header
             rx.dialog.title(
                 rx.cond(
-                    RequisicionesState.es_edicion,
+                    RequisicionesState.es_edicion & ~RequisicionesState.es_auto_borrador,
                     titulo_editar,
                     titulo_crear,
                 )
             ),
             rx.dialog.description(
                 rx.cond(
-                    RequisicionesState.es_edicion,
+                    RequisicionesState.es_edicion & ~RequisicionesState.es_auto_borrador,
                     "Modifique la informacion de la requisicion",
                     "Complete la informacion de la nueva requisicion",
                 ),
@@ -521,7 +508,7 @@ def requisicion_form_modal(
                             spacing="2",
                         ),
                         rx.cond(
-                            RequisicionesState.es_edicion,
+                            RequisicionesState.es_edicion & ~RequisicionesState.es_auto_borrador,
                             "Guardar Cambios",
                             rx.cond(
                                 RequisicionesState.formulario_completo,
@@ -533,7 +520,7 @@ def requisicion_form_modal(
                     on_click=RequisicionesState.guardar_requisicion,
                     disabled=RequisicionesState.saving,
                     color_scheme=rx.cond(
-                        RequisicionesState.es_edicion,
+                        RequisicionesState.es_edicion & ~RequisicionesState.es_auto_borrador,
                         "blue",
                         rx.cond(
                             RequisicionesState.formulario_completo,

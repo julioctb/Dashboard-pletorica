@@ -7,7 +7,7 @@ Refactorizado para usar:
 - ui_helpers para opciones de enums
 """
 import reflex as rx
-from typing import List, Optional, Callable, Dict, Any
+from typing import List, Optional, Callable
 from decimal import Decimal, InvalidOperation
 from datetime import date
 
@@ -18,7 +18,7 @@ from app.core.ui_helpers import (
     FILTRO_SIN_SELECCION,
     opciones_desde_enum,
 )
-from app.services import contrato_service, empresa_service, tipo_servicio_service, pago_service, categoria_puesto_service, entregable_service
+from app.services import contrato_service, empresa_service, tipo_servicio_service, categoria_puesto_service, entregable_service, requisicion_service
 from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
 
 from app.entities import (
@@ -29,6 +29,8 @@ from app.entities import (
     TipoDuracion,
     TipoContrato,
 )
+from app.core.enums import TipoContratacion, EstadoRequisicion
+from app.entities.contrato_item import ContratoItemCreate
 from app.core.enums import TipoEntregable, PeriodicidadEntregable
 from app.entities.entregable import ContratoTipoEntregableCreate
 
@@ -97,6 +99,8 @@ FORM_DEFAULTS = {
     "tiene_personal": True,
     "estatus": EstatusContrato.BORRADOR.value,
     "notas": "",
+    "requisicion_id": "",
+    "numero_requisicion": "",
 }
 
 
@@ -182,6 +186,11 @@ class ContratosState(BaseState, CRUDStateMixin):
     form_tiene_personal: bool = True
     form_estatus: str = EstatusContrato.BORRADOR.value
     form_notas: str = ""
+
+    # Requisicion origen (pre-llenado desde flujo Req -> Contrato)
+    form_requisicion_id: str = ""
+    form_numero_requisicion: str = ""  # Solo display, no editable
+    form_contrato_items: List[dict] = []  # Items para ADQUISICION
 
     # ========================
     # CONFIGURACIÓN DE ENTREGABLES
@@ -384,6 +393,16 @@ class ContratosState(BaseState, CRUDStateMixin):
             tiene_max = bool(self.form_monto_maximo and self.form_monto_maximo.strip())
             if tiene_min and tiene_max:
                 self.form_requiere_poliza = True
+
+    # --- Contrato Items ---
+    def actualizar_contrato_item_campo(self, index: int, campo: str, valor):
+        """Actualiza un campo de un item de contrato."""
+        items = list(self.form_contrato_items)
+        if 0 <= index < len(items):
+            item = dict(items[index])
+            item[campo] = valor
+            items[index] = item
+            self.form_contrato_items = items
 
     # --- Modales ---
     def set_mostrar_modal_contrato(self, value: bool):
@@ -976,6 +995,8 @@ class ContratosState(BaseState, CRUDStateMixin):
         try:
             if self.es_edicion:
                 mensaje = await self._actualizar_contrato()
+            elif self.form_requisicion_id:
+                mensaje = await self._crear_contrato_desde_requisicion()
             else:
                 mensaje = await self._crear_contrato()
 
@@ -1091,6 +1112,153 @@ class ContratosState(BaseState, CRUDStateMixin):
         )
 
         return f"Contrato '{codigo}' actualizado exitosamente"
+
+    # ========================
+    # CREAR DESDE REQUISICIÓN
+    # ========================
+
+    # Mapeo TipoContratacion -> TipoContrato
+    TIPO_CONTRATACION_A_CONTRATO = {
+        TipoContratacion.ADQUISICION.value: TipoContrato.ADQUISICION.value,
+        TipoContratacion.ARRENDAMIENTO.value: TipoContrato.ADQUISICION.value,
+        TipoContratacion.SERVICIO.value: TipoContrato.SERVICIOS.value,
+    }
+
+    async def abrir_desde_requisicion(self, requisicion_id: int):
+        """
+        Pre-llena el formulario de contrato desde una requisición ADJUDICADA.
+
+        1. Carga datos de la requisición
+        2. Pre-llena: empresa_id, tipo_contrato, descripcion_objeto
+        3. Si ADQUISICION: carga items de requisición en form_contrato_items
+        4. Abre modal de creación
+        """
+        try:
+            requisicion = await requisicion_service.obtener_por_id(requisicion_id)
+
+            if requisicion.estado != EstadoRequisicion.ADJUDICADA:
+                self.mostrar_mensaje(
+                    f"Solo se pueden crear contratos desde requisiciones ADJUDICADAS. Estado actual: {requisicion.estado}",
+                    "error"
+                )
+                return
+
+            # Limpiar formulario
+            self._limpiar_formulario()
+
+            # Pre-llenar datos desde requisición
+            self.form_requisicion_id = str(requisicion.id)
+            self.form_numero_requisicion = requisicion.numero_requisicion
+
+            if requisicion.empresa_id:
+                self.form_empresa_id = str(requisicion.empresa_id)
+
+            # Mapear tipo de contratación
+            tipo_contrato = self.TIPO_CONTRATACION_A_CONTRATO.get(
+                requisicion.tipo_contratacion,
+                TipoContrato.ADQUISICION.value
+            )
+            self.form_tipo_contrato = tipo_contrato
+
+            # Descripción del objeto
+            self.form_descripcion_objeto = requisicion.objeto_contratacion or ""
+
+            # Para ADQUISICION, cargar items de la requisición
+            es_adquisicion = tipo_contrato == TipoContrato.ADQUISICION.value
+            if es_adquisicion and requisicion.items:
+                items_form = []
+                for item in requisicion.items:
+                    items_form.append({
+                        "requisicion_item_id": item.id,
+                        "numero_item": item.numero_item,
+                        "unidad_medida": item.unidad_medida,
+                        "cantidad": str(item.cantidad),
+                        "descripcion": item.descripcion,
+                        "precio_unitario": "",  # Debe llenarse por el usuario
+                        "especificaciones_tecnicas": item.especificaciones_tecnicas or "",
+                        "incluir": True,
+                    })
+                self.form_contrato_items = items_form
+
+            # tiene_personal: False para ADQUISICION
+            self.form_tiene_personal = not es_adquisicion
+
+            # Abrir modal
+            self.es_edicion = False
+            self.mostrar_modal_contrato = True
+
+        except Exception as e:
+            self.manejar_error(e, "al cargar datos de requisición")
+
+    async def _crear_contrato_desde_requisicion(self) -> str:
+        """
+        Crea contrato vinculado a requisición con items de contrato.
+        Se usa cuando form_requisicion_id está presente.
+        """
+        requisicion_id = self.parse_id(self.form_requisicion_id)
+
+        # Obtener datos de empresa para código
+        codigo_empresa = ""
+        clave_servicio = ""
+
+        for e in self.empresas:
+            if str(e["id"]) == self.form_empresa_id:
+                codigo_empresa = e.get("codigo_corto") or "XXX"
+                break
+
+        # Para ADQUISICION usar "ADQ", para SERVICIOS usar la clave del tipo de servicio
+        if self.form_tipo_contrato == TipoContrato.ADQUISICION.value:
+            clave_servicio = "ADQ"
+        else:
+            for t in self.tipos_servicio:
+                if str(t["id"]) == self.form_tipo_servicio_id:
+                    clave_servicio = t.get("clave") or "XX"
+                    break
+
+        contrato_create = self._preparar_contrato_desde_formulario()
+
+        # Preparar items de contrato si es ADQUISICION
+        items_contrato = None
+        if self.form_contrato_items:
+            items_contrato = []
+            for item in self.form_contrato_items:
+                if not item.get("incluir", True):
+                    continue
+                precio = item.get("precio_unitario", "0")
+                if not precio or precio.strip() == "":
+                    continue
+                items_contrato.append(ContratoItemCreate(
+                    requisicion_item_id=item.get("requisicion_item_id"),
+                    numero_item=item.get("numero_item", 1),
+                    unidad_medida=item.get("unidad_medida", "Pieza"),
+                    cantidad=Decimal(str(item.get("cantidad", "1")).replace(',', '') or "1"),
+                    descripcion=item.get("descripcion", ""),
+                    precio_unitario=Decimal(str(precio).replace(',', '')),
+                    especificaciones_tecnicas=item.get("especificaciones_tecnicas") or None,
+                ))
+
+        contrato_creado = await contrato_service.crear_desde_requisicion(
+            requisicion_id=requisicion_id,
+            contrato_create=contrato_create,
+            codigo_empresa=codigo_empresa,
+            clave_servicio=clave_servicio,
+            items_contrato=items_contrato,
+        )
+
+        # Guardar configuración de entregables si hay tipos configurados
+        if self.config_entregables:
+            for config in self.config_entregables:
+                tipo_config = ContratoTipoEntregableCreate(
+                    contrato_id=contrato_creado.id,
+                    tipo_entregable=TipoEntregable(config["tipo_entregable"]),
+                    periodicidad=PeriodicidadEntregable(config["periodicidad"]),
+                    requerido=config["requerido"],
+                    descripcion=config.get("descripcion"),
+                    instrucciones=config.get("instrucciones"),
+                )
+                await entregable_service.configurar_tipo_entregable(tipo_config)
+
+        return f"Contrato '{contrato_creado.codigo}' creado desde requisición"
 
     async def cancelar_contrato(self):
         """Cancelar (soft delete) un contrato"""
@@ -1261,6 +1429,7 @@ class ContratosState(BaseState, CRUDStateMixin):
         self._limpiar_errores()
         self._limpiar_form_entregable()
         self.config_entregables = []
+        self.form_contrato_items = []
         self.contrato_seleccionado = None
         self.es_edicion = False
 
@@ -1310,6 +1479,11 @@ class ContratosState(BaseState, CRUDStateMixin):
         self.form_estatus = contrato.get("estatus", EstatusContrato.BORRADOR.value)
         self.form_notas = contrato.get("notas", "") or ""
 
+        # Requisición origen
+        req_id = contrato.get("requisicion_id")
+        self.form_requisicion_id = str(req_id) if req_id else ""
+        self.form_numero_requisicion = contrato.get("numero_requisicion", "") or ""
+
     def _preparar_contrato_desde_formulario(self) -> ContratoCreate:
         """Prepara objeto ContratoCreate desde formulario con lógica condicional"""
         es_adquisicion = self.form_tipo_contrato == TipoContrato.ADQUISICION.value
@@ -1340,9 +1514,15 @@ class ContratosState(BaseState, CRUDStateMixin):
         # tiene_personal: False para ADQUISICION, configurable para SERVICIOS
         tiene_personal = False if es_adquisicion else self.form_tiene_personal
 
+        # requisicion_id (si viene del flujo Requisicion -> Contrato)
+        requisicion_id = None
+        if self.form_requisicion_id:
+            requisicion_id = self.parse_id(self.form_requisicion_id)
+
         return ContratoCreate(
             empresa_id=self.parse_id(self.form_empresa_id),
             tipo_servicio_id=tipo_servicio_id,
+            requisicion_id=requisicion_id,
             codigo="TEMP",  # Se sobrescribe con autogenerado
             numero_folio_buap=self.form_folio_buap.strip() or None,
             tipo_contrato=TipoContrato(self.form_tipo_contrato),

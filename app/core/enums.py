@@ -498,6 +498,12 @@ class EstatusEntregable(str, Enum):
     EN_REVISION = 'EN_REVISION'
     APROBADO = 'APROBADO'
     RECHAZADO = 'RECHAZADO'
+    # --- Estados post-aprobacion (flujo de facturacion) ---
+    PREFACTURA_ENVIADA = 'PREFACTURA_ENVIADA'
+    PREFACTURA_RECHAZADA = 'PREFACTURA_RECHAZADA'
+    PREFACTURA_APROBADA = 'PREFACTURA_APROBADA'
+    FACTURADO = 'FACTURADO'
+    PAGADO = 'PAGADO'
 
     @property
     def descripcion(self) -> str:
@@ -507,18 +513,32 @@ class EstatusEntregable(str, Enum):
             'EN_REVISION': 'En revisión',
             'APROBADO': 'Aprobado',
             'RECHAZADO': 'Rechazado',
+            'PREFACTURA_ENVIADA': 'Prefactura enviada',
+            'PREFACTURA_RECHAZADA': 'Prefactura rechazada',
+            'PREFACTURA_APROBADA': 'Prefactura aprobada',
+            'FACTURADO': 'Facturado',
+            'PAGADO': 'Pagado',
         }
         return descripciones.get(self.value, self.value)
 
     @property
     def es_estado_final(self) -> bool:
         """Indica si es un estado final"""
-        return self == EstatusEntregable.APROBADO
+        return self == EstatusEntregable.PAGADO
 
     @property
     def permite_edicion_cliente(self) -> bool:
-        """Indica si el cliente puede editar/subir archivos"""
+        """Indica si el cliente puede editar/subir archivos de entregable"""
         return self in (EstatusEntregable.PENDIENTE, EstatusEntregable.RECHAZADO)
+
+    @property
+    def requiere_accion_cliente(self) -> bool:
+        """Indica si el cliente debe actuar (subir prefactura, corregir, subir factura)"""
+        return self in (
+            EstatusEntregable.APROBADO,
+            EstatusEntregable.PREFACTURA_RECHAZADA,
+            EstatusEntregable.PREFACTURA_APROBADA,
+        )
 
 
 class EstatusPago(str, Enum):

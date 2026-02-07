@@ -6,6 +6,7 @@ Modal crear/editar, detalle, baja, restriccion, liberacion e historial.
 import reflex as rx
 
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
+from app.presentation.theme import Colors
 from .components import estatus_badge, restriccion_badge
 
 
@@ -659,7 +660,7 @@ def modal_restriccion() -> rx.Component:
         rx.dialog.content(
             rx.dialog.title(
                 rx.hstack(
-                    rx.icon("ban", size=20, color="red"),
+                    rx.icon("ban", size=20, color=Colors.ERROR),
                     rx.text("Restringir Empleado"),
                     spacing="2",
                     align="center",
@@ -798,7 +799,7 @@ def modal_liberacion() -> rx.Component:
         rx.dialog.content(
             rx.dialog.title(
                 rx.hstack(
-                    rx.icon("circle-check", size=20, color="green"),
+                    rx.icon("circle-check", size=20, color=Colors.SUCCESS),
                     rx.text("Liberar Restriccion"),
                     spacing="2",
                     align="center",

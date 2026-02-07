@@ -10,6 +10,7 @@ import reflex as rx
 from app.core.config import Config
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.portal.state.portal_state import PortalState
+from app.presentation.components.ui.notification_bell import notification_bell_portal, NotificationBellState
 from app.presentation.theme import (
     Colors,
     Spacing,
@@ -55,7 +56,7 @@ PORTAL_NAVIGATION = [
 # =============================================================================
 
 def _portal_header() -> rx.Component:
-    """Header del sidebar con nombre de la empresa."""
+    """Header del sidebar con nombre de la empresa y campana de notificaciones."""
     return rx.hstack(
         rx.center(
             rx.icon("building-2", size=20, color=Colors.PORTAL_PRIMARY),
@@ -75,7 +76,7 @@ def _portal_header() -> rx.Component:
                 white_space="nowrap",
                 overflow="hidden",
                 text_overflow="ellipsis",
-                max_width="160px",
+                max_width="130px",
             ),
             rx.text(
                 "Portal Cliente",
@@ -86,6 +87,8 @@ def _portal_header() -> rx.Component:
             spacing="0",
             align_items="start",
         ),
+        rx.spacer(),
+        notification_bell_portal(),
         padding_x=Spacing.MD,
         padding_y=Spacing.LG,
         align="center",
@@ -356,4 +359,5 @@ def portal_sidebar() -> rx.Component:
         background=Colors.SURFACE,
         border_right=f"1px solid {Colors.BORDER}",
         flex_shrink="0",
+        on_mount=NotificationBellState.cargar_notificaciones_portal,
     )

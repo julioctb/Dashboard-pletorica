@@ -15,7 +15,6 @@ from app.presentation.components.ui import (
     tabla_vacia,
     skeleton_tabla,
     action_buttons_reactive,
-    entity_card,
     switch_inactivos,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography

@@ -18,9 +18,6 @@ from app.core.validation import (
     CAMPO_NOMBRE_CORTO_SEDE,
     pydantic_field,
     campo_validador,
-    NOMBRE_SEDE_MAX,
-    CODIGO_SEDE_MAX,
-    NOMBRE_CORTO_SEDE_MAX,
 )
 
 

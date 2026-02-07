@@ -38,6 +38,17 @@ class MisEntregablesState(PortalState):
     filtro_contrato_id: str = "all"
     filtro_busqueda: str = ""
 
+    # Facturacion modals
+    mostrar_modal_prefactura: bool = False
+    mostrar_modal_factura: bool = False
+    enviando_prefactura: bool = False
+    enviando_factura: bool = False
+    subiendo_prefactura: bool = False
+    subiendo_factura_pdf: bool = False
+    subiendo_factura_xml: bool = False
+    resultado_validacion_xml: dict = {}
+    folio_fiscal_xml: str = ""
+
     # =========================================================================
     # SETTERS
     # =========================================================================
@@ -101,6 +112,24 @@ class MisEntregablesState(PortalState):
         """Pendientes + Rechazados = lo que requiere acción del cliente."""
         return self.stats_pendientes + self.stats_rechazados
 
+    @rx.var
+    def stats_por_prefacturar(self) -> int:
+        """APROBADO + PREFACTURA_RECHAZADA = requieren prefactura."""
+        return self.estadisticas.get("por_prefacturar", 0)
+
+    @rx.var
+    def stats_por_facturar(self) -> int:
+        """PREFACTURA_APROBADA = requieren factura definitiva."""
+        return self.estadisticas.get("por_facturar", 0)
+
+    @rx.var
+    def stats_facturados(self) -> int:
+        return self.estadisticas.get("facturados", 0)
+
+    @rx.var
+    def stats_pagados(self) -> int:
+        return self.estadisticas.get("pagados", 0)
+
     # Filtros activos
     @rx.var
     def filtro_es_accion_requerida(self) -> bool:
@@ -123,18 +152,31 @@ class MisEntregablesState(PortalState):
         return self.filtro_estatus == "RECHAZADO"
 
     @rx.var
+    def filtro_es_por_prefacturar(self) -> bool:
+        return self.filtro_estatus == "por_prefacturar"
+
+    @rx.var
+    def filtro_es_por_facturar(self) -> bool:
+        return self.filtro_estatus == "por_facturar"
+
+    @rx.var
+    def filtro_es_pagado(self) -> bool:
+        return self.filtro_estatus == "PAGADO"
+
+    @rx.var
     def titulo_filtro_actual(self) -> str:
-        if self.filtro_estatus == "accion_requerida":
-            return "Requieren tu Acción"
-        elif self.filtro_estatus == "PENDIENTE":
-            return "Pendientes de Entrega"
-        elif self.filtro_estatus == "EN_REVISION":
-            return "En Revisión por BUAP"
-        elif self.filtro_estatus == "APROBADO":
-            return "Aprobados"
-        elif self.filtro_estatus == "RECHAZADO":
-            return "Rechazados - Requieren Corrección"
-        return "Mis Entregables"
+        titulos = {
+            "accion_requerida": "Requieren tu Accion",
+            "PENDIENTE": "Pendientes de Entrega",
+            "EN_REVISION": "En Revision por BUAP",
+            "APROBADO": "Aprobados",
+            "RECHAZADO": "Rechazados - Requieren Correccion",
+            "por_prefacturar": "Por Prefacturar",
+            "por_facturar": "Por Facturar",
+            "FACTURADO": "Facturados - Pendiente Pago",
+            "PAGADO": "Pagados",
+        }
+        return titulos.get(self.filtro_estatus, "Mis Entregables")
 
     # Modal
     @rx.var
@@ -195,13 +237,14 @@ class MisEntregablesState(PortalState):
         """Carga entregables con los filtros actuales."""
         self.cargando = True
         try:
-            # Determinar lista de estatus según filtro
-            if self.filtro_estatus == "accion_requerida":
-                estatus_list = ["PENDIENTE", "RECHAZADO"]
-            elif self.filtro_estatus == "all":
-                estatus_list = None
-            else:
-                estatus_list = [self.filtro_estatus]
+            # Determinar lista de estatus segun filtro
+            filtro_map = {
+                "accion_requerida": ["PENDIENTE", "RECHAZADO"],
+                "all": None,
+                "por_prefacturar": ["APROBADO", "PREFACTURA_RECHAZADA"],
+                "por_facturar": ["PREFACTURA_APROBADA"],
+            }
+            estatus_list = filtro_map.get(self.filtro_estatus, [self.filtro_estatus])
 
             contrato_id = None if self.filtro_contrato_id == "all" else int(self.filtro_contrato_id)
 
@@ -225,6 +268,12 @@ class MisEntregablesState(PortalState):
                     "fecha_entrega": str(e.fecha_entrega) if e.fecha_entrega else None,
                     "monto_aprobado": str(e.monto_aprobado) if e.monto_aprobado else None,
                     "observaciones_rechazo": e.observaciones_rechazo,
+                    "observaciones_prefactura": e.observaciones_prefactura,
+                    "folio_fiscal": e.folio_fiscal,
+                    "fecha_prefactura": str(e.fecha_prefactura) if e.fecha_prefactura else None,
+                    "fecha_factura": str(e.fecha_factura) if e.fecha_factura else None,
+                    "fecha_pago_registrado": str(e.fecha_pago_registrado) if e.fecha_pago_registrado else None,
+                    "referencia_pago": e.referencia_pago,
                     "puede_editar": e.estatus in ("PENDIENTE", "RECHAZADO") or e.estatus == EstatusEntregable.PENDIENTE or e.estatus == EstatusEntregable.RECHAZADO,
                 }
                 for e in entregables
@@ -257,6 +306,15 @@ class MisEntregablesState(PortalState):
 
     async def filtrar_rechazados(self):
         await self.filtrar_por_estatus("RECHAZADO")
+
+    async def filtrar_por_prefacturar(self):
+        await self.filtrar_por_estatus("por_prefacturar")
+
+    async def filtrar_por_facturar(self):
+        await self.filtrar_por_estatus("por_facturar")
+
+    async def filtrar_pagados(self):
+        await self.filtrar_por_estatus("PAGADO")
 
     async def set_filtro_contrato(self, contrato_id: str):
         """Cambia el filtro de contrato y recarga."""
@@ -361,7 +419,7 @@ class MisEntregablesState(PortalState):
             self.mostrar_mensaje(f"Error al eliminar: {str(e)}", "error")
 
     # =========================================================================
-    # ENVIAR PARA REVISIÓN
+    # ENVIAR PARA REVISION
     # =========================================================================
     async def enviar_para_revision(self):
         if not self.entregable_actual or not self.puede_entregar:
@@ -372,9 +430,8 @@ class MisEntregablesState(PortalState):
                 entregable_id=self.entregable_actual["id"],
                 monto_calculado=None,
             )
-            self.mostrar_mensaje("Entregable enviado para revisión", "success")
+            self.mostrar_mensaje("Entregable enviado para revision", "success")
             self.cerrar_modal_entregable()
-            # Recargar estadísticas y lista
             await self._cargar_estadisticas()
             await self._cargar_entregables()
         except BusinessRuleError as e:
@@ -383,3 +440,196 @@ class MisEntregablesState(PortalState):
             self.mostrar_mensaje(f"Error al enviar: {str(e)}", "error")
         finally:
             self.enviando = False
+
+    # =========================================================================
+    # FLUJO DE PREFACTURA
+    # =========================================================================
+    def abrir_modal_prefactura(self, entregable_id: int):
+        """Abre el modal de subir prefactura."""
+        entregable = next((e for e in self.entregables if e["id"] == entregable_id), None)
+        if not entregable:
+            return
+        self.entregable_actual = entregable
+        self.mostrar_modal_prefactura = True
+
+    def cerrar_modal_prefactura(self):
+        self.mostrar_modal_prefactura = False
+        self.entregable_actual = None
+
+    def set_mostrar_modal_prefactura(self, open: bool):
+        pass
+
+    async def subir_prefactura(self, files: List[rx.UploadFile]):
+        """Sube PDF de prefactura y transiciona estado."""
+        if not self.entregable_actual or not files:
+            return
+
+        self.enviando_prefactura = True
+        try:
+            # Subir archivo como PAGO (prefactura)
+            for file in files:
+                contenido = await file.read()
+                tipo_mime = file.content_type or "application/pdf"
+                await archivo_service.subir_archivo(
+                    contenido=contenido,
+                    nombre_original=file.filename,
+                    tipo_mime=tipo_mime,
+                    entidad_tipo=EntidadArchivo.PAGO,
+                    entidad_id=self.entregable_actual["id"],
+                    identificador_ruta=f"prefactura-{self.entregable_actual['id']}",
+                    tipo_archivo=TipoArchivo.DOCUMENTO,
+                    origen=OrigenArchivo.WEB,
+                )
+
+            # Transicionar estado
+            await entregable_service.enviar_prefactura(self.entregable_actual["id"])
+
+            self.mostrar_mensaje("Prefactura enviada correctamente", "success")
+            self.cerrar_modal_prefactura()
+            await self._cargar_estadisticas()
+            await self._cargar_entregables()
+
+        except BusinessRuleError as e:
+            self.mostrar_mensaje(str(e), "error")
+        except Exception as e:
+            self.mostrar_mensaje(f"Error al enviar prefactura: {str(e)}", "error")
+        finally:
+            self.enviando_prefactura = False
+
+        return rx.clear_selected_files("upload_prefactura")
+
+    # =========================================================================
+    # FLUJO DE FACTURA
+    # =========================================================================
+    def abrir_modal_factura(self, entregable_id: int):
+        """Abre el modal de subir factura."""
+        entregable = next((e for e in self.entregables if e["id"] == entregable_id), None)
+        if not entregable:
+            return
+        self.entregable_actual = entregable
+        self.resultado_validacion_xml = {}
+        self.folio_fiscal_xml = ""
+        self.mostrar_modal_factura = True
+
+    def cerrar_modal_factura(self):
+        self.mostrar_modal_factura = False
+        self.entregable_actual = None
+        self.resultado_validacion_xml = {}
+        self.folio_fiscal_xml = ""
+
+    def set_mostrar_modal_factura(self, open: bool):
+        pass
+
+    async def subir_factura_xml(self, files: List[rx.UploadFile]):
+        """Sube y valida el XML CFDI."""
+        if not files:
+            return
+
+        self.subiendo_factura_xml = True
+        try:
+            xml_file = files[0]
+            xml_bytes = await xml_file.read()
+
+            # Validar CFDI
+            from app.core.validation.cfdi_validator import validar_cfdi, RFC_BUAP
+
+            # Obtener RFC del emisor (empresa del cliente)
+            from app.services import empresa_service
+            empresa = await empresa_service.obtener_por_id(self.id_empresa_actual)
+            rfc_emisor = empresa.rfc if empresa else ""
+
+            from decimal import Decimal
+            monto = Decimal(self.entregable_actual["monto_aprobado"]) if self.entregable_actual.get("monto_aprobado") else None
+
+            resultado = validar_cfdi(
+                xml_bytes=xml_bytes,
+                rfc_emisor_esperado=rfc_emisor,
+                rfc_receptor_esperado=RFC_BUAP,
+                monto_esperado=monto,
+            )
+
+            self.resultado_validacion_xml = {
+                "es_valido": resultado.es_valido,
+                "rfc_emisor": resultado.rfc_emisor or "",
+                "rfc_receptor": resultado.rfc_receptor or "",
+                "monto_total": str(resultado.monto_total) if resultado.monto_total else "",
+                "folio_fiscal": resultado.folio_fiscal or "",
+                "errores": resultado.errores,
+            }
+            self.folio_fiscal_xml = resultado.folio_fiscal or ""
+
+            # Subir XML como archivo
+            await archivo_service.subir_archivo(
+                contenido=xml_bytes,
+                nombre_original=xml_file.filename,
+                tipo_mime="application/xml",
+                entidad_tipo=EntidadArchivo.PAGO,
+                entidad_id=self.entregable_actual["id"],
+                identificador_ruta=f"factura-xml-{self.entregable_actual['id']}",
+                tipo_archivo=TipoArchivo.DOCUMENTO,
+                origen=OrigenArchivo.WEB,
+            )
+
+            if resultado.es_valido:
+                self.mostrar_mensaje("XML CFDI validado correctamente", "success")
+            else:
+                self.mostrar_mensaje("XML tiene errores de validacion", "warning")
+
+        except Exception as e:
+            self.mostrar_mensaje(f"Error al procesar XML: {str(e)}", "error")
+        finally:
+            self.subiendo_factura_xml = False
+
+        return rx.clear_selected_files("upload_factura_xml")
+
+    async def subir_factura_pdf(self, files: List[rx.UploadFile]):
+        """Sube el PDF de la factura."""
+        if not files or not self.entregable_actual:
+            return
+
+        self.subiendo_factura_pdf = True
+        try:
+            for file in files:
+                contenido = await file.read()
+                await archivo_service.subir_archivo(
+                    contenido=contenido,
+                    nombre_original=file.filename,
+                    tipo_mime=file.content_type or "application/pdf",
+                    entidad_tipo=EntidadArchivo.PAGO,
+                    entidad_id=self.entregable_actual["id"],
+                    identificador_ruta=f"factura-pdf-{self.entregable_actual['id']}",
+                    tipo_archivo=TipoArchivo.DOCUMENTO,
+                    origen=OrigenArchivo.WEB,
+                )
+            self.mostrar_mensaje("PDF de factura subido", "success")
+        except Exception as e:
+            self.mostrar_mensaje(f"Error al subir PDF: {str(e)}", "error")
+        finally:
+            self.subiendo_factura_pdf = False
+
+        return rx.clear_selected_files("upload_factura_pdf")
+
+    async def enviar_factura(self):
+        """Envia la factura definitiva (PDF + XML validado)."""
+        if not self.entregable_actual:
+            return
+        if not self.folio_fiscal_xml:
+            self.mostrar_mensaje("Primero suba y valide el XML CFDI", "warning")
+            return
+
+        self.enviando_factura = True
+        try:
+            await entregable_service.enviar_factura(
+                entregable_id=self.entregable_actual["id"],
+                folio_fiscal=self.folio_fiscal_xml,
+            )
+            self.mostrar_mensaje("Factura enviada correctamente", "success")
+            self.cerrar_modal_factura()
+            await self._cargar_estadisticas()
+            await self._cargar_entregables()
+        except BusinessRuleError as e:
+            self.mostrar_mensaje(str(e), "error")
+        except Exception as e:
+            self.mostrar_mensaje(f"Error al enviar factura: {str(e)}", "error")
+        finally:
+            self.enviando_factura = False

@@ -291,6 +291,235 @@ class EntregableService:
         return entregable_actualizado
     
     # =========================================================================
+    # FLUJO DE FACTURACIÓN (POST-APROBACIÓN)
+    # =========================================================================
+
+    async def enviar_prefactura(self, entregable_id: int) -> Entregable:
+        """
+        Cliente sube prefactura PDF.
+        Cambia APROBADO/PREFACTURA_RECHAZADA -> PREFACTURA_ENVIADA.
+
+        Raises:
+            BusinessRuleError: Si no esta en estado valido
+        """
+        entregable = await self.repository.obtener_por_id(entregable_id)
+
+        if not entregable.puede_subir_prefactura:
+            raise BusinessRuleError(
+                f"No se puede enviar prefactura en estado {entregable.estatus}. "
+                f"Solo se permite en estado APROBADO o PREFACTURA_RECHAZADA."
+            )
+
+        entregable.estatus = EstatusEntregable.PREFACTURA_ENVIADA
+        entregable.fecha_prefactura = datetime.now()
+        entregable.observaciones_prefactura = None
+
+        entregable_actualizado = await self.repository.actualizar(entregable)
+
+        logger.info(f"Entregable {entregable_id}: prefactura enviada")
+
+        # Notificar al admin
+        await self._notificar(
+            empresa_id=None,
+            titulo="Prefactura recibida",
+            mensaje=f"Se recibio prefactura del periodo {entregable.numero_periodo}",
+            tipo="prefactura_recibida",
+            entidad_tipo="ENTREGABLE",
+            entidad_id=entregable_id,
+            para_admin=True,
+        )
+
+        return entregable_actualizado
+
+    async def aprobar_prefactura(
+        self,
+        entregable_id: int,
+        revisado_por: UUID,
+    ) -> Entregable:
+        """
+        BUAP aprueba prefactura.
+        Cambia PREFACTURA_ENVIADA -> PREFACTURA_APROBADA.
+
+        Raises:
+            BusinessRuleError: Si no esta en estado valido
+        """
+        entregable = await self.repository.obtener_por_id(entregable_id)
+
+        if not entregable.puede_revisar_prefactura:
+            raise BusinessRuleError(
+                f"No se puede aprobar prefactura en estado {entregable.estatus}. "
+                f"Solo se permite en estado PREFACTURA_ENVIADA."
+            )
+
+        entregable.estatus = EstatusEntregable.PREFACTURA_APROBADA
+        entregable.fecha_revision = datetime.now()
+        entregable.revisado_por = revisado_por
+
+        entregable_actualizado = await self.repository.actualizar(entregable)
+
+        logger.info(f"Entregable {entregable_id}: prefactura aprobada")
+
+        # Notificar al cliente
+        empresa_id = await self._obtener_empresa_id(entregable.contrato_id)
+        await self._notificar(
+            empresa_id=empresa_id,
+            titulo="Prefactura aprobada",
+            mensaje=f"Su prefactura del periodo {entregable.numero_periodo} fue aprobada. Suba la factura definitiva.",
+            tipo="prefactura_aprobada",
+            entidad_tipo="ENTREGABLE",
+            entidad_id=entregable_id,
+        )
+
+        return entregable_actualizado
+
+    async def rechazar_prefactura(
+        self,
+        entregable_id: int,
+        observaciones: str,
+        revisado_por: UUID,
+    ) -> Entregable:
+        """
+        BUAP rechaza prefactura con observaciones.
+        Cambia PREFACTURA_ENVIADA -> PREFACTURA_RECHAZADA.
+
+        Raises:
+            BusinessRuleError: Si no esta en estado valido o falta observacion
+        """
+        entregable = await self.repository.obtener_por_id(entregable_id)
+
+        if not entregable.puede_revisar_prefactura:
+            raise BusinessRuleError(
+                f"No se puede rechazar prefactura en estado {entregable.estatus}."
+            )
+
+        if not observaciones or not observaciones.strip():
+            raise BusinessRuleError(
+                "Debe proporcionar observaciones al rechazar una prefactura."
+            )
+
+        entregable.estatus = EstatusEntregable.PREFACTURA_RECHAZADA
+        entregable.fecha_revision = datetime.now()
+        entregable.revisado_por = revisado_por
+        entregable.observaciones_prefactura = observaciones.strip()
+
+        entregable_actualizado = await self.repository.actualizar(entregable)
+
+        logger.info(f"Entregable {entregable_id}: prefactura rechazada")
+
+        # Notificar al cliente
+        empresa_id = await self._obtener_empresa_id(entregable.contrato_id)
+        await self._notificar(
+            empresa_id=empresa_id,
+            titulo="Prefactura rechazada",
+            mensaje=f"Su prefactura del periodo {entregable.numero_periodo} fue rechazada. Motivo: {observaciones[:100]}",
+            tipo="prefactura_rechazada",
+            entidad_tipo="ENTREGABLE",
+            entidad_id=entregable_id,
+        )
+
+        return entregable_actualizado
+
+    async def enviar_factura(
+        self,
+        entregable_id: int,
+        folio_fiscal: str,
+    ) -> Entregable:
+        """
+        Cliente sube factura PDF+XML.
+        Cambia PREFACTURA_APROBADA -> FACTURADO.
+        Tambien actualiza Pago a EN_PROCESO.
+
+        Raises:
+            BusinessRuleError: Si no esta en estado valido
+        """
+        entregable = await self.repository.obtener_por_id(entregable_id)
+
+        if not entregable.puede_subir_factura:
+            raise BusinessRuleError(
+                f"No se puede enviar factura en estado {entregable.estatus}. "
+                f"Solo se permite en estado PREFACTURA_APROBADA."
+            )
+
+        entregable.estatus = EstatusEntregable.FACTURADO
+        entregable.fecha_factura = datetime.now()
+        entregable.folio_fiscal = folio_fiscal.strip()
+
+        entregable_actualizado = await self.repository.actualizar(entregable)
+
+        # Actualizar pago a EN_PROCESO
+        if entregable.pago_id:
+            await self._actualizar_pago_estatus(entregable.pago_id, EstatusPago.EN_PROCESO)
+
+        logger.info(f"Entregable {entregable_id}: factura enviada, folio {folio_fiscal}")
+
+        # Notificar al admin
+        await self._notificar(
+            empresa_id=None,
+            titulo="Factura recibida",
+            mensaje=f"Se recibio factura del periodo {entregable.numero_periodo}. Folio: {folio_fiscal}",
+            tipo="factura_recibida",
+            entidad_tipo="ENTREGABLE",
+            entidad_id=entregable_id,
+            para_admin=True,
+        )
+
+        return entregable_actualizado
+
+    async def registrar_pago(
+        self,
+        entregable_id: int,
+        fecha_pago: date,
+        referencia: str,
+        revisado_por: UUID,
+    ) -> Entregable:
+        """
+        BUAP registra pago.
+        Cambia FACTURADO -> PAGADO.
+        Tambien actualiza Pago a PAGADO.
+
+        Raises:
+            BusinessRuleError: Si no esta en estado valido
+        """
+        entregable = await self.repository.obtener_por_id(entregable_id)
+
+        if entregable.estatus != EstatusEntregable.FACTURADO:
+            raise BusinessRuleError(
+                f"No se puede registrar pago en estado {entregable.estatus}. "
+                f"Solo se permite en estado FACTURADO."
+            )
+
+        entregable.estatus = EstatusEntregable.PAGADO
+        entregable.fecha_pago_registrado = datetime.now()
+        entregable.referencia_pago = referencia.strip() if referencia else None
+        entregable.revisado_por = revisado_por
+
+        entregable_actualizado = await self.repository.actualizar(entregable)
+
+        # Actualizar pago a PAGADO con fecha real
+        if entregable.pago_id:
+            await self._actualizar_pago_estatus(
+                entregable.pago_id,
+                EstatusPago.PAGADO,
+                fecha_pago=fecha_pago,
+                referencia=referencia,
+            )
+
+        logger.info(f"Entregable {entregable_id}: pago registrado, ref {referencia}")
+
+        # Notificar al cliente
+        empresa_id = await self._obtener_empresa_id(entregable.contrato_id)
+        await self._notificar(
+            empresa_id=empresa_id,
+            titulo="Pago registrado",
+            mensaje=f"El pago del periodo {entregable.numero_periodo} ha sido registrado. Proceso completado.",
+            tipo="pago_registrado",
+            entidad_tipo="ENTREGABLE",
+            entidad_id=entregable_id,
+        )
+
+        return entregable_actualizado
+
+    # =========================================================================
     # FLUJO DE REVISIÓN (ADMIN)
     # =========================================================================
     
@@ -325,12 +554,23 @@ class EntregableService:
         entregable.pago_id = pago.id
         
         entregable_actualizado = await self.repository.actualizar(entregable)
-        
+
         logger.info(
             f"Entregable {entregable_id} aprobado. "
             f"Monto: {monto_aprobado}, Pago ID: {pago.id}"
         )
-        
+
+        # Notificar al cliente
+        empresa_id = await self._obtener_empresa_id(entregable.contrato_id)
+        await self._notificar(
+            empresa_id=empresa_id,
+            titulo="Entregable aprobado",
+            mensaje=f"El entregable del periodo {entregable.numero_periodo} fue aprobado. Suba la prefactura para continuar.",
+            tipo="entregable_aprobado",
+            entidad_tipo="ENTREGABLE",
+            entidad_id=entregable_id,
+        )
+
         return entregable_actualizado
     
     async def rechazar(
@@ -530,6 +770,79 @@ class EntregableService:
     # MÉTODOS PRIVADOS
     # =========================================================================
     
+    async def _actualizar_pago_estatus(
+        self,
+        pago_id: int,
+        nuevo_estatus: EstatusPago,
+        fecha_pago: date = None,
+        referencia: str = None,
+    ) -> None:
+        """Actualiza el estatus de un pago asociado."""
+        from app.database import db_manager
+        supabase = db_manager.get_client()
+
+        try:
+            datos = {'estatus': nuevo_estatus.value}
+            if fecha_pago:
+                datos['fecha_pago'] = fecha_pago.isoformat()
+            if referencia:
+                datos['comprobante'] = referencia
+
+            supabase.table('pagos').update(datos).eq('id', pago_id).execute()
+            logger.info(f"Pago {pago_id} actualizado a {nuevo_estatus.value}")
+
+        except Exception as e:
+            logger.error(f"Error actualizando pago {pago_id}: {e}")
+            raise DatabaseError(f"Error actualizando estatus del pago: {str(e)}")
+
+    async def _obtener_empresa_id(self, contrato_id: int) -> Optional[int]:
+        """Obtiene el empresa_id de un contrato."""
+        from app.database import db_manager
+        supabase = db_manager.get_client()
+
+        try:
+            result = supabase.table('contratos')\
+                .select('empresa_id')\
+                .eq('id', contrato_id)\
+                .execute()
+
+            if result.data:
+                return result.data[0]['empresa_id']
+            return None
+
+        except Exception as e:
+            logger.error(f"Error obteniendo empresa_id del contrato {contrato_id}: {e}")
+            return None
+
+    async def _notificar(
+        self,
+        empresa_id: Optional[int],
+        titulo: str,
+        mensaje: str,
+        tipo: str,
+        entidad_tipo: str = None,
+        entidad_id: int = None,
+        para_admin: bool = False,
+    ) -> None:
+        """Crea una notificacion de forma segura (no lanza excepciones)."""
+        try:
+            from app.services.notificacion_service import notificacion_service
+            from app.entities.notificacion import NotificacionCreate
+
+            notificacion = NotificacionCreate(
+                empresa_id=None if para_admin else empresa_id,
+                titulo=titulo,
+                mensaje=mensaje,
+                tipo=tipo,
+                entidad_tipo=entidad_tipo,
+                entidad_id=entidad_id,
+            )
+            await notificacion_service.crear(notificacion)
+
+        except Exception as e:
+            # Las notificaciones no deben bloquear el flujo principal
+            logger.error(f"Error creando notificacion: {e}")
+
     async def _validar_monto_aprobado(
         self,
         contrato_id: int,

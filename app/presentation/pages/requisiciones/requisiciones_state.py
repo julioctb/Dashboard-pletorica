@@ -7,9 +7,10 @@ from typing import List, Optional
 from datetime import date
 from decimal import Decimal
 
-from app.presentation.components.shared.base_state import BaseState
+from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.constants import FILTRO_TODOS
 from app.services.requisicion_service import requisicion_service
+from app.services.requisicion_pdf_service import requisicion_pdf_service
 from app.services.empresa_service import empresa_service
 from app.services.archivo_service import archivo_service, ArchivoValidationError
 from app.entities.archivo import EntidadArchivo, TipoArchivo
@@ -104,7 +105,7 @@ PARTIDA_DEFAULT = {
 }
 
 
-class RequisicionesState(BaseState):
+class RequisicionesState(AuthState):
     """Estado para el módulo de Requisiciones"""
 
     # ========================
@@ -137,6 +138,7 @@ class RequisicionesState(BaseState):
     mostrar_modal_confirmar_eliminar: bool = False
     mostrar_modal_confirmar_estado: bool = False
     es_edicion: bool = False
+    es_auto_borrador: bool = False
     accion_estado_pendiente: str = ""
     id_requisicion_edicion: int = 0
 
@@ -667,6 +669,7 @@ class RequisicionesState(BaseState):
         self.archivos_entidad = []
         self.subiendo_archivo = False
         self.es_edicion = False
+        self.es_auto_borrador = False
         self.id_requisicion_edicion = 0
 
     def _prellenar_defaults(self):
@@ -702,15 +705,45 @@ class RequisicionesState(BaseState):
         # Fecha de elaboración: hoy
         self.form_fecha_elaboracion = date.today().isoformat()
 
-    def abrir_modal_crear(self):
-        """Abre modal de creación con campos pre-llenados."""
+    async def abrir_modal_crear(self):
+        """Abre modal de creación con auto-borrador para permitir subir archivos."""
         self._limpiar_formulario()
         self._prellenar_defaults()
+
+        # Crear auto-borrador silencioso para obtener ID y habilitar archivos
+        try:
+            create_data = RequisicionCreate(
+                fecha_elaboracion=date.fromisoformat(self.form_fecha_elaboracion) if self.form_fecha_elaboracion else date.today(),
+                objeto_contratacion="(borrador)",
+                justificacion="(borrador)",
+                dependencia_requirente=self.form_dependencia_requirente or "(borrador)",
+                titular_nombre=self.form_titular_nombre or "(borrador)",
+                lugar_entrega=self.form_lugar_entrega or "(borrador)",
+                elabora_nombre=self.form_elabora_nombre or "(borrador)",
+                solicita_nombre=self.form_solicita_nombre or "(borrador)",
+                items=[],
+                partidas=[],
+            )
+            requisicion = await requisicion_service.crear(create_data, creado_por=self.id_usuario or None)
+            self.id_requisicion_edicion = requisicion.id
+            self.es_edicion = True
+            self.es_auto_borrador = True
+        except Exception as e:
+            # Si falla el auto-borrador, el modal abre sin archivos
+            self.id_requisicion_edicion = 0
+            self.es_edicion = False
+            self.es_auto_borrador = False
+
         self.mostrar_modal_crear = True
 
-    def cerrar_modal_crear(self):
-        """Cierra modal de creación."""
+    async def cerrar_modal_crear(self):
+        """Cierra modal de creación. Elimina el auto-borrador si no se guardó."""
         self.mostrar_modal_crear = False
+        if self.es_auto_borrador and self.id_requisicion_edicion:
+            try:
+                await requisicion_service.eliminar(self.id_requisicion_edicion)
+            except Exception:
+                pass  # Ignorar si ya no existe
         self._limpiar_formulario()
 
     async def abrir_modal_editar(self, requisicion: dict):
@@ -897,60 +930,19 @@ class RequisicionesState(BaseState):
                 if partidas_create:
                     await requisicion_service.reemplazar_partidas(self.id_requisicion_edicion, partidas_create)
 
-                self.cerrar_modal_editar()
-                self.mostrar_mensaje("Requisición actualizada correctamente", "success")
-            else:
-                # Crear nueva requisición
-                create_data = RequisicionCreate(
-                    fecha_elaboracion=date.fromisoformat(self.form_fecha_elaboracion) if self.form_fecha_elaboracion else date.today(),
-                    tipo_contratacion=self.form_tipo_contratacion or None,
-                    objeto_contratacion=self.form_objeto_contratacion,
-                    justificacion=self.form_justificacion,
-                    dependencia_requirente=self.form_dependencia_requirente,
-                    domicilio=self.form_domicilio,
-                    titular_nombre=self.form_titular_nombre,
-                    titular_cargo=self.form_titular_cargo,
-                    titular_telefono=self.form_titular_telefono or None,
-                    titular_email=self.form_titular_email or None,
-                    coordinador_nombre=self.form_coordinador_nombre or None,
-                    coordinador_telefono=self.form_coordinador_telefono or None,
-                    coordinador_email=self.form_coordinador_email or None,
-                    asesor_nombre=self.form_asesor_nombre or None,
-                    asesor_telefono=self.form_asesor_telefono or None,
-                    asesor_email=self.form_asesor_email or None,
-                    lugar_entrega=self.form_lugar_entrega,
-                    fecha_entrega_inicio=date.fromisoformat(self.form_fecha_entrega_inicio) if self.form_fecha_entrega_inicio else None,
-                    fecha_entrega_fin=date.fromisoformat(self.form_fecha_entrega_fin) if self.form_fecha_entrega_fin else None,
-                    condiciones_entrega=self.form_condiciones_entrega or None,
-                    tipo_garantia=self.form_tipo_garantia or None,
-                    garantia_vigencia=self.form_garantia_vigencia or None,
-                    requisitos_proveedor=self.form_requisitos_proveedor or None,
-                    forma_pago=self.form_forma_pago or None,
-                    requiere_anticipo=self.form_requiere_anticipo,
-                    requiere_muestras=self.form_requiere_muestras,
-                    requiere_visita=self.form_requiere_visita,
-                    pdi_eje=self.form_pdi_eje or None,
-                    pdi_objetivo=self.form_pdi_objetivo or None,
-                    pdi_estrategia=self.form_pdi_estrategia or None,
-                    pdi_meta=self.form_pdi_meta or None,
-                    existencia_almacen=self.form_existencia_almacen or None,
-                    observaciones=self.form_observaciones or None,
-                    validacion_asesor=self.form_validacion_asesor or None,
-                    elabora_nombre=self.form_elabora_nombre,
-                    elabora_cargo=self.form_elabora_cargo,
-                    solicita_nombre=self.form_solicita_nombre,
-                    solicita_cargo=self.form_solicita_cargo,
-                    items=items_create,
-                    partidas=partidas_create,
-                )
-
-                await requisicion_service.crear(create_data)
-                self.cerrar_modal_crear()
-                es_borrador = not items_create or not partidas_create
-                if es_borrador:
-                    self.mostrar_mensaje("Borrador guardado correctamente", "success")
+                if self.es_auto_borrador:
+                    # Auto-borrador guardado: desactivar flag para que cancel no lo elimine
+                    self.es_auto_borrador = False
+                    self.mostrar_modal_crear = False
+                    self._limpiar_formulario()
+                    es_borrador = not items_create or not partidas_create
+                    if es_borrador:
+                        self.mostrar_mensaje("Borrador guardado correctamente", "success")
+                    else:
+                        self.mostrar_mensaje("Requisición creada correctamente", "success")
                 else:
-                    self.mostrar_mensaje("Requisición creada correctamente", "success")
+                    self.cerrar_modal_editar()
+                    self.mostrar_mensaje("Requisición actualizada correctamente", "success")
 
             await self.cargar_requisiciones()
 
@@ -998,7 +990,7 @@ class RequisicionesState(BaseState):
             elif accion == "revisar":
                 await requisicion_service.iniciar_revision(req_id)
             elif accion == "aprobar":
-                await requisicion_service.aprobar(req_id)
+                await requisicion_service.aprobar(req_id, aprobado_por=self.id_usuario or None)
             elif accion == "devolver":
                 await requisicion_service.devolver(req_id)
             elif accion == "cancelar":
@@ -1034,5 +1026,48 @@ class RequisicionesState(BaseState):
             self.manejar_error(e, "al adjudicar requisición")
         except Exception as e:
             self.manejar_error(e, "al adjudicar requisición")
+        finally:
+            self.saving = False
+
+    # ========================
+    # GENERACIÓN DE PDF
+    # ========================
+    async def descargar_pdf(self, requisicion_id: int):
+        """
+        Genera y descarga el PDF de una requisición aprobada.
+        Sube el PDF a Supabase Storage temporal y retorna URL para descarga.
+        """
+        self.saving = True
+        try:
+            # Generar PDF
+            pdf_bytes = await requisicion_pdf_service.generar_pdf(requisicion_id)
+
+            # Obtener datos para nombrar archivo
+            requisicion = await requisicion_service.obtener_por_id(requisicion_id)
+            filename = f"{requisicion.numero_requisicion}.pdf"
+
+            # Subir a Supabase Storage
+            from app.database import db_manager
+            supabase = db_manager.get_client()
+            storage_path = f"requisiciones/pdf/{filename}"
+
+            try:
+                supabase.storage.from_('archivos').remove([storage_path])
+            except Exception:
+                pass  # Ignorar si no existe
+
+            supabase.storage.from_('archivos').upload(
+                storage_path,
+                pdf_bytes,
+                file_options={'content-type': 'application/pdf'}
+            )
+
+            url = supabase.storage.from_('archivos').get_public_url(storage_path)
+
+            self.mostrar_mensaje("PDF generado correctamente", "success")
+            return rx.redirect(url, external=True)
+
+        except (BusinessRuleError, Exception) as e:
+            self.manejar_error(e, "al generar PDF")
         finally:
             self.saving = False

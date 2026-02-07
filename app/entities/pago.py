@@ -36,6 +36,10 @@ class Pago(BaseModel):
     # Identificación
     id: Optional[int] = None
     contrato_id: int = Field(description="ID del contrato asociado")
+    entregable_id: Optional[int] = Field(None, description="ID del entregable que originó este pago")
+
+    # Estado
+    estatus: Optional[str] = Field(None, description="Estado del pago: PENDIENTE, EN_PROCESO, PAGADO")
 
     # Datos del pago
     fecha_pago: date = Field(description="Fecha en que se realizó el pago")

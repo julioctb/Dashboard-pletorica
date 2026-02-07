@@ -17,9 +17,6 @@ from app.core.validation import (
     CAMPO_TELEFONO,
     pydantic_field,
     campo_validador,
-    NOMBRE_CONTACTO_MAX,
-    CARGO_CONTACTO_MAX,
-    EXTENSION_MAX,
     EMAIL_MAX,
     TELEFONO_DIGITOS,
 )

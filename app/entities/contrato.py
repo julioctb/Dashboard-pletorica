@@ -58,7 +58,11 @@ class Contrato(BaseModel):
         None,
         description="ID del tipo de servicio (requerido para SERVICIOS, opcional para ADQUISICION)"
     )
-    
+    requisicion_id: Optional[int] = Field(
+        None,
+        description="ID de la requisicion origen. NULL solo para contratos legacy."
+    )
+
     # Código único autogenerado
     codigo: str = Field(
         max_length=CODIGO_CONTRATO_MAX,
@@ -330,6 +334,7 @@ class ContratoCreate(BaseModel):
 
     empresa_id: int
     tipo_servicio_id: Optional[int] = None  # Opcional para ADQUISICION
+    requisicion_id: Optional[int] = None
     codigo: str = Field(max_length=CODIGO_CONTRATO_MAX)
     numero_folio_buap: Optional[str] = Field(None, max_length=FOLIO_BUAP_MAX)
     tipo_contrato: TipoContrato
@@ -362,6 +367,7 @@ class ContratoUpdate(BaseModel):
 
     empresa_id: Optional[int] = None
     tipo_servicio_id: Optional[int] = None
+    requisicion_id: Optional[int] = None
     numero_folio_buap: Optional[str] = Field(None, max_length=FOLIO_BUAP_MAX)
     tipo_contrato: Optional[TipoContrato] = None
     modalidad_adjudicacion: Optional[ModalidadAdjudicacion] = None
@@ -407,6 +413,10 @@ class ContratoResumen(BaseModel):
     fecha_creacion: Optional[datetime]
     descripcion_objeto: Optional[str] = None
 
+    # Campos de requisicion origen
+    requisicion_id: Optional[int] = None
+    numero_requisicion: Optional[str] = None
+
     # Campos calculados/join (se llenan desde el servicio)
     nombre_empresa: Optional[str] = None
     nombre_servicio: Optional[str] = None
@@ -431,4 +441,5 @@ class ContratoResumen(BaseModel):
             estatus=contrato.estatus,
             fecha_creacion=contrato.fecha_creacion,
             descripcion_objeto=contrato.descripcion_objeto,
+            requisicion_id=contrato.requisicion_id,
         )

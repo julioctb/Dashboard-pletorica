@@ -214,7 +214,7 @@ def resumen_destacado() -> rx.Component:
                     width="100%"
                 ),
                 background="var(--green-2)",
-                border=f"2px solid var(--green-7)",
+                border="2px solid var(--green-7)",
                 padding="1.5em",
                 min_width="600px"
             ),

@@ -919,7 +919,7 @@ def modal_confirmar_cancelar() -> rx.Component:
                 rx.cond(
                     ContratosState.contrato_seleccionado,
                     rx.text(
-                        f"¿Está seguro que desea cancelar el contrato ",
+                        "¿Está seguro que desea cancelar el contrato ",
                         rx.text(
                             ContratosState.contrato_seleccionado["codigo"],
                             weight="bold"

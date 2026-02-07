@@ -9,7 +9,7 @@ from typing import List
 
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.layout import page_layout, page_header, page_toolbar
-from app.presentation.components.ui import skeleton_tabla
+from app.presentation.components.ui import entity_card, entity_grid
 from app.presentation.theme import Colors, Typography, Spacing
 from app.services import contrato_service
 from app.core.exceptions import DatabaseError
@@ -104,114 +104,44 @@ class MisContratosState(PortalState):
 # COMPONENTES
 # =============================================================================
 
-def _badge_estatus_contrato(estatus: str) -> rx.Component:
-    """Badge de estatus del contrato."""
-    return rx.match(
-        estatus,
-        ("ACTIVO", rx.badge("Activo", color_scheme="green", variant="soft", size="1")),
-        ("BORRADOR", rx.badge("Borrador", color_scheme="gray", variant="soft", size="1")),
-        ("SUSPENDIDO", rx.badge("Suspendido", color_scheme="orange", variant="soft", size="1")),
-        ("VENCIDO", rx.badge("Vencido", color_scheme="red", variant="soft", size="1")),
-        ("CANCELADO", rx.badge("Cancelado", color_scheme="red", variant="soft", size="1")),
-        rx.badge(estatus, size="1"),
+def _card_contrato(cto: dict) -> rx.Component:
+    """Card de un contrato individual."""
+    return entity_card(
+        icono="file-text",
+        color_icono=Colors.PORTAL_PRIMARY,
+        titulo=cto["codigo"],
+        subtitulo=cto["descripcion_objeto"],
+        status=cto["estatus"],
+        badge_superior=rx.badge(
+            cto["tipo_contrato"],
+            color_scheme="teal",
+            variant="soft",
+            size="1",
+        ),
+        campos=[
+            ("Folio BUAP", rx.cond(cto["numero_folio_buap"], cto["numero_folio_buap"], "-")),
+            ("Inicio", rx.cond(cto["fecha_inicio"], cto["fecha_inicio"], "-")),
+            ("Fin", rx.cond(cto["fecha_fin"], cto["fecha_fin"], "Indefinido")),
+        ],
+        on_click=MisContratosState.abrir_detalle(cto),
     )
 
 
-def _fila_contrato(cto: dict) -> rx.Component:
-    """Fila de la tabla de contratos."""
-    return rx.table.row(
-        rx.table.cell(
-            rx.text(
-                cto["codigo"],
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
-                color=Colors.PORTAL_PRIMARY_TEXT,
-            ),
-        ),
-        rx.table.cell(
-            rx.text(
-                rx.cond(cto["numero_folio_buap"], cto["numero_folio_buap"], "-"),
-                font_size=Typography.SIZE_SM,
-            ),
-        ),
-        rx.table.cell(
-            rx.text(
-                cto["tipo_contrato"],
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            ),
-        ),
-        rx.table.cell(
-            rx.hstack(
-                rx.text(
-                    rx.cond(cto["fecha_inicio"], cto["fecha_inicio"], "-"),
-                    font_size=Typography.SIZE_SM,
-                ),
-                rx.text(
-                    " - ",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_SECONDARY,
-                ),
-                rx.text(
-                    rx.cond(cto["fecha_fin"], cto["fecha_fin"], "Indefinido"),
-                    font_size=Typography.SIZE_SM,
-                ),
-                spacing="1",
-            ),
-        ),
-        rx.table.cell(
-            _badge_estatus_contrato(cto["estatus"]),
-        ),
-        rx.table.cell(
-            rx.icon_button(
-                rx.icon("eye", size=14),
-                variant="ghost",
-                size="1",
-                on_click=MisContratosState.abrir_detalle(cto),
-                cursor="pointer",
-            ),
-        ),
-    )
-
-
-ENCABEZADOS_CONTRATOS = [
-    {"nombre": "Codigo", "ancho": "150px"},
-    {"nombre": "Folio BUAP", "ancho": "150px"},
-    {"nombre": "Tipo", "ancho": "120px"},
-    {"nombre": "Vigencia", "ancho": "auto"},
-    {"nombre": "Estatus", "ancho": "100px"},
-    {"nombre": "", "ancho": "50px"},
-]
-
-
-def _tabla_contratos() -> rx.Component:
-    """Tabla de contratos."""
+def _grid_contratos() -> rx.Component:
+    """Grid de cards de contratos."""
     return rx.cond(
         MisContratosState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_CONTRATOS, filas=5),
+        rx.center(
+            rx.spinner(size="3"),
+            padding=Spacing.MD,
+            width="100%",
+        ),
         rx.cond(
             MisContratosState.total_contratos_lista > 0,
             rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_CONTRATOS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            MisContratosState.contratos_filtrados,
-                            _fila_contrato,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
+                entity_grid(
+                    items=MisContratosState.contratos_filtrados,
+                    render_card=_card_contrato,
                 ),
                 rx.text(
                     "Mostrando ",
@@ -395,7 +325,7 @@ def mis_contratos_page() -> rx.Component:
                 filters=_filtros_contratos(),
             ),
             content=rx.vstack(
-                _tabla_contratos(),
+                _grid_contratos(),
                 _modal_detalle_contrato(),
                 width="100%",
                 spacing="4",

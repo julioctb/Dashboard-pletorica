@@ -368,7 +368,7 @@ class BaseRepository(Generic[T], ABC):
             # Detectar errores de unicidad
             if check_duplicate and ('unique' in error_str or 'duplicate' in error_str):
                 self._logger.warning(f"Duplicado en {operacion}: {e}")
-                raise DuplicateError(f"Ya existe un registro con esos datos")
+                raise DuplicateError("Ya existe un registro con esos datos")
 
             # Error genérico de BD
             self._logger.error(f"Error en {operacion}: {e}")

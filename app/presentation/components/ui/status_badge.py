@@ -187,6 +187,52 @@ def status_badge_reactive(
             color_scheme="amber",
             variant="soft",
         )),
+        # Estados de Entregable (facturacion)
+        ("PREFACTURA_ENVIADA", rx.badge(
+            rx.hstack(
+                rx.icon("file-search", size=12) if show_icon else rx.fragment(),
+                "PREFACTURA ENVIADA",
+                spacing="1",
+            ) if show_icon else "PREFACTURA ENVIADA",
+            color_scheme="sky",
+            variant="soft",
+        )),
+        ("PREFACTURA_RECHAZADA", rx.badge(
+            rx.hstack(
+                rx.icon("file-x", size=12) if show_icon else rx.fragment(),
+                "PREFACTURA RECHAZADA",
+                spacing="1",
+            ) if show_icon else "PREFACTURA RECHAZADA",
+            color_scheme="red",
+            variant="soft",
+        )),
+        ("PREFACTURA_APROBADA", rx.badge(
+            rx.hstack(
+                rx.icon("file-check", size=12) if show_icon else rx.fragment(),
+                "PREFACTURA APROBADA",
+                spacing="1",
+            ) if show_icon else "PREFACTURA APROBADA",
+            color_scheme="green",
+            variant="soft",
+        )),
+        ("FACTURADO", rx.badge(
+            rx.hstack(
+                rx.icon("receipt", size=12) if show_icon else rx.fragment(),
+                "FACTURADO",
+                spacing="1",
+            ) if show_icon else "FACTURADO",
+            color_scheme="amber",
+            variant="soft",
+        )),
+        ("PAGADO", rx.badge(
+            rx.hstack(
+                rx.icon("badge-check", size=12) if show_icon else rx.fragment(),
+                "PAGADO",
+                spacing="1",
+            ) if show_icon else "PAGADO",
+            color_scheme="green",
+            variant="soft",
+        )),
         # Default
         rx.badge(status, color_scheme="gray", variant="soft"),
     )

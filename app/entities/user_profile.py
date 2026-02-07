@@ -24,7 +24,6 @@ from app.core.validation.constants import (
     EMAIL_PATTERN,
     NOMBRE_COMPLETO_MIN,
     NOMBRE_COMPLETO_MAX,
-    PASSWORD_MIN,
 )
 
 

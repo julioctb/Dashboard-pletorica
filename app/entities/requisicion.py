@@ -346,6 +346,9 @@ class Requisicion(BaseModel):
     fecha_adjudicacion: Optional[date] = None
 
     # Auditoría
+    creado_por: Optional[str] = None
+    aprobado_por: Optional[str] = None
+    fecha_aprobacion: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -475,6 +478,9 @@ class RequisicionCreate(BaseModel):
     solicita_nombre: str = Field("", max_length=NOMBRE_PERSONA_MAX)
     solicita_cargo: str = Field("", max_length=CARGO_MAX)
 
+    # Auditoría
+    creado_por: Optional[str] = None
+
     # Items y Partidas (opcionales para borradores)
     items: List[RequisicionItemCreate] = []
     partidas: List[RequisicionPartidaCreate] = []
@@ -569,6 +575,9 @@ class RequisicionResumen(BaseModel):
     total_items: int = 0
     presupuesto_total: Decimal = Decimal('0')
     empresa_nombre: Optional[str] = None  # Si está adjudicada
+    creado_por: Optional[str] = None
+    aprobado_por: Optional[str] = None
+    fecha_aprobacion: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
     @classmethod
@@ -594,6 +603,9 @@ class RequisicionResumen(BaseModel):
             total_items=total_items,
             presupuesto_total=presupuesto_total,
             empresa_nombre=empresa_nombre,
+            creado_por=requisicion.creado_por,
+            aprobado_por=requisicion.aprobado_por,
+            fecha_aprobacion=requisicion.fecha_aprobacion,
             created_at=requisicion.created_at,
         )
 
