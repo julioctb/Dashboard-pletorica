@@ -96,12 +96,14 @@ class ConfiguracionState(BaseState):
     # ========================
     async def on_mount(self):
         """Se ejecuta al montar la pagina."""
-        await self.cargar_configuraciones()
-        await self.cargar_lugares_entrega()
+        async for _ in self.montar_pagina(
+            self._fetch_configuraciones,
+            self._fetch_lugares_entrega,
+        ):
+            yield
 
-    async def cargar_configuraciones(self):
-        """Carga todas las configuraciones desde la BD."""
-        self.loading = True
+    async def _fetch_configuraciones(self):
+        """Carga configuraciones desde la BD (sin manejo de loading)."""
         try:
             configs = await requisicion_service.obtener_configuracion()
             self.configuraciones = [
@@ -121,11 +123,9 @@ class ConfiguracionState(BaseState):
             self.valores_editados = {}
         except Exception:
             self.configuraciones = []
-        finally:
-            self.loading = False
 
-    async def cargar_lugares_entrega(self):
-        """Carga los lugares de entrega desde la BD."""
+    async def _fetch_lugares_entrega(self):
+        """Carga los lugares de entrega desde la BD (sin manejo de loading)."""
         try:
             lugares = await requisicion_service.obtener_lugares_entrega()
             self.lugares_entrega = [
@@ -134,6 +134,10 @@ class ConfiguracionState(BaseState):
             ]
         except Exception:
             self.lugares_entrega = []
+
+    async def cargar_lugares_entrega(self):
+        """Alias público para recargar lugares de entrega."""
+        await self._fetch_lugares_entrega()
 
     # ========================
     # EDICION DE CONFIGURACION
@@ -261,7 +265,7 @@ class ConfiguracionState(BaseState):
                     int(config_id), valor_normalizado
                 )
             self.valores_editados = {}
-            await self.cargar_configuraciones()
+            await self._fetch_configuraciones()
             yield rx.toast.success(
                 "Configuracion actualizada correctamente",
                 position="top-center",

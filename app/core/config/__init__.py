@@ -60,6 +60,7 @@ class Config:
                 "watchfiles", "uvicorn", "starlette", "fastapi",
                 "tokio_tungstenite", "tungstenite",
                 "reflex", "sqlmodel", "alembic",
+                "python_multipart",
             ]:
                 logging.getLogger(lib).setLevel(logging.WARNING)
 

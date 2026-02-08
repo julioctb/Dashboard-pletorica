@@ -274,3 +274,29 @@ def formatear_fecha(
         return valor_vacio
 
 
+_MESES_ES = [
+    "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+]
+
+
+def formatear_fecha_es(fecha: Optional[Union[date, datetime, str]]) -> str:
+    """
+    Formatea una fecha en espanol: '10 de julio de 2025'.
+
+    Args:
+        fecha: Fecha a formatear (date, datetime, string ISO, o None)
+
+    Returns:
+        Fecha en espanol o cadena vacia si es None
+    """
+    if not fecha:
+        return ""
+    try:
+        if isinstance(fecha, str):
+            fecha = date.fromisoformat(fecha)
+        return f"{fecha.day} de {_MESES_ES[fecha.month]} de {fecha.year}"
+    except (ValueError, TypeError, AttributeError, IndexError):
+        return ""
+
+

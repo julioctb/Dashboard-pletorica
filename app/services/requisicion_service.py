@@ -22,16 +22,12 @@ from app.entities.requisicion import (
     RequisicionItem,
     RequisicionItemCreate,
     RequisicionItemUpdate,
-    RequisicionPartida,
-    RequisicionPartidaCreate,
-    RequisicionPartidaUpdate,
     TRANSICIONES_VALIDAS,
 )
 from app.core.enums import EstadoRequisicion
 from app.core.exceptions import BusinessRuleError
 from app.core.error_messages import (
     MSG_REQUISICION_SIN_ITEMS,
-    MSG_REQUISICION_SIN_PARTIDAS,
     MSG_SOLO_ELIMINAR_BORRADOR,
     MSG_ADJUDICAR_SIN_EMPRESA,
     MSG_ADJUDICAR_SIN_FECHA,
@@ -98,14 +94,9 @@ class RequisicionService:
 
         resumenes = []
         for req in requisiciones:
-            # Cargar items y partidas para calcular totales
+            # Cargar items para contar totales
             items = await self.repository.obtener_items(req.id)
-            partidas = await self.repository.obtener_partidas(req.id)
-
             total_items = len(items)
-            presupuesto_total = sum(
-                p.presupuesto_autorizado for p in partidas
-            ) if partidas else Decimal('0')
 
             # Obtener nombre de empresa si está adjudicada
             empresa_nombre = None
@@ -126,7 +117,6 @@ class RequisicionService:
                 objeto_contratacion=req.objeto_contratacion,
                 dependencia_requirente=req.dependencia_requirente,
                 total_items=total_items,
-                presupuesto_total=presupuesto_total,
                 empresa_nombre=empresa_nombre,
                 creado_por=req.creado_por,
                 aprobado_por=req.aprobado_por,
@@ -151,12 +141,9 @@ class RequisicionService:
             DuplicateError: Si el número ya existe
             DatabaseError: Si hay error de BD
         """
-        # Generar número auto
-        numero = await self.generar_numero_requisicion()
-
-        # Construir entidad Requisicion
-        requisicion_data = data.model_dump(exclude={'items', 'partidas'})
-        requisicion_data['numero_requisicion'] = numero
+        # Construir entidad Requisicion (borrador sin número)
+        requisicion_data = data.model_dump(exclude={'items'})
+        requisicion_data['numero_requisicion'] = None
         requisicion_data['estado'] = EstadoRequisicion.BORRADOR
 
         # Auditoría: registrar quién crea
@@ -172,16 +159,9 @@ class RequisicionService:
                 item_dict['subtotal_estimado'] = item_create.cantidad * item_create.precio_unitario_estimado
             items.append(RequisicionItem(**item_dict))
 
-        # Construir partidas
-        partidas = [
-            RequisicionPartida(**p.model_dump())
-            for p in data.partidas
-        ]
-
         requisicion = Requisicion(
             **requisicion_data,
             items=items,
-            partidas=partidas,
         )
 
         return await self.repository.crear(requisicion)
@@ -285,53 +265,6 @@ class RequisicionService:
         return nuevos
 
     # ==========================================
-    # GESTIÓN DE PARTIDAS
-    # ==========================================
-
-    async def agregar_partida(
-        self, requisicion_id: int, data: RequisicionPartidaCreate
-    ) -> RequisicionPartida:
-        """Agrega una partida a una requisición."""
-        requisicion = await self.repository.obtener_por_id(requisicion_id)
-        if not requisicion.puede_editarse():
-            raise BusinessRuleError(MSG_REQUISICION_NO_EDITABLE)
-
-        partida = RequisicionPartida(**data.model_dump())
-        return await self.repository.crear_partida(requisicion_id, partida)
-
-    async def actualizar_partida(
-        self, partida_id: int, data: RequisicionPartidaUpdate
-    ) -> RequisicionPartida:
-        """Actualiza una partida existente."""
-        update_dict = data.model_dump(exclude_none=True)
-        partida = RequisicionPartida(id=partida_id, **update_dict)
-        return await self.repository.actualizar_partida(partida)
-
-    async def eliminar_partida(self, partida_id: int) -> bool:
-        """Elimina una partida."""
-        return await self.repository.eliminar_partida(partida_id)
-
-    async def reemplazar_partidas(
-        self, requisicion_id: int, partidas: List[RequisicionPartidaCreate]
-    ) -> List[RequisicionPartida]:
-        """
-        Reemplaza todas las partidas de una requisición.
-        """
-        requisicion = await self.repository.obtener_por_id(requisicion_id)
-        if not requisicion.puede_editarse():
-            raise BusinessRuleError(MSG_REQUISICION_NO_EDITABLE)
-
-        await self.repository.eliminar_partidas_requisicion(requisicion_id)
-
-        nuevas = []
-        for partida_data in partidas:
-            partida = RequisicionPartida(**partida_data.model_dump())
-            nueva = await self.repository.crear_partida(requisicion_id, partida)
-            nuevas.append(nueva)
-
-        return nuevas
-
-    # ==========================================
     # TRANSICIONES DE ESTADO
     # ==========================================
 
@@ -353,7 +286,7 @@ class RequisicionService:
     async def enviar(self, requisicion_id: int) -> Requisicion:
         """
         Envía una requisición (BORRADOR → ENVIADA).
-        Valida que tenga items y partidas completos.
+        Genera número oficial al enviar. Valida items.
 
         Raises:
             BusinessRuleError: Si la transición no es válida o faltan datos
@@ -367,9 +300,12 @@ class RequisicionService:
         if not requisicion.items:
             raise BusinessRuleError(MSG_REQUISICION_SIN_ITEMS)
 
-        # Validar que tiene partidas
-        if not requisicion.partidas:
-            raise BusinessRuleError(MSG_REQUISICION_SIN_PARTIDAS)
+        # Generar número oficial al enviar (si aún no tiene)
+        if not requisicion.numero_requisicion:
+            numero = await self.generar_numero_requisicion()
+            requisicion.numero_requisicion = numero
+            requisicion.estado = EstadoRequisicion.ENVIADA
+            return await self.repository.actualizar(requisicion)
 
         return await self.repository.cambiar_estado(
             requisicion_id, EstadoRequisicion.ENVIADA
@@ -530,13 +466,6 @@ class RequisicionService:
         anio = date.today().year
         consecutivo = await self.repository.obtener_siguiente_consecutivo(anio)
         return Requisicion.generar_numero(anio, consecutivo)
-
-    async def calcular_presupuesto_total(self, requisicion_id: int) -> Decimal:
-        """Calcula el presupuesto total sumando todas las partidas."""
-        partidas = await self.repository.obtener_partidas(requisicion_id)
-        return sum(
-            p.presupuesto_autorizado for p in partidas
-        ) if partidas else Decimal('0')
 
     async def buscar_con_filtros(
         self,

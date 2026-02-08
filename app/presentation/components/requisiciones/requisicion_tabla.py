@@ -137,6 +137,7 @@ def _acciones_requisicion(req: dict) -> rx.Component:
             ),
         ),
         spacing="1",
+        justify="center",
     )
 
 
@@ -147,17 +148,27 @@ def _acciones_requisicion(req: dict) -> rx.Component:
 def _fila_requisicion(req: dict) -> rx.Component:
     """Fila de la tabla para una requisicion."""
     return rx.table.row(
-        # Numero
+        # Numero (borrador muestra placeholder)
         rx.table.cell(
-            rx.text(
-                req["numero_requisicion"],
-                font_weight=Typography.WEIGHT_BOLD,
-                font_size=Typography.SIZE_SM,
+            rx.cond(
+                req["estado"] == "BORRADOR",
+                rx.text(
+                    "(Borrador)",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
+                    font_style="italic",
+                ),
+                rx.text(
+                    req["numero_requisicion"],
+                    font_weight=Typography.WEIGHT_BOLD,
+                    font_size=Typography.SIZE_SM,
+                ),
             ),
         ),
         # Fecha
         rx.table.cell(
-            rx.text(req["fecha_elaboracion"], font_size=Typography.SIZE_SM),
+            rx.text(req["fecha_elaboracion"], font_size=Typography.SIZE_SM, white_space="nowrap"),
+            text_align="center",
         ),
         # Estado
         rx.table.cell(
@@ -167,29 +178,29 @@ def _fila_requisicion(req: dict) -> rx.Component:
         rx.table.cell(
             rx.text(req["tipo_contratacion"], font_size=Typography.SIZE_SM),
         ),
-        # Objeto (truncado)
+        # Objeto (2 lineas max)
         rx.table.cell(
             rx.text(
                 req["objeto_contratacion"],
                 font_size=Typography.SIZE_SM,
-                style={"max_width": "200px", "overflow": "hidden", "text_overflow": "ellipsis", "white_space": "nowrap"},
+                style={
+                    "max_width": "280px",
+                    "overflow": "hidden",
+                    "text_overflow": "ellipsis",
+                    "display": "-webkit-box",
+                    "-webkit-line-clamp": "2",
+                    "-webkit-box-orient": "vertical",
+                },
             ),
         ),
         # Dependencia
         rx.table.cell(
             rx.text(req["dependencia_requirente"], font_size=Typography.SIZE_SM),
         ),
-        # Empresa (si adjudicada)
-        rx.table.cell(
-            rx.cond(
-                req["empresa_nombre"],
-                rx.text(req["empresa_nombre"], font_size=Typography.SIZE_SM),
-                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
-            ),
-        ),
         # Acciones
         rx.table.cell(
             _acciones_requisicion(req),
+            text_align="center",
         ),
     )
 
@@ -199,14 +210,13 @@ def _fila_requisicion(req: dict) -> rx.Component:
 # =============================================================================
 
 ENCABEZADOS_REQUISICIONES = [
-    {"nombre": "Numero", "ancho": "140px"},
-    {"nombre": "Fecha", "ancho": "100px"},
-    {"nombre": "Estado", "ancho": "110px"},
-    {"nombre": "Tipo", "ancho": "100px"},
-    {"nombre": "Objeto", "ancho": "200px"},
-    {"nombre": "Dependencia", "ancho": "150px"},
-    {"nombre": "Empresa", "ancho": "120px"},
-    {"nombre": "Acciones", "ancho": "160px"},
+    {"nombre": "Numero", "ancho": "140px", "centrar": "0"},
+    {"nombre": "Fecha", "ancho": "110px", "centrar": "0"},
+    {"nombre": "Estado", "ancho": "110px", "centrar": "0"},
+    {"nombre": "Tipo", "ancho": "100px", "centrar": "0"},
+    {"nombre": "Objeto", "ancho": "280px", "centrar": "0"},
+    {"nombre": "Dependencia", "ancho": "180px", "centrar": "0"},
+    {"nombre": "Acciones", "ancho": "160px", "centrar": "1"},
 ]
 
 
@@ -226,6 +236,7 @@ def requisicion_tabla() -> rx.Component:
                                 lambda col: rx.table.column_header_cell(
                                     col["nombre"],
                                     width=col["ancho"],
+                                    text_align=rx.cond(col["centrar"] == "1", "center", "start"),
                                 ),
                             ),
                         ),

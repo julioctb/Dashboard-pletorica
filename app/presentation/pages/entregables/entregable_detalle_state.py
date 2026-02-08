@@ -32,7 +32,6 @@ class EntregableDetalleState(AuthState):
     # =========================================================================
     # UI
     # =========================================================================
-    cargando: bool = False
     procesando: bool = False
     mostrar_modal_aprobar: bool = False
     monto_a_aprobar: str = ""
@@ -188,15 +187,16 @@ class EntregableDetalleState(AuthState):
         try:
             id_int = int(self.entregable_id) if self.entregable_id else 0
             if id_int > 0:
-                await self.cargar_entregable(id_int)
+                self.current_id = id_int
+                async for _ in self.montar_pagina(self._fetch_entregable):
+                    yield
         except (ValueError, TypeError):
             self.mostrar_mensaje("ID de entregable inválido", "error")
 
-    async def cargar_entregable(self, entregable_id: int):
-        self.current_id = entregable_id
-        self.cargando = True
+    async def _fetch_entregable(self):
+        """Carga datos del entregable sin manejo de loading."""
         try:
-            entregable = await entregable_service.obtener_por_id(entregable_id)
+            entregable = await entregable_service.obtener_por_id(self.current_id)
             self.entregable = {
                 "id": entregable.id,
                 "contrato_id": entregable.contrato_id,
@@ -228,12 +228,10 @@ class EntregableDetalleState(AuthState):
             await self._cargar_archivos_pago()
             await self._cargar_detalle_personal()
         except NotFoundError:
+            self.entregable = {}
             self.mostrar_mensaje("Entregable no encontrado", "error")
-            return rx.redirect("/entregables")
         except Exception as e:
             self.mostrar_mensaje(f"Error al cargar: {str(e)}", "error")
-        finally:
-            self.cargando = False
 
     async def _cargar_info_contrato(self, contrato_id: int):
         from app.services import contrato_service
@@ -389,7 +387,7 @@ class EntregableDetalleState(AuthState):
                 revisado_por=usuario_id,
             )
             self.cerrar_modal_aprobar()
-            await self.cargar_entregable(self.current_id)
+            await self._fetch_entregable()
             return rx.toast.success("Entregable aprobado correctamente", position="top-center")
         except BusinessRuleError as e:
             return rx.toast.error(str(e), position="top-center")
@@ -433,7 +431,7 @@ class EntregableDetalleState(AuthState):
                 revisado_por=usuario_id,
             )
             self.cerrar_modal_rechazar()
-            await self.cargar_entregable(self.current_id)
+            await self._fetch_entregable()
             return rx.toast.success("Entregable rechazado", position="top-center")
         except BusinessRuleError as e:
             return rx.toast.error(str(e), position="top-center")
@@ -454,7 +452,7 @@ class EntregableDetalleState(AuthState):
                 entregable_id=self.current_id,
                 revisado_por=usuario_id,
             )
-            await self.cargar_entregable(self.current_id)
+            await self._fetch_entregable()
             return rx.toast.success("Prefactura aprobada correctamente", position="top-center")
         except BusinessRuleError as e:
             return rx.toast.error(str(e), position="top-center")
@@ -495,7 +493,7 @@ class EntregableDetalleState(AuthState):
                 revisado_por=usuario_id,
             )
             self.cerrar_modal_rechazar_prefactura()
-            await self.cargar_entregable(self.current_id)
+            await self._fetch_entregable()
             return rx.toast.success("Prefactura rechazada", position="top-center")
         except BusinessRuleError as e:
             return rx.toast.error(str(e), position="top-center")
@@ -544,7 +542,7 @@ class EntregableDetalleState(AuthState):
                 revisado_por=usuario_id,
             )
             self.cerrar_modal_registrar_pago()
-            await self.cargar_entregable(self.current_id)
+            await self._fetch_entregable()
             return rx.toast.success("Pago registrado correctamente", position="top-center")
         except BusinessRuleError as e:
             return rx.toast.error(str(e), position="top-center")

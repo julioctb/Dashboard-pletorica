@@ -30,7 +30,6 @@ from app.core.validation.constants import (
     GARANTIA_VIGENCIA_MAX,
     EXISTENCIA_ALMACEN_MAX,
     PARTIDA_PRESUPUESTARIA_MAX,
-    AREA_DESTINO_MAX,
     ORIGEN_RECURSO_REQUISICION_MAX,
     OFICIO_SUFICIENCIA_MAX,
     UNIDAD_MEDIDA_MAX,
@@ -130,6 +129,7 @@ class RequisicionItem(BaseModel):
     id: Optional[int] = None
     requisicion_id: Optional[int] = None
     numero_item: int
+    partida_presupuestal: Optional[str] = Field(None, max_length=100)
     unidad_medida: str = Field(max_length=UNIDAD_MEDIDA_MAX)
     cantidad: Decimal = Field(ge=0, decimal_places=2)
     descripcion: str
@@ -151,6 +151,7 @@ class RequisicionItemCreate(BaseModel):
     )
 
     numero_item: int = Field(..., ge=1)
+    partida_presupuestal: Optional[str] = Field(None, max_length=100)
     unidad_medida: str = Field(..., max_length=UNIDAD_MEDIDA_MAX)
     cantidad: Decimal = Field(..., gt=0, decimal_places=2)
     descripcion: str
@@ -176,6 +177,7 @@ class RequisicionItemUpdate(BaseModel):
         validate_assignment=True,
     )
 
+    partida_presupuestal: Optional[str] = Field(None, max_length=100)
     unidad_medida: Optional[str] = Field(None, max_length=UNIDAD_MEDIDA_MAX)
     cantidad: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
     descripcion: Optional[str] = None
@@ -183,82 +185,6 @@ class RequisicionItemUpdate(BaseModel):
     especificaciones_tecnicas: Optional[str] = None
 
     @field_validator('cantidad', 'precio_unitario_estimado', mode='before')
-    @classmethod
-    def convertir_a_decimal(cls, v):
-        """Convierte strings a Decimal."""
-        if v is None or v == '':
-            return None
-        if isinstance(v, str):
-            return Decimal(v.replace(',', ''))
-        return v
-
-
-# =============================================================================
-# PARTIDA PRESUPUESTAL
-# =============================================================================
-
-class RequisicionPartida(BaseModel):
-    """Distribución presupuestal por área."""
-
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        validate_assignment=True,
-        from_attributes=True,
-    )
-
-    id: Optional[int] = None
-    requisicion_id: Optional[int] = None
-    partida_presupuestaria: str = Field(max_length=PARTIDA_PRESUPUESTARIA_MAX)
-    area_destino: str = Field(max_length=AREA_DESTINO_MAX)
-    origen_recurso: str = Field(max_length=ORIGEN_RECURSO_REQUISICION_MAX)
-    oficio_suficiencia: Optional[str] = Field(None, max_length=OFICIO_SUFICIENCIA_MAX)
-    presupuesto_autorizado: Decimal = Field(ge=0, decimal_places=2)
-    descripcion: Optional[str] = None
-    created_at: Optional[datetime] = None
-
-
-class RequisicionPartidaCreate(BaseModel):
-    """Modelo para crear una partida presupuestal."""
-
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        validate_assignment=True,
-    )
-
-    partida_presupuestaria: str = Field(..., max_length=PARTIDA_PRESUPUESTARIA_MAX)
-    area_destino: str = Field(..., max_length=AREA_DESTINO_MAX)
-    origen_recurso: str = Field(..., max_length=ORIGEN_RECURSO_REQUISICION_MAX)
-    oficio_suficiencia: Optional[str] = Field(None, max_length=OFICIO_SUFICIENCIA_MAX)
-    presupuesto_autorizado: Decimal = Field(..., gt=0, decimal_places=2)
-    descripcion: Optional[str] = None
-
-    @field_validator('presupuesto_autorizado', mode='before')
-    @classmethod
-    def convertir_a_decimal(cls, v):
-        """Convierte strings a Decimal."""
-        if v is None or v == '':
-            return None
-        if isinstance(v, str):
-            return Decimal(v.replace(',', ''))
-        return v
-
-
-class RequisicionPartidaUpdate(BaseModel):
-    """Modelo para actualizar una partida (todos opcionales)."""
-
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        validate_assignment=True,
-    )
-
-    partida_presupuestaria: Optional[str] = Field(None, max_length=PARTIDA_PRESUPUESTARIA_MAX)
-    area_destino: Optional[str] = Field(None, max_length=AREA_DESTINO_MAX)
-    origen_recurso: Optional[str] = Field(None, max_length=ORIGEN_RECURSO_REQUISICION_MAX)
-    oficio_suficiencia: Optional[str] = Field(None, max_length=OFICIO_SUFICIENCIA_MAX)
-    presupuesto_autorizado: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
-    descripcion: Optional[str] = None
-
-    @field_validator('presupuesto_autorizado', mode='before')
     @classmethod
     def convertir_a_decimal(cls, v):
         """Convierte strings a Decimal."""
@@ -290,7 +216,7 @@ class Requisicion(BaseModel):
 
     # Identificación
     id: Optional[int] = None
-    numero_requisicion: str = Field(max_length=NUMERO_REQUISICION_MAX)
+    numero_requisicion: Optional[str] = Field(None, max_length=NUMERO_REQUISICION_MAX)
     fecha_elaboracion: date
     estado: EstadoRequisicion = Field(default=EstadoRequisicion.BORRADOR)
 
@@ -312,6 +238,7 @@ class Requisicion(BaseModel):
     tipo_contratacion: TipoContratacion
     objeto_contratacion: str
     lugar_entrega: str = Field("", max_length=LUGAR_ENTREGA_MAX)
+    inicio_desde_firma: bool = False
     fecha_entrega_inicio: Optional[date] = None
     fecha_entrega_fin: Optional[date] = None
     condiciones_entrega: Optional[str] = None
@@ -320,6 +247,7 @@ class Requisicion(BaseModel):
     requisitos_proveedor: Optional[str] = None
     justificacion: str
     forma_pago: Optional[str] = Field(None, max_length=FORMA_PAGO_MAX)
+    transferencia_bancaria: bool = True
     requiere_anticipo: bool = False
     requiere_muestras: bool = False
     requiere_visita: bool = False
@@ -329,6 +257,11 @@ class Requisicion(BaseModel):
     pdi_objetivo: Optional[str] = None
     pdi_estrategia: Optional[str] = None
     pdi_meta: Optional[str] = None
+
+    # Disponibilidad presupuestal
+    partida_presupuestaria: Optional[str] = Field(None, max_length=PARTIDA_PRESUPUESTARIA_MAX)
+    origen_recurso: Optional[str] = Field(None, max_length=ORIGEN_RECURSO_REQUISICION_MAX)
+    oficio_suficiencia: Optional[str] = Field(None, max_length=OFICIO_SUFICIENCIA_MAX)
 
     # Otros
     existencia_almacen: Optional[str] = Field(None, max_length=EXISTENCIA_ALMACEN_MAX)
@@ -354,7 +287,6 @@ class Requisicion(BaseModel):
 
     # Relaciones (se cargan con joins)
     items: List[RequisicionItem] = []
-    partidas: List[RequisicionPartida] = []
     archivos: list = []  # Se cargan desde archivo_sistema
 
     # ==========================================
@@ -449,6 +381,7 @@ class RequisicionCreate(BaseModel):
     tipo_contratacion: Optional[TipoContratacion] = None
     objeto_contratacion: str = ""
     lugar_entrega: str = Field("", max_length=LUGAR_ENTREGA_MAX)
+    inicio_desde_firma: bool = False
     fecha_entrega_inicio: Optional[date] = None
     fecha_entrega_fin: Optional[date] = None
     condiciones_entrega: Optional[str] = None
@@ -457,6 +390,7 @@ class RequisicionCreate(BaseModel):
     requisitos_proveedor: Optional[str] = None
     justificacion: str = ""
     forma_pago: Optional[str] = Field(None, max_length=FORMA_PAGO_MAX)
+    transferencia_bancaria: bool = True
     requiere_anticipo: bool = False
     requiere_muestras: bool = False
     requiere_visita: bool = False
@@ -466,6 +400,11 @@ class RequisicionCreate(BaseModel):
     pdi_objetivo: Optional[str] = None
     pdi_estrategia: Optional[str] = None
     pdi_meta: Optional[str] = None
+
+    # Disponibilidad presupuestal
+    partida_presupuestaria: Optional[str] = Field(None, max_length=PARTIDA_PRESUPUESTARIA_MAX)
+    origen_recurso: Optional[str] = Field(None, max_length=ORIGEN_RECURSO_REQUISICION_MAX)
+    oficio_suficiencia: Optional[str] = Field(None, max_length=OFICIO_SUFICIENCIA_MAX)
 
     # Otros
     existencia_almacen: Optional[str] = Field(None, max_length=EXISTENCIA_ALMACEN_MAX)
@@ -481,9 +420,8 @@ class RequisicionCreate(BaseModel):
     # Auditoría
     creado_por: Optional[str] = None
 
-    # Items y Partidas (opcionales para borradores)
+    # Items (opcionales para borradores)
     items: List[RequisicionItemCreate] = []
-    partidas: List[RequisicionPartidaCreate] = []
 
     @model_validator(mode='after')
     def validar_fechas_entrega(self) -> 'RequisicionCreate':
@@ -523,6 +461,7 @@ class RequisicionUpdate(BaseModel):
     tipo_contratacion: Optional[TipoContratacion] = None
     objeto_contratacion: Optional[str] = None
     lugar_entrega: Optional[str] = Field(None, max_length=LUGAR_ENTREGA_MAX)
+    inicio_desde_firma: Optional[bool] = None
     fecha_entrega_inicio: Optional[date] = None
     fecha_entrega_fin: Optional[date] = None
     condiciones_entrega: Optional[str] = None
@@ -531,6 +470,7 @@ class RequisicionUpdate(BaseModel):
     requisitos_proveedor: Optional[str] = None
     justificacion: Optional[str] = None
     forma_pago: Optional[str] = Field(None, max_length=FORMA_PAGO_MAX)
+    transferencia_bancaria: Optional[bool] = None
     requiere_anticipo: Optional[bool] = None
     requiere_muestras: Optional[bool] = None
     requiere_visita: Optional[bool] = None
@@ -540,6 +480,11 @@ class RequisicionUpdate(BaseModel):
     pdi_objetivo: Optional[str] = None
     pdi_estrategia: Optional[str] = None
     pdi_meta: Optional[str] = None
+
+    # Disponibilidad presupuestal
+    partida_presupuestaria: Optional[str] = Field(None, max_length=PARTIDA_PRESUPUESTARIA_MAX)
+    origen_recurso: Optional[str] = Field(None, max_length=ORIGEN_RECURSO_REQUISICION_MAX)
+    oficio_suficiencia: Optional[str] = Field(None, max_length=OFICIO_SUFICIENCIA_MAX)
 
     # Otros
     existencia_almacen: Optional[str] = Field(None, max_length=EXISTENCIA_ALMACEN_MAX)
@@ -566,7 +511,7 @@ class RequisicionResumen(BaseModel):
     )
 
     id: int
-    numero_requisicion: str
+    numero_requisicion: Optional[str] = None
     fecha_elaboracion: date
     estado: EstadoRequisicion
     tipo_contratacion: TipoContratacion
@@ -588,20 +533,16 @@ class RequisicionResumen(BaseModel):
     ) -> 'RequisicionResumen':
         """Factory method para crear desde una requisición completa."""
         total_items = len(requisicion.items)
-        presupuesto_total = sum(
-            p.presupuesto_autorizado for p in requisicion.partidas
-        ) if requisicion.partidas else Decimal('0')
 
         return cls(
             id=requisicion.id,
-            numero_requisicion=requisicion.numero_requisicion,
+            numero_requisicion=requisicion.numero_requisicion or "",
             fecha_elaboracion=requisicion.fecha_elaboracion,
             estado=requisicion.estado,
             tipo_contratacion=requisicion.tipo_contratacion,
             objeto_contratacion=requisicion.objeto_contratacion,
             dependencia_requirente=requisicion.dependencia_requirente,
             total_items=total_items,
-            presupuesto_total=presupuesto_total,
             empresa_nombre=empresa_nombre,
             creado_por=requisicion.creado_por,
             aprobado_por=requisicion.aprobado_por,

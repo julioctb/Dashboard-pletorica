@@ -927,7 +927,7 @@ def entregable_detalle_page() -> rx.Component:
     return rx.box(
         page_layout(
             content=rx.cond(
-                EntregableDetalleState.cargando,
+                EntregableDetalleState.loading,
                 rx.center(rx.spinner(size="3"), padding="12"),
                 rx.cond(
                     EntregableDetalleState.tiene_entregable,

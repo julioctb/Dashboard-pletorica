@@ -703,10 +703,11 @@ class ContratosState(BaseState, CRUDStateMixin):
     # ========================
     async def cargar_datos_iniciales(self):
         """Cargar empresas, tipos de servicio y contratos"""
-        await self.cargar_empresas()
-        await self.cargar_tipos_servicio()
-        # cargar_contratos es un generador async, iteramos sobre él
-        async for _ in self.cargar_contratos():
+        async for _ in self.montar_pagina(
+            self.cargar_empresas,
+            self.cargar_tipos_servicio,
+            self._fetch_contratos,
+        ):
             yield
 
     async def cargar_empresas(self):
@@ -747,10 +748,8 @@ class ContratosState(BaseState, CRUDStateMixin):
         finally:
             self.cargando_categorias_puesto = False
 
-    async def cargar_contratos(self):
-        """Cargar la lista de contratos con filtros"""
-        self.loading = True
-        yield  # Forzar actualización de UI para mostrar skeleton
+    async def _fetch_contratos(self):
+        """Carga la lista de contratos con filtros (sin manejo de loading)."""
         try:
             # Preparar filtros
             empresa_id = int(self.filtro_empresa_id) if self.filtro_empresa_id != FILTRO_SIN_SELECCION else None
@@ -834,21 +833,24 @@ class ContratosState(BaseState, CRUDStateMixin):
         except Exception as e:
             self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
             self.contratos = []
-        finally:
-            self.loading = False
+
+    async def cargar_contratos(self):
+        """Carga contratos con skeleton loading (público)."""
+        async for _ in self.recargar_datos(self._fetch_contratos):
+            yield
 
     async def on_change_busqueda(self, value: str):
         """Actualizar filtro y buscar automáticamente"""
         self.filtro_busqueda = value
-        async for _ in self.cargar_contratos():
+        async for _ in self.recargar_datos(self._fetch_contratos):
             yield
 
     async def aplicar_filtros(self):
         """Aplicar filtros y recargar"""
-        async for _ in self.cargar_contratos():
+        async for _ in self.recargar_datos(self._fetch_contratos):
             yield
 
-    def limpiar_filtros(self):
+    async def limpiar_filtros(self):
         """Limpia todos los filtros"""
         self.filtro_busqueda = ""
         self.filtro_empresa_id = FILTRO_SIN_SELECCION
@@ -858,7 +860,8 @@ class ContratosState(BaseState, CRUDStateMixin):
         self.filtro_fecha_desde = ""
         self.filtro_fecha_hasta = ""
         self.incluir_inactivos = False
-        return ContratosState.cargar_contratos
+        async for _ in self.recargar_datos(self._fetch_contratos):
+            yield
 
     # ========================
     # OPERACIONES CRUD
@@ -1001,8 +1004,7 @@ class ContratosState(BaseState, CRUDStateMixin):
                 mensaje = await self._crear_contrato()
 
             self.cerrar_modal_contrato()
-            async for _ in self.cargar_contratos():
-                yield
+            await self._fetch_contratos()
 
             yield rx.toast.success(
                 mensaje,
@@ -1279,8 +1281,7 @@ class ContratosState(BaseState, CRUDStateMixin):
         try:
             await contrato_service.cancelar(contrato_id)
             self.cerrar_confirmar_cancelar()
-            async for _ in self.cargar_contratos():
-                yield
+            await self._fetch_contratos()
 
             yield rx.toast.success(
                 f"Contrato '{codigo}' cancelado exitosamente",
@@ -1306,8 +1307,7 @@ class ContratosState(BaseState, CRUDStateMixin):
 
         try:
             await contrato_service.activar(contrato["id"])
-            async for _ in self.cargar_contratos():
-                yield
+            await self._fetch_contratos()
 
             yield rx.toast.success(
                 f"Contrato '{codigo}' activado exitosamente",
@@ -1330,8 +1330,7 @@ class ContratosState(BaseState, CRUDStateMixin):
 
         try:
             await contrato_service.suspender(contrato["id"])
-            async for _ in self.cargar_contratos():
-                yield
+            await self._fetch_contratos()
 
             yield rx.toast.success(
                 f"Contrato '{codigo}' suspendido exitosamente",
@@ -1354,8 +1353,7 @@ class ContratosState(BaseState, CRUDStateMixin):
 
         try:
             await contrato_service.reactivar(contrato["id"])
-            async for _ in self.cargar_contratos():
-                yield
+            await self._fetch_contratos()
 
             yield rx.toast.success(
                 f"Contrato '{codigo}' reactivado exitosamente",

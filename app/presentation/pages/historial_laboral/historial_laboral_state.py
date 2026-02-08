@@ -97,12 +97,12 @@ class HistorialLaboralState(BaseState):
     # ========================
     async def on_mount(self):
         """Se ejecuta al montar la página"""
-        await self.cargar_historial()
+        async for _ in self.montar_pagina(self._fetch_historial):
+            yield
 
-    async def cargar_historial(self):
-        """Carga el historial con filtros"""
-
-        async def _cargar():
+    async def _fetch_historial(self):
+        """Carga el historial con filtros (sin manejo de loading)."""
+        try:
             empleado_id = int(self.filtro_empleado_id) if self.filtro_empleado_id else None
 
             registros = await historial_laboral_service.obtener_todos(
@@ -113,18 +113,21 @@ class HistorialLaboralState(BaseState):
 
             self.historial = [r.model_dump() if hasattr(r, 'model_dump') else r for r in registros]
             self.total_registros = len(self.historial)
-
-        await self.ejecutar_carga(_cargar, "al cargar historial")
+        except Exception as e:
+            self.manejar_error(e, "al cargar historial")
+            self.historial = []
 
     async def aplicar_filtros(self):
         """Aplica filtros y recarga"""
-        await self.cargar_historial()
+        async for _ in self.recargar_datos(self._fetch_historial):
+            yield
 
     async def limpiar_filtros(self):
         """Limpia todos los filtros"""
         self.filtro_busqueda = ""
         self.filtro_empleado_id = ""
-        await self.cargar_historial()
+        async for _ in self.recargar_datos(self._fetch_historial):
+            yield
 
     # ========================
     # MODAL DETALLE

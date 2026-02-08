@@ -154,9 +154,6 @@ from app.entities.requisicion import (
     RequisicionItem,
     RequisicionItemCreate,
     RequisicionItemUpdate,
-    RequisicionPartida,
-    RequisicionPartidaCreate,
-    RequisicionPartidaUpdate,
     TRANSICIONES_VALIDAS,
 )
 
@@ -319,9 +316,6 @@ __all__ = [
     "RequisicionItem",
     "RequisicionItemCreate",
     "RequisicionItemUpdate",
-    "RequisicionPartida",
-    "RequisicionPartidaCreate",
-    "RequisicionPartidaUpdate",
     "TRANSICIONES_VALIDAS",
     # Sede
     "TipoSede",

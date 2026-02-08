@@ -16,16 +16,6 @@ def _fila_partida(partida: dict, index: int) -> rx.Component:
                 width="100%",
             ),
         ),
-        # Area destino
-        rx.table.cell(
-            rx.input(
-                value=partida["area_destino"],
-                on_change=lambda v: RequisicionesState.actualizar_partida_campo(index, "area_destino", v),
-                placeholder="Area destino",
-                size="2",
-                width="100%",
-            ),
-        ),
         # Origen recurso
         rx.table.cell(
             rx.input(
@@ -34,16 +24,6 @@ def _fila_partida(partida: dict, index: int) -> rx.Component:
                 placeholder="Origen",
                 size="2",
                 width="100%",
-            ),
-        ),
-        # Presupuesto autorizado
-        rx.table.cell(
-            rx.input(
-                value=partida["presupuesto_autorizado"],
-                on_change=lambda v: RequisicionesState.actualizar_partida_campo(index, "presupuesto_autorizado", v),
-                placeholder="0.00",
-                size="2",
-                width="110px",
             ),
         ),
         # Acciones
@@ -68,18 +48,14 @@ def requisicion_partidas_form() -> rx.Component:
         rx.hstack(
             rx.text("Partidas Presupuestales", weight="bold", size="3"),
             rx.spacer(),
-            rx.text("Total presupuesto: ", size="2", color="gray"),
-            rx.text(RequisicionesState.total_presupuesto_partidas, size="2", weight="bold"),
             align="center",
             width="100%",
         ),
         rx.table.root(
             rx.table.header(
                 rx.table.row(
-                    rx.table.column_header_cell("Partida", width="120px"),
-                    rx.table.column_header_cell("Area Destino"),
+                    rx.table.column_header_cell("Partida"),
                     rx.table.column_header_cell("Origen Recurso"),
-                    rx.table.column_header_cell("Presupuesto", width="120px"),
                     rx.table.column_header_cell("", width="50px"),
                 ),
             ),

@@ -10,6 +10,16 @@ def _fila_item(item: dict, index: int) -> rx.Component:
         rx.table.cell(
             rx.text(item["numero_item"], size="2", weight="medium"),
         ),
+        # Partida presupuestal
+        rx.table.cell(
+            rx.input(
+                value=item["partida_presupuestal"],
+                on_change=lambda v: RequisicionesState.actualizar_item_campo(index, "partida_presupuestal", v),
+                placeholder="33901",
+                size="2",
+                width="100%",
+            ),
+        ),
         # Unidad de medida
         rx.table.cell(
             rx.input(
@@ -69,6 +79,7 @@ def requisicion_items_form() -> rx.Component:
             rx.table.header(
                 rx.table.row(
                     rx.table.column_header_cell("#", width="50px"),
+                    rx.table.column_header_cell("Partida", width="100px"),
                     rx.table.column_header_cell("Unidad", width="100px"),
                     rx.table.column_header_cell("Cant.", width="80px"),
                     rx.table.column_header_cell("Descripcion"),

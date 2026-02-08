@@ -20,7 +20,6 @@ from app.entities.requisicion import (
     RequisicionUpdate,
     RequisicionAdjudicar,
     RequisicionItemCreate,
-    RequisicionPartidaCreate,
 )
 from app.core.exceptions import (
     NotFoundError,
@@ -55,6 +54,7 @@ FORM_DEFAULTS = {
     "asesor_email": "",
     # Bien/Servicio
     "lugar_entrega": "",
+    "inicio_desde_firma": False,
     "fecha_entrega_inicio": "",
     "fecha_entrega_fin": "",
     "condiciones_entrega": "",
@@ -62,6 +62,7 @@ FORM_DEFAULTS = {
     "garantia_vigencia": "",
     "requisitos_proveedor": "",
     "forma_pago": "",
+    "transferencia_bancaria": True,
     "requiere_anticipo": False,
     "requiere_muestras": False,
     "requiere_visita": False,
@@ -70,6 +71,10 @@ FORM_DEFAULTS = {
     "pdi_objetivo": "",
     "pdi_estrategia": "",
     "pdi_meta": "",
+    # Disponibilidad presupuestal
+    "partida_presupuestaria": "",
+    "origen_recurso": "",
+    "oficio_suficiencia": "",
     # Otros
     "existencia_almacen": "",
     "observaciones": "",
@@ -87,23 +92,11 @@ FORM_DEFAULTS = {
 # Item por defecto vacío
 ITEM_DEFAULT = {
     "numero_item": 1,
+    "partida_presupuestal": "",
     "unidad_medida": "",
     "cantidad": "",
     "descripcion": "",
-    "precio_unitario_estimado": "",
-    "especificaciones_tecnicas": "",
 }
-
-# Partida por defecto vacía
-PARTIDA_DEFAULT = {
-    "partida_presupuestaria": "",
-    "area_destino": "",
-    "origen_recurso": "",
-    "oficio_suficiencia": "",
-    "presupuesto_autorizado": "",
-    "descripcion": "",
-}
-
 
 class RequisicionesState(AuthState):
     """Estado para el módulo de Requisiciones"""
@@ -141,6 +134,7 @@ class RequisicionesState(AuthState):
     es_auto_borrador: bool = False
     accion_estado_pendiente: str = ""
     id_requisicion_edicion: int = 0
+    form_paso_actual: int = 1
 
     # ========================
     # ESTADO DE VISTA
@@ -178,6 +172,7 @@ class RequisicionesState(AuthState):
 
     # Bien/Servicio
     form_lugar_entrega: str = ""
+    form_inicio_desde_firma: bool = False
     form_fecha_entrega_inicio: str = ""
     form_fecha_entrega_fin: str = ""
     form_condiciones_entrega: str = ""
@@ -185,6 +180,7 @@ class RequisicionesState(AuthState):
     form_garantia_vigencia: str = ""
     form_requisitos_proveedor: str = ""
     form_forma_pago: str = ""
+    form_transferencia_bancaria: bool = True
     form_requiere_anticipo: bool = False
     form_requiere_muestras: bool = False
     form_requiere_visita: bool = False
@@ -194,6 +190,11 @@ class RequisicionesState(AuthState):
     form_pdi_objetivo: str = ""
     form_pdi_estrategia: str = ""
     form_pdi_meta: str = ""
+
+    # Disponibilidad presupuestal
+    form_partida_presupuestaria: str = ""
+    form_origen_recurso: str = ""
+    form_oficio_suficiencia: str = ""
 
     # Otros
     form_existencia_almacen: str = ""
@@ -210,9 +211,8 @@ class RequisicionesState(AuthState):
     form_adjudicar_empresa_id: str = ""
     form_adjudicar_fecha: str = ""
 
-    # Items y partidas del formulario
+    # Items del formulario
     form_items: List[dict] = []
-    form_partidas: List[dict] = []
 
     # ========================
     # SETTERS DE FORMULARIO
@@ -268,6 +268,11 @@ class RequisicionesState(AuthState):
     def set_form_lugar_entrega(self, v: str):
         self.form_lugar_entrega = v
 
+    def set_form_inicio_desde_firma(self, v: bool):
+        self.form_inicio_desde_firma = v
+        if v:
+            self.form_fecha_entrega_inicio = ""
+
     def set_form_fecha_entrega_inicio(self, v: str):
         self.form_fecha_entrega_inicio = v
 
@@ -289,6 +294,9 @@ class RequisicionesState(AuthState):
     def set_form_forma_pago(self, v: str):
         self.form_forma_pago = v
 
+    def set_form_transferencia_bancaria(self, v: bool):
+        self.form_transferencia_bancaria = v
+
     def set_form_requiere_anticipo(self, v: bool):
         self.form_requiere_anticipo = v
 
@@ -309,6 +317,15 @@ class RequisicionesState(AuthState):
 
     def set_form_pdi_meta(self, v: str):
         self.form_pdi_meta = v
+
+    def set_form_partida_presupuestaria(self, v: str):
+        self.form_partida_presupuestaria = v
+
+    def set_form_origen_recurso(self, v: str):
+        self.form_origen_recurso = v
+
+    def set_form_oficio_suficiencia(self, v: str):
+        self.form_oficio_suficiencia = v
 
     def set_form_existencia_almacen(self, v: str):
         self.form_existencia_almacen = v
@@ -342,6 +359,71 @@ class RequisicionesState(AuthState):
     # ========================
     def set_mostrar_modal_detalle(self, v: bool):
         self.mostrar_modal_detalle = v
+
+    def set_form_paso_actual(self, paso: int):
+        """Navega a un paso especifico. Valida pasos anteriores."""
+        if not (1 <= paso <= 8):
+            return
+        # Si va hacia adelante, validar todos los pasos intermedios
+        if paso > self.form_paso_actual:
+            for p in range(self.form_paso_actual, paso):
+                error = self._validar_paso(p)
+                if error:
+                    self.form_paso_actual = p
+                    self.mostrar_mensaje(error, "error")
+                    return
+        self.form_paso_actual = paso
+
+    def ir_paso_siguiente(self):
+        if self.form_paso_actual >= 8:
+            return
+        error = self._validar_paso(self.form_paso_actual)
+        if error:
+            self.mostrar_mensaje(error, "error")
+            return
+        self.form_paso_actual += 1
+
+    def ir_paso_anterior(self):
+        if self.form_paso_actual > 1:
+            self.form_paso_actual -= 1
+
+    def _validar_paso(self, paso: int) -> str:
+        """Valida campos obligatorios del paso indicado. Retorna mensaje de error o ''."""
+        if paso == 1:
+            faltantes = []
+            if not self.form_tipo_contratacion:
+                faltantes.append("Tipo de contratacion")
+            if not self.form_fecha_elaboracion:
+                faltantes.append("Fecha de elaboracion")
+            if not self.form_dependencia_requirente:
+                faltantes.append("Dependencia requirente")
+            if not self.form_titular_nombre:
+                faltantes.append("Nombre del titular")
+            if faltantes:
+                return f"Campos obligatorios: {', '.join(faltantes)}"
+        elif paso == 2:
+            faltantes = []
+            if not self.form_objeto_contratacion:
+                faltantes.append("Objeto de la contratacion")
+            if not self.form_lugar_entrega:
+                faltantes.append("Lugar de entrega")
+            if faltantes:
+                return f"Campos obligatorios: {', '.join(faltantes)}"
+        elif paso == 3:
+            if not any(i.get("descripcion") for i in self.form_items):
+                return "Agregue al menos un item con descripcion"
+        elif paso == 4:
+            if not self.form_justificacion:
+                return "Campos obligatorios: Justificacion"
+        elif paso == 7:
+            faltantes = []
+            if not self.form_elabora_nombre:
+                faltantes.append("Nombre de quien elabora")
+            if not self.form_solicita_nombre:
+                faltantes.append("Nombre de quien solicita")
+            if faltantes:
+                return f"Campos obligatorios: {', '.join(faltantes)}"
+        return ""
 
     # ========================
     # SETTERS DE FILTROS
@@ -423,33 +505,6 @@ class RequisicionesState(AuthState):
         ]
 
     @rx.var
-    def total_presupuesto_partidas(self) -> str:
-        """Suma total de presupuesto de las partidas del formulario."""
-        total = Decimal('0')
-        for p in self.form_partidas:
-            try:
-                monto = p.get("presupuesto_autorizado", "0")
-                if monto:
-                    total += Decimal(str(monto).replace(',', ''))
-            except Exception:
-                pass
-        return f"${total:,.2f}"
-
-    @rx.var
-    def total_estimado_items(self) -> str:
-        """Suma total estimada de los items del formulario."""
-        total = Decimal('0')
-        for item in self.form_items:
-            try:
-                cantidad = item.get("cantidad", "0")
-                precio = item.get("precio_unitario_estimado", "0")
-                if cantidad and precio:
-                    total += Decimal(str(cantidad).replace(',', '')) * Decimal(str(precio).replace(',', ''))
-            except Exception:
-                pass
-        return f"${total:,.2f}"
-
-    @rx.var
     def formulario_completo(self) -> bool:
         """Indica si todos los campos requeridos estan completos."""
         return bool(
@@ -463,7 +518,7 @@ class RequisicionesState(AuthState):
             and self.form_elabora_nombre
             and self.form_solicita_nombre
             and any(i.get("descripcion") for i in self.form_items)
-            and any(p.get("partida_presupuestaria") for p in self.form_partidas)
+            and self.form_partida_presupuestaria
         )
 
     # ========================
@@ -471,14 +526,16 @@ class RequisicionesState(AuthState):
     # ========================
     async def on_mount(self):
         """Se ejecuta al montar la página."""
-        await self.cargar_requisiciones()
-        await self.cargar_configuracion()
-        await self.cargar_empresas()
-        await self.cargar_lugares_entrega()
+        async for _ in self.montar_pagina(
+            self._fetch_requisiciones,
+            self.cargar_configuracion,
+            self.cargar_empresas,
+            self.cargar_lugares_entrega,
+        ):
+            yield
 
-    async def cargar_requisiciones(self):
-        """Carga las requisiciones con filtros aplicados."""
-        self.loading = True
+    async def _fetch_requisiciones(self):
+        """Fetch interno de requisiciones (sin manejar loading)."""
         try:
             estado = self.filtro_estado if self.filtro_estado != FILTRO_TODOS else None
             tipo = self.filtro_tipo if self.filtro_tipo != FILTRO_TODOS else None
@@ -491,9 +548,16 @@ class RequisicionesState(AuthState):
                 offset=0,
             )
 
-            self.requisiciones = [
-                r.model_dump(mode='json') for r in resumenes
-            ]
+            self.requisiciones = []
+            for r in resumenes:
+                d = r.model_dump(mode='json')
+                # Formatear fecha a DD-MM-YYYY para la tabla
+                fe = d.get("fecha_elaboracion", "")
+                if fe and len(fe) >= 10:
+                    partes = fe[:10].split("-")
+                    if len(partes) == 3:
+                        d["fecha_elaboracion"] = f"{partes[2]}-{partes[1]}-{partes[0]}"
+                self.requisiciones.append(d)
             self.total_registros = len(self.requisiciones)
         except DatabaseError as e:
             self.manejar_error(e, "al cargar requisiciones")
@@ -501,8 +565,6 @@ class RequisicionesState(AuthState):
         except Exception as e:
             self.manejar_error(e, "al cargar requisiciones")
             self.requisiciones = []
-        finally:
-            self.loading = False
 
     async def cargar_configuracion(self):
         """Carga los valores default de configuración."""
@@ -535,14 +597,16 @@ class RequisicionesState(AuthState):
 
     async def aplicar_filtros(self):
         """Aplica filtros y recarga."""
-        await self.cargar_requisiciones()
+        async for _ in self.recargar_datos(self._fetch_requisiciones):
+            yield
 
     async def limpiar_filtros(self):
         """Limpia todos los filtros."""
         self.filtro_busqueda = ""
         self.filtro_estado = FILTRO_TODOS
         self.filtro_tipo = FILTRO_TODOS
-        await self.cargar_requisiciones()
+        async for _ in self.recargar_datos(self._fetch_requisiciones):
+            yield
 
     # ========================
     # GESTIÓN DE ITEMS EN FORMULARIO
@@ -571,32 +635,14 @@ class RequisicionesState(AuthState):
             self.form_items = items
 
     # ========================
-    # GESTIÓN DE PARTIDAS EN FORMULARIO
-    # ========================
-    def agregar_partida(self):
-        """Agrega una partida vacía al formulario."""
-        self.form_partidas = self.form_partidas + [dict(PARTIDA_DEFAULT)]
-
-    def eliminar_partida(self, index: int):
-        """Elimina una partida del formulario por índice."""
-        partidas = list(self.form_partidas)
-        if 0 <= index < len(partidas):
-            partidas.pop(index)
-            self.form_partidas = partidas
-
-    def actualizar_partida_campo(self, index: int, campo: str, valor: str):
-        """Actualiza un campo de una partida del formulario."""
-        partidas = list(self.form_partidas)
-        if 0 <= index < len(partidas):
-            partidas[index] = {**partidas[index], campo: valor}
-            self.form_partidas = partidas
-
-    # ========================
     # GESTIÓN DE ARCHIVOS
     # ========================
     async def handle_upload_archivo(self, files: list[rx.UploadFile]):
         """Procesa archivos subidos para la requisicion actual."""
-        if not files or not self.id_requisicion_edicion:
+        if not files:
+            return
+        if not self.id_requisicion_edicion:
+            self.mostrar_mensaje("Guarde la requisicion primero antes de subir archivos", "error")
             return
 
         self.subiendo_archivo = True
@@ -665,12 +711,12 @@ class RequisicionesState(AuthState):
         for campo, valor in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", valor)
         self.form_items = [dict(ITEM_DEFAULT)]
-        self.form_partidas = [dict(PARTIDA_DEFAULT)]
         self.archivos_entidad = []
         self.subiendo_archivo = False
         self.es_edicion = False
         self.es_auto_borrador = False
         self.id_requisicion_edicion = 0
+        self.form_paso_actual = 1
 
     def _prellenar_defaults(self):
         """Pre-llena campos del formulario con valores de configuración."""
@@ -714,6 +760,7 @@ class RequisicionesState(AuthState):
         try:
             create_data = RequisicionCreate(
                 fecha_elaboracion=date.fromisoformat(self.form_fecha_elaboracion) if self.form_fecha_elaboracion else date.today(),
+                tipo_contratacion="ADQUISICION",
                 objeto_contratacion="(borrador)",
                 justificacion="(borrador)",
                 dependencia_requirente=self.form_dependencia_requirente or "(borrador)",
@@ -722,7 +769,6 @@ class RequisicionesState(AuthState):
                 elabora_nombre=self.form_elabora_nombre or "(borrador)",
                 solicita_nombre=self.form_solicita_nombre or "(borrador)",
                 items=[],
-                partidas=[],
             )
             requisicion = await requisicion_service.crear(create_data, creado_por=self.id_usuario or None)
             self.id_requisicion_edicion = requisicion.id
@@ -730,6 +776,8 @@ class RequisicionesState(AuthState):
             self.es_auto_borrador = True
         except Exception as e:
             # Si falla el auto-borrador, el modal abre sin archivos
+            import logging
+            logging.getLogger(__name__).warning(f"Auto-borrador falló: {e}")
             self.id_requisicion_edicion = 0
             self.es_edicion = False
             self.es_auto_borrador = False
@@ -766,27 +814,13 @@ class RequisicionesState(AuthState):
             self.form_items = [
                 {
                     "numero_item": item.get("numero_item", i + 1),
+                    "partida_presupuestal": item.get("partida_presupuestal", "") or "",
                     "unidad_medida": item.get("unidad_medida", ""),
                     "cantidad": str(item.get("cantidad", "")),
                     "descripcion": item.get("descripcion", ""),
-                    "precio_unitario_estimado": str(item.get("precio_unitario_estimado", "")) if item.get("precio_unitario_estimado") else "",
-                    "especificaciones_tecnicas": item.get("especificaciones_tecnicas", "") or "",
                 }
                 for i, item in enumerate(req_dict.get("items", []))
             ] or [dict(ITEM_DEFAULT)]
-
-            # Cargar partidas
-            self.form_partidas = [
-                {
-                    "partida_presupuestaria": p.get("partida_presupuestaria", ""),
-                    "area_destino": p.get("area_destino", ""),
-                    "origen_recurso": p.get("origen_recurso", ""),
-                    "oficio_suficiencia": p.get("oficio_suficiencia", "") or "",
-                    "presupuesto_autorizado": str(p.get("presupuesto_autorizado", "")),
-                    "descripcion": p.get("descripcion", "") or "",
-                }
-                for p in req_dict.get("partidas", [])
-            ] or [dict(PARTIDA_DEFAULT)]
 
             # Cargar archivos asociados
             await self.cargar_archivos_entidad()
@@ -858,25 +892,10 @@ class RequisicionesState(AuthState):
                     continue
                 items_create.append(RequisicionItemCreate(
                     numero_item=item.get("numero_item", 1),
+                    partida_presupuestal=item.get("partida_presupuestal") or None,
                     unidad_medida=item.get("unidad_medida", "Pieza"),
                     cantidad=Decimal(str(item.get("cantidad", "1")).replace(',', '') or "1"),
                     descripcion=item["descripcion"],
-                    precio_unitario_estimado=Decimal(str(item.get("precio_unitario_estimado", "0")).replace(',', '') or "0") if item.get("precio_unitario_estimado") else None,
-                    especificaciones_tecnicas=item.get("especificaciones_tecnicas") or None,
-                ))
-
-            # Construir partidas
-            partidas_create = []
-            for p in self.form_partidas:
-                if not p.get("partida_presupuestaria"):
-                    continue
-                partidas_create.append(RequisicionPartidaCreate(
-                    partida_presupuestaria=p["partida_presupuestaria"],
-                    area_destino=p.get("area_destino", ""),
-                    origen_recurso=p.get("origen_recurso", ""),
-                    oficio_suficiencia=p.get("oficio_suficiencia") or None,
-                    presupuesto_autorizado=Decimal(str(p.get("presupuesto_autorizado", "0")).replace(',', '') or "0"),
-                    descripcion=p.get("descripcion") or None,
                 ))
 
             if self.es_edicion and self.id_requisicion_edicion:
@@ -899,13 +918,15 @@ class RequisicionesState(AuthState):
                     asesor_telefono=self.form_asesor_telefono or None,
                     asesor_email=self.form_asesor_email or None,
                     lugar_entrega=self.form_lugar_entrega or None,
-                    fecha_entrega_inicio=date.fromisoformat(self.form_fecha_entrega_inicio) if self.form_fecha_entrega_inicio else None,
+                    inicio_desde_firma=self.form_inicio_desde_firma,
+                    fecha_entrega_inicio=date.fromisoformat(self.form_fecha_entrega_inicio) if self.form_fecha_entrega_inicio and not self.form_inicio_desde_firma else None,
                     fecha_entrega_fin=date.fromisoformat(self.form_fecha_entrega_fin) if self.form_fecha_entrega_fin else None,
                     condiciones_entrega=self.form_condiciones_entrega or None,
                     tipo_garantia=self.form_tipo_garantia or None,
                     garantia_vigencia=self.form_garantia_vigencia or None,
                     requisitos_proveedor=self.form_requisitos_proveedor or None,
                     forma_pago=self.form_forma_pago or None,
+                    transferencia_bancaria=self.form_transferencia_bancaria,
                     requiere_anticipo=self.form_requiere_anticipo,
                     requiere_muestras=self.form_requiere_muestras,
                     requiere_visita=self.form_requiere_visita,
@@ -913,6 +934,9 @@ class RequisicionesState(AuthState):
                     pdi_objetivo=self.form_pdi_objetivo or None,
                     pdi_estrategia=self.form_pdi_estrategia or None,
                     pdi_meta=self.form_pdi_meta or None,
+                    partida_presupuestaria=self.form_partida_presupuestaria or None,
+                    origen_recurso=self.form_origen_recurso or None,
+                    oficio_suficiencia=self.form_oficio_suficiencia or None,
                     existencia_almacen=self.form_existencia_almacen or None,
                     observaciones=self.form_observaciones or None,
                     validacion_asesor=self.form_validacion_asesor or None,
@@ -924,18 +948,16 @@ class RequisicionesState(AuthState):
 
                 await requisicion_service.actualizar(self.id_requisicion_edicion, update_data)
 
-                # Reemplazar items y partidas
+                # Reemplazar items
                 if items_create:
                     await requisicion_service.reemplazar_items(self.id_requisicion_edicion, items_create)
-                if partidas_create:
-                    await requisicion_service.reemplazar_partidas(self.id_requisicion_edicion, partidas_create)
 
                 if self.es_auto_borrador:
                     # Auto-borrador guardado: desactivar flag para que cancel no lo elimine
                     self.es_auto_borrador = False
                     self.mostrar_modal_crear = False
                     self._limpiar_formulario()
-                    es_borrador = not items_create or not partidas_create
+                    es_borrador = not items_create
                     if es_borrador:
                         self.mostrar_mensaje("Borrador guardado correctamente", "success")
                     else:
@@ -944,7 +966,7 @@ class RequisicionesState(AuthState):
                     self.cerrar_modal_editar()
                     self.mostrar_mensaje("Requisición actualizada correctamente", "success")
 
-            await self.cargar_requisiciones()
+            await self._fetch_requisiciones()
 
         except (DuplicateError, BusinessRuleError, DatabaseError) as e:
             self.manejar_error(e, "al guardar requisición")
@@ -964,7 +986,7 @@ class RequisicionesState(AuthState):
             await requisicion_service.eliminar(req_id)
             self.cerrar_confirmar_eliminar()
             self.mostrar_mensaje("Requisición eliminada correctamente", "success")
-            await self.cargar_requisiciones()
+            await self._fetch_requisiciones()
         except (BusinessRuleError, NotFoundError, DatabaseError) as e:
             self.manejar_error(e, "al eliminar requisición")
         except Exception as e:
@@ -998,7 +1020,7 @@ class RequisicionesState(AuthState):
 
             self.cerrar_confirmar_estado()
             self.mostrar_mensaje("Estado actualizado correctamente", "success")
-            await self.cargar_requisiciones()
+            await self._fetch_requisiciones()
         except (BusinessRuleError, NotFoundError, DatabaseError) as e:
             self.manejar_error(e, "al cambiar estado")
         except Exception as e:
@@ -1021,7 +1043,7 @@ class RequisicionesState(AuthState):
             await requisicion_service.adjudicar(req_id, data)
             self.cerrar_modal_adjudicar()
             self.mostrar_mensaje("Requisición adjudicada correctamente", "success")
-            await self.cargar_requisiciones()
+            await self._fetch_requisiciones()
         except (BusinessRuleError, NotFoundError, DatabaseError) as e:
             self.manejar_error(e, "al adjudicar requisición")
         except Exception as e:
@@ -1044,7 +1066,7 @@ class RequisicionesState(AuthState):
 
             # Obtener datos para nombrar archivo
             requisicion = await requisicion_service.obtener_por_id(requisicion_id)
-            filename = f"{requisicion.numero_requisicion}.pdf"
+            filename = f"{requisicion.numero_requisicion or f'REQ-BORRADOR-{requisicion_id}'}.pdf"
 
             # Subir a Supabase Storage
             from app.database import db_manager

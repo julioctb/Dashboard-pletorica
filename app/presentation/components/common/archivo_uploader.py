@@ -167,7 +167,16 @@ def archivo_uploader(
                     lambda file: rx.text(file, size="1", color="gray"),
                 ),
                 rx.button(
-                    "Subir archivos",
+                    rx.cond(
+                        subiendo,
+                        rx.hstack(
+                            rx.spinner(size="1"),
+                            rx.text("Cargando..."),
+                            spacing="2",
+                            align="center",
+                        ),
+                        "Subir archivos",
+                    ),
                     on_click=on_upload(
                         rx.upload_files(upload_id=upload_id),
                     ),

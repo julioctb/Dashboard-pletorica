@@ -18,6 +18,7 @@ from fpdf import FPDF
 
 from app.core.enums import EstadoRequisicion
 from app.core.exceptions import BusinessRuleError
+from app.core.text_utils import formatear_fecha_es
 from app.services.requisicion_service import requisicion_service
 
 logger = logging.getLogger(__name__)
@@ -156,11 +157,21 @@ class RequisicionPDFService:
         # --- Condiciones de entrega ---
         pdf.seccion_titulo("CONDICIONES DE ENTREGA")
         pdf.campo_valor("Lugar de entrega", requisicion.lugar_entrega)
-        if requisicion.fecha_entrega_inicio:
-            pdf.campo_valor_doble(
-                "Fecha inicio", str(requisicion.fecha_entrega_inicio),
-                "Fecha fin", str(requisicion.fecha_entrega_fin) if requisicion.fecha_entrega_fin else "-",
+        if requisicion.inicio_desde_firma and requisicion.fecha_entrega_fin:
+            fecha_fin_es = formatear_fecha_es(requisicion.fecha_entrega_fin)
+            pdf.campo_valor(
+                "Periodo",
+                f"A partir de la firma del contrato y hasta el {fecha_fin_es}",
             )
+        elif requisicion.fecha_entrega_inicio and requisicion.fecha_entrega_fin:
+            fecha_inicio_es = formatear_fecha_es(requisicion.fecha_entrega_inicio)
+            fecha_fin_es = formatear_fecha_es(requisicion.fecha_entrega_fin)
+            pdf.campo_valor(
+                "Periodo",
+                f"Del {fecha_inicio_es} al {fecha_fin_es}",
+            )
+        elif requisicion.fecha_entrega_inicio:
+            pdf.campo_valor("Fecha inicio", formatear_fecha_es(requisicion.fecha_entrega_inicio))
         if requisicion.condiciones_entrega:
             pdf.campo_valor("Condiciones", requisicion.condiciones_entrega)
         if requisicion.tipo_garantia:
@@ -191,10 +202,16 @@ class RequisicionPDFService:
             self._tabla_items(pdf, requisicion.items)
             pdf.ln(2)
 
-        # --- Partidas presupuestales ---
-        if requisicion.partidas:
-            pdf.seccion_titulo("PARTIDAS PRESUPUESTALES")
-            self._tabla_partidas(pdf, requisicion.partidas)
+        # --- Disponibilidad presupuestal ---
+        if any([requisicion.partida_presupuestaria, requisicion.origen_recurso,
+                requisicion.oficio_suficiencia]):
+            pdf.seccion_titulo("DISPONIBILIDAD PRESUPUESTAL")
+            if requisicion.partida_presupuestaria:
+                pdf.campo_valor("Partida presupuestaria", requisicion.partida_presupuestaria)
+            if requisicion.origen_recurso:
+                pdf.campo_valor("Origen del recurso", requisicion.origen_recurso)
+            if requisicion.oficio_suficiencia:
+                pdf.campo_valor("No. Oficio de Suficiencia", requisicion.oficio_suficiencia)
             pdf.ln(2)
 
         # --- PDI ---
@@ -305,33 +322,6 @@ class RequisicionPDFService:
             desc = str(item.descripcion)[:120]
             pdf.cell(140, 5, desc, border=1, new_x="LMARGIN", new_y="NEXT")
 
-    def _tabla_partidas(self, pdf: RequisicionPDF, partidas: list):
-        """Renderiza tabla de partidas presupuestales."""
-        # Header
-        pdf.set_font("Helvetica", "B", 7)
-        pdf.set_fill_color(230, 230, 230)
-        pdf.cell(30, 5, "Partida", border=1, fill=True, align="C", new_x="END")
-        pdf.cell(40, 5, "Area destino", border=1, fill=True, align="C", new_x="END")
-        pdf.cell(35, 5, "Origen recurso", border=1, fill=True, align="C", new_x="END")
-        pdf.cell(35, 5, "Oficio suf.", border=1, fill=True, align="C", new_x="END")
-        pdf.cell(30, 5, "Presupuesto", border=1, fill=True, align="C", new_x="LMARGIN", new_y="NEXT")
-
-        # Filas
-        pdf.set_font("Helvetica", "", 7)
-        total = 0
-        for p in partidas:
-            pdf.cell(30, 5, str(p.partida_presupuestaria)[:18], border=1, new_x="END")
-            pdf.cell(40, 5, str(p.area_destino)[:25], border=1, new_x="END")
-            pdf.cell(35, 5, str(p.origen_recurso)[:20], border=1, new_x="END")
-            pdf.cell(35, 5, str(p.oficio_suficiencia or "-")[:20], border=1, new_x="END")
-            monto = float(p.presupuesto_autorizado)
-            total += monto
-            pdf.cell(30, 5, f"${monto:,.2f}", border=1, align="R", new_x="LMARGIN", new_y="NEXT")
-
-        # Total
-        pdf.set_font("Helvetica", "B", 7)
-        pdf.cell(140, 5, "TOTAL:", border=1, align="R", new_x="END")
-        pdf.cell(30, 5, f"${total:,.2f}", border=1, align="R", new_x="LMARGIN", new_y="NEXT")
 
 
 # Singleton

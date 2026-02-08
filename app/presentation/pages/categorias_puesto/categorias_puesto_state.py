@@ -75,7 +75,7 @@ class CategoriasPuestoState(BaseState):
     async def on_change_busqueda(self, value: str):
         """Actualizar filtro y buscar automáticamente"""
         self.filtro_busqueda = value
-        await self.cargar_categorias()
+        await self._fetch_categorias()
 
     def set_filtro_tipo_servicio_id(self, value: str):
         self.filtro_tipo_servicio_id = value if value else "0"
@@ -212,8 +212,11 @@ class CategoriasPuestoState(BaseState):
         if tipo_param:
             self.filtro_tipo_servicio_id = tipo_param
 
-        await self.cargar_tipos_servicio()
-        await self.cargar_categorias()
+        async for _ in self.montar_pagina(
+            self.cargar_tipos_servicio,
+            self._fetch_categorias,
+        ):
+            yield
 
     async def cargar_tipos_servicio(self):
         """Cargar tipos de servicio para el dropdown"""
@@ -224,14 +227,13 @@ class CategoriasPuestoState(BaseState):
             self.mostrar_mensaje(f"Error al cargar tipos de servicio: {str(e)}", "error")
             self.tipos_servicio = []
 
-    async def cargar_categorias(self):
-        """Cargar la lista de categorías"""
-        self.loading = True
+    async def _fetch_categorias(self):
+        """Carga categorías desde BD (sin manejo de loading)."""
         try:
             # Si hay filtro de tipo (distinto de "0"), obtener solo de ese tipo
             if self.filtro_tipo_servicio_id and self.filtro_tipo_servicio_id != "0":
                 categorias = await categoria_puesto_service.obtener_por_tipo_servicio(
-                    int(self.filtro_tipo_servicio_id),  # Convertir a int para el servicio
+                    int(self.filtro_tipo_servicio_id),
                     incluir_inactivas=self.incluir_inactivas
                 )
             else:
@@ -256,8 +258,11 @@ class CategoriasPuestoState(BaseState):
         except Exception as e:
             self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
             self.categorias = []
-        finally:
-            self.loading = False
+
+    async def cargar_categorias(self):
+        """Carga categorías con skeleton loading (público)."""
+        async for _ in self.recargar_datos(self._fetch_categorias):
+            yield
 
     async def buscar_categorias(self):
         await self.cargar_categorias()
@@ -288,7 +293,7 @@ class CategoriasPuestoState(BaseState):
 
     async def filtrar_por_tipo(self):
         """Recargar categorías cuando cambia el filtro de tipo"""
-        await self.cargar_categorias()
+        await self._fetch_categorias()
 
     # ========================
     # OPERACIONES CRUD
@@ -340,7 +345,7 @@ class CategoriasPuestoState(BaseState):
                 await self._crear_categoria()
 
             self.cerrar_modal_categoria()
-            await self.cargar_categorias()
+            await self._fetch_categorias()
 
         except DuplicateError:
             self.error_clave = f"La clave '{self.form_clave}' ya existe en este tipo de servicio"
@@ -406,7 +411,7 @@ class CategoriasPuestoState(BaseState):
             await categoria_puesto_service.eliminar(categoria_id)
 
             self.cerrar_confirmar_eliminar()
-            await self.cargar_categorias()
+            await self._fetch_categorias()
 
             return rx.toast.success(
                 f"Categoría '{nombre_categoria}' eliminada",
@@ -428,7 +433,7 @@ class CategoriasPuestoState(BaseState):
     async def activar_categoria(self, categoria: dict):
         try:
             await categoria_puesto_service.activar(categoria["id"])
-            await self.cargar_categorias()
+            await self._fetch_categorias()
 
             return rx.toast.success(
                 f"Categoría '{categoria['nombre']}' activada",

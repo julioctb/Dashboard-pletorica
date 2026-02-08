@@ -191,4 +191,5 @@ def action_buttons_reactive(
         *botones,
         spacing="1",
         align="center",
+        justify="center",
     )

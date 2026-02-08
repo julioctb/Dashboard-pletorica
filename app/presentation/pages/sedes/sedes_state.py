@@ -83,7 +83,7 @@ class SedesState(BaseState):
     async def on_change_busqueda(self, value: str):
         """Actualizar filtro y buscar automaticamente"""
         self.filtro_busqueda = value
-        await self.cargar_sedes()
+        await self._fetch_sedes()
 
     def set_incluir_inactivas(self, value: bool):
         self.incluir_inactivas = value
@@ -189,9 +189,8 @@ class SedesState(BaseState):
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
-    async def cargar_sedes(self):
-        """Cargar la lista de sedes"""
-        self.loading = True
+    async def _fetch_sedes(self):
+        """Carga sedes desde BD (sin manejo de loading)."""
         try:
             sedes = await sede_service.obtener_todas(
                 incluir_inactivas=self.incluir_inactivas
@@ -235,8 +234,11 @@ class SedesState(BaseState):
         except Exception as e:
             self.manejar_error(e, "al cargar sedes")
             self.sedes = []
-        finally:
-            self.finalizar_carga()
+
+    async def cargar_sedes(self):
+        """Carga sedes con skeleton loading (público)."""
+        async for _ in self.recargar_datos(self._fetch_sedes):
+            yield
 
     async def cargar_opciones_sedes(self):
         """Cargar opciones para los selects de tipo_sede y sedes padre/ubicacion"""
@@ -273,11 +275,13 @@ class SedesState(BaseState):
     async def limpiar_filtros(self):
         self.filtro_busqueda = ""
         self.incluir_inactivas = False
-        await self.cargar_sedes()
+        async for _ in self.recargar_datos(self._fetch_sedes):
+            yield
 
     async def limpiar_busqueda(self):
         self.filtro_busqueda = ""
-        await self.cargar_sedes()
+        async for _ in self.recargar_datos(self._fetch_sedes):
+            yield
 
     # ========================
     # OPERACIONES CRUD
@@ -333,7 +337,7 @@ class SedesState(BaseState):
                 await self._crear_sede()
 
             self.cerrar_modal_sede()
-            await self.cargar_sedes()
+            await self._fetch_sedes()
 
         except Exception as e:
             self.manejar_error(
@@ -343,7 +347,7 @@ class SedesState(BaseState):
                 valor_duplicado=self.form_codigo
             )
         finally:
-            self.finalizar_guardado()
+            self.saving = False
 
     async def _crear_sede(self):
         sede_create = SedeCreate(
@@ -402,7 +406,7 @@ class SedesState(BaseState):
             await sede_service.eliminar(self.sede_seleccionada["id"])
 
             self.cerrar_confirmar_eliminar()
-            await self.cargar_sedes()
+            await self._fetch_sedes()
 
             return rx.toast.success(
                 f"Sede '{self.sede_seleccionada['nombre']}' eliminada",
@@ -413,13 +417,13 @@ class SedesState(BaseState):
         except Exception as e:
             self.manejar_error(e, "al eliminar sede")
         finally:
-            self.finalizar_guardado()
+            self.saving = False
             self.cerrar_confirmar_eliminar()
 
     async def activar_sede(self, sede: dict):
         try:
             await sede_service.activar(sede["id"])
-            await self.cargar_sedes()
+            await self._fetch_sedes()
 
             return rx.toast.success(
                 f"Sede '{sede['nombre']}' activada",

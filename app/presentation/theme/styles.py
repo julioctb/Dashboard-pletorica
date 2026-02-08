@@ -7,7 +7,7 @@ Incluye configuración de tipografía, scrollbars, y resets.
 
 Uso en app.py:
     from app.presentation.theme.styles import GLOBAL_STYLES
-    
+
     app = rx.App(
         theme=rx.theme(...),
         style=GLOBAL_STYLES,
@@ -15,6 +15,43 @@ Uso en app.py:
 """
 
 from .tokens import Typography, Colors, Transitions
+
+
+# =============================================================================
+# ESTILOS DE TABLA (definidos antes de GLOBAL_STYLES para poder referenciarlos)
+# =============================================================================
+
+TABLE_CONTAINER_STYLE = {
+    "width": "100%",
+    "overflow_x": "auto",
+    "background": Colors.SURFACE,
+    "border_radius": "8px",
+    "border": f"1px solid {Colors.BORDER}",
+}
+
+TABLE_HEADER_STYLE = {
+    "background": Colors.SECONDARY_LIGHT,
+    "font_weight": Typography.WEIGHT_SEMIBOLD,
+    "font_size": Typography.SIZE_SM,
+    "color": Colors.TEXT_PRIMARY,
+    "text_transform": "uppercase",
+    "letter_spacing": Typography.LETTER_SPACING_WIDE,
+}
+
+TABLE_ROW_STYLE = {
+    "border_bottom": f"1px solid {Colors.BORDER}",
+    "transition": Transitions.FAST,
+    "_hover": {
+        "background": Colors.SURFACE_HOVER,
+    },
+}
+
+TABLE_CELL_STYLE = {
+    "padding": "0.75rem 1rem",
+    "font_size": Typography.SIZE_BASE,
+    "color": Colors.TEXT_PRIMARY,
+    "vertical_align": "middle",
+}
 
 
 # =============================================================================
@@ -26,7 +63,7 @@ GLOBAL_STYLES = {
     "*": {
         "box_sizing": "border-box",
     },
-    
+
     # Tipografía base - Source Sans Pro
     "body": {
         "font_family": Typography.FONT_FAMILY,
@@ -37,7 +74,7 @@ GLOBAL_STYLES = {
         "-webkit-font-smoothing": "antialiased",
         "-moz-osx-font-smoothing": "grayscale",
     },
-    
+
     # Headings
     "h1, h2, h3, h4, h5, h6": {
         "font_family": Typography.FONT_FAMILY,
@@ -45,7 +82,7 @@ GLOBAL_STYLES = {
         "line_height": Typography.LINE_HEIGHT_TIGHT,
         "color": Colors.TEXT_PRIMARY,
     },
-    
+
     # Links
     "a": {
         "color": Colors.PRIMARY,
@@ -55,7 +92,7 @@ GLOBAL_STYLES = {
             "color": Colors.PRIMARY_HOVER,
         },
     },
-    
+
     # Scrollbar personalizado (webkit)
     "::-webkit-scrollbar": {
         "width": "8px",
@@ -72,13 +109,20 @@ GLOBAL_STYLES = {
             "background": Colors.SECONDARY,
         },
     },
-    
+
+    # Tablas - estilos globales centralizados
+    "tr": TABLE_ROW_STYLE,
+    "td": TABLE_CELL_STYLE,
+    "th": {
+        "vertical_align": "middle",
+    },
+
     # Focus visible para accesibilidad
     ":focus-visible": {
         "outline": f"2px solid {Colors.PRIMARY}",
         "outline_offset": "2px",
     },
-    
+
     # Selección de texto
     "::selection": {
         "background": Colors.PRIMARY_LIGHT,
@@ -168,43 +212,6 @@ EMPTY_STATE_STYLE = {
     "text_align": "center",
     "padding": "3rem 1.5rem",
     "color": Colors.TEXT_SECONDARY,
-}
-
-
-# =============================================================================
-# ESTILOS DE TABLA
-# =============================================================================
-
-TABLE_CONTAINER_STYLE = {
-    "width": "100%",
-    "overflow_x": "auto",
-    "background": Colors.SURFACE,
-    "border_radius": "8px",
-    "border": f"1px solid {Colors.BORDER}",
-}
-
-TABLE_HEADER_STYLE = {
-    "background": Colors.SECONDARY_LIGHT,
-    "font_weight": Typography.WEIGHT_SEMIBOLD,
-    "font_size": Typography.SIZE_SM,
-    "color": Colors.TEXT_PRIMARY,
-    "text_transform": "uppercase",
-    "letter_spacing": Typography.LETTER_SPACING_WIDE,
-}
-
-TABLE_ROW_STYLE = {
-    "border_bottom": f"1px solid {Colors.BORDER}",
-    "transition": Transitions.FAST,
-    "_hover": {
-        "background": Colors.SURFACE_HOVER,
-    },
-}
-
-TABLE_CELL_STYLE = {
-    "padding": "0.75rem 1rem",
-    "font_size": Typography.SIZE_BASE,
-    "color": Colors.TEXT_PRIMARY,
-    "vertical_align": "middle",
 }
 
 

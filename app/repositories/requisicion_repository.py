@@ -17,7 +17,6 @@ from app.entities.requisicion import (
     LugarEntrega,
     Requisicion,
     RequisicionItem,
-    RequisicionPartida,
 )
 from app.core.enums import EstadoRequisicion
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
@@ -36,7 +35,6 @@ class SupabaseRequisicionRepository:
         self.supabase = db_manager.get_client()
         self.tabla = 'requisicion'
         self.tabla_items = 'requisicion_item'
-        self.tabla_partidas = 'requisicion_partida'
         self.tabla_config = 'configuracion_requisicion'
         self.tabla_lugares = 'lugar_entrega'
 
@@ -64,12 +62,9 @@ class SupabaseRequisicionRepository:
 
             requisicion_data = result.data[0]
 
-            # Cargar items y partidas
+            # Cargar items
             items = await self.obtener_items(requisicion_id)
-            partidas = await self.obtener_partidas(requisicion_id)
-
             requisicion_data['items'] = [i.model_dump() for i in items]
-            requisicion_data['partidas'] = [p.model_dump() for p in partidas]
 
             return Requisicion(**requisicion_data)
         except NotFoundError:
@@ -150,18 +145,18 @@ class SupabaseRequisicionRepository:
             DatabaseError: Si hay error de BD
         """
         try:
-            # Verificar número duplicado
-            if await self.existe_numero(requisicion.numero_requisicion):
+            # Verificar número duplicado (solo si tiene número asignado)
+            if requisicion.numero_requisicion and await self.existe_numero(requisicion.numero_requisicion):
                 raise DuplicateError(
                     f"Número de requisición {requisicion.numero_requisicion} ya existe",
                     field="numero_requisicion",
                     value=requisicion.numero_requisicion,
                 )
 
-            # Preparar datos de la requisición (sin items, partidas ni campos auto)
+            # Preparar datos de la requisición (sin items ni campos auto)
             datos = requisicion.model_dump(
                 mode='json',
-                exclude={'id', 'created_at', 'updated_at', 'items', 'partidas', 'archivos'},
+                exclude={'id', 'created_at', 'updated_at', 'items', 'archivos'},
             )
 
             result = self.supabase.table(self.tabla).insert(datos).execute()
@@ -183,15 +178,6 @@ class SupabaseRequisicionRepository:
                     item_data['subtotal_estimado'] = str(item.cantidad * item.precio_unitario_estimado)
                 self.supabase.table(self.tabla_items).insert(item_data).execute()
 
-            # Crear partidas
-            for partida in requisicion.partidas:
-                partida_data = partida.model_dump(
-                    mode='json',
-                    exclude={'id', 'created_at', 'requisicion_id', 'archivos'},
-                )
-                partida_data['requisicion_id'] = requisicion_id
-                self.supabase.table(self.tabla_partidas).insert(partida_data).execute()
-
             # Retornar requisición completa
             return await self.obtener_por_id(requisicion_id)
         except (DuplicateError, NotFoundError):
@@ -211,7 +197,7 @@ class SupabaseRequisicionRepository:
         try:
             datos = requisicion.model_dump(
                 mode='json',
-                exclude={'id', 'created_at', 'updated_at', 'items', 'partidas', 'archivos'},
+                exclude={'id', 'created_at', 'updated_at', 'items', 'archivos'},
             )
 
             result = self.supabase.table(self.tabla)\
@@ -246,8 +232,10 @@ class SupabaseRequisicionRepository:
             logger.error(f"Error eliminando requisición {requisicion_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
-    async def existe_numero(self, numero: str, excluir_id: Optional[int] = None) -> bool:
+    async def existe_numero(self, numero: Optional[str], excluir_id: Optional[int] = None) -> bool:
         """Verifica si existe un número de requisición."""
+        if not numero:
+            return False
         try:
             query = self.supabase.table(self.tabla)\
                 .select('id')\
@@ -442,83 +430,6 @@ class SupabaseRequisicionRepository:
             return True
         except Exception as e:
             logger.error(f"Error eliminando items de requisición {requisicion_id}: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
-
-    # ========================
-    # PARTIDAS
-    # ========================
-
-    async def obtener_partidas(self, requisicion_id: int) -> List[RequisicionPartida]:
-        """Obtiene las partidas de una requisición."""
-        try:
-            result = self.supabase.table(self.tabla_partidas)\
-                .select('*')\
-                .eq('requisicion_id', requisicion_id)\
-                .order('id')\
-                .execute()
-            return [RequisicionPartida(**data) for data in result.data]
-        except Exception as e:
-            logger.error(f"Error obteniendo partidas de requisición {requisicion_id}: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
-
-    async def crear_partida(self, requisicion_id: int, partida: RequisicionPartida) -> RequisicionPartida:
-        """Crea una partida en una requisición."""
-        try:
-            datos = partida.model_dump(mode='json', exclude={'id', 'created_at', 'requisicion_id', 'archivos'})
-            datos['requisicion_id'] = requisicion_id
-
-            result = self.supabase.table(self.tabla_partidas).insert(datos).execute()
-
-            if not result.data:
-                raise DatabaseError("No se pudo crear la partida")
-
-            return RequisicionPartida(**result.data[0])
-        except Exception as e:
-            logger.error(f"Error creando partida: {e}")
-            raise DatabaseError(f"Error de base de datos al crear partida: {str(e)}")
-
-    async def actualizar_partida(self, partida: RequisicionPartida) -> RequisicionPartida:
-        """Actualiza una partida existente."""
-        try:
-            datos = partida.model_dump(mode='json', exclude={'id', 'created_at', 'requisicion_id', 'archivos'})
-
-            result = self.supabase.table(self.tabla_partidas)\
-                .update(datos)\
-                .eq('id', partida.id)\
-                .execute()
-
-            if not result.data:
-                raise NotFoundError(f"Partida con ID {partida.id} no encontrada")
-
-            return RequisicionPartida(**result.data[0])
-        except NotFoundError:
-            raise
-        except Exception as e:
-            logger.error(f"Error actualizando partida {partida.id}: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
-
-    async def eliminar_partida(self, partida_id: int) -> bool:
-        """Elimina una partida."""
-        try:
-            result = self.supabase.table(self.tabla_partidas)\
-                .delete()\
-                .eq('id', partida_id)\
-                .execute()
-            return bool(result.data)
-        except Exception as e:
-            logger.error(f"Error eliminando partida {partida_id}: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
-
-    async def eliminar_partidas_requisicion(self, requisicion_id: int) -> bool:
-        """Elimina todas las partidas de una requisición."""
-        try:
-            result = self.supabase.table(self.tabla_partidas)\
-                .delete()\
-                .eq('requisicion_id', requisicion_id)\
-                .execute()
-            return True
-        except Exception as e:
-            logger.error(f"Error eliminando partidas de requisición {requisicion_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     # ========================

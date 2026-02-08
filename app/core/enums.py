@@ -234,7 +234,7 @@ class EstadoRequisicion(str, Enum):
     """Estados posibles de una requisición"""
     BORRADOR = 'BORRADOR'
     ENVIADA = 'ENVIADA'
-    EN_REVISION = 'EN_REVISION'
+    EN_REVISION = 'EN REVISION'
     APROBADA = 'APROBADA'
     ADJUDICADA = 'ADJUDICADA'
     CONTRATADA = 'CONTRATADA'

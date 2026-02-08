@@ -98,6 +98,7 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
             ),
         ),
         spacing="1",
+        justify="center",
     )
 
 

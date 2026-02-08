@@ -254,16 +254,17 @@ class UsuariosAdminState(AuthState):
         if not self.es_admin:
             return rx.redirect("/")
 
-        # Cargar datos
-        await self.cargar_usuarios()
+        # Cargar datos (manual loading por auth return pattern)
+        self.loading = True
+        await self._fetch_usuarios()
         await self._cargar_todas_empresas()
+        self.loading = False
 
     # ========================
     # OPERACIONES DE LECTURA
     # ========================
-    async def cargar_usuarios(self):
-        """Carga la lista de usuarios."""
-        self.loading = True
+    async def _fetch_usuarios(self):
+        """Carga usuarios desde BD (sin manejo de loading)."""
         try:
             usuarios = await user_service.listar_usuarios(
                 incluir_inactivos=self.incluir_inactivos,
@@ -275,8 +276,11 @@ class UsuariosAdminState(AuthState):
             self.manejar_error(e, "al cargar usuarios")
             self.usuarios = []
             self.total_usuarios = 0
-        finally:
-            self.loading = False
+
+    async def cargar_usuarios(self):
+        """Carga usuarios con skeleton loading (público)."""
+        async for _ in self.recargar_datos(self._fetch_usuarios):
+            yield
 
     async def _cargar_todas_empresas(self):
         """Carga todas las empresas activas para selects de asignacion."""
@@ -303,7 +307,8 @@ class UsuariosAdminState(AuthState):
 
     async def aplicar_filtros(self):
         """Aplica filtros y recarga la lista."""
-        await self.cargar_usuarios()
+        async for _ in self.recargar_datos(self._fetch_usuarios):
+            yield
 
     # ========================
     # CRUD - CREAR
@@ -335,7 +340,7 @@ class UsuariosAdminState(AuthState):
             await user_service.crear_usuario(datos)
 
             self.cerrar_modal_crear()
-            await self.cargar_usuarios()
+            await self._fetch_usuarios()
 
             return rx.toast.success(
                 f"Usuario '{datos.nombre_completo}' creado exitosamente",
@@ -386,7 +391,7 @@ class UsuariosAdminState(AuthState):
 
         async def _on_exito():
             self.cerrar_modal_editar()
-            await self.cargar_usuarios()
+            await self._fetch_usuarios()
 
         return await self.ejecutar_guardado(
             operacion=lambda: user_service.actualizar_perfil(user_id, datos),
@@ -422,7 +427,7 @@ class UsuariosAdminState(AuthState):
 
         async def _on_exito():
             self.cerrar_confirmar_desactivar()
-            await self.cargar_usuarios()
+            await self._fetch_usuarios()
 
         return await self.ejecutar_guardado(
             operacion=lambda: user_service.desactivar_usuario(user_id),
@@ -435,7 +440,7 @@ class UsuariosAdminState(AuthState):
         return await self.ejecutar_guardado(
             operacion=lambda: user_service.activar_usuario(UUID(user_id)),
             mensaje_exito="Usuario activado",
-            on_exito=self.cargar_usuarios,
+            on_exito=self._fetch_usuarios,
         )
 
     # ========================
@@ -467,7 +472,7 @@ class UsuariosAdminState(AuthState):
         async def _on_exito():
             await self._cargar_empresas_usuario(str(self.usuario_seleccionado["id"]))
             self.form_empresa_id = ""
-            await self.cargar_usuarios()
+            await self._fetch_usuarios()
 
         return await self.ejecutar_guardado(
             operacion=lambda: user_service.asignar_empresa(user_id, empresa_id, es_principal),
@@ -484,7 +489,7 @@ class UsuariosAdminState(AuthState):
 
         async def _on_exito():
             await self._cargar_empresas_usuario(str(self.usuario_seleccionado["id"]))
-            await self.cargar_usuarios()
+            await self._fetch_usuarios()
 
         return await self.ejecutar_guardado(
             operacion=lambda: user_service.quitar_empresa(user_id, empresa_id),

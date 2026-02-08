@@ -167,9 +167,12 @@ class EntregablesState(BaseState):
     # =========================================================================
     async def on_load_entregables(self):
         """Carga inicial: contratos para filtro y entregables con filtro default."""
-        await self._cargar_contratos_disponibles()
-        await self._cargar_estadisticas()
-        await self._cargar_entregables()
+        async for _ in self.montar_pagina(
+            self._cargar_contratos_disponibles,
+            self._cargar_estadisticas,
+            self._fetch_entregables,
+        ):
+            yield
 
     async def _cargar_contratos_disponibles(self):
         """Carga lista de contratos para el filtro."""
@@ -199,9 +202,8 @@ class EntregablesState(BaseState):
                 "pagados": 0,
             }
 
-    async def _cargar_entregables(self):
-        """Carga entregables con los filtros actuales."""
-        self.cargando = True
+    async def _fetch_entregables(self):
+        """Carga entregables desde BD (sin manejo de loading)."""
         try:
             estatus = None if self.filtro_estatus == "all" else self.filtro_estatus
             contrato_id = None if self.filtro_contrato_id == "all" else int(self.filtro_contrato_id)
@@ -236,6 +238,12 @@ class EntregablesState(BaseState):
             ]
         except Exception as e:
             self.mostrar_mensaje(f"Error al cargar entregables: {str(e)}", "error")
+
+    async def _cargar_entregables(self):
+        """Carga entregables con indicador de carga para la lista."""
+        self.cargando = True
+        try:
+            await self._fetch_entregables()
         finally:
             self.cargando = False
 

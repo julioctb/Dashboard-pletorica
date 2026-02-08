@@ -171,6 +171,7 @@ def acciones_contrato(contrato: dict) -> rx.Component:
             ),
         ),
         spacing="1",
+        justify="center",
     )
 
 

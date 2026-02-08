@@ -204,7 +204,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
                 pass  # Mantener lista actual si falla la busqueda
         elif not value:
             self.pagina = 1
-            await self.cargar_empleados()
+            await self._fetch_empleados()
 
     # ========================
     # SETTERS DE FORMULARIO
@@ -445,9 +445,8 @@ class EmpleadosState(AuthState, CRUDStateMixin):
     # ========================
     # CARGA DE DATOS
     # ========================
-    async def cargar_empleados(self):
-        """Carga la lista de empleados con filtros aplicados"""
-        self.loading = True
+    async def _fetch_empleados(self):
+        """Carga la lista de empleados con filtros (sin manejo de loading)."""
         try:
             # Determinar empresa_id para filtro
             empresa_id = None
@@ -493,8 +492,6 @@ class EmpleadosState(AuthState, CRUDStateMixin):
         except Exception as e:
             self.manejar_error(e, "cargando empleados")
             self.empleados = []
-        finally:
-            self.loading = False
 
     async def cargar_empresas(self):
         """Carga el catálogo de empresas para el select"""
@@ -767,7 +764,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
         async def _on_exito():
             self.cerrar_modal_restriccion()
             self.cerrar_modal_detalle()
-            await self.cargar_empleados()
+            await self._fetch_empleados()
 
         return await self.ejecutar_guardado(
             operacion=lambda: empleado_service.restringir_empleado(
@@ -801,7 +798,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
         async def _on_exito():
             self.cerrar_modal_liberacion()
             self.cerrar_modal_detalle()
-            await self.cargar_empleados()
+            await self._fetch_empleados()
 
         return await self.ejecutar_guardado(
             operacion=lambda: empleado_service.liberar_empleado(
@@ -853,7 +850,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
                 )
 
                 self.cerrar_modal_empleado()
-                await self.cargar_empleados()
+                await self._fetch_empleados()
                 return rx.toast.success("Empleado actualizado correctamente")
 
             else:
@@ -878,7 +875,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
                 empleado = await empleado_service.crear(empleado_create)
 
                 self.cerrar_modal_empleado()
-                await self.cargar_empleados()
+                await self._fetch_empleados()
                 return rx.toast.success(f"Empleado {empleado.clave} creado correctamente")
 
         except DuplicateError as e:
@@ -909,7 +906,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
         async def _on_exito():
             self.cerrar_modal_baja()
             self.cerrar_modal_detalle()
-            await self.cargar_empleados()
+            await self._fetch_empleados()
 
         return await self.ejecutar_guardado(
             operacion=lambda: empleado_service.dar_de_baja(
@@ -930,7 +927,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
 
         async def _on_exito():
             self.cerrar_modal_detalle()
-            await self.cargar_empleados()
+            await self._fetch_empleados()
 
         return await self.ejecutar_guardado(
             operacion=lambda: empleado_service.reactivar(empleado_id),
@@ -949,7 +946,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
 
         async def _on_exito():
             self.cerrar_modal_detalle()
-            await self.cargar_empleados()
+            await self._fetch_empleados()
 
         return await self.ejecutar_guardado(
             operacion=lambda: empleado_service.suspender(empleado_id),
@@ -1064,7 +1061,8 @@ class EmpleadosState(AuthState, CRUDStateMixin):
     async def aplicar_filtros(self):
         """Aplica los filtros y recarga la lista"""
         self.pagina = 1
-        await self.cargar_empleados()
+        async for _ in self.recargar_datos(self._fetch_empleados):
+            yield
 
     async def limpiar_filtros(self):
         """Limpia todos los filtros"""
@@ -1072,7 +1070,8 @@ class EmpleadosState(AuthState, CRUDStateMixin):
         self.filtro_empresa_id = FILTRO_TODAS
         self.filtro_estatus = FILTRO_TODOS
         self.pagina = 1
-        await self.cargar_empleados()
+        async for _ in self.recargar_datos(self._fetch_empleados):
+            yield
 
     # ========================
     # VERIFICACIÓN DE CURP
@@ -1157,5 +1156,8 @@ class EmpleadosState(AuthState, CRUDStateMixin):
     # ========================
     async def on_mount(self):
         """Se ejecuta al montar la página"""
-        await self.cargar_empresas()
-        await self.cargar_empleados()
+        async for _ in self.montar_pagina(
+            self.cargar_empresas,
+            self._fetch_empleados,
+        ):
+            yield

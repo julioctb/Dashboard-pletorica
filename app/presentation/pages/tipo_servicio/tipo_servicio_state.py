@@ -69,7 +69,7 @@ class TipoServicioState(BaseState):
     async def on_change_busqueda(self, value: str):
         """Actualizar filtro y buscar automáticamente"""
         self.filtro_busqueda = value
-        await self.cargar_tipos()
+        await self._fetch_tipos()
 
     def set_incluir_inactivas(self, value: bool):
         self.incluir_inactivas = value
@@ -166,11 +166,9 @@ class TipoServicioState(BaseState):
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
-    async def cargar_tipos(self):
-        """Cargar la lista de tipos de servicio"""
-        self.loading = True
+    async def _fetch_tipos(self):
+        """Carga tipos de servicio desde BD (sin manejo de loading)."""
         try:
-            # Obtener tipos según filtros
             tipos = await tipo_servicio_service.obtener_todas(
                 incluir_inactivas=self.incluir_inactivas
             )
@@ -190,8 +188,11 @@ class TipoServicioState(BaseState):
         except Exception as e:
             self.manejar_error(e, "al cargar tipos")
             self.tipos = []
-        finally:
-            self.finalizar_carga()
+
+    async def cargar_tipos(self):
+        """Carga tipos con skeleton loading (público)."""
+        async for _ in self.recargar_datos(self._fetch_tipos):
+            yield
 
     async def buscar_tipos(self):
         """Buscar tipos con el filtro actual"""
@@ -214,12 +215,14 @@ class TipoServicioState(BaseState):
         """Limpiar todos los filtros y recargar"""
         self.filtro_busqueda = ""
         self.incluir_inactivas = False
-        await self.cargar_tipos()
+        async for _ in self.recargar_datos(self._fetch_tipos):
+            yield
 
     async def limpiar_busqueda(self):
         """Limpiar solo el campo de búsqueda y recargar"""
         self.filtro_busqueda = ""
-        await self.cargar_tipos()
+        async for _ in self.recargar_datos(self._fetch_tipos):
+            yield
 
     # ========================
     # OPERACIONES CRUD
@@ -274,7 +277,7 @@ class TipoServicioState(BaseState):
 
             # Cerrar modal y recargar
             self.cerrar_modal_tipo()
-            await self.cargar_tipos()
+            await self._fetch_tipos()
 
         except Exception as e:
             self.manejar_error(
@@ -284,7 +287,7 @@ class TipoServicioState(BaseState):
                 valor_duplicado=self.form_clave
             )
         finally:
-            self.finalizar_guardado()
+            self.saving = False
 
     async def _crear_tipo(self):
         """Crear nuevo tipo"""
@@ -334,7 +337,7 @@ class TipoServicioState(BaseState):
 
         async def _on_exito():
             self.cerrar_confirmar_eliminar()
-            await self.cargar_tipos()
+            await self._fetch_tipos()
 
         return await self.ejecutar_guardado(
             operacion=lambda: tipo_servicio_service.eliminar(tipo_id),
@@ -347,7 +350,7 @@ class TipoServicioState(BaseState):
         return await self.ejecutar_guardado(
             operacion=lambda: tipo_servicio_service.activar(tipo["id"]),
             mensaje_exito=f"Tipo '{tipo['nombre']}' activado",
-            on_exito=self.cargar_tipos,
+            on_exito=self._fetch_tipos,
         )
 
     # ========================

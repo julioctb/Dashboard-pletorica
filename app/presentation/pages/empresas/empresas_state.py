@@ -137,7 +137,7 @@ class EmpresasState(AuthState):
     async def set_solo_activas(self, value):
         """Cambia filtro de activas y recarga datos"""
         self.solo_activas = bool(value)
-        await self.cargar_empresas()
+        await self._fetch_empresas()
 
     # ========================
     # SETTERS DE VISTA (tabla/cards)
@@ -218,16 +218,17 @@ class EmpresasState(AuthState):
         resultado = await self.verificar_y_redirigir()
         if resultado:
             return resultado
-        await self.cargar_empresas()
+
+        # Manual loading (no montar_pagina por auth return pattern)
+        self.loading = True
+        await self._fetch_empresas()
+        self.loading = False
 
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
-    async def cargar_empresas(self):
-        """Cargar empresas desde BD.
-        Los filtros (tipo, búsqueda) se aplican en memoria vía empresas_filtradas (reactivo).
-        """
-        self.loading = True
+    async def _fetch_empresas(self):
+        """Carga empresas desde BD (sin manejo de loading)."""
         try:
             self.empresas = await empresa_service.buscar_con_filtros(
                 texto=None,
@@ -243,8 +244,6 @@ class EmpresasState(AuthState):
         except Exception as e:
             self.mostrar_mensaje(f"Error inesperado: {e}", "error")
             self.empresas = []
-        finally:
-            self.loading = False
 
     async def crear_empresa(self):
         """Crear una nueva empresa"""
@@ -258,7 +257,7 @@ class EmpresasState(AuthState):
             empresa_creada = await empresa_service.crear(nueva_empresa)
 
             self.cerrar_modal_empresa()
-            await self.cargar_empresas()
+            await self._fetch_empresas()
 
             return rx.toast.success(
                 f"Empresa '{empresa_creada.nombre_comercial}' creada exitosamente",
@@ -288,7 +287,7 @@ class EmpresasState(AuthState):
             )
 
             self.cerrar_modal_empresa()
-            await self.cargar_empresas()
+            await self._fetch_empresas()
 
             return rx.toast.success(
                 f"Empresa '{empresa_actualizada.nombre_comercial}' actualizada",
@@ -304,7 +303,7 @@ class EmpresasState(AuthState):
         """Cambiar estatus de una empresa"""
         try:
             await empresa_service.cambiar_estatus(empresa_id, nuevo_estatus)
-            await self.cargar_empresas()
+            await self._fetch_empresas()
             return rx.toast.success(f"Estatus cambiado a {nuevo_estatus.value}")
         except Exception as e:
             self.manejar_error(e, "al cambiar estatus")
@@ -359,14 +358,16 @@ class EmpresasState(AuthState):
     # OPERACIONES DE FILTROS
     # ========================
     async def aplicar_filtros(self):
-        await self.cargar_empresas()
+        async for _ in self.recargar_datos(self._fetch_empresas):
+            yield
 
     async def limpiar_filtros(self):
         """Limpia todos los filtros incluyendo búsqueda"""
         self.filtro_tipo = FILTRO_TODOS
         self.filtro_busqueda = ""
         self.solo_activas = False
-        await self.cargar_empresas()
+        async for _ in self.recargar_datos(self._fetch_empresas):
+            yield
 
     # ========================
     # VALIDACIÓN - Métodos individuales para on_blur

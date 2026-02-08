@@ -1,19 +1,84 @@
-"""Modal de formulario para crear/editar requisiciones."""
+"""Modal de formulario para crear/editar requisiciones - Wizard de 8 pasos."""
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea, form_date
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 from app.presentation.components.requisiciones.requisicion_items_form import requisicion_items_form
-from app.presentation.components.requisiciones.requisicion_partidas_form import requisicion_partidas_form
 from app.presentation.components.common.archivo_uploader import archivo_uploader
+from app.presentation.theme import Colors, Spacing, Typography
 
 
 # =============================================================================
-# SECCIONES DEL FORMULARIO
+# INDICADOR DE PASOS (WIZARD)
 # =============================================================================
 
-def _tab_datos_generales() -> rx.Component:
-    """Tab 1: Datos generales de la requisicion."""
+def _indicador_pasos() -> rx.Component:
+    """Indicador visual: circulos numerados + titulo del paso actual debajo."""
+
+    def _circulo(numero: int) -> rx.Component:
+        es_activo = RequisicionesState.form_paso_actual >= numero
+        return rx.center(
+            rx.text(str(numero), font_size=Typography.SIZE_SM, font_weight=Typography.WEIGHT_BOLD),
+            width="32px",
+            height="32px",
+            border_radius="50%",
+            background=rx.cond(es_activo, Colors.PRIMARY, Colors.SECONDARY_LIGHT),
+            color=rx.cond(es_activo, Colors.TEXT_INVERSE, Colors.TEXT_SECONDARY),
+            cursor="pointer",
+            flex_shrink="0",
+            _hover={"opacity": "0.8"},
+            on_click=RequisicionesState.set_form_paso_actual(numero),
+        )
+
+    def _conector() -> rx.Component:
+        return rx.box(height="2px", flex="1", min_width="12px", background=Colors.BORDER)
+
     return rx.vstack(
+        rx.hstack(
+            _circulo(1), _conector(),
+            _circulo(2), _conector(),
+            _circulo(3), _conector(),
+            _circulo(4), _conector(),
+            _circulo(5), _conector(),
+            _circulo(6), _conector(),
+            _circulo(7), _conector(),
+            _circulo(8),
+            width="100%",
+            justify="center",
+            align="center",
+        ),
+        rx.text(
+            rx.match(
+                RequisicionesState.form_paso_actual,
+                (1, "Area Requirente"),
+                (2, "Bien / Servicio"),
+                (3, "Items"),
+                (4, "Condiciones"),
+                (5, "PDI"),
+                (6, "Disponibilidad Presupuestal"),
+                (7, "Firmas"),
+                (8, "Anexos"),
+                "Area Requirente",
+            ),
+            font_size=Typography.SIZE_SM,
+            font_weight=Typography.WEIGHT_SEMIBOLD,
+            color=Colors.TEXT_PRIMARY,
+            text_align="center",
+            width="100%",
+        ),
+        spacing="3",
+        width="100%",
+        padding_y=Spacing.SM,
+    )
+
+
+# =============================================================================
+# CONTENIDO DE CADA PASO
+# =============================================================================
+
+def _paso_area_requirente() -> rx.Component:
+    """Paso 1: Area requirente + tipo contratacion + fecha elaboracion."""
+    return rx.vstack(
+        # Tipo y fecha (movidos desde General)
         rx.hstack(
             form_select(
                 label="Tipo de contratacion",
@@ -32,30 +97,7 @@ def _tab_datos_generales() -> rx.Component:
             spacing="2",
             width="100%",
         ),
-        form_textarea(
-            label="Objeto de la contratacion",
-            required=True,
-            placeholder="Ej: Adquisicion de equipo de computo para laboratorio",
-            value=RequisicionesState.form_objeto_contratacion,
-            on_change=RequisicionesState.set_form_objeto_contratacion,
-            rows="3",
-        ),
-        form_textarea(
-            label="Justificacion",
-            required=True,
-            placeholder="Ej: Se requiere para dar continuidad al programa...",
-            value=RequisicionesState.form_justificacion,
-            on_change=RequisicionesState.set_form_justificacion,
-            rows="3",
-        ),
-        spacing="3",
-        width="100%",
-    )
-
-
-def _tab_area_requirente() -> rx.Component:
-    """Tab 2: Datos del area requirente."""
-    return rx.vstack(
+        rx.separator(),
         rx.callout(
             "Estos campos se pre-llenan desde la configuracion.",
             icon="info",
@@ -169,9 +211,18 @@ def _tab_area_requirente() -> rx.Component:
     )
 
 
-def _tab_bien_servicio() -> rx.Component:
-    """Tab 3: Datos del bien o servicio."""
+def _paso_bien_servicio() -> rx.Component:
+    """Paso 2: Bien/Servicio - objeto, entrega, garantia."""
     return rx.vstack(
+        # Objeto de contratacion (movido desde General)
+        form_textarea(
+            label="Objeto de la contratacion",
+            required=True,
+            placeholder="Ej: Adquisicion de equipo de computo para laboratorio",
+            value=RequisicionesState.form_objeto_contratacion,
+            on_change=RequisicionesState.set_form_objeto_contratacion,
+            rows="3",
+        ),
         # Lugar y fechas de entrega
         rx.text("Entrega", weight="bold", size="3"),
         form_select(
@@ -182,19 +233,37 @@ def _tab_bien_servicio() -> rx.Component:
             on_change=RequisicionesState.set_form_lugar_entrega,
             options=RequisicionesState.lugares_entrega_opciones,
         ),
-        rx.hstack(
-            form_date(
-                label="Fecha entrega inicio",
-                value=RequisicionesState.form_fecha_entrega_inicio,
-                on_change=RequisicionesState.set_form_fecha_entrega_inicio,
+        rx.checkbox(
+            "A partir de la firma del contrato",
+            checked=RequisicionesState.form_inicio_desde_firma,
+            on_change=RequisicionesState.set_form_inicio_desde_firma,
+        ),
+        rx.cond(
+            RequisicionesState.form_inicio_desde_firma,
+            # Solo fecha fin
+            rx.box(
+                form_date(
+                    label="Fecha fin del servicio",
+                    value=RequisicionesState.form_fecha_entrega_fin,
+                    on_change=RequisicionesState.set_form_fecha_entrega_fin,
+                ),
+                width="100%",
             ),
-            form_date(
-                label="Fecha entrega fin",
-                value=RequisicionesState.form_fecha_entrega_fin,
-                on_change=RequisicionesState.set_form_fecha_entrega_fin,
+            # Ambas fechas
+            rx.hstack(
+                form_date(
+                    label="Fecha inicio",
+                    value=RequisicionesState.form_fecha_entrega_inicio,
+                    on_change=RequisicionesState.set_form_fecha_entrega_inicio,
+                ),
+                form_date(
+                    label="Fecha fin",
+                    value=RequisicionesState.form_fecha_entrega_fin,
+                    on_change=RequisicionesState.set_form_fecha_entrega_fin,
+                ),
+                spacing="2",
+                width="100%",
             ),
-            spacing="2",
-            width="100%",
         ),
         form_textarea(
             label="Condiciones de entrega",
@@ -203,7 +272,6 @@ def _tab_bien_servicio() -> rx.Component:
             on_change=RequisicionesState.set_form_condiciones_entrega,
             rows="2",
         ),
-
         # Garantia
         rx.text("Garantia", weight="bold", size="3"),
         rx.hstack(
@@ -222,25 +290,47 @@ def _tab_bien_servicio() -> rx.Component:
             spacing="2",
             width="100%",
         ),
+        spacing="3",
+        width="100%",
+    )
 
-        # Proveedor y pago
-        rx.text("Proveedor y Pago", weight="bold", size="3"),
+
+def _paso_items() -> rx.Component:
+    """Paso 3: Items de la requisicion."""
+    return requisicion_items_form()
+
+
+def _paso_condiciones() -> rx.Component:
+    """Paso 4: Condiciones - requisitos, justificacion, pago, flags."""
+    return rx.vstack(
         form_textarea(
-            label="Requisitos del proveedor",
+            label="Requisitos tecnicos",
             placeholder="Ej: Experiencia minima de 2 anos...",
             value=RequisicionesState.form_requisitos_proveedor,
             on_change=RequisicionesState.set_form_requisitos_proveedor,
-            rows="2",
+            rows="3",
+        ),
+        form_textarea(
+            label="Justificacion",
+            required=True,
+            placeholder="Ej: Se requiere para dar continuidad al programa...",
+            value=RequisicionesState.form_justificacion,
+            on_change=RequisicionesState.set_form_justificacion,
+            rows="3",
         ),
         form_input(
-            label="Forma de pago",
-            placeholder="Ej: Transferencia bancaria",
+            label="Condiciones de pago",
+            placeholder="Ej: Una vez recibidos los bienes acorde a las especificaciones tecnicas y a entera satisfaccion de la contratante",
             value=RequisicionesState.form_forma_pago,
             on_change=RequisicionesState.set_form_forma_pago,
         ),
-
         # Flags
         rx.hstack(
+            rx.checkbox(
+                "Transferencia bancaria",
+                checked=RequisicionesState.form_transferencia_bancaria,
+                on_change=RequisicionesState.set_form_transferencia_bancaria,
+            ),
             rx.checkbox(
                 "Requiere anticipo",
                 checked=RequisicionesState.form_requiere_anticipo,
@@ -258,40 +348,19 @@ def _tab_bien_servicio() -> rx.Component:
             ),
             spacing="4",
         ),
-
-        # Otros
-        rx.text("Otros", weight="bold", size="3"),
         form_input(
             label="Existencia en almacen",
             placeholder="Ej: 0 unidades",
             value=RequisicionesState.form_existencia_almacen,
             on_change=RequisicionesState.set_form_existencia_almacen,
         ),
-        form_textarea(
-            label="Observaciones",
-            placeholder="Ej: Notas adicionales sobre la requisicion",
-            value=RequisicionesState.form_observaciones,
-            on_change=RequisicionesState.set_form_observaciones,
-            rows="2",
-        ),
-
         spacing="3",
         width="100%",
     )
 
 
-def _tab_items() -> rx.Component:
-    """Tab 4: Items de la requisicion."""
-    return requisicion_items_form()
-
-
-def _tab_partidas() -> rx.Component:
-    """Tab 5: Partidas presupuestales."""
-    return requisicion_partidas_form()
-
-
-def _tab_pdi() -> rx.Component:
-    """Tab 6: Alineacion al PDI."""
+def _paso_pdi() -> rx.Component:
+    """Paso 5: Alineacion al PDI."""
     return rx.vstack(
         rx.callout(
             "Indique la alineacion con el Plan de Desarrollo Institucional.",
@@ -332,8 +401,41 @@ def _tab_pdi() -> rx.Component:
     )
 
 
-def _tab_firmas() -> rx.Component:
-    """Tab 7: Firmas y validaciones."""
+def _paso_disponibilidad() -> rx.Component:
+    """Paso 6: Disponibilidad presupuestal - partida, origen, oficio, observaciones."""
+    return rx.vstack(
+        form_input(
+            label="Partida presupuestaria",
+            placeholder="Ej: 33901",
+            value=RequisicionesState.form_partida_presupuestaria,
+            on_change=RequisicionesState.set_form_partida_presupuestaria,
+        ),
+        form_input(
+            label="Origen del recurso",
+            placeholder="Ej: Recurso Federal",
+            value=RequisicionesState.form_origen_recurso,
+            on_change=RequisicionesState.set_form_origen_recurso,
+        ),
+        form_input(
+            label="No. de Oficio de Suficiencia",
+            placeholder="Ej: SA/DPP/0123/2025",
+            value=RequisicionesState.form_oficio_suficiencia,
+            on_change=RequisicionesState.set_form_oficio_suficiencia,
+        ),
+        form_textarea(
+            label="Observaciones",
+            placeholder="Ej: Notas adicionales sobre la requisicion",
+            value=RequisicionesState.form_observaciones,
+            on_change=RequisicionesState.set_form_observaciones,
+            rows="2",
+        ),
+        spacing="3",
+        width="100%",
+    )
+
+
+def _paso_firmas() -> rx.Component:
+    """Paso 7: Firmas y validaciones."""
     return rx.vstack(
         rx.callout(
             "Estos campos se pre-llenan desde la configuracion.",
@@ -392,8 +494,8 @@ def _tab_firmas() -> rx.Component:
     )
 
 
-def _tab_archivos() -> rx.Component:
-    """Tab 8: Archivos adjuntos de la requisicion."""
+def _paso_anexos() -> rx.Component:
+    """Paso 8: Archivos adjuntos de la requisicion."""
     return rx.vstack(
         rx.callout(
             "Suba imagenes (JPG, PNG) o documentos PDF. Las imagenes se comprimen automaticamente.",
@@ -423,7 +525,7 @@ def requisicion_form_modal(
     titulo_crear: str = "Nueva Requisicion",
     titulo_editar: str = "Editar Requisicion",
 ) -> rx.Component:
-    """Modal con formulario de requisicion organizado en tabs."""
+    """Modal con formulario de requisicion organizado en wizard de pasos."""
     return rx.dialog.root(
         rx.dialog.content(
             # Header
@@ -464,40 +566,60 @@ def requisicion_form_modal(
                 ),
             ),
 
-            # Tabs
-            rx.tabs.root(
-                rx.tabs.list(
-                    rx.tabs.trigger("General", value="general"),
-                    rx.tabs.trigger("Area Req.", value="area"),
-                    rx.tabs.trigger("Bien/Servicio", value="bien"),
-                    rx.tabs.trigger("Items", value="items"),
-                    rx.tabs.trigger("Partidas", value="partidas"),
-                    rx.tabs.trigger("PDI", value="pdi"),
-                    rx.tabs.trigger("Firmas", value="firmas"),
-                    rx.tabs.trigger("Archivos", value="archivos"),
-                    size="1",
+            # Indicador de pasos
+            _indicador_pasos(),
+
+            # Contenido del paso actual
+            rx.box(
+                rx.match(
+                    RequisicionesState.form_paso_actual,
+                    (1, _paso_area_requirente()),
+                    (2, _paso_bien_servicio()),
+                    (3, _paso_items()),
+                    (4, _paso_condiciones()),
+                    (5, _paso_pdi()),
+                    (6, _paso_disponibilidad()),
+                    (7, _paso_firmas()),
+                    (8, _paso_anexos()),
+                    _paso_area_requirente(),  # default
                 ),
-                rx.tabs.content(_tab_datos_generales(), value="general", padding_top="16px"),
-                rx.tabs.content(_tab_area_requirente(), value="area", padding_top="16px"),
-                rx.tabs.content(_tab_bien_servicio(), value="bien", padding_top="16px"),
-                rx.tabs.content(_tab_items(), value="items", padding_top="16px"),
-                rx.tabs.content(_tab_partidas(), value="partidas", padding_top="16px"),
-                rx.tabs.content(_tab_pdi(), value="pdi", padding_top="16px"),
-                rx.tabs.content(_tab_firmas(), value="firmas", padding_top="16px"),
-                rx.tabs.content(_tab_archivos(), value="archivos", padding_top="16px"),
-                default_value="general",
-                width="100%",
+                min_height="300px",
+                padding_top=Spacing.BASE,
             ),
 
             rx.box(height="20px"),
 
-            # Botones
+            # Footer con navegacion + guardar
             rx.hstack(
+                # Izquierda: Cancelar
                 rx.button(
                     "Cancelar",
                     variant="soft",
                     size="2",
                     on_click=on_close,
+                ),
+                rx.spacer(),
+                # Derecha: Anterior + Siguiente + Guardar
+                rx.cond(
+                    RequisicionesState.form_paso_actual > 1,
+                    rx.button(
+                        rx.icon("chevron-left", size=14),
+                        "Anterior",
+                        variant="outline",
+                        size="2",
+                        on_click=RequisicionesState.ir_paso_anterior,
+                    ),
+                ),
+                rx.cond(
+                    RequisicionesState.form_paso_actual < 8,
+                    rx.button(
+                        "Siguiente",
+                        rx.icon("chevron-right", size=14),
+                        variant="outline",
+                        size="2",
+                        color_scheme="blue",
+                        on_click=RequisicionesState.ir_paso_siguiente,
+                    ),
                 ),
                 rx.button(
                     rx.cond(
@@ -530,8 +652,9 @@ def requisicion_form_modal(
                     ),
                     size="2",
                 ),
-                spacing="4",
-                justify="end",
+                spacing="2",
+                width="100%",
+                align="center",
             ),
 
             max_width="850px",

@@ -214,6 +214,61 @@ class BaseState(rx.State):
         self.loading = False
 
     # ========================
+    # PATRÓN DE CARGA CON SKELETON
+    # ========================
+    _datos_cargados: bool = False
+
+    async def montar_pagina(self, *operaciones):
+        """
+        Patrón centralizado de carga con skeleton para on_mount.
+
+        Primera carga: muestra skeleton via yield, ejecuta operaciones, oculta skeleton.
+        Re-mount (datos ya cargados): refresca datos silenciosamente sin skeleton.
+
+        Uso en cada módulo:
+            async def on_mount(self):
+                async for _ in self.montar_pagina(
+                    self._fetch_datos,
+                    self._cargar_catalogos,
+                ):
+                    yield
+
+        Args:
+            *operaciones: Callables async a ejecutar (fetch principal, catálogos, etc.)
+        """
+        if not self._datos_cargados:
+            self.loading = True
+            yield
+
+        for op in operaciones:
+            await op()
+
+        self._datos_cargados = True
+        self.loading = False
+
+    async def recargar_datos(self, *operaciones):
+        """
+        Recarga datos con skeleton (para filtros, refresh manual, etc.).
+
+        Siempre muestra skeleton independientemente de si ya hay datos.
+
+        Uso:
+            async def aplicar_filtros(self):
+                async for _ in self.recargar_datos(self._fetch_datos):
+                    yield
+
+        Args:
+            *operaciones: Callables async a ejecutar.
+        """
+        self.loading = True
+        yield
+
+        for op in operaciones:
+            await op()
+
+        self.loading = False
+
+    # ========================
     # CONVERSIÓN DE IDS
     # ========================
     @staticmethod

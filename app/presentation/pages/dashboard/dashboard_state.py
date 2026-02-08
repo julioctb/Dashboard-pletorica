@@ -60,25 +60,23 @@ class DashboardState(BaseState):
     # CARGA DE DATOS
     # ========================
 
-    async def cargar_metricas(self):
-        """
-        Carga todas las métricas del dashboard.
-
-        Se invoca en on_mount y al presionar el botón de refrescar.
-        Delega al DashboardService para mantener el state delgado.
-        """
-        self.loading = True
+    async def _fetch_metricas(self):
+        """Carga las métricas desde el servicio (sin manejo de loading)."""
         try:
             resultado = await dashboard_service.obtener_metricas()
             self.metricas = resultado.model_dump()
             self.metricas_cargadas = True
         except Exception as e:
             logger.error(f"Error cargando métricas del dashboard: {e}")
-            return self.manejar_error_con_toast(e, "cargar métricas")
-        finally:
-            self.loading = False
+            self.manejar_error(e, "cargar métricas")
+
+    async def cargar_metricas(self):
+        """Carga inicial de métricas (on_mount)."""
+        async for _ in self.montar_pagina(self._fetch_metricas):
+            yield
 
     async def refrescar(self):
         """Refresca las métricas (botón manual)."""
-        await self.cargar_metricas()
+        async for _ in self.recargar_datos(self._fetch_metricas):
+            yield
         yield rx.toast.success("Métricas actualizadas", duration=2000)
