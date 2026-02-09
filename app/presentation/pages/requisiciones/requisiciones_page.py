@@ -26,6 +26,7 @@ from app.presentation.pages.requisiciones.requisiciones_modals import (
     modal_confirmar_eliminar_requisicion,
     modal_confirmar_estado,
     modal_adjudicar_requisicion,
+    modal_rechazar_requisicion,
 )
 
 
@@ -93,11 +94,15 @@ def requisiciones_page() -> rx.Component:
                 titulo="Requisiciones",
                 subtitulo="Gestione las requisiciones de compra",
                 icono="clipboard-list",
-                accion_principal=rx.button(
-                    rx.icon("plus", size=16),
-                    "Nueva Requisicion",
-                    on_click=RequisicionesState.abrir_modal_crear,
-                    color_scheme="blue",
+                accion_principal=rx.cond(
+                    RequisicionesState.puede_operar_requisiciones,
+                    rx.button(
+                        rx.icon("plus", size=16),
+                        "Nueva Requisicion",
+                        on_click=RequisicionesState.abrir_modal_crear,
+                        color_scheme="blue",
+                    ),
+                    rx.fragment(),
                 ),
             ),
             toolbar=page_toolbar(
@@ -124,11 +129,50 @@ def requisiciones_page() -> rx.Component:
                     on_close=RequisicionesState.cerrar_modal_editar,
                 ),
 
+                # Modal de detalle completo (wizard en modo lectura)
+                requisicion_form_modal(
+                    open_var=RequisicionesState.mostrar_modal_detalle_completo,
+                    on_close=RequisicionesState.cerrar_modal_detalle_completo,
+                    modo_detalle=True,
+                ),
+
+                # Modal de folio generado
+                rx.dialog.root(
+                    rx.dialog.content(
+                        rx.vstack(
+                            rx.icon("circle-check", size=48, color="var(--green-9)"),
+                            rx.heading("Folio Generado", size="5"),
+                            rx.text(
+                                "Se creo el numero de folio:",
+                                size="3",
+                                color="var(--gray-11)",
+                            ),
+                            rx.heading(
+                                RequisicionesState.folio_generado,
+                                size="6",
+                                color="var(--blue-9)",
+                            ),
+                            rx.button(
+                                "Aceptar",
+                                on_click=RequisicionesState.cerrar_modal_folio,
+                                width="100%",
+                            ),
+                            align="center",
+                            spacing="4",
+                            padding="4",
+                        ),
+                        max_width="400px",
+                    ),
+                    open=RequisicionesState.mostrar_modal_folio,
+                    on_open_change=rx.noop,
+                ),
+
                 # Modales de acciones
                 modal_detalle_requisicion(),
                 modal_confirmar_eliminar_requisicion(),
                 modal_confirmar_estado(),
                 modal_adjudicar_requisicion(),
+                modal_rechazar_requisicion(),
 
                 spacing="4",
                 width="100%",

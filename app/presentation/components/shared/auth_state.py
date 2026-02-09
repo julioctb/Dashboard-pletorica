@@ -194,6 +194,73 @@ class AuthState(BaseState):
         return self.usuario_actual.get('activo', False)
 
     # =========================================================================
+    # PERMISOS GRANULARES
+    # =========================================================================
+
+    @rx.var
+    def es_super_admin(self) -> bool:
+        """Puede gestionar usuarios y permisos."""
+        if not Config.requiere_autenticacion():
+            return True
+        if self._simulando_cliente:
+            return False
+        return self.usuario_actual.get("puede_gestionar_usuarios", False)
+
+    @rx.var
+    def permisos_usuario(self) -> dict:
+        """Dict de permisos del usuario actual."""
+        if not Config.requiere_autenticacion():
+            return {
+                "requisiciones": {"operar": True, "autorizar": True},
+                "entregables": {"operar": True, "autorizar": True},
+                "pagos": {"operar": True, "autorizar": True},
+                "contratos": {"operar": True, "autorizar": True},
+                "empresas": {"operar": True, "autorizar": True},
+                "empleados": {"operar": True, "autorizar": True},
+            }
+        if self._simulando_cliente:
+            return {}
+        return self.usuario_actual.get("permisos", {})
+
+    # --- Requisiciones ---
+    @rx.var
+    def puede_operar_requisiciones(self) -> bool:
+        return self.permisos_usuario.get("requisiciones", {}).get("operar", False)
+
+    @rx.var
+    def puede_autorizar_requisiciones(self) -> bool:
+        return self.permisos_usuario.get("requisiciones", {}).get("autorizar", False)
+
+    # --- Entregables ---
+    @rx.var
+    def puede_operar_entregables(self) -> bool:
+        return self.permisos_usuario.get("entregables", {}).get("operar", False)
+
+    @rx.var
+    def puede_autorizar_entregables(self) -> bool:
+        return self.permisos_usuario.get("entregables", {}).get("autorizar", False)
+
+    # --- Pagos ---
+    @rx.var
+    def puede_autorizar_pagos(self) -> bool:
+        return self.permisos_usuario.get("pagos", {}).get("autorizar", False)
+
+    # --- Contratos ---
+    @rx.var
+    def puede_operar_contratos(self) -> bool:
+        return self.permisos_usuario.get("contratos", {}).get("operar", False)
+
+    # --- Empresas ---
+    @rx.var
+    def puede_operar_empresas(self) -> bool:
+        return self.permisos_usuario.get("empresas", {}).get("operar", False)
+
+    # --- Empleados ---
+    @rx.var
+    def puede_operar_empleados(self) -> bool:
+        return self.permisos_usuario.get("empleados", {}).get("operar", False)
+
+    # =========================================================================
     # MÉTODOS DE AUTENTICACIÓN
     # =========================================================================
 

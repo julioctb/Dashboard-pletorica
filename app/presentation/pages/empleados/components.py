@@ -53,15 +53,17 @@ def restriccion_badge(is_restricted) -> rx.Component:
 
 def acciones_empleado(empleado: dict) -> rx.Component:
     """Acciones para cada empleado usando action_buttons_reactive con acciones extra."""
-    # Condiciones de visibilidad
+    # Condiciones de visibilidad (con permiso operar empleados)
     puede_editar = (
         ((empleado["estatus"] == "ACTIVO") | (empleado["estatus"] == "SUSPENDIDO"))
         & ~empleado["is_restricted"]
+        & EmpleadosState.puede_operar_empleados
     )
-    puede_suspender = (empleado["estatus"] == "ACTIVO") & ~empleado["is_restricted"]
+    puede_suspender = (empleado["estatus"] == "ACTIVO") & ~empleado["is_restricted"] & EmpleadosState.puede_operar_empleados
     puede_reactivar = (
         ((empleado["estatus"] == "SUSPENDIDO") | (empleado["estatus"] == "INACTIVO"))
         & ~empleado["is_restricted"]
+        & EmpleadosState.puede_operar_empleados
     )
     puede_restringir = EmpleadosState.es_admin & ~empleado["is_restricted"]
     puede_liberar = EmpleadosState.es_admin & empleado["is_restricted"]

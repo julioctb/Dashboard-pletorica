@@ -80,6 +80,23 @@ class UserProfile(BaseModel):
     activo: bool = Field(default=True)
     ultimo_acceso: Optional[datetime] = None
 
+    # Permisos granulares
+    puede_gestionar_usuarios: bool = Field(
+        default=False,
+        description="Super admin: puede crear/editar usuarios y asignar permisos"
+    )
+    permisos: dict = Field(
+        default_factory=lambda: {
+            "requisiciones": {"operar": False, "autorizar": False},
+            "entregables": {"operar": False, "autorizar": False},
+            "pagos": {"operar": False, "autorizar": False},
+            "contratos": {"operar": False, "autorizar": False},
+            "empresas": {"operar": False, "autorizar": False},
+            "empleados": {"operar": False, "autorizar": False},
+        },
+        description="Matriz de permisos: {modulo: {operar: bool, autorizar: bool}}"
+    )
+
     # Auditoría
     fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None
@@ -126,6 +143,14 @@ class UserProfile(BaseModel):
     def puede_iniciar_sesion(self) -> bool:
         """Verifica si el usuario puede iniciar sesión."""
         return self.activo
+
+    def puede_operar(self, modulo: str) -> bool:
+        """Verifica si el usuario puede operar (CRUD) en un módulo."""
+        return self.permisos.get(modulo, {}).get("operar", False)
+
+    def puede_autorizar(self, modulo: str) -> bool:
+        """Verifica si el usuario puede autorizar en un módulo."""
+        return self.permisos.get(modulo, {}).get("autorizar", False)
 
     def registrar_acceso(self) -> None:
         """Actualiza el timestamp de último acceso."""
@@ -197,6 +222,19 @@ class UserProfileCreate(BaseModel):
         min_length=TELEFONO_DIGITOS,
         max_length=TELEFONO_DIGITOS,
         pattern=r'^\d{10}$',
+    )
+
+    # Permisos granulares (solo para admins)
+    puede_gestionar_usuarios: bool = False
+    permisos: dict = Field(
+        default_factory=lambda: {
+            "requisiciones": {"operar": False, "autorizar": False},
+            "entregables": {"operar": False, "autorizar": False},
+            "pagos": {"operar": False, "autorizar": False},
+            "contratos": {"operar": False, "autorizar": False},
+            "empresas": {"operar": False, "autorizar": False},
+            "empleados": {"operar": False, "autorizar": False},
+        }
     )
 
     # =========================================================================
@@ -283,6 +321,10 @@ class UserProfileUpdate(BaseModel):
     rol: Optional[RolUsuario] = None
     activo: Optional[bool] = None
 
+    # Permisos granulares
+    puede_gestionar_usuarios: Optional[bool] = None
+    permisos: Optional[dict] = None
+
     # =========================================================================
     # VALIDADORES
     # =========================================================================
@@ -329,6 +371,10 @@ class UserProfileResumen(BaseModel):
     rol: str
     activo: bool
     ultimo_acceso: Optional[datetime] = None
+
+    # Permisos granulares
+    puede_gestionar_usuarios: bool = False
+    permisos: dict = Field(default_factory=dict)
 
     # Datos enriquecidos (se llenan desde el servicio)
     email: Optional[str] = None  # Viene de auth.users

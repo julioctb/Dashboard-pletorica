@@ -285,6 +285,12 @@ class Requisicion(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+    # Tracking de revisiones (rechazo/corrección)
+    numero_revision: int = Field(default=0, description="Veces rechazada y corregida")
+    ultimo_comentario_rechazo: Optional[str] = None
+    rechazado_por: Optional[str] = None
+    fecha_ultimo_rechazo: Optional[datetime] = None
+
     # Relaciones (se cargan con joins)
     items: List[RequisicionItem] = []
     archivos: list = []  # Se cargan desde archivo_sistema
@@ -524,6 +530,9 @@ class RequisicionResumen(BaseModel):
     aprobado_por: Optional[str] = None
     fecha_aprobacion: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    # Tracking de revisiones
+    numero_revision: int = 0
+    ultimo_comentario_rechazo: Optional[str] = None
 
     @classmethod
     def from_requisicion(
@@ -548,6 +557,8 @@ class RequisicionResumen(BaseModel):
             aprobado_por=requisicion.aprobado_por,
             fecha_aprobacion=requisicion.fecha_aprobacion,
             created_at=requisicion.created_at,
+            numero_revision=requisicion.numero_revision,
+            ultimo_comentario_rechazo=requisicion.ultimo_comentario_rechazo,
         )
 
 

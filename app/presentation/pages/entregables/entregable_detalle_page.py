@@ -6,6 +6,7 @@ Permite ver archivos, detalle de personal, y aprobar/rechazar.
 import reflex as rx
 
 from app.presentation.pages.entregables.entregable_detalle_state import EntregableDetalleState
+from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.layout import page_layout
 from app.presentation.components.ui import status_badge_reactive, form_input, form_textarea, form_date
 from app.presentation.theme import Colors, Spacing, Radius, Shadows
@@ -57,57 +58,69 @@ def _header_entregable() -> rx.Component:
             rx.spacer(),
             rx.match(
                 EntregableDetalleState.estatus_actual,
-                # EN_REVISION: Aprobar / Rechazar entregable
-                ("EN_REVISION", rx.hstack(
-                    rx.button(
-                        rx.icon("circle-x", size=16),
-                        "Rechazar",
-                        border=f"1px solid {Colors.ERROR}",
-                        color=Colors.ERROR,
-                        background="transparent",
-                        _hover={"background": Colors.ERROR_LIGHT},
-                        on_click=EntregableDetalleState.abrir_modal_rechazar,
+                # EN_REVISION: Aprobar / Rechazar entregable (solo con permiso autorizar)
+                ("EN_REVISION", rx.cond(
+                    AuthState.puede_autorizar_entregables,
+                    rx.hstack(
+                        rx.button(
+                            rx.icon("circle-x", size=16),
+                            "Rechazar",
+                            border=f"1px solid {Colors.ERROR}",
+                            color=Colors.ERROR,
+                            background="transparent",
+                            _hover={"background": Colors.ERROR_LIGHT},
+                            on_click=EntregableDetalleState.abrir_modal_rechazar,
+                        ),
+                        rx.button(
+                            rx.icon("circle-check", size=16),
+                            "Aprobar",
+                            background=Colors.PRIMARY,
+                            color=Colors.TEXT_INVERSE,
+                            _hover={"background": Colors.PRIMARY_HOVER},
+                            on_click=EntregableDetalleState.abrir_modal_aprobar,
+                        ),
+                        spacing="2",
                     ),
+                    rx.badge("En revisión", color_scheme="sky", size="2"),
+                )),
+                # PREFACTURA_ENVIADA: Aprobar / Rechazar prefactura (solo con permiso autorizar)
+                ("PREFACTURA_ENVIADA", rx.cond(
+                    AuthState.puede_autorizar_entregables,
+                    rx.hstack(
+                        rx.button(
+                            rx.icon("file-x", size=16),
+                            "Rechazar Prefactura",
+                            border=f"1px solid {Colors.ERROR}",
+                            color=Colors.ERROR,
+                            background="transparent",
+                            _hover={"background": Colors.ERROR_LIGHT},
+                            on_click=EntregableDetalleState.abrir_modal_rechazar_prefactura,
+                        ),
+                        rx.button(
+                            rx.icon("file-check", size=16),
+                            "Aprobar Prefactura",
+                            background=Colors.SUCCESS,
+                            color=Colors.TEXT_INVERSE,
+                            _hover={"opacity": "0.9"},
+                            on_click=EntregableDetalleState.aprobar_prefactura,
+                            loading=EntregableDetalleState.procesando,
+                        ),
+                        spacing="2",
+                    ),
+                    rx.badge("Prefactura pendiente de revisión", color_scheme="sky", size="2"),
+                )),
+                # FACTURADO: Registrar pago (solo con permiso autorizar pagos)
+                ("FACTURADO", rx.cond(
+                    AuthState.puede_autorizar_pagos,
                     rx.button(
-                        rx.icon("circle-check", size=16),
-                        "Aprobar",
+                        rx.icon("banknote", size=16),
+                        "Registrar Pago",
                         background=Colors.PRIMARY,
                         color=Colors.TEXT_INVERSE,
                         _hover={"background": Colors.PRIMARY_HOVER},
-                        on_click=EntregableDetalleState.abrir_modal_aprobar,
+                        on_click=EntregableDetalleState.abrir_modal_registrar_pago,
                     ),
-                    spacing="2",
-                )),
-                # PREFACTURA_ENVIADA: Aprobar / Rechazar prefactura
-                ("PREFACTURA_ENVIADA", rx.hstack(
-                    rx.button(
-                        rx.icon("file-x", size=16),
-                        "Rechazar Prefactura",
-                        border=f"1px solid {Colors.ERROR}",
-                        color=Colors.ERROR,
-                        background="transparent",
-                        _hover={"background": Colors.ERROR_LIGHT},
-                        on_click=EntregableDetalleState.abrir_modal_rechazar_prefactura,
-                    ),
-                    rx.button(
-                        rx.icon("file-check", size=16),
-                        "Aprobar Prefactura",
-                        background=Colors.SUCCESS,
-                        color=Colors.TEXT_INVERSE,
-                        _hover={"opacity": "0.9"},
-                        on_click=EntregableDetalleState.aprobar_prefactura,
-                        loading=EntregableDetalleState.procesando,
-                    ),
-                    spacing="2",
-                )),
-                # FACTURADO: Registrar pago
-                ("FACTURADO", rx.button(
-                    rx.icon("banknote", size=16),
-                    "Registrar Pago",
-                    background=Colors.PRIMARY,
-                    color=Colors.TEXT_INVERSE,
-                    _hover={"background": Colors.PRIMARY_HOVER},
-                    on_click=EntregableDetalleState.abrir_modal_registrar_pago,
+                    rx.badge("Pendiente de pago", color_scheme="amber", size="2"),
                 )),
                 # APROBADO: Esperando prefactura del cliente
                 ("APROBADO", rx.badge(

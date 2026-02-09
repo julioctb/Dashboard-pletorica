@@ -30,11 +30,11 @@ from app.presentation.components.empresas.empresa_modals import (
 
 def acciones_empresa(empresa: dict) -> rx.Component:
     """Acciones para cada empresa usando componente genérico."""
-    # Botones adicionales condicionales
+    # Botones adicionales condicionales (solo con permiso operar)
     acciones_extra = [
-        # Reactivar (si inactivo)
+        # Reactivar (si inactivo + permiso operar)
         rx.cond(
-            empresa["estatus"] == "INACTIVO",
+            (empresa["estatus"] == "INACTIVO") & EmpresasState.puede_operar_empresas,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("rotate-ccw", size=14),
@@ -48,9 +48,9 @@ def acciones_empresa(empresa: dict) -> rx.Component:
             ),
             rx.fragment(),
         ),
-        # Desactivar (si activo)
+        # Desactivar (si activo + permiso operar)
         rx.cond(
-            empresa["estatus"] == "ACTIVO",
+            (empresa["estatus"] == "ACTIVO") & EmpresasState.puede_operar_empresas,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("power-off", size=14),
@@ -70,7 +70,7 @@ def acciones_empresa(empresa: dict) -> rx.Component:
         item=empresa,
         ver_action=EmpresasState.abrir_modal_detalle(empresa["id"]),
         editar_action=EmpresasState.abrir_modal_editar(empresa["id"]),
-        puede_editar=empresa["estatus"] == "ACTIVO",
+        puede_editar=(empresa["estatus"] == "ACTIVO") & EmpresasState.puede_operar_empresas,
         acciones_extra=acciones_extra,
     )
 
@@ -332,11 +332,15 @@ def empresas_page() -> rx.Component:
                 titulo="Empresas",
                 subtitulo="Administre las empresas del sistema",
                 icono="building-2",
-                accion_principal=rx.button(
-                    rx.icon("plus", size=16),
-                    "Nueva Empresa",
-                    on_click=EmpresasState.abrir_modal_crear,
-                    color_scheme="blue",
+                accion_principal=rx.cond(
+                    EmpresasState.puede_operar_empresas,
+                    rx.button(
+                        rx.icon("plus", size=16),
+                        "Nueva Empresa",
+                        on_click=EmpresasState.abrir_modal_crear,
+                        color_scheme="blue",
+                    ),
+                    rx.fragment(),
                 ),
             ),
             toolbar=page_toolbar(

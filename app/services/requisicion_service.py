@@ -286,7 +286,7 @@ class RequisicionService:
     async def enviar(self, requisicion_id: int) -> Requisicion:
         """
         Envía una requisición (BORRADOR → ENVIADA).
-        Genera número oficial al enviar. Valida items.
+        Valida items.
 
         Raises:
             BusinessRuleError: Si la transición no es válida o faltan datos
@@ -299,13 +299,6 @@ class RequisicionService:
         # Validar que tiene items
         if not requisicion.items:
             raise BusinessRuleError(MSG_REQUISICION_SIN_ITEMS)
-
-        # Generar número oficial al enviar (si aún no tiene)
-        if not requisicion.numero_requisicion:
-            numero = await self.generar_numero_requisicion()
-            requisicion.numero_requisicion = numero
-            requisicion.estado = EstadoRequisicion.ENVIADA
-            return await self.repository.actualizar(requisicion)
 
         return await self.repository.cambiar_estado(
             requisicion_id, EstadoRequisicion.ENVIADA
@@ -333,7 +326,12 @@ class RequisicionService:
 
         Raises:
             BusinessRuleError: Si el aprobador es el mismo que el creador
+            BusinessRuleError: Si no tiene permiso de autorizar requisiciones
         """
+        # Validar permiso de autorización
+        if aprobado_por:
+            await self._validar_permiso(aprobado_por, 'requisiciones', 'autorizar')
+
         requisicion = await self.repository.obtener_por_id(requisicion_id)
         self._validar_transicion(
             EstadoRequisicion(requisicion.estado), EstadoRequisicion.APROBADA
@@ -345,11 +343,56 @@ class RequisicionService:
                 "El usuario que aprueba no puede ser el mismo que creó la requisición"
             )
 
+        # Generar número oficial al aprobar (si aún no tiene)
+        if not requisicion.numero_requisicion:
+            numero = await self.generar_numero_requisicion()
+            requisicion.numero_requisicion = numero
+
         # Actualizar campos de aprobación
         requisicion.estado = EstadoRequisicion.APROBADA
         if aprobado_por:
             requisicion.aprobado_por = aprobado_por
         requisicion.fecha_aprobacion = datetime.now()
+
+        return await self.repository.actualizar(requisicion)
+
+    async def rechazar(
+        self,
+        requisicion_id: int,
+        comentario: str,
+        rechazado_por: str,
+    ) -> Requisicion:
+        """
+        Rechaza una requisición con comentario obligatorio.
+        EN_REVISION → BORRADOR, incrementa numero_revision.
+
+        Args:
+            requisicion_id: ID de la requisición
+            comentario: Comentario obligatorio del rechazo (min 10 chars)
+            rechazado_por: UUID del usuario que rechaza
+
+        Raises:
+            BusinessRuleError: Si no tiene permiso, estado inválido o comentario muy corto
+        """
+        # Validar permiso de autorización
+        await self._validar_permiso(rechazado_por, 'requisiciones', 'autorizar')
+
+        if not comentario or len(comentario.strip()) < 10:
+            raise BusinessRuleError(
+                "El comentario de rechazo debe tener al menos 10 caracteres"
+            )
+
+        requisicion = await self.repository.obtener_por_id(requisicion_id)
+        self._validar_transicion(
+            EstadoRequisicion(requisicion.estado), EstadoRequisicion.BORRADOR
+        )
+
+        # Actualizar campos de rechazo
+        requisicion.estado = EstadoRequisicion.BORRADOR
+        requisicion.numero_revision = requisicion.numero_revision + 1
+        requisicion.ultimo_comentario_rechazo = comentario.strip()
+        requisicion.rechazado_por = rechazado_por
+        requisicion.fecha_ultimo_rechazo = datetime.now()
 
         return await self.repository.actualizar(requisicion)
 
@@ -427,6 +470,23 @@ class RequisicionService:
         return await self.repository.cambiar_estado(
             requisicion_id, EstadoRequisicion.CANCELADA
         )
+
+    # ==========================================
+    # VALIDACIÓN DE PERMISOS
+    # ==========================================
+
+    async def _validar_permiso(
+        self, user_id: str, modulo: str, accion: str
+    ) -> None:
+        """
+        Valida que el usuario tiene permiso para la acción en el módulo.
+
+        Raises:
+            BusinessRuleError: Si no tiene permiso
+        """
+        from app.services.user_service import user_service
+        from uuid import UUID
+        await user_service.validar_permiso(UUID(user_id), modulo, accion)
 
     # ==========================================
     # CONFIGURACIÓN

@@ -25,11 +25,15 @@ def empleados_page() -> rx.Component:
                 titulo="Empleados",
                 subtitulo="Administre los empleados del sistema",
                 icono="users",
-                accion_principal=rx.button(
-                    rx.icon("plus", size=16),
-                    "Nuevo Empleado",
-                    on_click=EmpleadosState.abrir_modal_crear,
-                    color_scheme="blue",
+                accion_principal=rx.cond(
+                    EmpleadosState.puede_operar_empleados,
+                    rx.button(
+                        rx.icon("plus", size=16),
+                        "Nuevo Empleado",
+                        on_click=EmpleadosState.abrir_modal_crear,
+                        color_scheme="blue",
+                    ),
+                    rx.fragment(),
                 ),
             ),
             toolbar=page_toolbar(

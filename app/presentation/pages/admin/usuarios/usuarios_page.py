@@ -279,7 +279,25 @@ def _tabla_usuarios() -> rx.Component:
 # =============================================================================
 
 def usuarios_admin_page() -> rx.Component:
-    """Pagina de gestion de usuarios para administradores."""
+    """Pagina de gestion de usuarios para super admins."""
+    return rx.cond(
+        UsuariosAdminState.es_super_admin,
+        _contenido_usuarios(),
+        rx.center(
+            rx.vstack(
+                rx.icon("shield-x", size=48, color="var(--red-9)"),
+                rx.text("Acceso denegado", size="4", weight="bold"),
+                rx.text("No tiene permiso para gestionar usuarios.", size="2", color="gray"),
+                spacing="3",
+                align="center",
+            ),
+            min_height="60vh",
+        ),
+    )
+
+
+def _contenido_usuarios() -> rx.Component:
+    """Contenido de la pagina de usuarios (solo para super admins)."""
     return rx.box(
         page_layout(
             header=page_header(

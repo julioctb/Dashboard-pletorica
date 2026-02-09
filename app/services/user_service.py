@@ -149,6 +149,20 @@ class UserService:
             # Obtener el profile creado por el trigger
             profile = await self.obtener_por_id(user_id)
 
+            # Actualizar permisos granulares si se proporcionaron
+            if datos.permisos or datos.puede_gestionar_usuarios:
+                permisos_update = {}
+                if datos.permisos:
+                    permisos_update['permisos'] = datos.permisos
+                if datos.puede_gestionar_usuarios:
+                    permisos_update['puede_gestionar_usuarios'] = datos.puede_gestionar_usuarios
+                if permisos_update:
+                    self.supabase_admin.table(self.tabla_profiles)\
+                        .update(permisos_update)\
+                        .eq('id', str(user_id))\
+                        .execute()
+                    profile = await self.obtener_por_id(user_id)
+
             # Asignar empresas si se proporcionaron
             if empresas_ids:
                 for empresa_id in empresas_ids:
@@ -570,6 +584,8 @@ class UserService:
                     rol=profile.rol if isinstance(profile.rol, str) else profile.rol.value,
                     activo=profile.activo,
                     ultimo_acceso=profile.ultimo_acceso,
+                    puede_gestionar_usuarios=profile.puede_gestionar_usuarios,
+                    permisos=profile.permisos,
                     cantidad_empresas=len(empresas),
                     empresa_principal=empresa_principal,
                 )
@@ -831,6 +847,43 @@ class UserService:
                 )
         except NotFoundError:
             raise NotFoundError(f"Empresa con ID {empresa_id} no encontrada")
+
+    # =========================================================================
+    # VALIDACIÓN DE PERMISOS
+    # =========================================================================
+
+    async def validar_super_admin(self, user_id: UUID) -> None:
+        """
+        Valida que el usuario tiene permiso de gestionar usuarios (super admin).
+
+        Raises:
+            BusinessRuleError: Si no tiene el permiso
+        """
+        profile = await self.obtener_por_id(user_id)
+        if not profile.puede_gestionar_usuarios:
+            raise BusinessRuleError(
+                "No tiene permiso para gestionar usuarios"
+            )
+
+    async def validar_permiso(
+        self, user_id: UUID, modulo: str, accion: str
+    ) -> None:
+        """
+        Valida que el usuario tiene un permiso específico.
+
+        Args:
+            user_id: UUID del usuario
+            modulo: Nombre del módulo (requisiciones, entregables, etc.)
+            accion: 'operar' o 'autorizar'
+
+        Raises:
+            BusinessRuleError: Si no tiene el permiso
+        """
+        profile = await self.obtener_por_id(user_id)
+        if not profile.permisos.get(modulo, {}).get(accion, False):
+            raise BusinessRuleError(
+                f"No tiene permiso para {accion} en {modulo}"
+            )
 
     # =========================================================================
     # UTILIDADES

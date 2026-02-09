@@ -173,6 +173,11 @@ class Entregable(BaseModel):
         None, description="FK al pago creado al aprobar"
     )
 
+    # Tracking de revisiones
+    numero_revision: int = Field(
+        default=0, description="Veces rechazado y re-entregado"
+    )
+
     # Flujo de facturacion (post-aprobacion)
     observaciones_prefactura: Optional[str] = Field(
         None, max_length=OBSERVACIONES_MAX, description="Observaciones de BUAP al rechazar prefactura"

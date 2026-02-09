@@ -130,6 +130,13 @@ class RequisicionesState(AuthState):
     mostrar_modal_adjudicar: bool = False
     mostrar_modal_confirmar_eliminar: bool = False
     mostrar_modal_confirmar_estado: bool = False
+    mostrar_modal_rechazar: bool = False
+    mostrar_modal_detalle_completo: bool = False
+    estado_req_detalle: str = ""
+    comentario_rechazo_anterior: str = ""
+    mostrar_modal_folio: bool = False
+    folio_generado: str = ""
+    form_comentario_rechazo: str = ""
     es_edicion: bool = False
     es_auto_borrador: bool = False
     accion_estado_pendiente: str = ""
@@ -360,9 +367,16 @@ class RequisicionesState(AuthState):
     def set_mostrar_modal_detalle(self, v: bool):
         self.mostrar_modal_detalle = v
 
+    def set_form_comentario_rechazo(self, v: str):
+        self.form_comentario_rechazo = v
+
     def set_form_paso_actual(self, paso: int):
-        """Navega a un paso especifico. Valida pasos anteriores."""
+        """Navega a un paso especifico. Valida pasos anteriores (excepto en modo detalle)."""
         if not (1 <= paso <= 8):
+            return
+        # En modo detalle, permitir navegacion libre sin validar
+        if self.mostrar_modal_detalle_completo:
+            self.form_paso_actual = paso
             return
         # Si va hacia adelante, validar todos los pasos intermedios
         if paso > self.form_paso_actual:
@@ -377,10 +391,12 @@ class RequisicionesState(AuthState):
     def ir_paso_siguiente(self):
         if self.form_paso_actual >= 8:
             return
-        error = self._validar_paso(self.form_paso_actual)
-        if error:
-            self.mostrar_mensaje(error, "error")
-            return
+        # En modo detalle, no validar
+        if not self.mostrar_modal_detalle_completo:
+            error = self._validar_paso(self.form_paso_actual)
+            if error:
+                self.mostrar_mensaje(error, "error")
+                return
         self.form_paso_actual += 1
 
     def ir_paso_anterior(self):
@@ -878,6 +894,140 @@ class RequisicionesState(AuthState):
         self.requisicion_seleccionada = None
         self.accion_estado_pendiente = ""
 
+    def abrir_modal_rechazar(self, requisicion: dict):
+        """Abre modal de rechazo con comentario obligatorio."""
+        self.requisicion_seleccionada = requisicion
+        self.form_comentario_rechazo = ""
+        self.mostrar_modal_rechazar = True
+
+    def cerrar_modal_rechazar(self):
+        """Cierra modal de rechazo."""
+        self.mostrar_modal_rechazar = False
+        self.requisicion_seleccionada = None
+        self.form_comentario_rechazo = ""
+
+    # ========================
+    # MODAL DETALLE COMPLETO
+    # ========================
+    async def abrir_detalle_completo(self, requisicion: dict):
+        """Abre wizard en modo lectura con todos los datos.
+        Si la requisicion esta ENVIADA y el usuario puede autorizar,
+        cambia automaticamente a EN_REVISION al abrir.
+        """
+        self._limpiar_formulario()
+        self.es_edicion = True
+        self.id_requisicion_edicion = requisicion.get("id", 0)
+
+        try:
+            req = await requisicion_service.obtener_por_id(self.id_requisicion_edicion)
+
+            # Normalizar estado a string
+            req_dict = req.model_dump(mode='json')
+            estado_actual = req_dict.get("estado", "")
+
+            # Si esta ENVIADA y el usuario puede autorizar, iniciar revision automaticamente
+            if estado_actual == "ENVIADA" and self.puede_autorizar_requisiciones:
+                req = await requisicion_service.iniciar_revision(self.id_requisicion_edicion)
+                req_dict = req.model_dump(mode='json')
+                await self._fetch_requisiciones()
+
+            # Llenar campos del formulario
+            for campo in FORM_DEFAULTS:
+                if campo in req_dict and req_dict[campo] is not None:
+                    setattr(self, f"form_{campo}", str(req_dict[campo]) if not isinstance(req_dict[campo], bool) else req_dict[campo])
+
+            # Cargar items
+            self.form_items = [
+                {
+                    "numero_item": item.get("numero_item", i + 1),
+                    "partida_presupuestal": item.get("partida_presupuestal", "") or "",
+                    "unidad_medida": item.get("unidad_medida", ""),
+                    "cantidad": str(item.get("cantidad", "")),
+                    "descripcion": item.get("descripcion", ""),
+                }
+                for i, item in enumerate(req_dict.get("items", []))
+            ] or [dict(ITEM_DEFAULT)]
+
+            # Cargar archivos asociados
+            await self.cargar_archivos_entidad()
+
+            # Guardar estado y comentario de rechazo anterior (si existe)
+            self.estado_req_detalle = req_dict.get("estado", "")
+            self.comentario_rechazo_anterior = req_dict.get("ultimo_comentario_rechazo", "") or ""
+            self.mostrar_modal_detalle_completo = True
+        except Exception as e:
+            self.manejar_error(e, "al cargar requisicion para detalle")
+
+    def cerrar_modal_detalle_completo(self):
+        """Cierra modal de detalle completo."""
+        self.mostrar_modal_detalle_completo = False
+        self._limpiar_formulario()
+        self.estado_req_detalle = ""
+        self.comentario_rechazo_anterior = ""
+
+    async def accion_desde_detalle(self, accion: str):
+        """Ejecuta accion de flujo y cierra modal detalle."""
+        self.saving = True
+        try:
+            req_id = self.id_requisicion_edicion
+            user_id = self.id_usuario or None
+
+            if accion == "enviar":
+                await requisicion_service.enviar(req_id)
+            elif accion == "aprobar":
+                resultado = await requisicion_service.aprobar(req_id, aprobado_por=user_id)
+                self.folio_generado = resultado.numero_requisicion or ""
+                self.cerrar_modal_detalle_completo()
+                self.mostrar_modal_folio = True
+                await self._fetch_requisiciones()
+                return
+            elif accion == "cancelar":
+                await requisicion_service.cancelar(req_id)
+
+            self.cerrar_modal_detalle_completo()
+            await self._fetch_requisiciones()
+            self.mostrar_mensaje("Estado actualizado correctamente", "success")
+        except (BusinessRuleError, NotFoundError, DatabaseError) as e:
+            self.manejar_error(e, "al cambiar estado")
+        except Exception as e:
+            self.manejar_error(e, "al cambiar estado")
+        finally:
+            self.saving = False
+
+    def abrir_modal_rechazar_desde_detalle(self):
+        """Abre modal de rechazo desde detalle completo."""
+        self.form_comentario_rechazo = ""
+        self.mostrar_modal_rechazar = True
+
+    async def rechazar_desde_detalle(self):
+        """Rechaza la requisicion desde el detalle completo."""
+        if len(self.form_comentario_rechazo.strip()) < 10:
+            self.mostrar_mensaje("El comentario debe tener al menos 10 caracteres", "error")
+            return
+
+        self.saving = True
+        try:
+            await requisicion_service.rechazar(
+                requisicion_id=self.id_requisicion_edicion,
+                comentario=self.form_comentario_rechazo.strip(),
+                rechazado_por=self.id_usuario or None,
+            )
+            self.cerrar_modal_rechazar()
+            self.cerrar_modal_detalle_completo()
+            self.mostrar_mensaje("Requisicion rechazada y devuelta a borrador", "success")
+            await self._fetch_requisiciones()
+        except (BusinessRuleError, NotFoundError, DatabaseError) as e:
+            self.manejar_error(e, "al rechazar requisicion")
+        except Exception as e:
+            self.manejar_error(e, "al rechazar requisicion")
+        finally:
+            self.saving = False
+
+    def cerrar_modal_folio(self):
+        """Cierra modal de folio generado."""
+        self.mostrar_modal_folio = False
+        self.folio_generado = ""
+
     # ========================
     # OPERACIONES CRUD
     # ========================
@@ -1025,6 +1175,32 @@ class RequisicionesState(AuthState):
             self.manejar_error(e, "al cambiar estado")
         except Exception as e:
             self.manejar_error(e, "al cambiar estado")
+        finally:
+            self.saving = False
+
+    async def rechazar_requisicion(self):
+        """Rechaza la requisición seleccionada con comentario obligatorio."""
+        if not self.requisicion_seleccionada:
+            return
+        if len(self.form_comentario_rechazo.strip()) < 10:
+            self.mostrar_mensaje("El comentario debe tener al menos 10 caracteres", "error")
+            return
+
+        self.saving = True
+        try:
+            req_id = self.requisicion_seleccionada.get("id")
+            await requisicion_service.rechazar(
+                requisicion_id=req_id,
+                comentario=self.form_comentario_rechazo.strip(),
+                rechazado_por=self.id_usuario or None,
+            )
+            self.cerrar_modal_rechazar()
+            self.mostrar_mensaje("Requisición rechazada y devuelta a borrador", "success")
+            await self._fetch_requisiciones()
+        except (BusinessRuleError, NotFoundError, DatabaseError) as e:
+            self.manejar_error(e, "al rechazar requisición")
+        except Exception as e:
+            self.manejar_error(e, "al rechazar requisición")
         finally:
             self.saving = False
 

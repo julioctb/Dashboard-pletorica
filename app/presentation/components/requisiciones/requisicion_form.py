@@ -295,9 +295,9 @@ def _paso_bien_servicio() -> rx.Component:
     )
 
 
-def _paso_items() -> rx.Component:
+def _paso_items(modo_detalle: bool = False) -> rx.Component:
     """Paso 3: Items de la requisicion."""
-    return requisicion_items_form()
+    return requisicion_items_form(modo_detalle=modo_detalle)
 
 
 def _paso_condiciones() -> rx.Component:
@@ -516,6 +516,93 @@ def _paso_anexos() -> rx.Component:
 
 
 # =============================================================================
+# FOOTER MODO DETALLE (NAVEGACION + ACCIONES EN ULTIMO PASO)
+# =============================================================================
+
+def _footer_detalle(on_close) -> rx.Component:
+    """Footer con navegacion Anterior/Siguiente y botones de accion en el ultimo paso."""
+    es_ultimo_paso = RequisicionesState.form_paso_actual == 8
+    es_en_revision = RequisicionesState.estado_req_detalle == "EN_REVISION"
+    es_borrador = RequisicionesState.estado_req_detalle == "BORRADOR"
+
+    return rx.hstack(
+        # Izquierda: Cerrar
+        rx.button(
+            "Cerrar",
+            variant="soft",
+            size="2",
+            on_click=on_close,
+        ),
+        rx.spacer(),
+        # Navegacion: Anterior (si no estamos en paso 1)
+        rx.cond(
+            RequisicionesState.form_paso_actual > 1,
+            rx.button(
+                rx.icon("chevron-left", size=14),
+                "Anterior",
+                variant="outline",
+                size="2",
+                on_click=RequisicionesState.ir_paso_anterior,
+            ),
+            rx.fragment(),
+        ),
+        # Si NO estamos en el ultimo paso: boton Siguiente
+        rx.cond(
+            RequisicionesState.form_paso_actual < 8,
+            rx.button(
+                "Siguiente",
+                rx.icon("chevron-right", size=14),
+                variant="outline",
+                size="2",
+                color_scheme="blue",
+                on_click=RequisicionesState.ir_paso_siguiente,
+            ),
+            rx.fragment(),
+        ),
+        # Boton Enviar (solo paso 8, BORRADOR, permiso operar)
+        rx.cond(
+            es_ultimo_paso & es_borrador & RequisicionesState.puede_operar_requisiciones,
+            rx.button(
+                "Enviar",
+                color_scheme="blue",
+                size="2",
+                on_click=lambda: RequisicionesState.accion_desde_detalle("enviar"),
+                disabled=RequisicionesState.saving,
+            ),
+            rx.fragment(),
+        ),
+        # Boton Rechazar (solo paso 8, EN_REVISION, permiso autorizar)
+        rx.cond(
+            es_ultimo_paso & es_en_revision & RequisicionesState.puede_autorizar_requisiciones,
+            rx.button(
+                "Rechazar",
+                color_scheme="red",
+                variant="outline",
+                size="2",
+                on_click=RequisicionesState.abrir_modal_rechazar_desde_detalle,
+                disabled=RequisicionesState.saving,
+            ),
+            rx.fragment(),
+        ),
+        # Boton Aprobar (solo paso 8, EN_REVISION, permiso autorizar)
+        rx.cond(
+            es_ultimo_paso & es_en_revision & RequisicionesState.puede_autorizar_requisiciones,
+            rx.button(
+                "Aprobar",
+                color_scheme="green",
+                size="2",
+                on_click=lambda: RequisicionesState.accion_desde_detalle("aprobar"),
+                disabled=RequisicionesState.saving,
+            ),
+            rx.fragment(),
+        ),
+        spacing="2",
+        width="100%",
+        align="center",
+    )
+
+
+# =============================================================================
 # MODAL PRINCIPAL
 # =============================================================================
 
@@ -524,25 +611,46 @@ def requisicion_form_modal(
     on_close: callable,
     titulo_crear: str = "Nueva Requisicion",
     titulo_editar: str = "Editar Requisicion",
+    modo_detalle: bool = False,
 ) -> rx.Component:
     """Modal con formulario de requisicion organizado en wizard de pasos."""
     return rx.dialog.root(
         rx.dialog.content(
             # Header
             rx.dialog.title(
-                rx.cond(
+                "Detalle Requisicion" if modo_detalle else rx.cond(
                     RequisicionesState.es_edicion & ~RequisicionesState.es_auto_borrador,
                     titulo_editar,
                     titulo_crear,
                 )
             ),
             rx.dialog.description(
-                rx.cond(
+                "Revise la informacion de la requisicion" if modo_detalle else rx.cond(
                     RequisicionesState.es_edicion & ~RequisicionesState.es_auto_borrador,
                     "Modifique la informacion de la requisicion",
                     "Complete la informacion de la nueva requisicion",
                 ),
                 margin_bottom="16px",
+            ),
+
+            # Comentario de rechazo anterior (solo en modo detalle si existe)
+            *(
+                [rx.cond(
+                    RequisicionesState.comentario_rechazo_anterior != "",
+                    rx.callout(
+                        rx.vstack(
+                            rx.text("Comentario del ultimo rechazo:", weight="bold", size="2"),
+                            rx.text(RequisicionesState.comentario_rechazo_anterior, size="2"),
+                            spacing="1",
+                        ),
+                        icon="message-circle-warning",
+                        color_scheme="orange",
+                        size="2",
+                        width="100%",
+                        margin_bottom="4",
+                    ),
+                )]
+                if modo_detalle else []
             ),
 
             # Mensaje de error/info
@@ -575,7 +683,7 @@ def requisicion_form_modal(
                     RequisicionesState.form_paso_actual,
                     (1, _paso_area_requirente()),
                     (2, _paso_bien_servicio()),
-                    (3, _paso_items()),
+                    (3, _paso_items(modo_detalle=modo_detalle)),
                     (4, _paso_condiciones()),
                     (5, _paso_pdi()),
                     (6, _paso_disponibilidad()),
@@ -585,12 +693,13 @@ def requisicion_form_modal(
                 ),
                 min_height="300px",
                 padding_top=Spacing.BASE,
+                **({"pointer_events": "none", "opacity": "0.9"} if modo_detalle else {}),
             ),
 
             rx.box(height="20px"),
 
-            # Footer con navegacion + guardar
-            rx.hstack(
+            # Footer: modo detalle vs modo formulario
+            _footer_detalle(on_close) if modo_detalle else rx.hstack(
                 # Izquierda: Cancelar
                 rx.button(
                     "Cancelar",

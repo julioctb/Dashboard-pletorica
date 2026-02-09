@@ -1,6 +1,6 @@
-"""Modales para el modulo de Requisiciones (detalle, confirmar, adjudicar)."""
+"""Modales para el modulo de Requisiciones (detalle, confirmar, adjudicar, rechazar)."""
 import reflex as rx
-from app.presentation.components.ui.form_input import form_select, form_date
+from app.presentation.components.ui.form_input import form_select, form_date, form_textarea
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 from app.presentation.components.requisiciones.requisicion_estado_badge import estado_requisicion_badge
 
@@ -357,5 +357,71 @@ def modal_adjudicar_requisicion() -> rx.Component:
         ),
         open=RequisicionesState.mostrar_modal_adjudicar,
         # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
+    )
+
+
+# =============================================================================
+# MODAL RECHAZAR REQUISICION
+# =============================================================================
+
+def modal_rechazar_requisicion() -> rx.Component:
+    """Modal para rechazar requisicion con comentario obligatorio."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Rechazar Requisicion"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.cond(
+                        RequisicionesState.requisicion_seleccionada,
+                        rx.text(
+                            "Requisicion: ",
+                            rx.text(
+                                RequisicionesState.requisicion_seleccionada["numero_requisicion"],
+                                weight="bold",
+                            ),
+                        ),
+                    ),
+                    rx.callout(
+                        "La requisicion sera devuelta a BORRADOR para que el solicitante la corrija.",
+                        icon="info",
+                        color_scheme="blue",
+                    ),
+                    form_textarea(
+                        label="Motivo del rechazo",
+                        required=True,
+                        placeholder="Indique el motivo del rechazo y que debe corregirse (min. 10 caracteres)...",
+                        value=RequisicionesState.form_comentario_rechazo,
+                        on_change=RequisicionesState.set_form_comentario_rechazo,
+                        min_height="120px",
+                    ),
+                    spacing="3",
+                    width="100%",
+                ),
+            ),
+            rx.hstack(
+                rx.button(
+                    "Cancelar",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=RequisicionesState.cerrar_modal_rechazar,
+                ),
+                rx.button(
+                    rx.cond(
+                        RequisicionesState.saving,
+                        rx.hstack(rx.spinner(size="1"), "Rechazando...", spacing="2"),
+                        "Rechazar",
+                    ),
+                    color_scheme="red",
+                    on_click=RequisicionesState.rechazar_requisicion,
+                    disabled=RequisicionesState.saving,
+                ),
+                spacing="3",
+                justify="end",
+                margin_top="4",
+            ),
+            max_width="500px",
+        ),
+        open=RequisicionesState.mostrar_modal_rechazar,
         on_open_change=rx.noop,
     )

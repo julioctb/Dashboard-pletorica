@@ -32,6 +32,19 @@ FORM_DEFAULTS_EDITAR = {
     "edit_rol": "",
 }
 
+# Permisos default (todo desactivado)
+PERMISOS_DEFAULT = {
+    "requisiciones": {"operar": False, "autorizar": False},
+    "entregables": {"operar": False, "autorizar": False},
+    "pagos": {"operar": False, "autorizar": False},
+    "contratos": {"operar": False, "autorizar": False},
+    "empresas": {"operar": False, "autorizar": False},
+    "empleados": {"operar": False, "autorizar": False},
+}
+
+# Módulos que tienen flujo de autorización
+MODULOS_CON_AUTORIZACION = {"requisiciones", "entregables", "pagos"}
+
 
 class UsuariosAdminState(AuthState):
     """Estado para el modulo de gestion de usuarios."""
@@ -85,6 +98,19 @@ class UsuariosAdminState(AuthState):
     # Errores editar
     error_edit_nombre_completo: str = ""
     error_edit_telefono: str = ""
+
+    # ========================
+    # FORMULARIO PERMISOS (crear y editar)
+    # ========================
+    form_permisos: dict = {
+        "requisiciones": {"operar": False, "autorizar": False},
+        "entregables": {"operar": False, "autorizar": False},
+        "pagos": {"operar": False, "autorizar": False},
+        "contratos": {"operar": False, "autorizar": False},
+        "empresas": {"operar": False, "autorizar": False},
+        "empleados": {"operar": False, "autorizar": False},
+    }
+    form_puede_gestionar_usuarios: bool = False
 
     # ========================
     # FORMULARIO ASIGNAR EMPRESA
@@ -155,6 +181,18 @@ class UsuariosAdminState(AuthState):
 
     def set_mostrar_modal_confirmar_desactivar(self, value: bool):
         self.mostrar_modal_confirmar_desactivar = value
+
+    # --- Permisos ---
+    def set_form_puede_gestionar_usuarios(self, value: bool):
+        self.form_puede_gestionar_usuarios = value
+
+    def toggle_permiso(self, modulo: str, accion: str):
+        """Toggle un permiso específico en la matriz."""
+        permisos = dict(self.form_permisos)
+        modulo_permisos = dict(permisos.get(modulo, {"operar": False, "autorizar": False}))
+        modulo_permisos[accion] = not modulo_permisos.get(accion, False)
+        permisos[modulo] = modulo_permisos
+        self.form_permisos = permisos
 
     # --- Asignar empresa ---
     def set_form_empresa_id(self, value):
@@ -232,6 +270,16 @@ class UsuariosAdminState(AuthState):
         return tiene_datos and sin_errores and not self.saving
 
     @rx.var
+    def mostrar_permisos(self) -> bool:
+        """Solo mostrar matriz de permisos cuando el rol es admin."""
+        return self.form_rol == "admin"
+
+    @rx.var
+    def mostrar_edit_permisos(self) -> bool:
+        """Solo mostrar matriz de permisos cuando el rol es admin."""
+        return self.form_edit_rol == "admin"
+
+    @rx.var
     def opciones_empresas_disponibles(self) -> List[dict]:
         """Empresas que se pueden asignar (no asignadas al usuario)."""
         ids_asignadas = {str(e.get("empresa_id")) for e in self.empresas_usuario}
@@ -250,8 +298,8 @@ class UsuariosAdminState(AuthState):
         if resultado:
             return resultado
 
-        # Verificar que es admin
-        if not self.es_admin:
+        # Verificar que es super admin (puede gestionar usuarios)
+        if not self.es_super_admin:
             return rx.redirect("/")
 
         # Cargar datos (manual loading por auth return pattern)
@@ -329,12 +377,18 @@ class UsuariosAdminState(AuthState):
 
         self.saving = True
         try:
+            # Preparar permisos solo para admins
+            permisos = self.form_permisos if self.form_rol == "admin" else PERMISOS_DEFAULT
+            puede_gestionar = self.form_puede_gestionar_usuarios if self.form_rol == "admin" else False
+
             datos = UserProfileCreate(
                 email=self.form_email,
                 password=self.form_password,
                 nombre_completo=self.form_nombre_completo.strip(),
                 rol=self.form_rol,
                 telefono=self.form_telefono.strip() if self.form_telefono.strip() else None,
+                permisos=permisos,
+                puede_gestionar_usuarios=puede_gestionar,
             )
 
             await user_service.crear_usuario(datos)
@@ -368,6 +422,9 @@ class UsuariosAdminState(AuthState):
         self.form_edit_nombre_completo = usuario.get("nombre_completo", "")
         self.form_edit_telefono = usuario.get("telefono", "") or ""
         self.form_edit_rol = usuario.get("rol", "client")
+        # Cargar permisos del usuario
+        self.form_permisos = usuario.get("permisos", dict(PERMISOS_DEFAULT))
+        self.form_puede_gestionar_usuarios = usuario.get("puede_gestionar_usuarios", False)
         self.mostrar_modal_editar = True
 
     def cerrar_modal_editar(self):
@@ -383,10 +440,17 @@ class UsuariosAdminState(AuthState):
             return
 
         user_id = UUID(str(self.usuario_seleccionado["id"]))
+
+        # Preparar permisos solo para admins
+        permisos = self.form_permisos if self.form_edit_rol == "admin" else PERMISOS_DEFAULT
+        puede_gestionar = self.form_puede_gestionar_usuarios if self.form_edit_rol == "admin" else False
+
         datos = UserProfileUpdate(
             nombre_completo=self.form_edit_nombre_completo.strip(),
             telefono=self.form_edit_telefono.strip() if self.form_edit_telefono.strip() else None,
             rol=self.form_edit_rol,
+            permisos=permisos,
+            puede_gestionar_usuarios=puede_gestionar,
         )
 
         async def _on_exito():
@@ -523,9 +587,13 @@ class UsuariosAdminState(AuthState):
         self.error_password = ""
         self.error_nombre_completo = ""
         self.error_telefono = ""
+        self.form_permisos = dict(PERMISOS_DEFAULT)
+        self.form_puede_gestionar_usuarios = False
 
     def _limpiar_form_editar(self):
         for campo, default in FORM_DEFAULTS_EDITAR.items():
             setattr(self, f"form_{campo}", default)
         self.error_edit_nombre_completo = ""
         self.error_edit_telefono = ""
+        self.form_permisos = dict(PERMISOS_DEFAULT)
+        self.form_puede_gestionar_usuarios = False

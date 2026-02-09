@@ -4,6 +4,7 @@ Muestra una tabla o cards con los contratos y acciones CRUD.
 """
 import reflex as rx
 from app.presentation.pages.contratos.contratos_state import ContratosState
+from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.layout import (
     page_layout,
     page_header,
@@ -99,10 +100,10 @@ def acciones_contrato(contrato: dict) -> rx.Component:
                 content="Pagos",
             ),
         ),
-        # Editar (solo si está en BORRADOR o SUSPENDIDO - contratos ACTIVOS no se pueden editar)
+        # Editar (solo si está en BORRADOR o SUSPENDIDO + permiso operar)
         rx.cond(
-            (contrato["estatus"] == "BORRADOR") |
-            (contrato["estatus"] == "SUSPENDIDO"),
+            ((contrato["estatus"] == "BORRADOR") |
+            (contrato["estatus"] == "SUSPENDIDO")) & AuthState.puede_operar_contratos,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("pencil", size=14),
@@ -114,9 +115,9 @@ def acciones_contrato(contrato: dict) -> rx.Component:
                 content="Editar",
             ),
         ),
-        # Activar (solo si está en borrador)
+        # Activar (solo si está en borrador + permiso operar)
         rx.cond(
-            contrato["estatus"] == "BORRADOR",
+            (contrato["estatus"] == "BORRADOR") & AuthState.puede_operar_contratos,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("check", size=14),
@@ -128,9 +129,9 @@ def acciones_contrato(contrato: dict) -> rx.Component:
                 content="Activar",
             ),
         ),
-        # Suspender (solo si está activo)
+        # Suspender (solo si está activo + permiso operar)
         rx.cond(
-            contrato["estatus"] == "ACTIVO",
+            (contrato["estatus"] == "ACTIVO") & AuthState.puede_operar_contratos,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("pause", size=14),
@@ -142,9 +143,9 @@ def acciones_contrato(contrato: dict) -> rx.Component:
                 content="Suspender",
             ),
         ),
-        # Reactivar (solo si está suspendido)
+        # Reactivar (solo si está suspendido + permiso operar)
         rx.cond(
-            contrato["estatus"] == "SUSPENDIDO",
+            (contrato["estatus"] == "SUSPENDIDO") & AuthState.puede_operar_contratos,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("play", size=14),
@@ -156,9 +157,9 @@ def acciones_contrato(contrato: dict) -> rx.Component:
                 content="Reactivar",
             ),
         ),
-        # Cancelar (si no está cancelado)
+        # Cancelar (si no está cancelado + permiso operar)
         rx.cond(
-            contrato["estatus"] != "CANCELADO",
+            (contrato["estatus"] != "CANCELADO") & AuthState.puede_operar_contratos,
             rx.tooltip(
                 rx.icon_button(
                     rx.icon("x", size=14),
@@ -474,11 +475,15 @@ def contratos_page() -> rx.Component:
                 titulo="Contratos",
                 subtitulo="Administre los contratos de servicio",
                 icono="file-text",
-                accion_principal=rx.button(
-                    rx.icon("plus", size=16),
-                    "Nuevo Contrato",
-                    on_click=ContratosState.abrir_modal_crear,
-                    color_scheme="blue",
+                accion_principal=rx.cond(
+                    AuthState.puede_operar_contratos,
+                    rx.button(
+                        rx.icon("plus", size=16),
+                        "Nuevo Contrato",
+                        on_click=ContratosState.abrir_modal_crear,
+                        color_scheme="blue",
+                    ),
+                    rx.fragment(),
                 ),
             ),
             toolbar=page_toolbar(

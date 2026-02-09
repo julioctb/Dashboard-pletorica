@@ -341,8 +341,11 @@ class EntregableService:
         Cambia PREFACTURA_ENVIADA -> PREFACTURA_APROBADA.
 
         Raises:
-            BusinessRuleError: Si no esta en estado valido
+            BusinessRuleError: Si no esta en estado valido o sin permiso
         """
+        # Validar permiso de autorización en entregables
+        await self._validar_permiso(str(revisado_por), 'entregables', 'autorizar')
+
         entregable = await self.repository.obtener_por_id(entregable_id)
 
         if not entregable.puede_revisar_prefactura:
@@ -383,8 +386,11 @@ class EntregableService:
         Cambia PREFACTURA_ENVIADA -> PREFACTURA_RECHAZADA.
 
         Raises:
-            BusinessRuleError: Si no esta en estado valido o falta observacion
+            BusinessRuleError: Si no esta en estado valido, falta observacion, o sin permiso
         """
+        # Validar permiso de autorización en entregables
+        await self._validar_permiso(str(revisado_por), 'entregables', 'autorizar')
+
         entregable = await self.repository.obtener_por_id(entregable_id)
 
         if not entregable.puede_revisar_prefactura:
@@ -478,8 +484,11 @@ class EntregableService:
         Tambien actualiza Pago a PAGADO.
 
         Raises:
-            BusinessRuleError: Si no esta en estado valido
+            BusinessRuleError: Si no esta en estado valido o sin permiso
         """
+        # Validar permiso de autorización en pagos
+        await self._validar_permiso(str(revisado_por), 'pagos', 'autorizar')
+
         entregable = await self.repository.obtener_por_id(entregable_id)
 
         if entregable.estatus != EstatusEntregable.FACTURADO:
@@ -531,10 +540,13 @@ class EntregableService:
     ) -> Entregable:
         """
         Aprueba un entregable y crea el pago asociado.
-        
+
         Raises:
-            BusinessRuleError: Si no está en estado válido o monto excede límite
+            BusinessRuleError: Si no está en estado válido, monto excede límite, o sin permiso
         """
+        # Validar permiso de autorización
+        await self._validar_permiso(str(revisado_por), 'entregables', 'autorizar')
+
         entregable = await self.repository.obtener_por_id(entregable_id)
         
         if not entregable.puede_revisar_admin:
@@ -580,11 +592,14 @@ class EntregableService:
         revisado_por: UUID,
     ) -> Entregable:
         """
-        Rechaza un entregable con observaciones.
-        
+        Rechaza un entregable con observaciones. Incrementa numero_revision.
+
         Raises:
-            BusinessRuleError: Si no está en estado válido o falta observación
+            BusinessRuleError: Si no está en estado válido, falta observación, o sin permiso
         """
+        # Validar permiso de autorización
+        await self._validar_permiso(str(revisado_por), 'entregables', 'autorizar')
+
         entregable = await self.repository.obtener_por_id(entregable_id)
         
         if not entregable.puede_revisar_admin:
@@ -601,10 +616,11 @@ class EntregableService:
         entregable.fecha_revision = datetime.now()
         entregable.revisado_por = revisado_por
         entregable.observaciones_rechazo = observaciones.strip()
-        
+        entregable.numero_revision = entregable.numero_revision + 1
+
         entregable_actualizado = await self.repository.actualizar(entregable)
-        
-        logger.info(f"Entregable {entregable_id} rechazado: {observaciones[:50]}...")
+
+        logger.info(f"Entregable {entregable_id} rechazado (rev {entregable.numero_revision}): {observaciones[:50]}...")
         
         return entregable_actualizado
     
@@ -767,9 +783,25 @@ class EntregableService:
             raise DatabaseError(f"Error de base de datos: {str(e)}")
     
     # =========================================================================
+    # VALIDACIÓN DE PERMISOS
+    # =========================================================================
+
+    async def _validar_permiso(
+        self, user_id: str, modulo: str, accion: str
+    ) -> None:
+        """
+        Valida que el usuario tiene permiso para la acción en el módulo.
+
+        Raises:
+            BusinessRuleError: Si no tiene permiso
+        """
+        from app.services.user_service import user_service
+        await user_service.validar_permiso(UUID(user_id), modulo, accion)
+
+    # =========================================================================
     # MÉTODOS PRIVADOS
     # =========================================================================
-    
+
     async def _actualizar_pago_estatus(
         self,
         pago_id: int,
