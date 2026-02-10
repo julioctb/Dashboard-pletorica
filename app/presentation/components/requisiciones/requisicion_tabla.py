@@ -3,8 +3,11 @@ import reflex as rx
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 from app.presentation.components.requisiciones.requisicion_estado_badge import estado_requisicion_badge
 from app.presentation.components.ui import tabla_vacia, skeleton_tabla
+from app.presentation.components.ui.action_buttons import (
+    tabla_action_button,
+    tabla_action_buttons,
+)
 from app.presentation.theme import Colors, Typography
-from app.presentation.components.shared.auth_state import AuthState
 
 
 # =============================================================================
@@ -13,133 +16,84 @@ from app.presentation.components.shared.auth_state import AuthState
 
 def _acciones_requisicion(req: dict) -> rx.Component:
     """Acciones disponibles segun el estado y permisos del usuario."""
-    return rx.hstack(
-        # Ver detalle completo (siempre)
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("eye", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="gray",
-                on_click=lambda: RequisicionesState.abrir_detalle_completo(req),
-            ),
-            content="Ver detalle",
+    es_borrador = req["estado"] == "BORRADOR"
+    es_enviada = req["estado"] == "ENVIADA"
+    es_en_revision = req["estado"] == "EN REVISION"
+    es_aprobada = req["estado"] == "APROBADA"
+    es_final = (req["estado"] == "CONTRATADA") | (req["estado"] == "CANCELADA")
+
+    return tabla_action_buttons([
+        # Ver detalle (siempre)
+        tabla_action_button(
+            icon="eye",
+            tooltip="Ver detalle",
+            on_click=lambda: RequisicionesState.abrir_detalle_completo(req),
         ),
-        # Editar (solo BORRADOR + permiso operar)
-        rx.cond(
-            (req["estado"] == "BORRADOR") & RequisicionesState.puede_operar_requisiciones,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pencil", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    on_click=lambda: RequisicionesState.abrir_modal_editar(req),
-                ),
-                content="Editar",
-            ),
+        # Editar (BORRADOR + operar)
+        tabla_action_button(
+            icon="pencil",
+            tooltip="Editar",
+            on_click=lambda: RequisicionesState.abrir_modal_editar(req),
+            color_scheme="blue",
+            visible=es_borrador & RequisicionesState.puede_operar_requisiciones,
         ),
-        # Enviar (solo BORRADOR + permiso operar)
-        rx.cond(
-            (req["estado"] == "BORRADOR") & RequisicionesState.puede_operar_requisiciones,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("send", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    on_click=lambda: RequisicionesState.abrir_confirmar_estado(req, "enviar"),
-                ),
-                content="Enviar",
-            ),
+        # Enviar (BORRADOR + operar)
+        tabla_action_button(
+            icon="send",
+            tooltip="Enviar",
+            on_click=lambda: RequisicionesState.abrir_confirmar_estado(req, "enviar"),
+            color_scheme="blue",
+            visible=es_borrador & RequisicionesState.puede_operar_requisiciones,
         ),
-        # Iniciar revision (solo ENVIADA + permiso autorizar) -> abre detalle completo
-        rx.cond(
-            (req["estado"] == "ENVIADA") & RequisicionesState.puede_autorizar_requisiciones,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("search", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="orange",
-                    on_click=lambda: RequisicionesState.abrir_detalle_completo(req),
-                ),
-                content="Iniciar revision",
-            ),
+        # Iniciar revision (ENVIADA + autorizar)
+        tabla_action_button(
+            icon="search",
+            tooltip="Iniciar revision",
+            on_click=lambda: RequisicionesState.abrir_detalle_completo(req),
+            color_scheme="orange",
+            visible=es_enviada & RequisicionesState.puede_autorizar_requisiciones,
         ),
-        # Aprobar (solo EN_REVISION + permiso autorizar)
-        rx.cond(
-            (req["estado"] == "EN_REVISION") & RequisicionesState.puede_autorizar_requisiciones,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("check", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    on_click=lambda: RequisicionesState.abrir_confirmar_estado(req, "aprobar"),
-                ),
-                content="Aprobar",
-            ),
+        # Aprobar (EN_REVISION + autorizar)
+        tabla_action_button(
+            icon="check",
+            tooltip="Aprobar",
+            on_click=lambda: RequisicionesState.abrir_confirmar_estado(req, "aprobar"),
+            color_scheme="green",
+            visible=es_en_revision & RequisicionesState.puede_autorizar_requisiciones,
         ),
-        # Rechazar (solo EN_REVISION + permiso autorizar)
-        rx.cond(
-            (req["estado"] == "EN_REVISION") & RequisicionesState.puede_autorizar_requisiciones,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("circle-x", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    on_click=lambda: RequisicionesState.abrir_modal_rechazar(req),
-                ),
-                content="Rechazar",
-            ),
+        # Rechazar (EN_REVISION + autorizar)
+        tabla_action_button(
+            icon="circle-x",
+            tooltip="Rechazar",
+            on_click=lambda: RequisicionesState.abrir_modal_rechazar(req),
+            color_scheme="red",
+            visible=es_en_revision & RequisicionesState.puede_autorizar_requisiciones,
         ),
-        # Adjudicar (solo APROBADA + permiso operar)
-        rx.cond(
-            (req["estado"] == "APROBADA") & RequisicionesState.puede_operar_requisiciones,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("award", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="purple",
-                    on_click=lambda: RequisicionesState.abrir_modal_adjudicar(req),
-                ),
-                content="Adjudicar",
-            ),
+        # Adjudicar (APROBADA + operar)
+        tabla_action_button(
+            icon="award",
+            tooltip="Adjudicar",
+            on_click=lambda: RequisicionesState.abrir_modal_adjudicar(req),
+            color_scheme="purple",
+            visible=es_aprobada & RequisicionesState.puede_operar_requisiciones,
         ),
-        # Cancelar (estados no finales + permiso operar)
-        rx.cond(
-            (req["estado"] != "CONTRATADA") & (req["estado"] != "CANCELADA") & RequisicionesState.puede_operar_requisiciones,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("x", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    on_click=lambda: RequisicionesState.abrir_confirmar_estado(req, "cancelar"),
-                ),
-                content="Cancelar",
-            ),
+        # Cancelar (no final + operar)
+        tabla_action_button(
+            icon="x",
+            tooltip="Cancelar",
+            on_click=lambda: RequisicionesState.abrir_confirmar_estado(req, "cancelar"),
+            color_scheme="red",
+            visible=~es_final & RequisicionesState.puede_operar_requisiciones,
         ),
-        # Eliminar (solo BORRADOR + permiso operar)
-        rx.cond(
-            (req["estado"] == "BORRADOR") & RequisicionesState.puede_operar_requisiciones,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("trash-2", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    on_click=lambda: RequisicionesState.abrir_confirmar_eliminar(req),
-                ),
-                content="Eliminar",
-            ),
+        # Eliminar (BORRADOR + operar)
+        tabla_action_button(
+            icon="trash-2",
+            tooltip="Eliminar",
+            on_click=lambda: RequisicionesState.abrir_confirmar_eliminar(req),
+            color_scheme="red",
+            visible=es_borrador & RequisicionesState.puede_operar_requisiciones,
         ),
-        spacing="1",
-        justify="center",
-    )
+    ])
 
 
 # =============================================================================
@@ -171,9 +125,27 @@ def _fila_requisicion(req: dict) -> rx.Component:
             rx.text(req["fecha_elaboracion"], font_size=Typography.SIZE_SM, white_space="nowrap"),
             text_align="center",
         ),
-        # Estado
+        # Estado (con indicador de rechazo previo si aplica)
         rx.table.cell(
-            estado_requisicion_badge(req["estado"], show_icon=True),
+            rx.hstack(
+                estado_requisicion_badge(req["estado"], show_icon=True),
+                # Indicador de rechazo previo (numero_revision > 0)
+                rx.cond(
+                    req["numero_revision"].to(int) > 0,
+                    rx.tooltip(
+                        rx.badge(
+                            rx.icon("rotate-ccw", size=12),
+                            rx.text(req["numero_revision"], size="1"),
+                            color_scheme="orange",
+                            variant="soft",
+                            size="1",
+                        ),
+                        content="Rechazada previamente. Editar para ver motivo.",
+                    ),
+                ),
+                spacing="2",
+                align="center",
+            ),
         ),
         # Tipo
         rx.table.cell(
@@ -213,11 +185,11 @@ def _fila_requisicion(req: dict) -> rx.Component:
 ENCABEZADOS_REQUISICIONES = [
     {"nombre": "Numero", "ancho": "140px", "centrar": "0"},
     {"nombre": "Fecha", "ancho": "110px", "centrar": "0"},
-    {"nombre": "Estado", "ancho": "110px", "centrar": "0"},
+    {"nombre": "Estado", "ancho": "150px", "centrar": "0"},
     {"nombre": "Tipo", "ancho": "100px", "centrar": "0"},
     {"nombre": "Objeto", "ancho": "280px", "centrar": "0"},
     {"nombre": "Dependencia", "ancho": "180px", "centrar": "0"},
-    {"nombre": "Acciones", "ancho": "160px", "centrar": "1"},
+    {"nombre": "Acciones", "ancho": "200px", "centrar": "1"},
 ]
 
 

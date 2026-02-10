@@ -1,9 +1,10 @@
 """Modal de formulario para crear/editar requisiciones - Wizard de 8 pasos."""
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea, form_date
+from app.presentation.components.ui.buttons import boton_guardar
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 from app.presentation.components.requisiciones.requisicion_items_form import requisicion_items_form
-from app.presentation.components.common.archivo_uploader import archivo_uploader
+from app.presentation.components.common.archivo_uploader import archivo_uploader, archivo_visor
 from app.presentation.theme import Colors, Spacing, Typography
 
 
@@ -494,8 +495,23 @@ def _paso_firmas() -> rx.Component:
     )
 
 
-def _paso_anexos() -> rx.Component:
+def _paso_anexos(modo_detalle: bool = False) -> rx.Component:
     """Paso 8: Archivos adjuntos de la requisicion."""
+    if modo_detalle:
+        return rx.vstack(
+            rx.callout(
+                "Archivos adjuntos de la requisicion.",
+                icon="paperclip",
+                color_scheme="blue",
+                size="1",
+            ),
+            archivo_visor(
+                archivos=RequisicionesState.archivos_entidad,
+                on_ver=RequisicionesState.ver_archivo,
+            ),
+            spacing="3",
+            width="100%",
+        )
     return rx.vstack(
         rx.callout(
             "Suba imagenes (JPG, PNG) o documentos PDF. Las imagenes se comprimen automaticamente.",
@@ -522,7 +538,8 @@ def _paso_anexos() -> rx.Component:
 def _footer_detalle(on_close) -> rx.Component:
     """Footer con navegacion Anterior/Siguiente y botones de accion en el ultimo paso."""
     es_ultimo_paso = RequisicionesState.form_paso_actual == 8
-    es_en_revision = RequisicionesState.estado_req_detalle == "EN_REVISION"
+    # Nota: EN_REVISION tiene espacio en el valor del enum
+    es_en_revision = RequisicionesState.estado_req_detalle == "EN REVISION"
     es_borrador = RequisicionesState.estado_req_detalle == "BORRADOR"
 
     return rx.hstack(
@@ -562,37 +579,37 @@ def _footer_detalle(on_close) -> rx.Component:
         # Boton Enviar (solo paso 8, BORRADOR, permiso operar)
         rx.cond(
             es_ultimo_paso & es_borrador & RequisicionesState.puede_operar_requisiciones,
-            rx.button(
-                "Enviar",
-                color_scheme="blue",
-                size="2",
+            boton_guardar(
+                texto="Enviar",
+                texto_guardando="Enviando...",
                 on_click=lambda: RequisicionesState.accion_desde_detalle("enviar"),
-                disabled=RequisicionesState.saving,
+                saving=RequisicionesState.saving,
+                color_scheme="blue",
             ),
             rx.fragment(),
         ),
         # Boton Rechazar (solo paso 8, EN_REVISION, permiso autorizar)
         rx.cond(
             es_ultimo_paso & es_en_revision & RequisicionesState.puede_autorizar_requisiciones,
-            rx.button(
-                "Rechazar",
+            boton_guardar(
+                texto="Rechazar",
+                texto_guardando="Rechazando...",
+                on_click=RequisicionesState.abrir_modal_rechazar_desde_detalle,
+                saving=RequisicionesState.saving,
                 color_scheme="red",
                 variant="outline",
-                size="2",
-                on_click=RequisicionesState.abrir_modal_rechazar_desde_detalle,
-                disabled=RequisicionesState.saving,
             ),
             rx.fragment(),
         ),
         # Boton Aprobar (solo paso 8, EN_REVISION, permiso autorizar)
         rx.cond(
             es_ultimo_paso & es_en_revision & RequisicionesState.puede_autorizar_requisiciones,
-            rx.button(
-                "Aprobar",
-                color_scheme="green",
-                size="2",
+            boton_guardar(
+                texto="Aprobar",
+                texto_guardando="Aprobando...",
                 on_click=lambda: RequisicionesState.accion_desde_detalle("aprobar"),
-                disabled=RequisicionesState.saving,
+                saving=RequisicionesState.saving,
+                color_scheme="green",
             ),
             rx.fragment(),
         ),
@@ -633,24 +650,27 @@ def requisicion_form_modal(
                 margin_bottom="16px",
             ),
 
-            # Comentario de rechazo anterior (solo en modo detalle si existe)
-            *(
-                [rx.cond(
-                    RequisicionesState.comentario_rechazo_anterior != "",
-                    rx.callout(
-                        rx.vstack(
-                            rx.text("Comentario del ultimo rechazo:", weight="bold", size="2"),
-                            rx.text(RequisicionesState.comentario_rechazo_anterior, size="2"),
-                            spacing="1",
-                        ),
-                        icon="message-circle-warning",
-                        color_scheme="orange",
-                        size="2",
-                        width="100%",
-                        margin_bottom="4",
+            # Comentario de rechazo anterior (si existe, mostrar en detalle Y edición)
+            rx.cond(
+                RequisicionesState.comentario_rechazo_anterior != "",
+                rx.callout(
+                    rx.vstack(
+                        rx.text("Motivo del rechazo anterior:", weight="bold", size="2"),
+                        rx.text(RequisicionesState.comentario_rechazo_anterior, size="2"),
+                        rx.text(
+                            "Por favor corrija los puntos señalados antes de volver a enviar.",
+                            size="1",
+                            color="orange",
+                            style={"font_style": "italic"},
+                        ) if not modo_detalle else rx.fragment(),
+                        spacing="1",
                     ),
-                )]
-                if modo_detalle else []
+                    icon="triangle-alert",
+                    color_scheme="orange",
+                    size="2",
+                    width="100%",
+                    margin_bottom="4",
+                ),
             ),
 
             # Mensaje de error/info
@@ -688,7 +708,7 @@ def requisicion_form_modal(
                     (5, _paso_pdi()),
                     (6, _paso_disponibilidad()),
                     (7, _paso_firmas()),
-                    (8, _paso_anexos()),
+                    (8, _paso_anexos(modo_detalle=modo_detalle)),
                     _paso_area_requirente(),  # default
                 ),
                 min_height="300px",

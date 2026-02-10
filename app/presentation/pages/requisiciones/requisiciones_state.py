@@ -133,6 +133,7 @@ class RequisicionesState(AuthState):
     mostrar_modal_rechazar: bool = False
     mostrar_modal_detalle_completo: bool = False
     estado_req_detalle: str = ""
+    numero_req_detalle: str = ""
     comentario_rechazo_anterior: str = ""
     mostrar_modal_folio: bool = False
     folio_generado: str = ""
@@ -495,7 +496,7 @@ class RequisicionesState(AuthState):
             {"value": FILTRO_TODOS, "label": "Todos"},
             {"value": "BORRADOR", "label": "Borrador"},
             {"value": "ENVIADA", "label": "Enviada"},
-            {"value": "EN_REVISION", "label": "En revisión"},
+            {"value": "EN REVISION", "label": "En revisión"},
             {"value": "APROBADA", "label": "Aprobada"},
             {"value": "ADJUDICADA", "label": "Adjudicada"},
             {"value": "CONTRATADA", "label": "Contratada"},
@@ -542,7 +543,7 @@ class RequisicionesState(AuthState):
     # ========================
     async def on_mount(self):
         """Se ejecuta al montar la página."""
-        async for _ in self.montar_pagina(
+        async for _ in self._montar_pagina(
             self._fetch_requisiciones,
             self.cargar_configuracion,
             self.cargar_empresas,
@@ -613,7 +614,7 @@ class RequisicionesState(AuthState):
 
     async def aplicar_filtros(self):
         """Aplica filtros y recarga."""
-        async for _ in self.recargar_datos(self._fetch_requisiciones):
+        async for _ in self._recargar_datos(self._fetch_requisiciones):
             yield
 
     async def limpiar_filtros(self):
@@ -621,7 +622,7 @@ class RequisicionesState(AuthState):
         self.filtro_busqueda = ""
         self.filtro_estado = FILTRO_TODOS
         self.filtro_tipo = FILTRO_TODOS
-        async for _ in self.recargar_datos(self._fetch_requisiciones):
+        async for _ in self._recargar_datos(self._fetch_requisiciones):
             yield
 
     # ========================
@@ -713,11 +714,23 @@ class RequisicionesState(AuthState):
                     "tipo_mime": a.tipo_mime,
                     "tamanio_bytes": a.tamanio_bytes,
                     "fue_comprimido": a.fue_comprimido,
+                    "ruta_storage": a.ruta_storage,
                 }
                 for a in archivos
             ]
         except Exception:
             self.archivos_entidad = []
+
+    async def ver_archivo(self, archivo: dict):
+        """Genera URL firmada y abre el archivo en nueva pestaña."""
+        try:
+            archivo_id = archivo.get("id")
+            if not archivo_id:
+                return
+            url = await archivo_service.obtener_url_temporal(int(archivo_id))
+            return rx.redirect(url, is_external=True)
+        except Exception as e:
+            self.manejar_error(e, "ver archivo")
 
     # ========================
     # MODALES
@@ -841,6 +854,9 @@ class RequisicionesState(AuthState):
             # Cargar archivos asociados
             await self.cargar_archivos_entidad()
 
+            # Cargar comentario de rechazo si existe (para mostrar al usuario qué corregir)
+            self.comentario_rechazo_anterior = req_dict.get("ultimo_comentario_rechazo", "") or ""
+
             self.mostrar_modal_editar = True
         except Exception as e:
             self.manejar_error(e, "al cargar requisición para editar")
@@ -849,6 +865,7 @@ class RequisicionesState(AuthState):
         """Cierra modal de edición."""
         self.mostrar_modal_editar = False
         self._limpiar_formulario()
+        self.comentario_rechazo_anterior = ""
 
     def abrir_modal_detalle(self, requisicion: dict):
         """Abre modal de detalle."""
@@ -951,8 +968,9 @@ class RequisicionesState(AuthState):
             # Cargar archivos asociados
             await self.cargar_archivos_entidad()
 
-            # Guardar estado y comentario de rechazo anterior (si existe)
+            # Guardar estado, numero y comentario de rechazo anterior (si existe)
             self.estado_req_detalle = req_dict.get("estado", "")
+            self.numero_req_detalle = req_dict.get("numero_requisicion", "") or ""
             self.comentario_rechazo_anterior = req_dict.get("ultimo_comentario_rechazo", "") or ""
             self.mostrar_modal_detalle_completo = True
         except Exception as e:
@@ -963,6 +981,7 @@ class RequisicionesState(AuthState):
         self.mostrar_modal_detalle_completo = False
         self._limpiar_formulario()
         self.estado_req_detalle = ""
+        self.numero_req_detalle = ""
         self.comentario_rechazo_anterior = ""
 
     async def accion_desde_detalle(self, accion: str):
@@ -973,7 +992,7 @@ class RequisicionesState(AuthState):
             user_id = self.id_usuario or None
 
             if accion == "enviar":
-                await requisicion_service.enviar(req_id)
+                await requisicion_service.enviar(req_id, enviado_por=user_id)
             elif accion == "aprobar":
                 resultado = await requisicion_service.aprobar(req_id, aprobado_por=user_id)
                 self.folio_generado = resultado.numero_requisicion or ""
@@ -996,6 +1015,11 @@ class RequisicionesState(AuthState):
 
     def abrir_modal_rechazar_desde_detalle(self):
         """Abre modal de rechazo desde detalle completo."""
+        # Establecer requisicion_seleccionada para que rechazar_requisicion funcione
+        self.requisicion_seleccionada = {
+            "id": self.id_requisicion_edicion,
+            "numero_requisicion": self.numero_req_detalle,
+        }
         self.form_comentario_rechazo = ""
         self.mostrar_modal_rechazar = True
 
@@ -1016,10 +1040,20 @@ class RequisicionesState(AuthState):
             self.cerrar_modal_detalle_completo()
             self.mostrar_mensaje("Requisicion rechazada y devuelta a borrador", "success")
             await self._fetch_requisiciones()
-        except (BusinessRuleError, NotFoundError, DatabaseError) as e:
-            self.manejar_error(e, "al rechazar requisicion")
+        except BusinessRuleError as e:
+            # Manejar error de transición inválida (estado ya cambió)
+            self.cerrar_modal_rechazar()
+            self.cerrar_modal_detalle_completo()
+            await self._fetch_requisiciones()
+            if "No se puede cambiar de estado" in str(e):
+                return rx.toast.error("La requisición ya fue procesada. Se actualizó la lista.")
+            return rx.toast.error(str(e))
+        except (NotFoundError, DatabaseError) as e:
+            self.cerrar_modal_rechazar()
+            return rx.toast.error(f"Error al rechazar requisición: {str(e)}")
         except Exception as e:
-            self.manejar_error(e, "al rechazar requisicion")
+            self.cerrar_modal_rechazar()
+            return rx.toast.error(f"Error inesperado: {str(e)}")
         finally:
             self.saving = False
 
@@ -1158,7 +1192,7 @@ class RequisicionesState(AuthState):
             accion = self.accion_estado_pendiente
 
             if accion == "enviar":
-                await requisicion_service.enviar(req_id)
+                await requisicion_service.enviar(req_id, enviado_por=self.id_usuario)
             elif accion == "revisar":
                 await requisicion_service.iniciar_revision(req_id)
             elif accion == "aprobar":
@@ -1172,9 +1206,11 @@ class RequisicionesState(AuthState):
             self.mostrar_mensaje("Estado actualizado correctamente", "success")
             await self._fetch_requisiciones()
         except (BusinessRuleError, NotFoundError, DatabaseError) as e:
-            self.manejar_error(e, "al cambiar estado")
+            self.cerrar_confirmar_estado()
+            return rx.toast.error(str(e))
         except Exception as e:
-            self.manejar_error(e, "al cambiar estado")
+            self.cerrar_confirmar_estado()
+            return rx.toast.error(f"Error inesperado: {str(e)}")
         finally:
             self.saving = False
 
@@ -1195,12 +1231,26 @@ class RequisicionesState(AuthState):
                 rechazado_por=self.id_usuario or None,
             )
             self.cerrar_modal_rechazar()
+            # Cerrar modal de detalle si está abierto
+            if self.mostrar_modal_detalle_completo:
+                self.cerrar_modal_detalle_completo()
             self.mostrar_mensaje("Requisición rechazada y devuelta a borrador", "success")
             await self._fetch_requisiciones()
-        except (BusinessRuleError, NotFoundError, DatabaseError) as e:
-            self.manejar_error(e, "al rechazar requisición")
+        except BusinessRuleError as e:
+            # Manejar error de transición inválida (estado ya cambió)
+            self.cerrar_modal_rechazar()
+            if self.mostrar_modal_detalle_completo:
+                self.cerrar_modal_detalle_completo()
+            await self._fetch_requisiciones()
+            if "No se puede cambiar de estado" in str(e):
+                return rx.toast.error("La requisición ya fue procesada. Se actualizó la lista.")
+            return rx.toast.error(str(e))
+        except (NotFoundError, DatabaseError) as e:
+            self.cerrar_modal_rechazar()
+            return rx.toast.error(f"Error al rechazar requisición: {str(e)}")
         except Exception as e:
-            self.manejar_error(e, "al rechazar requisición")
+            self.cerrar_modal_rechazar()
+            return rx.toast.error(f"Error inesperado: {str(e)}")
         finally:
             self.saving = False
 
@@ -1263,7 +1313,7 @@ class RequisicionesState(AuthState):
             url = supabase.storage.from_('archivos').get_public_url(storage_path)
 
             self.mostrar_mensaje("PDF generado correctamente", "success")
-            return rx.redirect(url, external=True)
+            return rx.redirect(url, is_external=True)
 
         except (BusinessRuleError, Exception) as e:
             self.manejar_error(e, "al generar PDF")
