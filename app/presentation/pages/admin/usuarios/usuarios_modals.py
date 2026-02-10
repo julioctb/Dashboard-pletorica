@@ -7,7 +7,9 @@ from app.presentation.pages.admin.usuarios.usuarios_state import (
     MODULOS_CON_AUTORIZACION,
 )
 from app.presentation.components.ui.form_input import form_input, form_select
+from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.components.ui.modals import modal_confirmar_accion
+from app.presentation.components.shared.auth_state import AuthState
 
 
 # =============================================================================
@@ -196,21 +198,15 @@ def modal_crear_usuario() -> rx.Component:
 
             # Botones
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=UsuariosAdminState.cerrar_modal_crear,
                 ),
-                rx.button(
-                    rx.cond(
-                        UsuariosAdminState.saving,
-                        rx.hstack(rx.spinner(size="1"), rx.text("Creando..."), spacing="2"),
-                        rx.text("Crear Usuario"),
-                    ),
+                boton_guardar(
+                    texto="Crear Usuario",
+                    texto_guardando="Creando...",
                     on_click=UsuariosAdminState.crear_usuario,
+                    saving=UsuariosAdminState.saving,
                     disabled=~UsuariosAdminState.puede_crear,
-                    color_scheme="blue",
                 ),
                 spacing="3",
                 justify="end",
@@ -295,6 +291,12 @@ def modal_editar_usuario() -> rx.Component:
                         _matriz_permisos(),
                     ),
 
+                    # Resetear contraseña (solo super admin)
+                    rx.cond(
+                        AuthState.es_super_admin,
+                        _seccion_reset_password(),
+                    ),
+
                     spacing="4",
                     width="100%",
                     padding_y="4",
@@ -303,21 +305,15 @@ def modal_editar_usuario() -> rx.Component:
 
             # Botones
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=UsuariosAdminState.cerrar_modal_editar,
                 ),
-                rx.button(
-                    rx.cond(
-                        UsuariosAdminState.saving,
-                        rx.hstack(rx.spinner(size="1"), rx.text("Guardando..."), spacing="2"),
-                        rx.text("Guardar"),
-                    ),
+                boton_guardar(
+                    texto="Guardar",
+                    texto_guardando="Guardando...",
                     on_click=UsuariosAdminState.editar_usuario,
+                    saving=UsuariosAdminState.saving,
                     disabled=~UsuariosAdminState.puede_editar,
-                    color_scheme="blue",
                 ),
                 spacing="3",
                 justify="end",
@@ -330,6 +326,73 @@ def modal_editar_usuario() -> rx.Component:
         open=UsuariosAdminState.mostrar_modal_editar,
         # No cerrar al hacer click fuera - solo con botones
         on_open_change=rx.noop,
+    )
+
+
+# =============================================================================
+# SECCIÓN RESET CONTRASEÑA (dentro de modal editar)
+# =============================================================================
+
+def _seccion_reset_password() -> rx.Component:
+    """Sección colapsable para resetear contraseña de un usuario."""
+    return rx.vstack(
+        rx.separator(),
+        # Botón toggle para mostrar/ocultar
+        rx.cond(
+            ~UsuariosAdminState.mostrar_seccion_reset,
+            rx.button(
+                rx.icon("key-round", size=14),
+                "Resetear contraseña",
+                variant="outline",
+                color_scheme="orange",
+                size="2",
+                width="100%",
+                on_click=UsuariosAdminState.set_mostrar_seccion_reset(True),
+            ),
+            rx.vstack(
+                rx.text(
+                    "Nueva contraseña",
+                    size="2",
+                    weight="medium",
+                    color="var(--gray-11)",
+                ),
+                form_input(
+                    label="",
+                    placeholder="Minimo 8 caracteres",
+                    value=UsuariosAdminState.form_reset_password,
+                    on_change=UsuariosAdminState.set_form_reset_password,
+                    on_blur=UsuariosAdminState.validar_reset_password_campo,
+                    error=UsuariosAdminState.error_reset_password,
+                    type="password",
+                ),
+                rx.hstack(
+                    boton_cancelar(
+                        size="1",
+                        on_click=UsuariosAdminState.set_mostrar_seccion_reset(False),
+                    ),
+                    boton_guardar(
+                        texto="Aplicar",
+                        texto_guardando="Aplicando...",
+                        color_scheme="orange",
+                        size="1",
+                        on_click=UsuariosAdminState.resetear_password,
+                        saving=UsuariosAdminState.saving,
+                        disabled=UsuariosAdminState.form_reset_password.length() < 8,
+                    ),
+                    spacing="2",
+                    justify="end",
+                    width="100%",
+                ),
+                spacing="2",
+                width="100%",
+                padding="12px",
+                border="1px solid var(--orange-6)",
+                border_radius="8px",
+                background="var(--orange-2)",
+            ),
+        ),
+        spacing="3",
+        width="100%",
     )
 
 

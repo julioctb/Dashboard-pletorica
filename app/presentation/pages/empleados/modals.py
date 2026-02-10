@@ -7,6 +7,7 @@ import reflex as rx
 
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
 from app.presentation.theme import Colors
+from app.presentation.components.ui import boton_guardar, boton_cancelar
 from .components import estatus_badge, restriccion_badge
 
 
@@ -281,22 +282,16 @@ def modal_empleado() -> rx.Component:
 
             # Botones de acción
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
-                    on_click=EmpleadosState.cerrar_modal_empleado,
-                ),
-                rx.button(
-                    rx.cond(
-                        EmpleadosState.saving,
-                        rx.spinner(size="1"),
-                        rx.icon("save", size=16),
+                boton_cancelar(on_click=EmpleadosState.cerrar_modal_empleado),
+                boton_guardar(
+                    texto=rx.cond(
+                        EmpleadosState.es_edicion,
+                        "Guardar Cambios",
+                        "Crear Empleado",
                     ),
-                    "Guardar",
+                    texto_guardando="Guardando...",
                     on_click=EmpleadosState.guardar_empleado,
-                    disabled=EmpleadosState.saving,
-                    color_scheme="blue",
+                    saving=EmpleadosState.saving,
                 ),
                 spacing="3",
                 justify="end",
@@ -620,21 +615,12 @@ def modal_baja() -> rx.Component:
             ),
 
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
-                    on_click=EmpleadosState.cerrar_modal_baja,
-                ),
-                rx.button(
-                    rx.cond(
-                        EmpleadosState.saving,
-                        rx.spinner(size="1"),
-                        rx.icon("user-x", size=16),
-                    ),
-                    "Confirmar Baja",
+                boton_cancelar(on_click=EmpleadosState.cerrar_modal_baja),
+                boton_guardar(
+                    texto="Confirmar Baja",
+                    texto_guardando="Procesando...",
                     on_click=EmpleadosState.dar_de_baja,
-                    disabled=EmpleadosState.saving,
+                    saving=EmpleadosState.saving,
                     color_scheme="red",
                 ),
                 spacing="3",
@@ -747,27 +733,14 @@ def modal_restriccion() -> rx.Component:
 
                 # Botones
                 rx.hstack(
-                    rx.button(
-                        "Cancelar",
-                        variant="soft",
-                        color_scheme="gray",
+                    boton_cancelar(
                         on_click=EmpleadosState.cerrar_modal_restriccion,
                     ),
-                    rx.button(
-                        rx.cond(
-                            EmpleadosState.saving,
-                            rx.hstack(
-                                rx.spinner(size="1"),
-                                rx.text("Restringiendo..."),
-                                spacing="2",
-                            ),
-                            rx.hstack(
-                                rx.icon("ban", size=14),
-                                rx.text("Confirmar Restriccion"),
-                                spacing="2",
-                            ),
-                        ),
+                    boton_guardar(
+                        texto="Confirmar Restriccion",
+                        texto_guardando="Restringiendo...",
                         on_click=EmpleadosState.confirmar_restriccion,
+                        saving=EmpleadosState.saving,
                         disabled=~EmpleadosState.puede_guardar_restriccion,
                         color_scheme="red",
                     ),
@@ -895,27 +868,14 @@ def modal_liberacion() -> rx.Component:
 
             # Botones
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=EmpleadosState.cerrar_modal_liberacion,
                 ),
-                rx.button(
-                    rx.cond(
-                        EmpleadosState.saving,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Liberando..."),
-                            spacing="2",
-                        ),
-                        rx.hstack(
-                            rx.icon("check", size=14),
-                            rx.text("Confirmar Liberacion"),
-                            spacing="2",
-                        ),
-                    ),
+                boton_guardar(
+                    texto="Confirmar Liberacion",
+                    texto_guardando="Liberando...",
                     on_click=EmpleadosState.confirmar_liberacion,
+                    saving=EmpleadosState.saving,
                     disabled=~EmpleadosState.puede_guardar_liberacion,
                     color_scheme="green",
                 ),

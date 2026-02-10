@@ -703,7 +703,7 @@ class ContratosState(BaseState, CRUDStateMixin):
     # ========================
     async def cargar_datos_iniciales(self):
         """Cargar empresas, tipos de servicio y contratos"""
-        async for _ in self.montar_pagina(
+        async for _ in self._montar_pagina(
             self.cargar_empresas,
             self.cargar_tipos_servicio,
             self._fetch_contratos,
@@ -836,18 +836,18 @@ class ContratosState(BaseState, CRUDStateMixin):
 
     async def cargar_contratos(self):
         """Carga contratos con skeleton loading (público)."""
-        async for _ in self.recargar_datos(self._fetch_contratos):
+        async for _ in self._recargar_datos(self._fetch_contratos):
             yield
 
     async def on_change_busqueda(self, value: str):
         """Actualizar filtro y buscar automáticamente"""
         self.filtro_busqueda = value
-        async for _ in self.recargar_datos(self._fetch_contratos):
+        async for _ in self._recargar_datos(self._fetch_contratos):
             yield
 
     async def aplicar_filtros(self):
         """Aplicar filtros y recargar"""
-        async for _ in self.recargar_datos(self._fetch_contratos):
+        async for _ in self._recargar_datos(self._fetch_contratos):
             yield
 
     async def limpiar_filtros(self):
@@ -860,7 +860,7 @@ class ContratosState(BaseState, CRUDStateMixin):
         self.filtro_fecha_desde = ""
         self.filtro_fecha_hasta = ""
         self.incluir_inactivos = False
-        async for _ in self.recargar_datos(self._fetch_contratos):
+        async for _ in self._recargar_datos(self._fetch_contratos):
             yield
 
     # ========================
@@ -1297,13 +1297,8 @@ class ContratosState(BaseState, CRUDStateMixin):
     async def activar_contrato(self, contrato: dict):
         """Activar un contrato en borrador"""
         codigo = contrato["codigo"]
-
-        # Mostrar toast de proceso
-        yield rx.toast.info(
-            f"Activando contrato '{codigo}'...",
-            position="top-center",
-            duration=2000
-        )
+        self.saving = True
+        yield
 
         try:
             await contrato_service.activar(contrato["id"])
@@ -1317,16 +1312,14 @@ class ContratosState(BaseState, CRUDStateMixin):
 
         except Exception as e:
             yield self.manejar_error_con_toast(e, "al activar contrato")
+        finally:
+            self.saving = False
 
     async def suspender_contrato(self, contrato: dict):
         """Suspender un contrato activo"""
         codigo = contrato["codigo"]
-
-        yield rx.toast.info(
-            f"Suspendiendo contrato '{codigo}'...",
-            position="top-center",
-            duration=2000
-        )
+        self.saving = True
+        yield
 
         try:
             await contrato_service.suspender(contrato["id"])
@@ -1340,16 +1333,14 @@ class ContratosState(BaseState, CRUDStateMixin):
 
         except Exception as e:
             yield self.manejar_error_con_toast(e, "al suspender contrato")
+        finally:
+            self.saving = False
 
     async def reactivar_contrato(self, contrato: dict):
         """Reactivar un contrato suspendido"""
         codigo = contrato["codigo"]
-
-        yield rx.toast.info(
-            f"Reactivando contrato '{codigo}'...",
-            position="top-center",
-            duration=2000
-        )
+        self.saving = True
+        yield
 
         try:
             await contrato_service.reactivar(contrato["id"])
@@ -1363,6 +1354,8 @@ class ContratosState(BaseState, CRUDStateMixin):
 
         except Exception as e:
             yield self.manejar_error_con_toast(e, "al reactivar contrato")
+        finally:
+            self.saving = False
 
     # ========================
     # CONFIGURACIÓN DE ENTREGABLES

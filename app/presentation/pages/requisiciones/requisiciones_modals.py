@@ -1,6 +1,7 @@
 """Modales para el modulo de Requisiciones (detalle, confirmar, adjudicar, rechazar)."""
 import reflex as rx
 from app.presentation.components.ui.form_input import form_select, form_date, form_textarea
+from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar, boton_eliminar
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 from app.presentation.components.requisiciones.requisicion_estado_badge import estado_requisicion_badge
 
@@ -172,20 +173,15 @@ def modal_confirmar_eliminar_requisicion() -> rx.Component:
                 ),
             ),
             rx.hstack(
-                rx.button(
-                    "No, mantener",
-                    variant="soft",
+                boton_cancelar(
+                    texto="No, mantener",
                     on_click=RequisicionesState.cerrar_confirmar_eliminar,
                 ),
-                rx.button(
-                    rx.cond(
-                        RequisicionesState.saving,
-                        rx.hstack(rx.spinner(size="1"), "Eliminando...", spacing="2"),
-                        "Si, eliminar",
-                    ),
-                    color_scheme="red",
+                boton_eliminar(
+                    texto="Si, eliminar",
+                    texto_eliminando="Eliminando...",
                     on_click=RequisicionesState.eliminar_requisicion,
-                    disabled=RequisicionesState.saving,
+                    saving=RequisicionesState.saving,
                 ),
                 spacing="3",
                 justify="end",
@@ -254,17 +250,14 @@ def modal_confirmar_estado() -> rx.Component:
                 ),
             ),
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
+                boton_cancelar(
                     on_click=RequisicionesState.cerrar_confirmar_estado,
                 ),
-                rx.button(
-                    rx.cond(
-                        RequisicionesState.saving,
-                        rx.hstack(rx.spinner(size="1"), "Procesando...", spacing="2"),
-                        "Confirmar",
-                    ),
+                boton_guardar(
+                    texto="Confirmar",
+                    texto_guardando="Procesando...",
+                    on_click=RequisicionesState.confirmar_cambio_estado,
+                    saving=RequisicionesState.saving,
                     color_scheme=rx.match(
                         RequisicionesState.accion_estado_pendiente,
                         ("enviar", "blue"),
@@ -274,8 +267,6 @@ def modal_confirmar_estado() -> rx.Component:
                         ("cancelar", "red"),
                         "blue",
                     ),
-                    on_click=RequisicionesState.confirmar_cambio_estado,
-                    disabled=RequisicionesState.saving,
                 ),
                 spacing="3",
                 justify="end",
@@ -334,20 +325,15 @@ def modal_adjudicar_requisicion() -> rx.Component:
             rx.box(height="16px"),
 
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
+                boton_cancelar(
                     on_click=RequisicionesState.cerrar_modal_adjudicar,
                 ),
-                rx.button(
-                    rx.cond(
-                        RequisicionesState.saving,
-                        rx.hstack(rx.spinner(size="1"), "Adjudicando...", spacing="2"),
-                        "Adjudicar",
-                    ),
-                    color_scheme="purple",
+                boton_guardar(
+                    texto="Adjudicar",
+                    texto_guardando="Adjudicando...",
                     on_click=RequisicionesState.adjudicar_requisicion,
-                    disabled=RequisicionesState.saving,
+                    saving=RequisicionesState.saving,
+                    color_scheme="purple",
                 ),
                 spacing="3",
                 justify="end",
@@ -400,21 +386,15 @@ def modal_rechazar_requisicion() -> rx.Component:
                 ),
             ),
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=RequisicionesState.cerrar_modal_rechazar,
                 ),
-                rx.button(
-                    rx.cond(
-                        RequisicionesState.saving,
-                        rx.hstack(rx.spinner(size="1"), "Rechazando...", spacing="2"),
-                        "Rechazar",
-                    ),
-                    color_scheme="red",
+                boton_guardar(
+                    texto="Rechazar",
+                    texto_guardando="Rechazando...",
                     on_click=RequisicionesState.rechazar_requisicion,
-                    disabled=RequisicionesState.saving,
+                    saving=RequisicionesState.saving,
+                    color_scheme="red",
                 ),
                 spacing="3",
                 justify="end",

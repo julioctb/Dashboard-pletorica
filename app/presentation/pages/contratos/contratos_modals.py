@@ -3,7 +3,7 @@ Modales para el módulo de Contratos.
 """
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea, form_date
-from app.presentation.components.ui import status_badge_reactive
+from app.presentation.components.ui import status_badge_reactive, boton_guardar, boton_cancelar, boton_eliminar
 from app.presentation.pages.contratos.contratos_state import ContratosState
 from app.presentation.theme import Colors
 
@@ -535,30 +535,16 @@ def modal_contrato() -> rx.Component:
 
             # Botones
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    size="2",
-                    on_click=ContratosState.cerrar_modal_contrato
-                ),
-                rx.button(
-                    rx.cond(
-                        ContratosState.saving,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Guardando..."),
-                            spacing="2"
-                        ),
-                        rx.cond(
-                            ContratosState.es_edicion,
-                            "Guardar Cambios",
-                            "Crear Contrato"
-                        )
+                boton_cancelar(on_click=ContratosState.cerrar_modal_contrato),
+                boton_guardar(
+                    texto=rx.cond(
+                        ContratosState.es_edicion,
+                        "Guardar Cambios",
+                        "Crear Contrato",
                     ),
+                    texto_guardando="Guardando...",
                     on_click=ContratosState.guardar_contrato,
-                    disabled=ContratosState.saving,
-                    color_scheme="blue",
-                    size="2"
+                    saving=ContratosState.saving,
                 ),
                 spacing="4",
                 justify="end"
@@ -930,23 +916,18 @@ def modal_confirmar_cancelar() -> rx.Component:
                 )
             ),
             rx.hstack(
-                rx.button(
-                    "No, mantener",
-                    variant="soft",
-                    on_click=ContratosState.cerrar_confirmar_cancelar
+                boton_cancelar(
+                    texto="No, mantener",
+                    on_click=ContratosState.cerrar_confirmar_cancelar,
                 ),
-                rx.button(
-                    rx.cond(
-                        ContratosState.saving,
-                        rx.hstack(rx.spinner(size="1"), "Cancelando...", spacing="2"),
-                        "Sí, cancelar"
-                    ),
-                    color_scheme="red",
+                boton_eliminar(
+                    texto="Sí, cancelar",
+                    texto_eliminando="Cancelando...",
                     on_click=ContratosState.cancelar_contrato,
-                    disabled=ContratosState.saving,
+                    saving=ContratosState.saving,
                 ),
                 spacing="3",
-                justify="end"
+                justify="end",
             ),
         ),
         open=ContratosState.mostrar_modal_confirmar_cancelar,
