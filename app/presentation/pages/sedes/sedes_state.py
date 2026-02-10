@@ -235,9 +235,14 @@ class SedesState(BaseState):
             self.manejar_error(e, "al cargar sedes")
             self.sedes = []
 
+    async def on_mount_sedes(self):
+        """Montaje de la página: skeleton en primera visita, silencioso en revisitas."""
+        async for _ in self._montar_pagina(self._fetch_sedes):
+            yield
+
     async def cargar_sedes(self):
-        """Carga sedes con skeleton loading (público)."""
-        async for _ in self.recargar_datos(self._fetch_sedes):
+        """Recarga sedes con skeleton loading (filtros, refresh)."""
+        async for _ in self._recargar_datos(self._fetch_sedes):
             yield
 
     async def cargar_opciones_sedes(self):
@@ -259,7 +264,8 @@ class SedesState(BaseState):
             self.opciones_sedes_padre = []
 
     async def buscar_sedes(self):
-        await self.cargar_sedes()
+        async for _ in self.cargar_sedes():
+            yield
 
     def handle_key_down(self, key: str):
         if key == "Enter":
@@ -275,12 +281,12 @@ class SedesState(BaseState):
     async def limpiar_filtros(self):
         self.filtro_busqueda = ""
         self.incluir_inactivas = False
-        async for _ in self.recargar_datos(self._fetch_sedes):
+        async for _ in self._recargar_datos(self._fetch_sedes):
             yield
 
     async def limpiar_busqueda(self):
         self.filtro_busqueda = ""
-        async for _ in self.recargar_datos(self._fetch_sedes):
+        async for _ in self._recargar_datos(self._fetch_sedes):
             yield
 
     # ========================

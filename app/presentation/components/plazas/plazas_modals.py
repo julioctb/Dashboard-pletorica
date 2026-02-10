@@ -5,6 +5,7 @@ import reflex as rx
 from app.presentation.pages.plazas.plazas_state import PlazasState
 from app.presentation.components.ui.form_input import form_input, form_textarea, form_date, form_select
 from app.presentation.components.ui.modals import modal_confirmar_accion
+from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.components.ui import status_badge_reactive
 
 
@@ -88,25 +89,15 @@ def modal_plaza() -> rx.Component:
 
             # Botones de accion
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=PlazasState.cerrar_modal_plaza,
                 ),
-                rx.button(
-                    rx.cond(
-                        PlazasState.saving,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Guardando..."),
-                            spacing="2"
-                        ),
-                        rx.text("Guardar")
-                    ),
+                boton_guardar(
+                    texto="Guardar",
+                    texto_guardando="Guardando...",
                     on_click=PlazasState.guardar_plaza,
+                    saving=PlazasState.saving,
                     disabled=~PlazasState.puede_guardar,
-                    color_scheme="blue",
                 ),
                 spacing="3",
                 justify="end",
@@ -376,27 +367,14 @@ def modal_asignar_empleado() -> rx.Component:
 
             # Botones de acción
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=PlazasState.cerrar_modal_asignar_empleado,
                 ),
-                rx.button(
-                    rx.cond(
-                        PlazasState.saving,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Asignando..."),
-                            spacing="2"
-                        ),
-                        rx.hstack(
-                            rx.icon("user-check", size=14),
-                            rx.text("Asignar"),
-                            spacing="2"
-                        )
-                    ),
+                boton_guardar(
+                    texto="Asignar",
+                    texto_guardando="Asignando...",
                     on_click=PlazasState.confirmar_asignar_empleado,
+                    saving=PlazasState.saving,
                     disabled=~PlazasState.puede_asignar_empleado,
                     color_scheme="green",
                 ),
@@ -513,29 +491,14 @@ def modal_crear_lote() -> rx.Component:
 
             # Botones de accion
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=PlazasState.cerrar_modal_crear_lote,
                 ),
-                rx.button(
-                    rx.cond(
-                        PlazasState.saving,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Generando..."),
-                            spacing="2"
-                        ),
-                        rx.hstack(
-                            rx.icon("plus", size=14),
-                            rx.text("Generar"),
-                            spacing="2"
-                        )
-                    ),
+                boton_guardar(
+                    texto="Generar",
+                    texto_guardando="Generando...",
                     on_click=PlazasState.crear_plazas_lote,
-                    disabled=PlazasState.saving,
-                    color_scheme="blue",
+                    saving=PlazasState.saving,
                 ),
                 spacing="3",
                 justify="end",

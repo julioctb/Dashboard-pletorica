@@ -9,7 +9,7 @@ def estado_requisicion_badge(estado: str, show_icon: bool = False) -> rx.Compone
     Colores:
         BORRADOR -> gray
         ENVIADA -> blue
-        EN_REVISION -> orange
+        EN REVISION -> orange
         APROBADA -> green
         ADJUDICADA -> purple
         CONTRATADA -> teal
@@ -35,7 +35,7 @@ def estado_requisicion_badge(estado: str, show_icon: bool = False) -> rx.Compone
             color_scheme="blue",
             variant="soft",
         )),
-        ("EN_REVISION", rx.badge(
+        ("EN REVISION", rx.badge(
             rx.hstack(
                 rx.icon("search", size=12) if show_icon else rx.fragment(),
                 "En revision",

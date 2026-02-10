@@ -4,6 +4,7 @@ Modal para crear/editar empleados en el portal.
 import reflex as rx
 
 from app.presentation.theme import Colors, Typography, Spacing, Radius
+from app.presentation.components.ui import boton_guardar, boton_cancelar
 
 from .state import MisEmpleadosState
 
@@ -66,21 +67,18 @@ def modal_empleado() -> rx.Component:
 
             # Botones de accion
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="outline",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=MisEmpleadosState.cerrar_modal_empleado,
                 ),
-                rx.button(
-                    rx.cond(
-                        MisEmpleadosState.saving,
-                        rx.spinner(size="1"),
-                        rx.icon("save", size=16),
+                boton_guardar(
+                    texto=rx.cond(
+                        MisEmpleadosState.es_edicion,
+                        "Guardar Cambios",
+                        "Crear Empleado",
                     ),
-                    "Guardar",
+                    texto_guardando="Guardando...",
                     on_click=MisEmpleadosState.guardar_empleado,
-                    disabled=MisEmpleadosState.saving,
+                    saving=MisEmpleadosState.saving,
                     color_scheme="teal",
                 ),
                 spacing="3",

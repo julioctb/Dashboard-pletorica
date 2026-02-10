@@ -26,6 +26,84 @@ class SupabasePagoRepository:
         self.supabase = db_manager.get_client()
         self.tabla = 'pagos'
 
+    async def obtener_todos(
+        self,
+        contrato_id: Optional[int] = None,
+        fecha_desde: Optional[str] = None,
+        fecha_hasta: Optional[str] = None,
+        limite: int = 100,
+        offset: int = 0
+    ) -> List[dict]:
+        """
+        Obtiene todos los pagos con filtros opcionales.
+        Incluye datos del contrato (JOIN).
+
+        Raises:
+            DatabaseError: Si hay error de conexion
+        """
+        try:
+            query = self.supabase.table(self.tabla)\
+                .select('*, contratos(codigo, empresa_id, empresas(nombre_comercial))')\
+                .order('fecha_pago', desc=True)
+
+            if contrato_id:
+                query = query.eq('contrato_id', contrato_id)
+
+            if fecha_desde:
+                query = query.gte('fecha_pago', fecha_desde)
+
+            if fecha_hasta:
+                query = query.lte('fecha_pago', fecha_hasta)
+
+            query = query.range(offset, offset + limite - 1)
+            result = query.execute()
+
+            # Transformar datos para incluir info del contrato
+            pagos = []
+            for data in result.data:
+                contrato_info = data.pop('contratos', {}) or {}
+                empresa_info = contrato_info.pop('empresas', {}) or {}
+                pagos.append({
+                    **data,
+                    'contrato_codigo': contrato_info.get('codigo', ''),
+                    'empresa_nombre': empresa_info.get('nombre_comercial', ''),
+                })
+            return pagos
+        except Exception as e:
+            logger.error(f"Error obteniendo pagos: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def contar_todos(
+        self,
+        contrato_id: Optional[int] = None,
+        fecha_desde: Optional[str] = None,
+        fecha_hasta: Optional[str] = None,
+    ) -> int:
+        """
+        Cuenta todos los pagos con filtros opcionales.
+
+        Raises:
+            DatabaseError: Si hay error de conexion
+        """
+        try:
+            query = self.supabase.table(self.tabla)\
+                .select('id', count='exact')
+
+            if contrato_id:
+                query = query.eq('contrato_id', contrato_id)
+
+            if fecha_desde:
+                query = query.gte('fecha_pago', fecha_desde)
+
+            if fecha_hasta:
+                query = query.lte('fecha_pago', fecha_hasta)
+
+            result = query.execute()
+            return result.count or 0
+        except Exception as e:
+            logger.error(f"Error contando pagos: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
     async def obtener_por_id(self, pago_id: int) -> Pago:
         """
         Obtiene un pago por su ID.

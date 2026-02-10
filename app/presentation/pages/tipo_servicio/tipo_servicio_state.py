@@ -189,14 +189,20 @@ class TipoServicioState(BaseState):
             self.manejar_error(e, "al cargar tipos")
             self.tipos = []
 
+    async def on_mount_tipos(self):
+        """Montaje de la página: skeleton en primera visita, silencioso en revisitas."""
+        async for _ in self._montar_pagina(self._fetch_tipos):
+            yield
+
     async def cargar_tipos(self):
-        """Carga tipos con skeleton loading (público)."""
-        async for _ in self.recargar_datos(self._fetch_tipos):
+        """Recarga tipos con skeleton loading (filtros, refresh)."""
+        async for _ in self._recargar_datos(self._fetch_tipos):
             yield
 
     async def buscar_tipos(self):
         """Buscar tipos con el filtro actual"""
-        await self.cargar_tipos()
+        async for _ in self.cargar_tipos():
+            yield
 
     def handle_key_down(self, key: str):
         """Manejar tecla presionada en búsqueda"""
@@ -215,13 +221,13 @@ class TipoServicioState(BaseState):
         """Limpiar todos los filtros y recargar"""
         self.filtro_busqueda = ""
         self.incluir_inactivas = False
-        async for _ in self.recargar_datos(self._fetch_tipos):
+        async for _ in self._recargar_datos(self._fetch_tipos):
             yield
 
     async def limpiar_busqueda(self):
         """Limpiar solo el campo de búsqueda y recargar"""
         self.filtro_busqueda = ""
-        async for _ in self.recargar_datos(self._fetch_tipos):
+        async for _ in self._recargar_datos(self._fetch_tipos):
             yield
 
     # ========================

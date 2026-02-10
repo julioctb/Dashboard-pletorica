@@ -63,12 +63,33 @@ class PortalState(AuthState):
                 position="top-center",
             )
 
-    async def on_mount_dashboard(self):
-        """Montaje del dashboard: verificar auth + cargar metricas."""
+    async def _montar_pagina_portal(self, *operaciones):
+        """
+        _montar_pagina con verificacion de portal (auth + rol + empresa).
+
+        Verifica auth y rol primero. Si falla, redirige.
+        Si pasa, delega a _montar_pagina para skeleton + fetch.
+
+        Uso:
+            async def on_mount(self):
+                async for _ in self._montar_pagina_portal(
+                    self._fetch_datos,
+                ):
+                    yield
+        """
         resultado = await self.on_mount_portal()
         if resultado:
-            return resultado
-        await self._cargar_metricas()
+            self.loading = False
+            yield resultado
+            return
+
+        async for _ in self._montar_pagina(*operaciones):
+            yield
+
+    async def on_mount_dashboard(self):
+        """Montaje del dashboard: verificar auth + cargar metricas."""
+        async for _ in self._montar_pagina_portal(self._fetch_metricas):
+            yield
 
     # ========================
     # CARGA DE DATOS
@@ -87,12 +108,11 @@ class PortalState(AuthState):
             logger.error(f"Error cargando datos de empresa: {e}")
             self.datos_empresa = {}
 
-    async def _cargar_metricas(self):
-        """Carga metricas rapidas para el dashboard."""
+    async def _fetch_metricas(self):
+        """Carga metricas rapidas para el dashboard (sin manejo de loading)."""
         if not self.id_empresa_actual:
             return
 
-        self.loading = True
         try:
             # Empleados activos
             self.total_empleados = await empleado_service.contar(
@@ -126,8 +146,6 @@ class PortalState(AuthState):
             self.mostrar_mensaje(f"Error cargando metricas: {e}", "error")
         except Exception as e:
             logger.error(f"Error cargando metricas del portal: {e}")
-        finally:
-            self.loading = False
 
     # ========================
     # PROPIEDADES DE CONVENIENCIA

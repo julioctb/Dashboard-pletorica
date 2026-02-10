@@ -17,10 +17,12 @@ from .presentation.pages.requisiciones.requisiciones_page import requisiciones_p
 from .presentation.pages.configuracion.configuracion_page import configuracion_page
 from .presentation.pages.sedes.sedes_page import sedes_page
 from .presentation.pages.entregables import entregables_page, entregable_detalle_page
+from .presentation.pages.pagos.pagos_page import pagos_page
 from .presentation.pages.login.login_page import login_page
 from .presentation.pages.admin.usuarios.usuarios_page import usuarios_admin_page
 
 from .presentation.layout.sidebar_layout import sidebar
+from .presentation.components.shared.auth_state import AuthState
 
 # Portal de cliente
 from .presentation.portal.layout.portal_layout import portal_index
@@ -33,21 +35,33 @@ from .presentation.portal.pages.mis_entregables import mis_entregables_page
 
 #se dibuja el layout para todas las paginas
 def index(content: rx.Component) -> rx.Component:
-    return rx.hstack(
-        sidebar(),
-        rx.box(
-            content,
-            background_color = 'var(--gray-2)',
-            width="100%",
-            flex="1",
-            overflow_y="auto",
-            style={
-                "minHeight": "calc(100vh - 140px)",
-                "padding": "1.5rem"
-            }
+    return rx.box(
+        rx.cond(
+            AuthState.debe_redirigir_login,
+            # No autenticado: spinner mientras se redirige a /login
+            rx.center(
+                rx.spinner(size="3"),
+                height="100vh",
+            ),
+            # Autenticado (o SKIP_AUTH=true): layout normal
+            rx.hstack(
+                sidebar(),
+                rx.box(
+                    content,
+                    background_color='var(--gray-2)',
+                    width="100%",
+                    flex="1",
+                    overflow_y="auto",
+                    style={
+                        "minHeight": "calc(100vh - 140px)",
+                        "padding": "1.5rem"
+                    }
+                ),
+                width="100%",
+                spacing="0"
+            ),
         ),
-        width="100%",
-        spacing="0"
+        on_mount=AuthState.verificar_y_redirigir,
     )
 
 
@@ -72,6 +86,7 @@ app.add_page(lambda: index(simulador_page()), route="/simulador")
 app.add_page(lambda: index(tipo_servicio_page()), route="/tipos-servicio")
 app.add_page(lambda: index(categorias_puesto_page()), route="/categorias-puesto")
 app.add_page(lambda: index(contratos_page()), route="/contratos")
+app.add_page(lambda: index(pagos_page()), route="/pagos")
 app.add_page(lambda: index(plazas_page()), route="/plazas")
 app.add_page(lambda: index(empleados_page()), route="/empleados")
 app.add_page(lambda: index(historial_laboral_page()), route="/historial-laboral")

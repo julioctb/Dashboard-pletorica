@@ -567,6 +567,14 @@ class UserService:
 
             result = query.execute()
 
+            # Obtener emails de auth.users (un solo request)
+            emails_map = {}
+            try:
+                auth_users = self.supabase_admin.auth.admin.list_users()
+                emails_map = {u.id: u.email for u in auth_users if u.email}
+            except Exception as e:
+                logger.warning(f"No se pudieron obtener emails de auth.users: {e}")
+
             # Convertir a resumen con datos enriquecidos
             resumenes = []
             for data in result.data:
@@ -586,6 +594,7 @@ class UserService:
                     ultimo_acceso=profile.ultimo_acceso,
                     puede_gestionar_usuarios=profile.puede_gestionar_usuarios,
                     permisos=profile.permisos,
+                    email=emails_map.get(str(profile.id)),
                     cantidad_empresas=len(empresas),
                     empresa_principal=empresa_principal,
                 )
@@ -849,6 +858,37 @@ class UserService:
             raise NotFoundError(f"Empresa con ID {empresa_id} no encontrada")
 
     # =========================================================================
+    # RESET DE CONTRASEÑA (SUPER ADMIN)
+    # =========================================================================
+
+    async def resetear_password(self, user_id: UUID, nueva_password: str) -> None:
+        """
+        Resetea la contraseña de un usuario (solo super admin).
+
+        Args:
+            user_id: UUID del usuario
+            nueva_password: Nueva contraseña (mínimo 8 caracteres)
+
+        Raises:
+            BusinessRuleError: Si no hay service_role key configurada
+            DatabaseError: Si hay error al actualizar
+        """
+        if not self.supabase_admin:
+            raise BusinessRuleError(
+                "No se puede resetear: SUPABASE_SERVICE_KEY no configurada"
+            )
+
+        try:
+            self.supabase_admin.auth.admin.update_user_by_id(
+                str(user_id),
+                {"password": nueva_password},
+            )
+            logger.info(f"Contraseña reseteada para usuario {user_id}")
+        except Exception as e:
+            logger.error(f"Error reseteando contraseña de {user_id}: {e}")
+            raise DatabaseError(f"Error al resetear contraseña: {str(e)}")
+
+    # =========================================================================
     # VALIDACIÓN DE PERMISOS
     # =========================================================================
 
@@ -935,6 +975,44 @@ class UserService:
             (e for e in empresas if e.es_principal),
             empresas[0] if empresas else None  # Fallback a la primera
         )
+
+    async def obtener_usuarios_con_permiso(
+        self,
+        modulo: str,
+        accion: str,
+    ) -> List[UserProfile]:
+        """
+        Obtiene todos los usuarios activos que tienen un permiso específico.
+
+        Args:
+            modulo: Nombre del módulo (requisiciones, entregables, etc.)
+            accion: 'operar' o 'autorizar'
+
+        Returns:
+            Lista de UserProfile con el permiso
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        try:
+            # Obtener todos los usuarios activos
+            result = self.supabase_admin.table(self.tabla_profiles)\
+                .select('*')\
+                .eq('activo', True)\
+                .execute()
+
+            usuarios_con_permiso = []
+            for data in result.data:
+                profile = UserProfile(**data)
+                # Verificar si tiene el permiso
+                if profile.permisos.get(modulo, {}).get(accion, False):
+                    usuarios_con_permiso.append(profile)
+
+            return usuarios_con_permiso
+
+        except Exception as e:
+            logger.error(f"Error obteniendo usuarios con permiso {modulo}:{accion}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
 
 # =============================================================================

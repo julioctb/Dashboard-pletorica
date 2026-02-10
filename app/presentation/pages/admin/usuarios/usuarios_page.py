@@ -16,7 +16,11 @@ from app.presentation.layout import (
     page_header,
     page_toolbar,
 )
-from app.presentation.components.ui import skeleton_tabla
+from app.presentation.components.ui import (
+    skeleton_tabla,
+    tabla_action_button,
+    tabla_action_buttons,
+)
 
 
 # =============================================================================
@@ -48,58 +52,40 @@ def _badge_estado(activo: rx.Var[bool]) -> rx.Component:
 
 def _acciones_usuario(usuario: dict) -> rx.Component:
     """Botones de accion para un usuario."""
-    return rx.hstack(
+    es_activo = usuario["activo"]
+
+    return tabla_action_buttons([
         # Editar
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("pencil", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="blue",
-                on_click=lambda: UsuariosAdminState.abrir_modal_editar(usuario),
-            ),
-            content="Editar",
+        tabla_action_button(
+            icon="pencil",
+            tooltip="Editar",
+            on_click=lambda: UsuariosAdminState.abrir_modal_editar(usuario),
+            color_scheme="blue",
         ),
         # Gestionar empresas
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("building", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="teal",
-                on_click=lambda: UsuariosAdminState.abrir_modal_empresas(usuario),
-            ),
-            content="Gestionar empresas",
+        tabla_action_button(
+            icon="building",
+            tooltip="Gestionar empresas",
+            on_click=lambda: UsuariosAdminState.abrir_modal_empresas(usuario),
+            color_scheme="teal",
         ),
-        # Activar / Desactivar
-        rx.cond(
-            usuario["activo"],
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("user-x", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    on_click=lambda: UsuariosAdminState.confirmar_desactivar(usuario),
-                ),
-                content="Desactivar",
-            ),
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("user-check", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    on_click=lambda: UsuariosAdminState.activar_usuario_accion(
-                        usuario["id"].to(str)
-                    ),
-                ),
-                content="Activar",
-            ),
+        # Desactivar (si activo)
+        tabla_action_button(
+            icon="user-x",
+            tooltip="Desactivar",
+            on_click=lambda: UsuariosAdminState.confirmar_desactivar(usuario),
+            color_scheme="red",
+            visible=es_activo,
         ),
-        spacing="1",
-        justify="center",
-    )
+        # Activar (si inactivo)
+        tabla_action_button(
+            icon="user-check",
+            tooltip="Activar",
+            on_click=lambda: UsuariosAdminState.activar_usuario_accion(usuario["id"].to(str)),
+            color_scheme="green",
+            visible=~es_activo,
+        ),
+    ])
 
 
 # =============================================================================

@@ -13,8 +13,9 @@ from app.presentation.components.ui import (
     status_badge_reactive,
     tabla_vacia,
     skeleton_tabla,
-    action_buttons_reactive,
     switch_inactivos,
+    tabla_action_button,
+    tabla_action_buttons,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.tipo_servicio.tipo_servicio_modals import (
@@ -29,44 +30,48 @@ from app.presentation.components.tipo_servicio.tipo_servicio_modals import (
 
 def acciones_tipo(tipo: dict) -> rx.Component:
     """Acciones para cada tipo de servicio"""
-    # Boton para ver categorias (siempre visible)
-    btn_ver_categorias = rx.tooltip(
-        rx.link(
-            rx.icon_button(
-                rx.icon("folder", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="teal",
-            ),
-            href="/categorias-puesto?tipo=" + tipo["id"].to(str),
-        ),
-        content="Ver categorias",
-    )
+    es_activo = tipo["estatus"] == "ACTIVO"
+    es_inactivo = tipo["estatus"] == "INACTIVO"
 
-    # Boton para reactivar (solo si inactivo)
-    btn_reactivar = rx.cond(
-        tipo["estatus"] == "INACTIVO",
+    return tabla_action_buttons([
+        # Ver categorias (siempre visible, usa link)
         rx.tooltip(
-            rx.icon_button(
-                rx.icon("rotate-ccw", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="green",
-                on_click=lambda: TipoServicioState.activar_tipo(tipo),
+            rx.link(
+                rx.icon_button(
+                    rx.icon("folder", size=16),
+                    size="2",
+                    variant="soft",
+                    color_scheme="teal",
+                ),
+                href="/categorias-puesto?tipo=" + tipo["id"].to(str),
             ),
-            content="Reactivar",
+            content="Ver categorias",
         ),
-        rx.fragment(),
-    )
-
-    return action_buttons_reactive(
-        item=tipo,
-        editar_action=lambda: TipoServicioState.abrir_modal_editar(tipo),
-        eliminar_action=lambda: TipoServicioState.abrir_confirmar_eliminar(tipo),
-        puede_editar=tipo["estatus"] == "ACTIVO",
-        puede_eliminar=tipo["estatus"] == "ACTIVO",
-        acciones_extra=[btn_ver_categorias, btn_reactivar],
-    )
+        # Editar
+        tabla_action_button(
+            icon="pencil",
+            tooltip="Editar",
+            on_click=lambda: TipoServicioState.abrir_modal_editar(tipo),
+            color_scheme="blue",
+            visible=es_activo,
+        ),
+        # Eliminar
+        tabla_action_button(
+            icon="trash-2",
+            tooltip="Eliminar",
+            on_click=lambda: TipoServicioState.abrir_confirmar_eliminar(tipo),
+            color_scheme="red",
+            visible=es_activo,
+        ),
+        # Reactivar
+        tabla_action_button(
+            icon="rotate-ccw",
+            tooltip="Reactivar",
+            on_click=lambda: TipoServicioState.activar_tipo(tipo),
+            color_scheme="green",
+            visible=es_inactivo,
+        ),
+    ])
 
 
 # =============================================================================
@@ -313,5 +318,5 @@ def tipo_servicio_page() -> rx.Component:
         ),
         width="100%",
         min_height="100vh",
-        on_mount=TipoServicioState.cargar_tipos,
+        on_mount=TipoServicioState.on_mount_tipos,
     )

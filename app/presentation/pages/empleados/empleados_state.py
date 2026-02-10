@@ -1061,7 +1061,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
     async def aplicar_filtros(self):
         """Aplica los filtros y recarga la lista"""
         self.pagina = 1
-        async for _ in self.recargar_datos(self._fetch_empleados):
+        async for _ in self._recargar_datos(self._fetch_empleados):
             yield
 
     async def limpiar_filtros(self):
@@ -1070,7 +1070,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
         self.filtro_empresa_id = FILTRO_TODAS
         self.filtro_estatus = FILTRO_TODOS
         self.pagina = 1
-        async for _ in self.recargar_datos(self._fetch_empleados):
+        async for _ in self._recargar_datos(self._fetch_empleados):
             yield
 
     # ========================
@@ -1156,7 +1156,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
     # ========================
     async def on_mount(self):
         """Se ejecuta al montar la página"""
-        async for _ in self.montar_pagina(
+        async for _ in self._montar_pagina(
             self.cargar_empresas,
             self._fetch_empleados,
         ):

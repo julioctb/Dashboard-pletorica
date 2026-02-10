@@ -629,6 +629,29 @@ class AuthState(BaseState):
 
         return None
 
+    async def _montar_pagina_auth(self, *operaciones):
+        """
+        _montar_pagina con verificación de autenticación.
+
+        Verifica auth primero, si falla redirige a login.
+        Si pasa, delega a _montar_pagina para skeleton + fetch.
+
+        Uso:
+            async def on_mount(self):
+                async for _ in self._montar_pagina_auth(
+                    self._fetch_datos,
+                ):
+                    yield
+        """
+        resultado = await self.verificar_y_redirigir()
+        if resultado:
+            self.loading = False
+            yield resultado
+            return
+
+        async for _ in self._montar_pagina(*operaciones):
+            yield
+
     def puede_acceder_empresa(self, empresa_id: int) -> bool:
         """
         Verifica si el usuario puede acceder a una empresa específica.

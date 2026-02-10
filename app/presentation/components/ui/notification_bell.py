@@ -10,12 +10,31 @@ Componente para mostrar notificaciones no leidas con:
 Uso:
     from app.presentation.components.ui.notification_bell import notification_bell
 
-    # En sidebar
+    # En sidebar admin
     notification_bell()
+
+    # En sidebar portal
+    notification_bell_portal()
 """
 
 import reflex as rx
-from app.presentation.theme import Colors, Spacing, Radius, Typography
+from typing import Callable, List
+from app.presentation.theme import Colors, Spacing, Radius
+from app.entities.notificacion import Notificacion
+
+
+def _notificacion_to_dict(n: Notificacion) -> dict:
+    """Convierte una Notificacion a dict para el estado."""
+    return {
+        "id": n.id,
+        "titulo": n.titulo,
+        "mensaje": n.mensaje,
+        "tipo": n.tipo,
+        "leida": n.leida,
+        "entidad_tipo": n.entidad_tipo or "",
+        "entidad_id": n.entidad_id or 0,
+        "fecha_creacion": str(n.fecha_creacion) if n.fecha_creacion else "",
+    }
 
 
 class NotificationBellState(rx.State):
@@ -25,6 +44,10 @@ class NotificationBellState(rx.State):
     total_no_leidas: int = 0
     cargando: bool = False
     popover_abierto: bool = False
+
+    # =========================================================================
+    # COMPUTED VARS
+    # =========================================================================
 
     @rx.var
     def tiene_notificaciones(self) -> bool:
@@ -36,29 +59,42 @@ class NotificationBellState(rx.State):
             return "99+"
         return str(self.total_no_leidas)
 
+    # =========================================================================
+    # CARGA DE NOTIFICACIONES
+    # =========================================================================
+
+    def _procesar_notificaciones(self, notificaciones: List[Notificacion]) -> None:
+        """Procesa y almacena las notificaciones."""
+        self.notificaciones = [_notificacion_to_dict(n) for n in notificaciones]
+
     async def cargar_notificaciones(self):
-        """Carga notificaciones admin (usuario_id=None, empresa_id=None)."""
+        """Carga notificaciones admin + personales del usuario actual."""
         self.cargando = True
         try:
             from app.services import notificacion_service
-            self.total_no_leidas = await notificacion_service.contar_no_leidas_admin()
-            notificaciones = await notificacion_service.obtener_admin(
-                solo_no_leidas=False,
-                limite=10,
-            )
-            self.notificaciones = [
-                {
-                    "id": n.id,
-                    "titulo": n.titulo,
-                    "mensaje": n.mensaje,
-                    "tipo": n.tipo,
-                    "leida": n.leida,
-                    "entidad_tipo": n.entidad_tipo or "",
-                    "entidad_id": n.entidad_id or 0,
-                    "fecha_creacion": str(n.fecha_creacion) if n.fecha_creacion else "",
-                }
-                for n in notificaciones
-            ]
+            from app.presentation.components.shared.auth_state import AuthState
+
+            # Obtener ID del usuario actual
+            auth = await self.get_state(AuthState)
+            usuario_id = auth.id_usuario
+
+            if usuario_id:
+                # Cargar notificaciones combinadas (admin + personales)
+                self.total_no_leidas = await notificacion_service.contar_no_leidas_usuario_admin(usuario_id)
+                notificaciones = await notificacion_service.obtener_para_usuario_admin(
+                    usuario_id=usuario_id,
+                    solo_no_leidas=False,
+                    limite=10,
+                )
+            else:
+                # Fallback: solo admin si no hay usuario
+                self.total_no_leidas = await notificacion_service.contar_no_leidas_admin()
+                notificaciones = await notificacion_service.obtener_admin(
+                    solo_no_leidas=False,
+                    limite=10,
+                )
+
+            self._procesar_notificaciones(notificaciones)
         except Exception:
             self.notificaciones = []
             self.total_no_leidas = 0
@@ -72,13 +108,13 @@ class NotificationBellState(rx.State):
             portal = await self.get_state(PortalState)
             empresa_id = portal.id_empresa_actual
             if empresa_id:
-                await self.cargar_notificaciones_empresa(empresa_id)
+                await self._cargar_notificaciones_empresa(empresa_id)
         except Exception:
             self.notificaciones = []
             self.total_no_leidas = 0
 
-    async def cargar_notificaciones_empresa(self, empresa_id: int):
-        """Carga notificaciones de una empresa (para portal de cliente)."""
+    async def _cargar_notificaciones_empresa(self, empresa_id: int):
+        """Carga notificaciones de una empresa."""
         self.cargando = True
         try:
             from app.services import notificacion_service
@@ -88,31 +124,28 @@ class NotificationBellState(rx.State):
                 solo_no_leidas=False,
                 limite=10,
             )
-            self.notificaciones = [
-                {
-                    "id": n.id,
-                    "titulo": n.titulo,
-                    "mensaje": n.mensaje,
-                    "tipo": n.tipo,
-                    "leida": n.leida,
-                    "entidad_tipo": n.entidad_tipo or "",
-                    "entidad_id": n.entidad_id or 0,
-                    "fecha_creacion": str(n.fecha_creacion) if n.fecha_creacion else "",
-                }
-                for n in notificaciones
-            ]
+            self._procesar_notificaciones(notificaciones)
         except Exception:
             self.notificaciones = []
             self.total_no_leidas = 0
         finally:
             self.cargando = False
 
+    # =========================================================================
+    # MARCAR COMO LEIDAS
+    # =========================================================================
+
+    def _marcar_todas_localmente(self) -> None:
+        """Marca todas las notificaciones como leidas en el estado local."""
+        for n in self.notificaciones:
+            n["leida"] = True
+        self.total_no_leidas = 0
+
     async def marcar_leida(self, notificacion_id: int):
         """Marca una notificacion como leida."""
         try:
             from app.services import notificacion_service
             await notificacion_service.marcar_leida(notificacion_id)
-            # Actualizar en local
             for n in self.notificaciones:
                 if n.get("id") == notificacion_id:
                     n["leida"] = True
@@ -121,13 +154,20 @@ class NotificationBellState(rx.State):
             pass
 
     async def marcar_todas_leidas(self):
-        """Marca todas las notificaciones como leidas (admin)."""
+        """Marca todas las notificaciones como leidas (admin + personales)."""
         try:
             from app.services import notificacion_service
-            await notificacion_service.marcar_todas_leidas_admin()
-            for n in self.notificaciones:
-                n["leida"] = True
-            self.total_no_leidas = 0
+            from app.presentation.components.shared.auth_state import AuthState
+
+            auth = await self.get_state(AuthState)
+            usuario_id = auth.id_usuario
+
+            if usuario_id:
+                await notificacion_service.marcar_todas_leidas_usuario_admin(usuario_id)
+            else:
+                await notificacion_service.marcar_todas_leidas_admin()
+
+            self._marcar_todas_localmente()
         except Exception:
             pass
 
@@ -141,11 +181,13 @@ class NotificationBellState(rx.State):
                 return
             from app.services import notificacion_service
             await notificacion_service.marcar_todas_leidas_empresa(empresa_id)
-            for n in self.notificaciones:
-                n["leida"] = True
-            self.total_no_leidas = 0
+            self._marcar_todas_localmente()
         except Exception:
             pass
+
+    # =========================================================================
+    # NAVEGACION
+    # =========================================================================
 
     def toggle_popover(self):
         self.popover_abierto = not self.popover_abierto
@@ -156,21 +198,33 @@ class NotificationBellState(rx.State):
     def navegar_a_entidad(self, entidad_tipo: str, entidad_id: int):
         """Navega a la entidad relacionada (admin routes)."""
         self.popover_abierto = False
-        if entidad_tipo == "ENTREGABLE" and entidad_id:
-            return rx.redirect(f"/entregables/{entidad_id}")
-        return rx.redirect("/")
+        rutas = {
+            "ENTREGABLE": f"/entregables/{entidad_id}" if entidad_id else "/entregables",
+            "REQUISICION": "/requisiciones",
+        }
+        return rx.redirect(rutas.get(entidad_tipo, "/"))
 
     def navegar_a_entidad_portal(self, entidad_tipo: str, entidad_id: int):
         """Navega a la entidad relacionada (portal routes)."""
         self.popover_abierto = False
-        if entidad_tipo == "ENTREGABLE" and entidad_id:
-            return rx.redirect("/portal/entregables")
-        return rx.redirect("/portal")
+        rutas = {
+            "ENTREGABLE": "/portal/entregables",
+            "REQUISICION": "/portal",  # Portal no tiene requisiciones
+        }
+        return rx.redirect(rutas.get(entidad_tipo, "/portal"))
 
 
-def _notificacion_item(notificacion: dict) -> rx.Component:
+# =============================================================================
+# COMPONENTES UI
+# =============================================================================
+
+def _notificacion_item(
+    notificacion: dict,
+    on_click_handler: Callable,
+) -> rx.Component:
     """Item individual de notificacion en el popover."""
     return rx.hstack(
+        # Indicador de no leida
         rx.cond(
             ~notificacion["leida"],
             rx.box(
@@ -182,6 +236,7 @@ def _notificacion_item(notificacion: dict) -> rx.Component:
             ),
             rx.box(width="8px", height="8px", flex_shrink="0"),
         ),
+        # Contenido
         rx.vstack(
             rx.text(
                 notificacion["titulo"],
@@ -205,56 +260,124 @@ def _notificacion_item(notificacion: dict) -> rx.Component:
         cursor="pointer",
         border_radius=Radius.MD,
         _hover={"background": Colors.SURFACE_HOVER},
-        on_click=lambda: NotificationBellState.navegar_a_entidad(
+        on_click=lambda: on_click_handler(
             notificacion["entidad_tipo"],
             notificacion["entidad_id"],
         ),
     )
 
 
-def _notificacion_item_portal(notificacion: dict) -> rx.Component:
-    """Item individual de notificacion para portal de cliente."""
-    return rx.hstack(
-        rx.cond(
-            ~notificacion["leida"],
-            rx.box(
-                width="8px",
-                height="8px",
-                border_radius="50%",
-                background=Colors.PRIMARY,
-                flex_shrink="0",
+def _badge_conteo() -> rx.Component:
+    """Badge con el conteo de notificaciones."""
+    return rx.cond(
+        NotificationBellState.tiene_notificaciones,
+        rx.box(
+            rx.text(
+                NotificationBellState.texto_badge,
+                font_size="10px",
+                font_weight="bold",
+                color="white",
+                line_height="1",
             ),
-            rx.box(width="8px", height="8px", flex_shrink="0"),
+            position="absolute",
+            top="-2px",
+            right="-2px",
+            background=Colors.ERROR,
+            border_radius="50%",
+            min_width="18px",
+            height="18px",
+            display="flex",
+            align_items="center",
+            justify_content="center",
+            padding_x="4px",
         ),
+        rx.fragment(),
+    )
+
+
+def _trigger_button() -> rx.Component:
+    """Botón trigger de la campana con badge."""
+    return rx.box(
+        rx.icon_button(
+            rx.icon("bell", size=18),
+            variant="ghost",
+            color_scheme="gray",
+            size="2",
+            cursor="pointer",
+        ),
+        _badge_conteo(),
+        position="relative",
+    )
+
+
+def _empty_state() -> rx.Component:
+    """Estado vacío cuando no hay notificaciones."""
+    return rx.center(
         rx.vstack(
-            rx.text(
-                notificacion["titulo"],
-                size="2",
-                weight=rx.cond(~notificacion["leida"], "bold", "regular"),
-                no_of_lines=1,
-            ),
-            rx.text(
-                notificacion["mensaje"],
-                size="1",
-                color=Colors.TEXT_MUTED,
-                no_of_lines=2,
-            ),
-            spacing="0",
-            align="start",
-            flex="1",
+            rx.icon("bell-off", size=24, color=Colors.TEXT_MUTED),
+            rx.text("Sin notificaciones", size="2", color=Colors.TEXT_MUTED),
+            spacing="2",
+            align="center",
         ),
-        padding_y=Spacing.XS,
-        padding_x=Spacing.SM,
-        width="100%",
-        cursor="pointer",
-        border_radius=Radius.MD,
-        _hover={"background": Colors.SURFACE_HOVER},
-        on_click=lambda: NotificationBellState.navegar_a_entidad_portal(
-            notificacion["entidad_tipo"],
-            notificacion["entidad_id"],
-        ),
+        padding="6",
     )
 
+
+def _popover_content(
+    on_marcar_todas: Callable,
+    item_renderer: Callable[[dict], rx.Component],
+) -> rx.Component:
+    """Contenido del popover de notificaciones."""
+    return rx.popover.content(
+        rx.vstack(
+            # Header
+            rx.hstack(
+                rx.text("Notificaciones", size="3", weight="bold"),
+                rx.spacer(),
+                rx.cond(
+                    NotificationBellState.tiene_notificaciones,
+                    rx.button(
+                        "Marcar todas",
+                        size="1",
+                        variant="ghost",
+                        on_click=on_marcar_todas,
+                    ),
+                    rx.fragment(),
+                ),
+                width="100%",
+                align="center",
+            ),
+            rx.divider(),
+            # Lista de notificaciones
+            rx.cond(
+                NotificationBellState.cargando,
+                rx.center(rx.spinner(size="2"), padding="4"),
+                rx.cond(
+                    NotificationBellState.notificaciones.length() > 0,
+                    rx.vstack(
+                        rx.foreach(
+                            NotificationBellState.notificaciones,
+                            item_renderer,
+                        ),
+                        spacing="0",
+                        width="100%",
+                        max_height="300px",
+                        overflow_y="auto",
+                    ),
+                    _empty_state(),
+                ),
+            ),
+            spacing="2",
+            width="100%",
+        ),
+        width="320px",
+        side="right",
+    )
+
+
+# =============================================================================
+# COMPONENTES PÚBLICOS
+# =============================================================================
 
 def notification_bell() -> rx.Component:
     """
@@ -262,95 +385,12 @@ def notification_bell() -> rx.Component:
     Muestra badge con conteo y popover con lista.
     """
     return rx.popover.root(
-        rx.popover.trigger(
-            rx.box(
-                rx.icon_button(
-                    rx.icon("bell", size=18),
-                    variant="ghost",
-                    color_scheme="gray",
-                    size="2",
-                    cursor="pointer",
-                ),
-                # Badge de conteo
-                rx.cond(
-                    NotificationBellState.tiene_notificaciones,
-                    rx.box(
-                        rx.text(
-                            NotificationBellState.texto_badge,
-                            font_size="10px",
-                            font_weight="bold",
-                            color="white",
-                            line_height="1",
-                        ),
-                        position="absolute",
-                        top="-2px",
-                        right="-2px",
-                        background=Colors.ERROR,
-                        border_radius="50%",
-                        min_width="18px",
-                        height="18px",
-                        display="flex",
-                        align_items="center",
-                        justify_content="center",
-                        padding_x="4px",
-                    ),
-                    rx.fragment(),
-                ),
-                position="relative",
+        rx.popover.trigger(_trigger_button()),
+        _popover_content(
+            on_marcar_todas=NotificationBellState.marcar_todas_leidas,
+            item_renderer=lambda n: _notificacion_item(
+                n, NotificationBellState.navegar_a_entidad
             ),
-        ),
-        rx.popover.content(
-            rx.vstack(
-                # Header
-                rx.hstack(
-                    rx.text("Notificaciones", size="3", weight="bold"),
-                    rx.spacer(),
-                    rx.cond(
-                        NotificationBellState.tiene_notificaciones,
-                        rx.button(
-                            "Marcar todas",
-                            size="1",
-                            variant="ghost",
-                            on_click=NotificationBellState.marcar_todas_leidas,
-                        ),
-                        rx.fragment(),
-                    ),
-                    width="100%",
-                    align="center",
-                ),
-                rx.divider(),
-                # Lista de notificaciones
-                rx.cond(
-                    NotificationBellState.cargando,
-                    rx.center(rx.spinner(size="2"), padding="4"),
-                    rx.cond(
-                        NotificationBellState.notificaciones.length() > 0,
-                        rx.vstack(
-                            rx.foreach(
-                                NotificationBellState.notificaciones,
-                                _notificacion_item,
-                            ),
-                            spacing="0",
-                            width="100%",
-                            max_height="300px",
-                            overflow_y="auto",
-                        ),
-                        rx.center(
-                            rx.vstack(
-                                rx.icon("bell-off", size=24, color=Colors.TEXT_MUTED),
-                                rx.text("Sin notificaciones", size="2", color=Colors.TEXT_MUTED),
-                                spacing="2",
-                                align="center",
-                            ),
-                            padding="6",
-                        ),
-                    ),
-                ),
-                spacing="2",
-                width="100%",
-            ),
-            width="320px",
-            side="right",
         ),
         on_open_change=lambda _: NotificationBellState.cargar_notificaciones(),
     )
@@ -362,92 +402,12 @@ def notification_bell_portal() -> rx.Component:
     Carga notificaciones por empresa_id al abrir.
     """
     return rx.popover.root(
-        rx.popover.trigger(
-            rx.box(
-                rx.icon_button(
-                    rx.icon("bell", size=18),
-                    variant="ghost",
-                    color_scheme="gray",
-                    size="2",
-                    cursor="pointer",
-                ),
-                rx.cond(
-                    NotificationBellState.tiene_notificaciones,
-                    rx.box(
-                        rx.text(
-                            NotificationBellState.texto_badge,
-                            font_size="10px",
-                            font_weight="bold",
-                            color="white",
-                            line_height="1",
-                        ),
-                        position="absolute",
-                        top="-2px",
-                        right="-2px",
-                        background=Colors.ERROR,
-                        border_radius="50%",
-                        min_width="18px",
-                        height="18px",
-                        display="flex",
-                        align_items="center",
-                        justify_content="center",
-                        padding_x="4px",
-                    ),
-                    rx.fragment(),
-                ),
-                position="relative",
+        rx.popover.trigger(_trigger_button()),
+        _popover_content(
+            on_marcar_todas=NotificationBellState.marcar_todas_leidas_empresa,
+            item_renderer=lambda n: _notificacion_item(
+                n, NotificationBellState.navegar_a_entidad_portal
             ),
-        ),
-        rx.popover.content(
-            rx.vstack(
-                rx.hstack(
-                    rx.text("Notificaciones", size="3", weight="bold"),
-                    rx.spacer(),
-                    rx.cond(
-                        NotificationBellState.tiene_notificaciones,
-                        rx.button(
-                            "Marcar todas",
-                            size="1",
-                            variant="ghost",
-                            on_click=NotificationBellState.marcar_todas_leidas_empresa,
-                        ),
-                        rx.fragment(),
-                    ),
-                    width="100%",
-                    align="center",
-                ),
-                rx.divider(),
-                rx.cond(
-                    NotificationBellState.cargando,
-                    rx.center(rx.spinner(size="2"), padding="4"),
-                    rx.cond(
-                        NotificationBellState.notificaciones.length() > 0,
-                        rx.vstack(
-                            rx.foreach(
-                                NotificationBellState.notificaciones,
-                                _notificacion_item_portal,
-                            ),
-                            spacing="0",
-                            width="100%",
-                            max_height="300px",
-                            overflow_y="auto",
-                        ),
-                        rx.center(
-                            rx.vstack(
-                                rx.icon("bell-off", size=24, color=Colors.TEXT_MUTED),
-                                rx.text("Sin notificaciones", size="2", color=Colors.TEXT_MUTED),
-                                spacing="2",
-                                align="center",
-                            ),
-                            padding="6",
-                        ),
-                    ),
-                ),
-                spacing="2",
-                width="100%",
-            ),
-            width="320px",
-            side="right",
         ),
         on_open_change=lambda _: NotificationBellState.cargar_notificaciones_portal(),
     )

@@ -308,20 +308,17 @@ class MisEmpleadosState(PortalState):
     # MONTAJE
     # ========================
     async def on_mount_empleados(self):
-        resultado = await self.on_mount_portal()
-        if resultado:
-            return resultado
-        await self.cargar_empleados()
+        async for _ in self._montar_pagina_portal(self._fetch_empleados):
+            yield
 
     # ========================
     # CARGA DE DATOS
     # ========================
-    async def cargar_empleados(self):
-        """Carga empleados de la empresa del usuario."""
+    async def _fetch_empleados(self):
+        """Carga empleados de la empresa del usuario (sin manejo de loading)."""
         if not self.id_empresa_actual:
             return
 
-        self.loading = True
         try:
             incluir_inactivos = self.filtro_estatus_emp != "ACTIVO"
             empleados = await empleado_service.obtener_resumen_por_empresa(
@@ -339,11 +336,15 @@ class MisEmpleadosState(PortalState):
             self.mostrar_mensaje(f"Error inesperado: {e}", "error")
             self.empleados = []
             self.total_empleados_lista = 0
-        finally:
-            self.loading = False
+
+    async def cargar_empleados(self):
+        """Recarga empleados con skeleton (filtros)."""
+        async for _ in self._recargar_datos(self._fetch_empleados):
+            yield
 
     async def aplicar_filtros_emp(self):
-        await self.cargar_empleados()
+        async for _ in self.cargar_empleados():
+            yield
 
     # ========================
     # ACCIONES DE MODAL
@@ -390,7 +391,7 @@ class MisEmpleadosState(PortalState):
             empleado = await empleado_service.crear(empleado_create)
 
             self.cerrar_modal_empleado()
-            await self.cargar_empleados()
+            await self._fetch_empleados()
             return rx.toast.success(f"Empleado {empleado.clave} creado correctamente")
 
         except DuplicateError as e:
@@ -472,7 +473,7 @@ class MisEmpleadosState(PortalState):
             empleado = await empleado_service.actualizar(self.empleado_editando_id, empleado_update)
 
             self.cerrar_modal_empleado()
-            await self.cargar_empleados()
+            await self._fetch_empleados()
             return rx.toast.success(f"Empleado {empleado.clave} actualizado correctamente")
 
         except NotFoundError:

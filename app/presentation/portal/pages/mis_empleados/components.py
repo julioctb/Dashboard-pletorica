@@ -5,7 +5,10 @@ Tabla, filtros y badges.
 """
 import reflex as rx
 
-from app.presentation.components.ui import skeleton_tabla
+from app.presentation.components.ui import (
+    skeleton_tabla,
+    tabla_action_button,
+)
 from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import MisEmpleadosState
@@ -53,17 +56,12 @@ def fila_empleado(emp: dict) -> rx.Component:
             badge_estatus(emp["estatus"]),
         ),
         rx.table.cell(
-            rx.cond(
-                puede_editar,
-                rx.icon_button(
-                    rx.icon("pencil", size=14),
-                    variant="ghost",
-                    size="1",
-                    color_scheme="teal",
-                    cursor="pointer",
-                    on_click=MisEmpleadosState.abrir_modal_editar(emp),
-                ),
-                rx.fragment(),
+            tabla_action_button(
+                icon="pencil",
+                tooltip="Editar",
+                on_click=MisEmpleadosState.abrir_modal_editar(emp),
+                color_scheme="teal",
+                visible=puede_editar,
             ),
         ),
     )

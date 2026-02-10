@@ -15,6 +15,8 @@ from app.presentation.components.ui import (
     tabla_vacia,
     skeleton_tabla,
     switch_inactivos,
+    tabla_action_button,
+    tabla_action_buttons,
 )
 from app.presentation.theme import Colors, Spacing, Shadows
 
@@ -58,122 +60,76 @@ def badge_modalidad(modalidad: str) -> rx.Component:
 
 def acciones_contrato(contrato: dict) -> rx.Component:
     """Acciones específicas para contratos según su estatus"""
-    return rx.hstack(
+    es_borrador = contrato["estatus"] == "BORRADOR"
+    es_activo = contrato["estatus"] == "ACTIVO"
+    es_suspendido = contrato["estatus"] == "SUSPENDIDO"
+    es_cancelado = contrato["estatus"] == "CANCELADO"
+    puede_ver_pagos = es_activo | (contrato["estatus"] == "VENCIDO") | (contrato["estatus"] == "CERRADO")
+
+    return tabla_action_buttons([
         # Ver detalle
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("eye", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="gray",
-                on_click=lambda: ContratosState.abrir_modal_detalle(contrato["id"]),
-            ),
-            content="Ver detalle",
+        tabla_action_button(
+            icon="eye",
+            tooltip="Ver detalle",
+            on_click=lambda: ContratosState.abrir_modal_detalle(contrato["id"]),
         ),
-        # Personal/Categorías (solo si tiene_personal = true y no está cancelado)
-        rx.cond(
-            contrato["tiene_personal"] & (contrato["estatus"] != "CANCELADO"),
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("users", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="teal",
-                    on_click=lambda: ContratoCategoriaState.abrir_modal_categorias(contrato),
-                ),
-                content="Personal",
-            ),
+        # Personal/Categorías
+        tabla_action_button(
+            icon="users",
+            tooltip="Personal",
+            on_click=lambda: ContratoCategoriaState.abrir_modal_categorias(contrato),
+            color_scheme="teal",
+            visible=contrato["tiene_personal"] & ~es_cancelado,
         ),
-        # Pagos (solo si está activo, vencido o cerrado)
-        rx.cond(
-            (contrato["estatus"] == "ACTIVO") |
-            (contrato["estatus"] == "VENCIDO") |
-            (contrato["estatus"] == "CERRADO"),
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("credit-card", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="purple",
-                    on_click=lambda: PagosState.abrir_modal_pagos(contrato),
-                ),
-                content="Pagos",
-            ),
+        # Pagos
+        tabla_action_button(
+            icon="credit-card",
+            tooltip="Pagos",
+            on_click=lambda: PagosState.abrir_modal_pagos(contrato),
+            color_scheme="purple",
+            visible=puede_ver_pagos,
         ),
-        # Editar (solo si está en BORRADOR o SUSPENDIDO + permiso operar)
-        rx.cond(
-            ((contrato["estatus"] == "BORRADOR") |
-            (contrato["estatus"] == "SUSPENDIDO")) & AuthState.puede_operar_contratos,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pencil", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    on_click=lambda: ContratosState.abrir_modal_editar(contrato),
-                ),
-                content="Editar",
-            ),
+        # Editar
+        tabla_action_button(
+            icon="pencil",
+            tooltip="Editar",
+            on_click=lambda: ContratosState.abrir_modal_editar(contrato),
+            color_scheme="blue",
+            visible=(es_borrador | es_suspendido) & AuthState.puede_operar_contratos,
         ),
-        # Activar (solo si está en borrador + permiso operar)
-        rx.cond(
-            (contrato["estatus"] == "BORRADOR") & AuthState.puede_operar_contratos,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("check", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    on_click=lambda: ContratosState.activar_contrato(contrato),
-                ),
-                content="Activar",
-            ),
+        # Activar
+        tabla_action_button(
+            icon="check",
+            tooltip="Activar",
+            on_click=lambda: ContratosState.activar_contrato(contrato),
+            color_scheme="green",
+            visible=es_borrador & AuthState.puede_operar_contratos,
         ),
-        # Suspender (solo si está activo + permiso operar)
-        rx.cond(
-            (contrato["estatus"] == "ACTIVO") & AuthState.puede_operar_contratos,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pause", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="orange",
-                    on_click=lambda: ContratosState.suspender_contrato(contrato),
-                ),
-                content="Suspender",
-            ),
+        # Suspender
+        tabla_action_button(
+            icon="pause",
+            tooltip="Suspender",
+            on_click=lambda: ContratosState.suspender_contrato(contrato),
+            color_scheme="orange",
+            visible=es_activo & AuthState.puede_operar_contratos,
         ),
-        # Reactivar (solo si está suspendido + permiso operar)
-        rx.cond(
-            (contrato["estatus"] == "SUSPENDIDO") & AuthState.puede_operar_contratos,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("play", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    on_click=lambda: ContratosState.reactivar_contrato(contrato),
-                ),
-                content="Reactivar",
-            ),
+        # Reactivar
+        tabla_action_button(
+            icon="play",
+            tooltip="Reactivar",
+            on_click=lambda: ContratosState.reactivar_contrato(contrato),
+            color_scheme="green",
+            visible=es_suspendido & AuthState.puede_operar_contratos,
         ),
-        # Cancelar (si no está cancelado + permiso operar)
-        rx.cond(
-            (contrato["estatus"] != "CANCELADO") & AuthState.puede_operar_contratos,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("x", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    on_click=lambda: ContratosState.abrir_confirmar_cancelar(contrato),
-                ),
-                content="Cancelar",
-            ),
+        # Cancelar
+        tabla_action_button(
+            icon="x",
+            tooltip="Cancelar",
+            on_click=lambda: ContratosState.abrir_confirmar_cancelar(contrato),
+            color_scheme="red",
+            visible=~es_cancelado & AuthState.puede_operar_contratos,
         ),
-        spacing="1",
-        justify="center",
-    )
+    ])
 
 
 # =============================================================================

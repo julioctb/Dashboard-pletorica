@@ -215,6 +215,104 @@ class NotificacionService:
             logger.error(f"Error contando notificaciones de empresa: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
+    # =========================================================================
+    # NOTIFICACIONES COMBINADAS (admin + usuario)
+    # =========================================================================
+
+    async def obtener_para_usuario_admin(
+        self,
+        usuario_id: str,
+        solo_no_leidas: bool = True,
+        limite: int = 20,
+    ) -> List[Notificacion]:
+        """
+        Obtiene notificaciones para un usuario admin.
+        Combina: notificaciones admin (sin usuario) + notificaciones personales.
+        """
+        try:
+            # Notificaciones admin (sin usuario_id ni empresa_id)
+            query_admin = self.supabase.table(self.tabla)\
+                .select('*')\
+                .is_('usuario_id', 'null')\
+                .is_('empresa_id', 'null')
+
+            if solo_no_leidas:
+                query_admin = query_admin.eq('leida', False)
+
+            result_admin = query_admin.order('fecha_creacion', desc=True).limit(limite).execute()
+
+            # Notificaciones personales del usuario
+            query_personal = self.supabase.table(self.tabla)\
+                .select('*')\
+                .eq('usuario_id', usuario_id)
+
+            if solo_no_leidas:
+                query_personal = query_personal.eq('leida', False)
+
+            result_personal = query_personal.order('fecha_creacion', desc=True).limit(limite).execute()
+
+            # Combinar y ordenar
+            todas = result_admin.data + result_personal.data
+            todas.sort(key=lambda x: x.get('fecha_creacion', ''), reverse=True)
+
+            return [Notificacion(**data) for data in todas[:limite]]
+
+        except Exception as e:
+            logger.error(f"Error obteniendo notificaciones combinadas: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def contar_no_leidas_usuario_admin(self, usuario_id: str) -> int:
+        """
+        Cuenta notificaciones no leidas para un usuario admin.
+        Combina: notificaciones admin + notificaciones personales.
+        """
+        try:
+            # Contar admin
+            result_admin = self.supabase.table(self.tabla)\
+                .select('id', count='exact')\
+                .is_('usuario_id', 'null')\
+                .is_('empresa_id', 'null')\
+                .eq('leida', False)\
+                .execute()
+
+            # Contar personales
+            result_personal = self.supabase.table(self.tabla)\
+                .select('id', count='exact')\
+                .eq('usuario_id', usuario_id)\
+                .eq('leida', False)\
+                .execute()
+
+            return (result_admin.count or 0) + (result_personal.count or 0)
+
+        except Exception as e:
+            logger.error(f"Error contando notificaciones combinadas: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def marcar_todas_leidas_usuario_admin(self, usuario_id: str) -> None:
+        """
+        Marca como leidas todas las notificaciones para un usuario admin.
+        Incluye: notificaciones admin + notificaciones personales.
+        """
+        try:
+            # Marcar admin
+            self.supabase.table(self.tabla)\
+                .update({'leida': True})\
+                .is_('usuario_id', 'null')\
+                .is_('empresa_id', 'null')\
+                .eq('leida', False)\
+                .execute()
+
+            # Marcar personales
+            self.supabase.table(self.tabla)\
+                .update({'leida': True})\
+                .eq('usuario_id', usuario_id)\
+                .eq('leida', False)\
+                .execute()
+
+        except Exception as e:
+            logger.error(f"Error marcando notificaciones como leidas: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
 
 # =============================================================================
 # SINGLETON

@@ -113,6 +113,13 @@ class UsuariosAdminState(AuthState):
     form_puede_gestionar_usuarios: bool = False
 
     # ========================
+    # RESET DE CONTRASEÑA (super admin)
+    # ========================
+    form_reset_password: str = ""
+    error_reset_password: str = ""
+    mostrar_seccion_reset: bool = False
+
+    # ========================
     # FORMULARIO ASIGNAR EMPRESA
     # ========================
     form_empresa_id: str = ""
@@ -194,6 +201,17 @@ class UsuariosAdminState(AuthState):
         permisos[modulo] = modulo_permisos
         self.form_permisos = permisos
 
+    # --- Reset contraseña ---
+    def set_form_reset_password(self, value: str):
+        self.form_reset_password = value
+        self.error_reset_password = ""
+
+    def set_mostrar_seccion_reset(self, value: bool):
+        self.mostrar_seccion_reset = value
+        if not value:
+            self.form_reset_password = ""
+            self.error_reset_password = ""
+
     # --- Asignar empresa ---
     def set_form_empresa_id(self, value):
         self.form_empresa_id = str(value) if value else ""
@@ -241,6 +259,9 @@ class UsuariosAdminState(AuthState):
 
     def validar_edit_telefono_campo(self):
         self.error_edit_telefono = validar_telefono(self.form_edit_telefono)
+
+    def validar_reset_password_campo(self):
+        self.error_reset_password = validar_password(self.form_reset_password)
 
     # ========================
     # PROPIEDADES CALCULADAS
@@ -296,17 +317,22 @@ class UsuariosAdminState(AuthState):
         # Verificar autenticacion
         resultado = await self.verificar_y_redirigir()
         if resultado:
-            return resultado
+            self.loading = False
+            yield resultado
+            return
 
         # Verificar que es super admin (puede gestionar usuarios)
         if not self.es_super_admin:
-            return rx.redirect("/")
+            self.loading = False
+            yield rx.redirect("/")
+            return
 
-        # Cargar datos (manual loading por auth return pattern)
-        self.loading = True
-        await self._fetch_usuarios()
-        await self._cargar_todas_empresas()
-        self.loading = False
+        # Cargar datos con skeleton centralizado
+        async for _ in self._montar_pagina(
+            self._fetch_usuarios,
+            self._cargar_todas_empresas,
+        ):
+            yield
 
     # ========================
     # OPERACIONES DE LECTURA
@@ -327,7 +353,7 @@ class UsuariosAdminState(AuthState):
 
     async def cargar_usuarios(self):
         """Carga usuarios con skeleton loading (público)."""
-        async for _ in self.recargar_datos(self._fetch_usuarios):
+        async for _ in self._recargar_datos(self._fetch_usuarios):
             yield
 
     async def _cargar_todas_empresas(self):
@@ -355,7 +381,7 @@ class UsuariosAdminState(AuthState):
 
     async def aplicar_filtros(self):
         """Aplica filtros y recarga la lista."""
-        async for _ in self.recargar_datos(self._fetch_usuarios):
+        async for _ in self._recargar_datos(self._fetch_usuarios):
             yield
 
     # ========================
@@ -578,6 +604,32 @@ class UsuariosAdminState(AuthState):
         )
 
     # ========================
+    # RESET DE CONTRASEÑA
+    # ========================
+    async def resetear_password(self):
+        """Resetea la contraseña del usuario seleccionado."""
+        error = validar_password(self.form_reset_password)
+        if error:
+            self.error_reset_password = error
+            return
+
+        if not self.usuario_seleccionado:
+            return
+
+        user_id = UUID(str(self.usuario_seleccionado["id"]))
+
+        async def _on_exito():
+            self.form_reset_password = ""
+            self.error_reset_password = ""
+            self.mostrar_seccion_reset = False
+
+        return await self.ejecutar_guardado(
+            operacion=lambda: user_service.resetear_password(user_id, self.form_reset_password),
+            mensaje_exito="Contraseña reseteada exitosamente",
+            on_exito=_on_exito,
+        )
+
+    # ========================
     # HELPERS PRIVADOS
     # ========================
     def _limpiar_form_crear(self):
@@ -597,3 +649,7 @@ class UsuariosAdminState(AuthState):
         self.error_edit_telefono = ""
         self.form_permisos = dict(PERMISOS_DEFAULT)
         self.form_puede_gestionar_usuarios = False
+        # Reset contraseña
+        self.form_reset_password = ""
+        self.error_reset_password = ""
+        self.mostrar_seccion_reset = False

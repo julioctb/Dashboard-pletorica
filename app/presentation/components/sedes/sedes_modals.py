@@ -10,6 +10,7 @@ from app.presentation.components.ui.form_input import (
     form_row,
 )
 from app.presentation.components.ui.modals import modal_confirmar_accion
+from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 
 
 def modal_sede() -> rx.Component:
@@ -142,25 +143,15 @@ def modal_sede() -> rx.Component:
 
             # Botones de accion
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=SedesState.cerrar_modal_sede,
                 ),
-                rx.button(
-                    rx.cond(
-                        SedesState.saving,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Guardando..."),
-                            spacing="2"
-                        ),
-                        rx.text("Guardar")
-                    ),
+                boton_guardar(
+                    texto="Guardar",
+                    texto_guardando="Guardando...",
                     on_click=SedesState.guardar_sede,
+                    saving=SedesState.saving,
                     disabled=~SedesState.puede_guardar,
-                    color_scheme="blue",
                 ),
                 spacing="3",
                 justify="end",

@@ -72,11 +72,11 @@ class DashboardState(BaseState):
 
     async def cargar_metricas(self):
         """Carga inicial de métricas (on_mount)."""
-        async for _ in self.montar_pagina(self._fetch_metricas):
+        async for _ in self._montar_pagina(self._fetch_metricas):
             yield
 
     async def refrescar(self):
         """Refresca las métricas (botón manual)."""
-        async for _ in self.recargar_datos(self._fetch_metricas):
+        async for _ in self._recargar_datos(self._fetch_metricas):
             yield
         yield rx.toast.success("Métricas actualizadas", duration=2000)

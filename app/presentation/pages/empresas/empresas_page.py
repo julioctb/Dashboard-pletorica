@@ -16,6 +16,7 @@ from app.presentation.components.ui import (
     skeleton_tabla,
     action_buttons_reactive,
     switch_inactivos,
+    tabla_action_button,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.empresas.empresa_modals import (
@@ -30,39 +31,26 @@ from app.presentation.components.empresas.empresa_modals import (
 
 def acciones_empresa(empresa: dict) -> rx.Component:
     """Acciones para cada empresa usando componente genérico."""
+    es_activo = empresa["estatus"] == "ACTIVO"
+    es_inactivo = empresa["estatus"] == "INACTIVO"
+
     # Botones adicionales condicionales (solo con permiso operar)
     acciones_extra = [
         # Reactivar (si inactivo + permiso operar)
-        rx.cond(
-            (empresa["estatus"] == "INACTIVO") & EmpresasState.puede_operar_empresas,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("rotate-ccw", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    cursor="pointer",
-                    on_click=EmpresasState.cambiar_estatus_empresa(empresa["id"], "ACTIVO"),
-                ),
-                content="Reactivar",
-            ),
-            rx.fragment(),
+        tabla_action_button(
+            icon="rotate-ccw",
+            tooltip="Reactivar",
+            on_click=EmpresasState.cambiar_estatus_empresa(empresa["id"], "ACTIVO"),
+            color_scheme="green",
+            visible=es_inactivo & EmpresasState.puede_operar_empresas,
         ),
         # Desactivar (si activo + permiso operar)
-        rx.cond(
-            (empresa["estatus"] == "ACTIVO") & EmpresasState.puede_operar_empresas,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("power-off", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    cursor="pointer",
-                    on_click=EmpresasState.cambiar_estatus_empresa(empresa["id"], "INACTIVO"),
-                ),
-                content="Desactivar",
-            ),
-            rx.fragment(),
+        tabla_action_button(
+            icon="power-off",
+            tooltip="Desactivar",
+            on_click=EmpresasState.cambiar_estatus_empresa(empresa["id"], "INACTIVO"),
+            color_scheme="red",
+            visible=es_activo & EmpresasState.puede_operar_empresas,
         ),
     ]
 
@@ -70,7 +58,7 @@ def acciones_empresa(empresa: dict) -> rx.Component:
         item=empresa,
         ver_action=EmpresasState.abrir_modal_detalle(empresa["id"]),
         editar_action=EmpresasState.abrir_modal_editar(empresa["id"]),
-        puede_editar=(empresa["estatus"] == "ACTIVO") & EmpresasState.puede_operar_empresas,
+        puede_editar=es_activo & EmpresasState.puede_operar_empresas,
         acciones_extra=acciones_extra,
     )
 

@@ -41,17 +41,14 @@ class MisContratosState(PortalState):
         self.filtro_estatus_cto = value
 
     async def on_mount_contratos(self):
-        resultado = await self.on_mount_portal()
-        if resultado:
-            return resultado
-        await self.cargar_contratos()
+        async for _ in self._montar_pagina_portal(self._fetch_contratos):
+            yield
 
-    async def cargar_contratos(self):
-        """Carga contratos de la empresa del usuario."""
+    async def _fetch_contratos(self):
+        """Carga contratos de la empresa del usuario (sin manejo de loading)."""
         if not self.id_empresa_actual:
             return
 
-        self.loading = True
         try:
             incluir_inactivos = self.filtro_estatus_cto != "ACTIVO"
             contratos = await contrato_service.obtener_por_empresa(
@@ -71,11 +68,15 @@ class MisContratosState(PortalState):
             self.mostrar_mensaje(f"Error inesperado: {e}", "error")
             self.contratos = []
             self.total_contratos_lista = 0
-        finally:
-            self.loading = False
+
+    async def cargar_contratos(self):
+        """Recarga contratos con skeleton (filtros)."""
+        async for _ in self._recargar_datos(self._fetch_contratos):
+            yield
 
     async def aplicar_filtros_cto(self):
-        await self.cargar_contratos()
+        async for _ in self.cargar_contratos():
+            yield
 
     def abrir_detalle(self, contrato: dict):
         """Abre el modal de detalle de un contrato."""

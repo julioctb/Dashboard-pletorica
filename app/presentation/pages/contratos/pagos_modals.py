@@ -4,6 +4,7 @@ Modales para el módulo de Pagos de Contratos.
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_textarea, form_date
 from app.presentation.components.ui.modals import modal_confirmar_eliminar as modal_eliminar_generico
+from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.pages.contratos.pagos_state import PagosState
 
 
@@ -330,22 +331,19 @@ def modal_pago_form() -> rx.Component:
 
             # Footer
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=PagosState.cerrar_modal_pago_form,
                 ),
-                rx.button(
-                    rx.cond(
+                boton_guardar(
+                    texto=rx.cond(
                         PagosState.es_edicion_pago,
                         "Guardar Cambios",
-                        "Registrar Pago"
+                        "Registrar Pago",
                     ),
+                    texto_guardando="Guardando...",
                     on_click=PagosState.guardar_pago,
+                    saving=PagosState.saving,
                     disabled=~PagosState.puede_guardar_pago,
-                    loading=PagosState.saving,
-                    color_scheme="blue",
                 ),
                 justify="end",
                 spacing="3",

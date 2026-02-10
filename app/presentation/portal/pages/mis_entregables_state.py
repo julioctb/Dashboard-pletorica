@@ -196,15 +196,17 @@ class MisEntregablesState(PortalState):
     # =========================================================================
     # CARGA DE DATOS
     # =========================================================================
-    async def on_load_mis_entregables(self):
-        """Verificar auth y cargar entregables de la empresa."""
-        resultado = await self.on_mount_portal()
-        if resultado:
-            return resultado
+    async def _fetch_entregables_todo(self):
+        """Carga contratos, estadísticas y entregables (sin manejo de loading)."""
         if self.id_empresa_actual:
             await self._cargar_contratos()
             await self._cargar_estadisticas()
             await self._cargar_entregables()
+
+    async def on_load_mis_entregables(self):
+        """Verificar auth y cargar entregables de la empresa."""
+        async for _ in self._montar_pagina_portal(self._fetch_entregables_todo):
+            yield
 
     async def _cargar_contratos(self):
         """Carga lista de contratos para el filtro."""

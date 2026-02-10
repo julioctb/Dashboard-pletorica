@@ -14,8 +14,9 @@ from app.presentation.components.ui import (
     tabla_vacia,
     skeleton_tabla,
     breadcrumb_dynamic,
-    action_buttons_reactive,
     switch_inactivos,
+    tabla_action_button,
+    tabla_action_buttons,
 )
 from app.presentation.components.plazas.plazas_modals import (
     modal_plaza,
@@ -32,98 +33,69 @@ from app.presentation.theme import Colors, Spacing, Shadows, Radius, Typography
 # =============================================================================
 
 def acciones_plaza(plaza: dict) -> rx.Component:
-    """Acciones específicas para cada plaza según su estatus"""
-    # Acciones extra específicas de plazas
-    acciones_extra = [
-        # Asignar empleado (si está vacante)
-        rx.cond(
-            plaza["estatus"] == "VACANTE",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("user-plus", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    cursor="pointer",
-                    on_click=lambda: PlazasState.abrir_asignar_empleado(plaza),
-                ),
-                content="Asignar empleado",
-            ),
-            rx.fragment(),
-        ),
-        # Liberar plaza (si está ocupada)
-        rx.cond(
-            plaza["estatus"] == "OCUPADA",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("user-minus", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="orange",
-                    cursor="pointer",
-                    on_click=lambda: PlazasState.liberar_plaza(plaza["id"]),
-                ),
-                content="Liberar plaza",
-            ),
-            rx.fragment(),
-        ),
-        # Suspender (si está vacante u ocupada)
-        rx.cond(
-            (plaza["estatus"] == "VACANTE") | (plaza["estatus"] == "OCUPADA"),
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pause", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="amber",
-                    cursor="pointer",
-                    on_click=lambda: PlazasState.suspender_plaza(plaza["id"]),
-                ),
-                content="Suspender",
-            ),
-            rx.fragment(),
-        ),
-        # Reactivar (si está suspendida)
-        rx.cond(
-            plaza["estatus"] == "SUSPENDIDA",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("play", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    cursor="pointer",
-                    on_click=lambda: PlazasState.reactivar_plaza(plaza["id"]),
-                ),
-                content="Reactivar",
-            ),
-            rx.fragment(),
-        ),
-        # Cancelar (si no está cancelada)
-        rx.cond(
-            plaza["estatus"] != "CANCELADA",
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("x", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    cursor="pointer",
-                    on_click=lambda: PlazasState.abrir_confirmar_cancelar(plaza),
-                ),
-                content="Cancelar",
-            ),
-            rx.fragment(),
-        ),
-    ]
+    """Acciones especificas para cada plaza segun su estatus"""
+    # Condiciones de visibilidad
+    es_vacante = plaza["estatus"] == "VACANTE"
+    es_ocupada = plaza["estatus"] == "OCUPADA"
+    es_suspendida = plaza["estatus"] == "SUSPENDIDA"
+    es_cancelada = plaza["estatus"] == "CANCELADA"
 
-    return action_buttons_reactive(
-        item=plaza,
-        ver_action=lambda: PlazasState.abrir_modal_detalle(plaza),
-        editar_action=lambda: PlazasState.abrir_modal_editar(plaza),
-        puede_editar=plaza["estatus"] != "CANCELADA",
-        acciones_extra=acciones_extra,
-    )
+    return tabla_action_buttons([
+        # Ver detalle
+        tabla_action_button(
+            icon="eye",
+            tooltip="Ver detalle",
+            on_click=lambda: PlazasState.abrir_modal_detalle(plaza),
+        ),
+        # Editar
+        tabla_action_button(
+            icon="pencil",
+            tooltip="Editar",
+            on_click=lambda: PlazasState.abrir_modal_editar(plaza),
+            color_scheme="blue",
+            visible=~es_cancelada,
+        ),
+        # Asignar empleado (solo si esta vacante)
+        tabla_action_button(
+            icon="user-plus",
+            tooltip="Asignar empleado",
+            on_click=lambda: PlazasState.abrir_asignar_empleado(plaza),
+            color_scheme="green",
+            visible=es_vacante,
+        ),
+        # Liberar plaza (solo si esta ocupada)
+        tabla_action_button(
+            icon="user-minus",
+            tooltip="Liberar plaza",
+            on_click=lambda: PlazasState.liberar_plaza(plaza["id"]),
+            color_scheme="orange",
+            visible=es_ocupada,
+        ),
+        # Suspender (si esta vacante u ocupada)
+        tabla_action_button(
+            icon="pause",
+            tooltip="Suspender",
+            on_click=lambda: PlazasState.suspender_plaza(plaza["id"]),
+            color_scheme="amber",
+            visible=es_vacante | es_ocupada,
+        ),
+        # Reactivar (solo si esta suspendida)
+        tabla_action_button(
+            icon="play",
+            tooltip="Reactivar",
+            on_click=lambda: PlazasState.reactivar_plaza(plaza["id"]),
+            color_scheme="green",
+            visible=es_suspendida,
+        ),
+        # Cancelar (si no esta cancelada)
+        tabla_action_button(
+            icon="x",
+            tooltip="Cancelar",
+            on_click=lambda: PlazasState.abrir_confirmar_cancelar(plaza),
+            color_scheme="red",
+            visible=~es_cancelada,
+        ),
+    ])
 
 
 def fila_plaza(plaza: dict) -> rx.Component:
@@ -539,16 +511,11 @@ def fila_resumen(item: dict) -> rx.Component:
         ),
         # Acciones
         rx.table.cell(
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("arrow-right", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    cursor="pointer",
-                    on_click=lambda: PlazasState.seleccionar_categoria_resumen(item),
-                ),
-                content="Ver plazas",
+            tabla_action_button(
+                icon="arrow-right",
+                tooltip="Ver plazas",
+                on_click=lambda: PlazasState.seleccionar_categoria_resumen(item),
+                color_scheme="blue",
             ),
         ),
         cursor="pointer",
@@ -843,5 +810,5 @@ def plazas_page() -> rx.Component:
         ),
         width="100%",
         min_height="100vh",
-        on_mount=PlazasState.cargar_desde_url,
+        on_mount=PlazasState.on_mount_plazas,
     )

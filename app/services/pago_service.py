@@ -40,6 +40,47 @@ class PagoService:
     # OPERACIONES CRUD (publicas)
     # ==========================================
 
+    async def obtener_todos(
+        self,
+        contrato_id: Optional[int] = None,
+        fecha_desde: Optional[str] = None,
+        fecha_hasta: Optional[str] = None,
+        limite: int = 100,
+        offset: int = 0
+    ) -> List[dict]:
+        """
+        Obtiene todos los pagos con filtros opcionales.
+        Incluye datos del contrato y empresa.
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        return await self.repository.obtener_todos(
+            contrato_id=contrato_id,
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            limite=limite,
+            offset=offset
+        )
+
+    async def contar_todos(
+        self,
+        contrato_id: Optional[int] = None,
+        fecha_desde: Optional[str] = None,
+        fecha_hasta: Optional[str] = None,
+    ) -> int:
+        """
+        Cuenta todos los pagos con filtros opcionales.
+
+        Raises:
+            DatabaseError: Si hay error de BD
+        """
+        return await self.repository.contar_todos(
+            contrato_id=contrato_id,
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta
+        )
+
     async def obtener_por_id(self, pago_id: int) -> Pago:
         """
         Obtiene un pago por su ID.

@@ -5,6 +5,7 @@ import reflex as rx
 from app.presentation.pages.tipo_servicio.tipo_servicio_state import TipoServicioState
 from app.presentation.components.ui.form_input import form_input, form_textarea
 from app.presentation.components.ui.modals import modal_confirmar_accion
+from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 
 
 def modal_tipo_servicio() -> rx.Component:
@@ -63,25 +64,15 @@ def modal_tipo_servicio() -> rx.Component:
 
             # Botones de acción
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=TipoServicioState.cerrar_modal_tipo,
                 ),
-                rx.button(
-                    rx.cond(
-                        TipoServicioState.saving,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Guardando..."),
-                            spacing="2"
-                        ),
-                        rx.text("Guardar")
-                    ),
+                boton_guardar(
+                    texto="Guardar",
+                    texto_guardando="Guardando...",
                     on_click=TipoServicioState.guardar_tipo,
+                    saving=TipoServicioState.saving,
                     disabled=~TipoServicioState.puede_guardar,
-                    color_scheme="blue",
                 ),
                 spacing="3",
                 justify="end",

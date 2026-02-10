@@ -283,10 +283,16 @@ class RequisicionService:
                 msg_transicion_invalida(estado_actual, estado_nuevo)
             )
 
-    async def enviar(self, requisicion_id: int) -> Requisicion:
+    async def enviar(
+        self, requisicion_id: int, enviado_por: Optional[str] = None
+    ) -> Requisicion:
         """
         Envía una requisición (BORRADOR → ENVIADA).
-        Valida items.
+        Valida items y notifica a usuarios autorizadores.
+
+        Args:
+            requisicion_id: ID de la requisición
+            enviado_por: UUID del usuario que envía (para excluirlo de notificaciones)
 
         Raises:
             BusinessRuleError: Si la transición no es válida o faltan datos
@@ -300,9 +306,14 @@ class RequisicionService:
         if not requisicion.items:
             raise BusinessRuleError(MSG_REQUISICION_SIN_ITEMS)
 
-        return await self.repository.cambiar_estado(
+        resultado = await self.repository.cambiar_estado(
             requisicion_id, EstadoRequisicion.ENVIADA
         )
+
+        # Notificar a usuarios con permiso de autorizar
+        await self._notificar_autorizadores(resultado, excluir_usuario_id=enviado_por)
+
+        return resultado
 
     async def iniciar_revision(self, requisicion_id: int) -> Requisicion:
         """Inicia revisión (ENVIADA → EN_REVISION)."""
@@ -354,7 +365,19 @@ class RequisicionService:
             requisicion.aprobado_por = aprobado_por
         requisicion.fecha_aprobacion = datetime.now()
 
-        return await self.repository.actualizar(requisicion)
+        resultado = await self.repository.actualizar(requisicion)
+
+        # Notificar al creador que su requisición fue aprobada
+        if requisicion.creado_por:
+            await self._notificar(
+                usuario_id=requisicion.creado_por,
+                titulo="Requisición aprobada",
+                mensaje=f"Su requisición '{requisicion.objeto_contratacion[:50]}...' ha sido aprobada. Folio: {resultado.numero_requisicion}",
+                tipo="requisicion_aprobada",
+                entidad_id=requisicion_id,
+            )
+
+        return resultado
 
     async def rechazar(
         self,
@@ -394,7 +417,19 @@ class RequisicionService:
         requisicion.rechazado_por = rechazado_por
         requisicion.fecha_ultimo_rechazo = datetime.now()
 
-        return await self.repository.actualizar(requisicion)
+        resultado = await self.repository.actualizar(requisicion)
+
+        # Notificar al creador que su requisición fue rechazada
+        if requisicion.creado_por:
+            await self._notificar(
+                usuario_id=requisicion.creado_por,
+                titulo="Requisición rechazada",
+                mensaje=f"Su requisición '{requisicion.objeto_contratacion[:50]}...' fue rechazada. Motivo: {comentario[:100]}",
+                tipo="requisicion_rechazada",
+                entidad_id=requisicion_id,
+            )
+
+        return resultado
 
     async def adjudicar(
         self, requisicion_id: int, data: RequisicionAdjudicar
@@ -487,6 +522,82 @@ class RequisicionService:
         from app.services.user_service import user_service
         from uuid import UUID
         await user_service.validar_permiso(UUID(user_id), modulo, accion)
+
+    # ==========================================
+    # NOTIFICACIONES
+    # ==========================================
+
+    async def _notificar(
+        self,
+        usuario_id: Optional[str],
+        titulo: str,
+        mensaje: str,
+        tipo: str,
+        entidad_id: int = None,
+    ) -> None:
+        """
+        Crea una notificacion de forma segura (no lanza excepciones).
+
+        Args:
+            usuario_id: UUID del usuario destinatario (None para notificacion admin)
+            titulo: Título de la notificación
+            mensaje: Mensaje descriptivo
+            tipo: Tipo de notificación (requisicion_enviada, requisicion_aprobada, etc.)
+            entidad_id: ID de la requisición
+        """
+        try:
+            from app.services.notificacion_service import notificacion_service
+            from app.entities.notificacion import NotificacionCreate
+
+            notificacion = NotificacionCreate(
+                usuario_id=usuario_id,
+                titulo=titulo,
+                mensaje=mensaje,
+                tipo=tipo,
+                entidad_tipo="REQUISICION",
+                entidad_id=entidad_id,
+            )
+            await notificacion_service.crear(notificacion)
+
+        except Exception as e:
+            # Las notificaciones no deben bloquear el flujo principal
+            logger.error(f"Error creando notificacion de requisicion: {e}")
+
+    async def _notificar_autorizadores(
+        self,
+        requisicion: Requisicion,
+        excluir_usuario_id: Optional[str] = None,
+    ) -> None:
+        """
+        Notifica a todos los usuarios con permiso de autorizar requisiciones.
+
+        Args:
+            requisicion: Requisición enviada
+            excluir_usuario_id: Usuario a excluir (el que envió)
+        """
+        try:
+            from app.services.user_service import user_service
+
+            usuarios = await user_service.obtener_usuarios_con_permiso(
+                modulo='requisiciones',
+                accion='autorizar',
+            )
+
+            for usuario in usuarios:
+                # No notificar al mismo usuario que envió
+                if excluir_usuario_id and str(usuario.id) == excluir_usuario_id:
+                    continue
+
+                await self._notificar(
+                    usuario_id=str(usuario.id),
+                    titulo="Requisición pendiente de revisión",
+                    mensaje=f"La requisición '{requisicion.objeto_contratacion[:50]}...' está pendiente de revisión.",
+                    tipo="requisicion_enviada",
+                    entidad_id=requisicion.id,
+                )
+
+        except Exception as e:
+            logger.error(f"Error notificando autorizadores: {e}")
 
     # ==========================================
     # CONFIGURACIÓN

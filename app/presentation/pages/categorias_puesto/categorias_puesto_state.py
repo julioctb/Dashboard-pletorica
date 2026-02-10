@@ -212,7 +212,7 @@ class CategoriasPuestoState(BaseState):
         if tipo_param:
             self.filtro_tipo_servicio_id = tipo_param
 
-        async for _ in self.montar_pagina(
+        async for _ in self._montar_pagina(
             self.cargar_tipos_servicio,
             self._fetch_categorias,
         ):
@@ -261,7 +261,7 @@ class CategoriasPuestoState(BaseState):
 
     async def cargar_categorias(self):
         """Carga categorías con skeleton loading (público)."""
-        async for _ in self.recargar_datos(self._fetch_categorias):
+        async for _ in self._recargar_datos(self._fetch_categorias):
             yield
 
     async def buscar_categorias(self):

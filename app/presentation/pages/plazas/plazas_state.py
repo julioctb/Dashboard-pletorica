@@ -514,7 +514,7 @@ class PlazasState(BaseState):
     # CARGA INICIAL
     # ========================
     async def cargar_resumen_inicial(self):
-        """Carga el resumen de categorías que tienen plazas creadas"""
+        """Carga el resumen de categorías que tienen plazas creadas (con skeleton)."""
         self.loading = True
         try:
             resumen = await plaza_service.obtener_resumen_categorias_con_plazas()
@@ -526,6 +526,35 @@ class PlazasState(BaseState):
             return rx.toast.error(f"Error al cargar resumen: {e}")
         finally:
             self.loading = False
+
+    async def _fetch_desde_url(self):
+        """Fetch datos según query params de la URL (sin manejo de loading)."""
+        contrato_categoria_id = self.router.url.query_parameters.get("contrato_categoria_id", "")
+        contrato_id = self.router.url.query_parameters.get("contrato_id", "")
+
+        if not contrato_categoria_id and not contrato_id:
+            self._limpiar_estado()
+
+        if contrato_categoria_id:
+            try:
+                cc_id = int(contrato_categoria_id)
+                await self.cargar_plazas_de_categoria(cc_id)
+            except ValueError:
+                pass
+        elif contrato_id:
+            try:
+                c_id = int(contrato_id)
+                await self.cargar_plazas_de_contrato(c_id)
+            except ValueError:
+                pass
+        else:
+            await self.cargar_resumen_inicial()
+            await self.cargar_contratos_con_personal()
+
+    async def on_mount_plazas(self):
+        """Montaje de la página con skeleton centralizado."""
+        async for _ in self._montar_pagina(self._fetch_desde_url):
+            yield
 
     async def seleccionar_categoria_resumen(self, item: dict):
         """Navega a las plazas de una categoría desde el resumen inicial"""
@@ -541,39 +570,6 @@ class PlazasState(BaseState):
         """Vuelve a la vista de resumen inicial"""
         self._limpiar_estado()
         return PlazasState.cargar_resumen_inicial
-
-    async def cargar_desde_url(self):
-        """
-        Carga las plazas basándose en los query params de la URL.
-        Espera: ?contrato_categoria_id=X o ?contrato_id=X
-
-        Si no hay contexto, resetea el estado y carga los contratos disponibles.
-        """
-        # Obtener query params del router (Reflex 0.8.9+)
-        contrato_categoria_id = self.router.url.query_parameters.get("contrato_categoria_id", "")
-        contrato_id = self.router.url.query_parameters.get("contrato_id", "")
-
-        # Si no hay contexto en URL, resetear todo el estado
-        if not contrato_categoria_id and not contrato_id:
-            self._limpiar_estado()
-
-        if contrato_categoria_id:
-            try:
-                cc_id = int(contrato_categoria_id)
-                await self.cargar_plazas_de_categoria(cc_id)
-            except ValueError:
-                return rx.toast.error("ID de categoría inválido")
-        elif contrato_id:
-            try:
-                c_id = int(contrato_id)
-                await self.cargar_plazas_de_contrato(c_id)
-            except ValueError:
-                return rx.toast.error("ID de contrato inválido")
-        else:
-            # Sin contexto - cargar resumen de categorías con plazas
-            await self.cargar_resumen_inicial()
-            # También cargar contratos disponibles para crear nuevas plazas
-            await self.cargar_contratos_con_personal()
 
     # ========================
     # OPERACIONES CRUD

@@ -9,7 +9,8 @@ from app.presentation.pages.empleados.empleados_state import EmpleadosState
 from app.presentation.components.ui import (
     tabla_vacia,
     skeleton_tabla,
-    action_buttons_reactive,
+    tabla_action_button,
+    tabla_action_buttons,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 
@@ -52,97 +53,68 @@ def restriccion_badge(is_restricted) -> rx.Component:
 # =============================================================================
 
 def acciones_empleado(empleado: dict) -> rx.Component:
-    """Acciones para cada empleado usando action_buttons_reactive con acciones extra."""
-    # Condiciones de visibilidad (con permiso operar empleados)
-    puede_editar = (
-        ((empleado["estatus"] == "ACTIVO") | (empleado["estatus"] == "SUSPENDIDO"))
-        & ~empleado["is_restricted"]
-        & EmpleadosState.puede_operar_empleados
-    )
-    puede_suspender = (empleado["estatus"] == "ACTIVO") & ~empleado["is_restricted"] & EmpleadosState.puede_operar_empleados
-    puede_reactivar = (
-        ((empleado["estatus"] == "SUSPENDIDO") | (empleado["estatus"] == "INACTIVO"))
-        & ~empleado["is_restricted"]
-        & EmpleadosState.puede_operar_empleados
-    )
-    puede_restringir = EmpleadosState.es_admin & ~empleado["is_restricted"]
-    puede_liberar = EmpleadosState.es_admin & empleado["is_restricted"]
+    """Acciones para cada empleado usando tabla_action_button."""
+    # Condiciones de visibilidad
+    es_activo = empleado["estatus"] == "ACTIVO"
+    es_suspendido = empleado["estatus"] == "SUSPENDIDO"
+    es_inactivo = empleado["estatus"] == "INACTIVO"
+    es_restringido = empleado["is_restricted"]
 
-    # Acciones extra especificas de empleados
-    acciones_extra = [
+    # Condiciones con permisos
+    puede_editar = (es_activo | es_suspendido) & ~es_restringido & EmpleadosState.puede_operar_empleados
+    puede_suspender = es_activo & ~es_restringido & EmpleadosState.puede_operar_empleados
+    puede_reactivar = (es_suspendido | es_inactivo) & ~es_restringido & EmpleadosState.puede_operar_empleados
+    puede_restringir = EmpleadosState.es_admin & ~es_restringido
+    puede_liberar = EmpleadosState.es_admin & es_restringido
+
+    return tabla_action_buttons([
+        # Ver detalle
+        tabla_action_button(
+            icon="eye",
+            tooltip="Ver detalle",
+            on_click=lambda: EmpleadosState.abrir_modal_detalle(empleado),
+        ),
+        # Editar
+        tabla_action_button(
+            icon="pencil",
+            tooltip="Editar",
+            on_click=lambda: EmpleadosState.abrir_modal_editar(empleado),
+            color_scheme="blue",
+            visible=puede_editar,
+        ),
         # Suspender
-        rx.cond(
-            puede_suspender,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("pause", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="amber",
-                    cursor="pointer",
-                    on_click=lambda: EmpleadosState.suspender_desde_lista(empleado["id"]),
-                ),
-                content="Suspender",
-            ),
-            rx.fragment(),
+        tabla_action_button(
+            icon="pause",
+            tooltip="Suspender",
+            on_click=lambda: EmpleadosState.suspender_desde_lista(empleado["id"]),
+            color_scheme="amber",
+            visible=puede_suspender,
         ),
         # Reactivar
-        rx.cond(
-            puede_reactivar,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("play", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    cursor="pointer",
-                    on_click=lambda: EmpleadosState.reactivar_desde_lista(empleado["id"]),
-                ),
-                content="Reactivar",
-            ),
-            rx.fragment(),
+        tabla_action_button(
+            icon="play",
+            tooltip="Reactivar",
+            on_click=lambda: EmpleadosState.reactivar_desde_lista(empleado["id"]),
+            color_scheme="green",
+            visible=puede_reactivar,
         ),
         # Restringir
-        rx.cond(
-            puede_restringir,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("ban", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    cursor="pointer",
-                    on_click=lambda: EmpleadosState.abrir_modal_restriccion_desde_lista(empleado),
-                ),
-                content="Restringir",
-            ),
-            rx.fragment(),
+        tabla_action_button(
+            icon="ban",
+            tooltip="Restringir",
+            on_click=lambda: EmpleadosState.abrir_modal_restriccion_desde_lista(empleado),
+            color_scheme="red",
+            visible=puede_restringir,
         ),
-        # Liberar
-        rx.cond(
-            puede_liberar,
-            rx.tooltip(
-                rx.icon_button(
-                    rx.icon("circle-check", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="green",
-                    cursor="pointer",
-                    on_click=lambda: EmpleadosState.abrir_modal_liberacion_desde_lista(empleado),
-                ),
-                content="Liberar restriccion",
-            ),
-            rx.fragment(),
+        # Liberar restriccion
+        tabla_action_button(
+            icon="circle-check",
+            tooltip="Liberar restriccion",
+            on_click=lambda: EmpleadosState.abrir_modal_liberacion_desde_lista(empleado),
+            color_scheme="green",
+            visible=puede_liberar,
         ),
-    ]
-
-    return action_buttons_reactive(
-        item=empleado,
-        ver_action=lambda: EmpleadosState.abrir_modal_detalle(empleado),
-        editar_action=lambda: EmpleadosState.abrir_modal_editar(empleado),
-        puede_editar=puede_editar,
-        acciones_extra=acciones_extra,
-    )
+    ])
 
 
 # =============================================================================

@@ -97,7 +97,7 @@ class HistorialLaboralState(BaseState):
     # ========================
     async def on_mount(self):
         """Se ejecuta al montar la página"""
-        async for _ in self.montar_pagina(self._fetch_historial):
+        async for _ in self._montar_pagina(self._fetch_historial):
             yield
 
     async def _fetch_historial(self):
@@ -119,14 +119,14 @@ class HistorialLaboralState(BaseState):
 
     async def aplicar_filtros(self):
         """Aplica filtros y recarga"""
-        async for _ in self.recargar_datos(self._fetch_historial):
+        async for _ in self._recargar_datos(self._fetch_historial):
             yield
 
     async def limpiar_filtros(self):
         """Limpia todos los filtros"""
         self.filtro_busqueda = ""
         self.filtro_empleado_id = ""
-        async for _ in self.recargar_datos(self._fetch_historial):
+        async for _ in self._recargar_datos(self._fetch_historial):
             yield
 
     # ========================

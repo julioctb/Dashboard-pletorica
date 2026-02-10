@@ -33,6 +33,14 @@ from .breadcrumb import (
 )
 
 from .action_buttons import (
+    # Nuevos (usar estos)
+    tabla_action_button,
+    tabla_action_buttons,
+    ACTION_BUTTON_SIZE,
+    ACTION_ICON_SIZE,
+    ACTION_BUTTON_VARIANT,
+    ACTION_BUTTONS_SPACING,
+    # Legacy (compatibilidad)
     action_buttons,
     action_button_config,
     action_buttons_reactive,
@@ -49,6 +57,13 @@ from .notification_bell import (
     notification_bell,
     notification_bell_portal,
     NotificationBellState,
+)
+
+from .buttons import (
+    boton_guardar,
+    boton_cancelar,
+    boton_eliminar,
+    botones_modal,
 )
 
 
@@ -83,7 +98,14 @@ __all__ = [
     "view_toggle",
     # Breadcrumb
     "breadcrumb_dynamic",
-    # Action buttons
+    # Action buttons (nuevos)
+    "tabla_action_button",
+    "tabla_action_buttons",
+    "ACTION_BUTTON_SIZE",
+    "ACTION_ICON_SIZE",
+    "ACTION_BUTTON_VARIANT",
+    "ACTION_BUTTONS_SPACING",
+    # Action buttons (legacy)
     "action_buttons",
     "action_button_config",
     "action_buttons_reactive",
@@ -96,4 +118,9 @@ __all__ = [
     "notification_bell",
     "notification_bell_portal",
     "NotificationBellState",
+    # Buttons
+    "boton_guardar",
+    "boton_cancelar",
+    "boton_eliminar",
+    "botones_modal",
 ]

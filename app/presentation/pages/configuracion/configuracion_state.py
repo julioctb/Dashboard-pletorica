@@ -96,7 +96,7 @@ class ConfiguracionState(BaseState):
     # ========================
     async def on_mount(self):
         """Se ejecuta al montar la pagina."""
-        async for _ in self.montar_pagina(
+        async for _ in self._montar_pagina(
             self._fetch_configuraciones,
             self._fetch_lugares_entrega,
         ):

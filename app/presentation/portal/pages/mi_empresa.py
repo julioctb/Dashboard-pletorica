@@ -10,7 +10,7 @@ import reflex as rx
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.layout import page_layout, page_header
 from app.presentation.theme import Colors, Typography, Spacing
-from app.presentation.components.ui import form_input, form_row
+from app.presentation.components.ui import form_input, form_row, boton_guardar, boton_cancelar
 from app.presentation.pages.empresas.empresas_validators import (
     validar_telefono,
     validar_email,
@@ -42,10 +42,8 @@ class MiEmpresaState(PortalState):
     error_codigo_postal: str = ""
 
     async def on_mount_mi_empresa(self):
-        resultado = await self.on_mount_portal()
-        if resultado:
-            return resultado
-        await self.cargar_datos_empresa()
+        async for _ in self._montar_pagina_portal(self.cargar_datos_empresa):
+            yield
 
     # --- Setters ---
     def set_form_telefono(self, value: str):
@@ -302,22 +300,16 @@ def _contacto_formulario() -> rx.Component:
         ),
         # Botones
         rx.hstack(
-            rx.button(
-                "Cancelar",
-                variant="outline",
-                color_scheme="gray",
+            boton_cancelar(
                 on_click=MiEmpresaState.cancelar_edicion_contacto,
                 disabled=MiEmpresaState.saving_contacto,
             ),
-            rx.button(
-                rx.cond(
-                    MiEmpresaState.saving_contacto,
-                    rx.hstack(rx.spinner(size="1"), rx.text("Guardando..."), spacing="2", align="center"),
-                    rx.text("Guardar"),
-                ),
-                color_scheme="teal",
+            boton_guardar(
+                texto="Guardar",
+                texto_guardando="Guardando...",
                 on_click=MiEmpresaState.guardar_contacto,
-                disabled=MiEmpresaState.saving_contacto,
+                saving=MiEmpresaState.saving_contacto,
+                color_scheme="teal",
             ),
             spacing="2",
             justify="end",

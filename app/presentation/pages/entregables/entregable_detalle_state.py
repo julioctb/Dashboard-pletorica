@@ -188,7 +188,7 @@ class EntregableDetalleState(AuthState):
             id_int = int(self.entregable_id) if self.entregable_id else 0
             if id_int > 0:
                 self.current_id = id_int
-                async for _ in self.montar_pagina(self._fetch_entregable):
+                async for _ in self._montar_pagina(self._fetch_entregable):
                     yield
         except (ValueError, TypeError):
             self.mostrar_mensaje("ID de entregable inválido", "error")
@@ -329,7 +329,7 @@ class EntregableDetalleState(AuthState):
         try:
             url = await archivo_service.obtener_url_temporal(archivo_id)
             if url:
-                return rx.redirect(url, external=True)
+                return rx.redirect(url, is_external=True)
             else:
                 self.mostrar_mensaje("No se pudo obtener el documento", "error")
         except Exception as e:
@@ -561,7 +561,7 @@ class EntregableDetalleState(AuthState):
         try:
             url = await archivo_service.obtener_url_temporal(archivo_id)
             if url:
-                return rx.redirect(url, external=True)
+                return rx.redirect(url, is_external=True)
             else:
                 self.mostrar_mensaje("No se pudo obtener el archivo", "error")
         except Exception as e:

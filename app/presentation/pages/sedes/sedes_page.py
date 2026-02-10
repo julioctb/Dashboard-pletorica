@@ -13,8 +13,9 @@ from app.presentation.components.ui import (
     status_badge_reactive,
     tabla_vacia,
     skeleton_tabla,
-    action_buttons_reactive,
     switch_inactivos,
+    tabla_action_button,
+    tabla_action_buttons,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.sedes.sedes_modals import (
@@ -29,31 +30,35 @@ from app.presentation.components.sedes.sedes_modals import (
 
 def acciones_sede(sede: dict) -> rx.Component:
     """Acciones para cada sede"""
-    # Boton de reactivar (solo visible si inactivo)
-    btn_reactivar = rx.cond(
-        sede["estatus"] == "INACTIVO",
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("rotate-ccw", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="green",
-                cursor="pointer",
-                on_click=lambda: SedesState.activar_sede(sede),
-            ),
-            content="Reactivar",
-        ),
-        rx.fragment(),
-    )
+    es_activo = sede["estatus"] == "ACTIVO"
+    es_inactivo = sede["estatus"] == "INACTIVO"
 
-    return action_buttons_reactive(
-        item=sede,
-        editar_action=lambda: SedesState.abrir_modal_editar(sede),
-        eliminar_action=lambda: SedesState.abrir_confirmar_eliminar(sede),
-        puede_editar=sede["estatus"] == "ACTIVO",
-        puede_eliminar=sede["estatus"] == "ACTIVO",
-        acciones_extra=[btn_reactivar],
-    )
+    return tabla_action_buttons([
+        # Editar
+        tabla_action_button(
+            icon="pencil",
+            tooltip="Editar",
+            on_click=lambda: SedesState.abrir_modal_editar(sede),
+            color_scheme="blue",
+            visible=es_activo,
+        ),
+        # Eliminar
+        tabla_action_button(
+            icon="trash-2",
+            tooltip="Eliminar",
+            on_click=lambda: SedesState.abrir_confirmar_eliminar(sede),
+            color_scheme="red",
+            visible=es_activo,
+        ),
+        # Reactivar
+        tabla_action_button(
+            icon="rotate-ccw",
+            tooltip="Reactivar",
+            on_click=lambda: SedesState.activar_sede(sede),
+            color_scheme="green",
+            visible=es_inactivo,
+        ),
+    ])
 
 
 # =============================================================================
@@ -318,5 +323,5 @@ def sedes_page() -> rx.Component:
         ),
         width="100%",
         min_height="100vh",
-        on_mount=SedesState.cargar_sedes,
+        on_mount=SedesState.on_mount_sedes,
     )

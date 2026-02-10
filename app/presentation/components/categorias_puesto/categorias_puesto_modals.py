@@ -5,6 +5,7 @@ import reflex as rx
 from app.presentation.pages.categorias_puesto.categorias_puesto_state import CategoriasPuestoState
 from app.presentation.components.ui.form_input import form_input, form_textarea, form_select
 from app.presentation.components.ui.modals import modal_confirmar_accion
+from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 
 
 def modal_categoria_puesto() -> rx.Component:
@@ -98,25 +99,15 @@ def modal_categoria_puesto() -> rx.Component:
 
             # Botones de acción
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=CategoriasPuestoState.cerrar_modal_categoria,
                 ),
-                rx.button(
-                    rx.cond(
-                        CategoriasPuestoState.saving,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Guardando..."),
-                            spacing="2"
-                        ),
-                        rx.text("Guardar")
-                    ),
+                boton_guardar(
+                    texto="Guardar",
+                    texto_guardando="Guardando...",
                     on_click=CategoriasPuestoState.guardar_categoria,
+                    saving=CategoriasPuestoState.saving,
                     disabled=~CategoriasPuestoState.puede_guardar,
-                    color_scheme="blue",
                 ),
                 spacing="3",
                 justify="end",

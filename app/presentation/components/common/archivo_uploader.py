@@ -192,3 +192,83 @@ def archivo_uploader(
         spacing="3",
         width="100%",
     )
+
+
+def _archivo_visor_card(archivo: dict, on_ver: callable) -> rx.Component:
+    """Tarjeta readonly de un archivo con boton para ver."""
+    return rx.hstack(
+        # Icono segun tipo
+        rx.cond(
+            archivo["tipo_mime"].to(str).contains("image"),
+            rx.icon("image", size=18, color="var(--blue-9)"),
+            rx.icon("file-text", size=18, color="var(--red-9)"),
+        ),
+        # Info del archivo
+        rx.vstack(
+            rx.text(
+                archivo["nombre_original"].to(str),
+                size="2",
+                weight="medium",
+                trim="both",
+                style={"maxWidth": "250px", "overflow": "hidden", "textOverflow": "ellipsis", "whiteSpace": "nowrap"},
+            ),
+            rx.cond(
+                archivo["fue_comprimido"].to(bool),
+                rx.badge("Comprimido", color_scheme="green", size="1"),
+                rx.fragment(),
+            ),
+            spacing="0",
+        ),
+        rx.spacer(),
+        # Boton ver
+        rx.tooltip(
+            rx.icon_button(
+                rx.icon("eye", size=14),
+                size="1",
+                variant="ghost",
+                color_scheme="blue",
+                on_click=lambda: on_ver(archivo),
+            ),
+            content="Ver archivo",
+        ),
+        align="center",
+        padding="8px",
+        border_radius="var(--radius-2)",
+        background="var(--gray-2)",
+        width="100%",
+    )
+
+
+def archivo_visor(
+    archivos: list,
+    on_ver: callable,
+) -> rx.Component:
+    """
+    Visor readonly de archivos adjuntos (sin upload).
+
+    Args:
+        archivos: Lista de archivos existentes (list[dict])
+        on_ver: Handler para ver/abrir un archivo
+    """
+    return rx.vstack(
+        rx.cond(
+            archivos.length() > 0,
+            rx.vstack(
+                rx.foreach(
+                    archivos,
+                    lambda archivo: _archivo_visor_card(archivo, on_ver),
+                ),
+                spacing="2",
+                width="100%",
+            ),
+            rx.callout(
+                "No hay archivos adjuntos en esta requisicion.",
+                icon="info",
+                color_scheme="gray",
+                size="1",
+            ),
+        ),
+        spacing="3",
+        width="100%",
+        pointer_events="auto",
+    )

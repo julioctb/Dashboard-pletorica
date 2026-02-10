@@ -48,6 +48,9 @@ class BaseState(rx.State):
     loading: bool = True  # Inicia en True para mostrar skeleton
     saving: bool = False
 
+    # Tracking de módulos ya montados (backend-only, no se envía al cliente)
+    _modulos_montados: List[str] = []
+
     # ========================
     # FILTROS COMUNES
     # ========================
@@ -216,18 +219,17 @@ class BaseState(rx.State):
     # ========================
     # PATRÓN DE CARGA CON SKELETON
     # ========================
-    _datos_cargados: bool = False
 
-    async def montar_pagina(self, *operaciones):
+    async def _montar_pagina(self, *operaciones):
         """
         Patrón centralizado de carga con skeleton para on_mount.
 
-        Primera carga: muestra skeleton via yield, ejecuta operaciones, oculta skeleton.
-        Re-mount (datos ya cargados): refresca datos silenciosamente sin skeleton.
+        - Primera visita: loading=True → yield (skeleton) → fetch → loading=False → yield (datos)
+        - Revisita: fetch silencioso → loading=False → yield (datos actualizados sin skeleton)
 
         Uso en cada módulo:
             async def on_mount(self):
-                async for _ in self.montar_pagina(
+                async for _ in self._montar_pagina(
                     self._fetch_datos,
                     self._cargar_catalogos,
                 ):
@@ -236,17 +238,26 @@ class BaseState(rx.State):
         Args:
             *operaciones: Callables async a ejecutar (fetch principal, catálogos, etc.)
         """
-        if not self._datos_cargados:
-            self.loading = True
-            yield
+        self.limpiar_mensajes()
 
+        modulo = type(self).__name__
+        es_primera_carga = modulo not in self._modulos_montados
+
+        if es_primera_carga:
+            self.loading = True
+            yield  # UI muestra skeleton
+
+        # Ejecutar operaciones de carga
         for op in operaciones:
             await op()
 
-        self._datos_cargados = True
+        # Finalizar carga
         self.loading = False
+        if es_primera_carga:
+            self._modulos_montados = self._modulos_montados + [modulo]
+        yield
 
-    async def recargar_datos(self, *operaciones):
+    async def _recargar_datos(self, *operaciones):
         """
         Recarga datos con skeleton (para filtros, refresh manual, etc.).
 
@@ -254,7 +265,7 @@ class BaseState(rx.State):
 
         Uso:
             async def aplicar_filtros(self):
-                async for _ in self.recargar_datos(self._fetch_datos):
+                async for _ in self._recargar_datos(self._fetch_datos):
                     yield
 
         Args:
@@ -267,6 +278,7 @@ class BaseState(rx.State):
             await op()
 
         self.loading = False
+        yield
 
     # ========================
     # CONVERSIÓN DE IDS

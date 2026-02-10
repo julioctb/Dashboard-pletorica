@@ -4,6 +4,7 @@ Modales para el módulo de Categorías de Contrato.
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_textarea, form_select
 from app.presentation.components.ui.modals import modal_confirmar_eliminar as modal_eliminar_generico
+from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.pages.contratos.contrato_categorias_state import ContratoCategoriaState
 
 
@@ -309,22 +310,19 @@ def modal_categoria_form() -> rx.Component:
 
             # Footer
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    color_scheme="gray",
+                boton_cancelar(
                     on_click=ContratoCategoriaState.cerrar_modal_categoria_form,
                 ),
-                rx.button(
-                    rx.cond(
+                boton_guardar(
+                    texto=rx.cond(
                         ContratoCategoriaState.es_edicion_categoria,
                         "Guardar Cambios",
-                        "Agregar Categoría"
+                        "Agregar Categoría",
                     ),
+                    texto_guardando="Guardando...",
                     on_click=ContratoCategoriaState.guardar_categoria,
+                    saving=ContratoCategoriaState.saving,
                     disabled=~ContratoCategoriaState.puede_guardar_categoria,
-                    loading=ContratoCategoriaState.saving,
-                    color_scheme="blue",
                 ),
                 justify="end",
                 spacing="3",

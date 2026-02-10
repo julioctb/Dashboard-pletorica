@@ -215,14 +215,8 @@ class EmpresasState(AuthState):
     # ========================
     async def on_mount_empresas(self):
         """Verifica autenticación y carga empresas."""
-        resultado = await self.verificar_y_redirigir()
-        if resultado:
-            return resultado
-
-        # Manual loading (no montar_pagina por auth return pattern)
-        self.loading = True
-        await self._fetch_empresas()
-        self.loading = False
+        async for _ in self._montar_pagina_auth(self._fetch_empresas):
+            yield
 
     # ========================
     # OPERACIONES PRINCIPALES
@@ -358,7 +352,7 @@ class EmpresasState(AuthState):
     # OPERACIONES DE FILTROS
     # ========================
     async def aplicar_filtros(self):
-        async for _ in self.recargar_datos(self._fetch_empresas):
+        async for _ in self._recargar_datos(self._fetch_empresas):
             yield
 
     async def limpiar_filtros(self):
@@ -366,7 +360,7 @@ class EmpresasState(AuthState):
         self.filtro_tipo = FILTRO_TODOS
         self.filtro_busqueda = ""
         self.solo_activas = False
-        async for _ in self.recargar_datos(self._fetch_empresas):
+        async for _ in self._recargar_datos(self._fetch_empresas):
             yield
 
     # ========================

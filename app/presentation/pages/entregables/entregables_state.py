@@ -167,7 +167,7 @@ class EntregablesState(BaseState):
     # =========================================================================
     async def on_load_entregables(self):
         """Carga inicial: contratos para filtro y entregables con filtro default."""
-        async for _ in self.montar_pagina(
+        async for _ in self._montar_pagina(
             self._cargar_contratos_disponibles,
             self._cargar_estadisticas,
             self._fetch_entregables,

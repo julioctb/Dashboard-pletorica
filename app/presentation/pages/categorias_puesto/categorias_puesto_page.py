@@ -13,8 +13,9 @@ from app.presentation.components.ui import (
     status_badge_reactive,
     tabla_vacia,
     skeleton_tabla,
-    action_buttons_reactive,
     switch_inactivos,
+    tabla_action_button,
+    tabla_action_buttons,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.categorias_puesto.categorias_puesto_modals import (
@@ -29,31 +30,35 @@ from app.presentation.components.categorias_puesto.categorias_puesto_modals impo
 
 def acciones_categoria(categoria: dict) -> rx.Component:
     """Acciones para cada categoria"""
-    # Boton de reactivar (solo visible si inactivo)
-    boton_reactivar = rx.cond(
-        categoria["estatus"] == "INACTIVO",
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("rotate-ccw", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="green",
-                cursor="pointer",
-                on_click=lambda: CategoriasPuestoState.activar_categoria(categoria),
-            ),
-            content="Reactivar",
-        ),
-        rx.fragment(),
-    )
+    es_activo = categoria["estatus"] == "ACTIVO"
+    es_inactivo = categoria["estatus"] == "INACTIVO"
 
-    return action_buttons_reactive(
-        item=categoria,
-        editar_action=lambda: CategoriasPuestoState.abrir_modal_editar(categoria),
-        eliminar_action=lambda: CategoriasPuestoState.abrir_confirmar_eliminar(categoria),
-        puede_editar=categoria["estatus"] == "ACTIVO",
-        puede_eliminar=categoria["estatus"] == "ACTIVO",
-        acciones_extra=[boton_reactivar],
-    )
+    return tabla_action_buttons([
+        # Editar
+        tabla_action_button(
+            icon="pencil",
+            tooltip="Editar",
+            on_click=lambda: CategoriasPuestoState.abrir_modal_editar(categoria),
+            color_scheme="blue",
+            visible=es_activo,
+        ),
+        # Eliminar
+        tabla_action_button(
+            icon="trash-2",
+            tooltip="Eliminar",
+            on_click=lambda: CategoriasPuestoState.abrir_confirmar_eliminar(categoria),
+            color_scheme="red",
+            visible=es_activo,
+        ),
+        # Reactivar
+        tabla_action_button(
+            icon="rotate-ccw",
+            tooltip="Reactivar",
+            on_click=lambda: CategoriasPuestoState.activar_categoria(categoria),
+            color_scheme="green",
+            visible=es_inactivo,
+        ),
+    ])
 
 
 # =============================================================================

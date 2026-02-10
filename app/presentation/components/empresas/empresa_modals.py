@@ -1,5 +1,6 @@
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea
+from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.pages.empresas.empresas_state import EmpresasState
 from app.entities import TipoEmpresa, EstatusEmpresa
 
@@ -231,40 +232,27 @@ def modal_empresa() -> rx.Component:
 
             # Botones dinámicos
             rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    size="2",
-                    on_click=EmpresasState.cerrar_modal_empresa
+                boton_cancelar(
+                    on_click=EmpresasState.cerrar_modal_empresa,
                 ),
-                rx.button(
-                    # Texto dinámico del botón con loading state
-                    rx.cond(
-                        EmpresasState.saving,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.cond(
-                                EmpresasState.modo_modal_empresa == "crear",
-                                "Creando...",
-                                "Guardando..."
-                            ),
-                            spacing="2"
-                        ),
-                        rx.cond(
-                            EmpresasState.modo_modal_empresa == "crear",
-                            "Crear Empresa",
-                            "Guardar Cambios"
-                        )
+                boton_guardar(
+                    texto=rx.cond(
+                        EmpresasState.modo_modal_empresa == "crear",
+                        "Crear Empresa",
+                        "Guardar Cambios",
                     ),
-                    # Función dinámica
+                    texto_guardando=rx.cond(
+                        EmpresasState.modo_modal_empresa == "crear",
+                        "Creando...",
+                        "Guardando...",
+                    ),
                     on_click=rx.cond(
                         EmpresasState.modo_modal_empresa == "crear",
                         EmpresasState.crear_empresa,
-                        EmpresasState.actualizar_empresa
+                        EmpresasState.actualizar_empresa,
                     ),
-                    disabled=EmpresasState.tiene_errores_formulario | EmpresasState.saving,
-                    loading=EmpresasState.saving,
-                    size="2"
+                    saving=EmpresasState.saving,
+                    disabled=EmpresasState.tiene_errores_formulario,
                 ),
                 spacing="4",
                 justify="end"
