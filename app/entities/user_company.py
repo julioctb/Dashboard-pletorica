@@ -13,6 +13,8 @@ from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict
 
+from app.core.enums import RolEmpresa
+
 
 # =============================================================================
 # ENTIDAD PRINCIPAL
@@ -53,6 +55,12 @@ class UserCompany(BaseModel):
     es_principal: bool = Field(
         default=False,
         description="Si es la empresa por defecto al iniciar sesión"
+    )
+
+    # Rol en esta empresa
+    rol_empresa: RolEmpresa = Field(
+        default=RolEmpresa.LECTURA,
+        description="Rol del usuario en esta empresa específica"
     )
 
     # Auditoría
@@ -106,6 +114,10 @@ class UserCompanyCreate(BaseModel):
         default=False,
         description="Marcar como empresa principal del usuario"
     )
+    rol_empresa: RolEmpresa = Field(
+        default=RolEmpresa.LECTURA,
+        description="Rol del usuario en esta empresa"
+    )
 
 
 # =============================================================================
@@ -129,6 +141,7 @@ class UserCompanyResumen(BaseModel):
     user_id: UUID
     empresa_id: int
     es_principal: bool
+    rol_empresa: RolEmpresa = Field(default=RolEmpresa.LECTURA)
     fecha_creacion: Optional[datetime] = None
 
     # Datos enriquecidos de la empresa

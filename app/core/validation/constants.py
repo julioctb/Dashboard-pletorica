@@ -210,6 +210,11 @@ NOMBRE_COMPLETO_MIN = 3
 NOMBRE_COMPLETO_MAX = 150
 PASSWORD_MIN = 8
 
+ROLES_EMPRESA_VALIDOS = [
+    'admin_empresa', 'rrhh', 'operaciones',
+    'contabilidad', 'lectura', 'validador_externo', 'empleado'
+]
+
 # =============================================================================
 # CONSTANTES DE LONGITUD - RESTRICCIONES DE EMPLEADOS
 # =============================================================================

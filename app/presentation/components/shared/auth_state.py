@@ -261,6 +261,85 @@ class AuthState(BaseState):
         return self.permisos_usuario.get("empleados", {}).get("operar", False)
 
     # =========================================================================
+    # PERMISOS POR EMPRESA (SaaS pivot)
+    # =========================================================================
+
+    @rx.var
+    def rol_empresa_actual(self) -> str:
+        """Rol del usuario en la empresa actualmente seleccionada."""
+        if not self.empresa_actual:
+            return ""
+        return self.empresa_actual.get('rol_empresa', 'lectura')
+
+    @rx.var
+    def es_superadmin(self) -> bool:
+        """Indica si el usuario es dueño de la plataforma SaaS."""
+        if not Config.requiere_autenticacion():
+            return True
+        if self._simulando_cliente:
+            return False
+        if not self.usuario_actual:
+            return False
+        rol = self.usuario_actual.get('rol', '')
+        return rol in ('superadmin', 'admin')
+
+    @rx.var
+    def es_admin_empresa(self) -> bool:
+        """Indica si el usuario administra la empresa actual."""
+        if self.es_superadmin:
+            return True
+        return self.rol_empresa_actual == 'admin_empresa'
+
+    @rx.var
+    def es_rrhh(self) -> bool:
+        """Puede gestionar personal, expedientes, cuentas bancarias."""
+        if self.es_superadmin:
+            return True
+        return self.rol_empresa_actual in ('rrhh', 'admin_empresa')
+
+    @rx.var
+    def es_operaciones(self) -> bool:
+        """Puede gestionar evidencias, asistencias, reportes de campo."""
+        if self.es_superadmin:
+            return True
+        return self.rol_empresa_actual in ('operaciones', 'admin_empresa')
+
+    @rx.var
+    def es_contabilidad(self) -> bool:
+        """Puede gestionar entregables fiscales, nómina."""
+        if self.es_superadmin:
+            return True
+        return self.rol_empresa_actual in ('contabilidad', 'admin_empresa')
+
+    @rx.var
+    def es_validador_externo(self) -> bool:
+        """Es personal de institución cliente (solo ve entregables)."""
+        return self.rol_empresa_actual == 'validador_externo'
+
+    @rx.var
+    def es_empleado_portal(self) -> bool:
+        """Es empleado con acceso al portal de autoservicio."""
+        if not self.usuario_actual:
+            return False
+        rol = self.usuario_actual.get('rol', '')
+        return rol == 'empleado' or self.rol_empresa_actual == 'empleado'
+
+    @rx.var
+    def puede_gestionar_personal(self) -> bool:
+        """Helper: ¿puede ver/editar empleados y expedientes?"""
+        return self.es_rrhh
+
+    @rx.var
+    def puede_aprobar_documentos(self) -> bool:
+        """Helper: ¿puede aprobar/rechazar docs de empleados?"""
+        return self.es_rrhh
+
+    @rx.var
+    def puede_configurar_empresa(self) -> bool:
+        """Helper: ¿puede cambiar configuración de la empresa?"""
+        return self.es_admin_empresa
+
+    # =========================================================================
     # MÉTODOS DE AUTENTICACIÓN
     # =========================================================================
 

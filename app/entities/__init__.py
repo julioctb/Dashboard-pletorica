@@ -12,6 +12,7 @@ from app.core.enums import (
     TipoEmpresa,
     # Enums de Usuario
     RolUsuario,
+    RolEmpresa,
     # Enums de Contrato
     TipoContrato,
     ModalidadAdjudicacion,
@@ -238,6 +239,7 @@ __all__ = [
     "TipoContratacion",
     "GrupoConfiguracion",
     "RolUsuario",
+    "RolEmpresa",
     "EstatusEntregable",
     "EstatusPago",
     # Empresa

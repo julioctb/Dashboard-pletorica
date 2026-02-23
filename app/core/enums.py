@@ -425,7 +425,59 @@ class RolUsuario(str, Enum):
     def es_admin(self) -> bool:
         """Indica si el rol tiene privilegios de administrador"""
         return self == RolUsuario.ADMIN
-    
+
+
+class RolEmpresa(str, Enum):
+    """
+    Roles de usuario dentro de una empresa específica.
+
+    Determina qué puede hacer un usuario en el contexto de UNA empresa.
+    Un mismo usuario puede tener roles diferentes en empresas diferentes.
+    """
+    ADMIN_EMPRESA = 'admin_empresa'
+    RRHH = 'rrhh'
+    OPERACIONES = 'operaciones'
+    CONTABILIDAD = 'contabilidad'
+    LECTURA = 'lectura'
+    VALIDADOR_EXTERNO = 'validador_externo'
+    EMPLEADO = 'empleado'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del rol"""
+        descripciones = {
+            'admin_empresa': 'Administrador de empresa',
+            'rrhh': 'Recursos Humanos',
+            'operaciones': 'Operaciones',
+            'contabilidad': 'Contabilidad',
+            'lectura': 'Solo lectura',
+            'validador_externo': 'Validador externo (institución cliente)',
+            'empleado': 'Empleado (autoservicio)',
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def es_interno(self) -> bool:
+        """Indica si es un rol interno de la empresa (no externo ni empleado)"""
+        return self in (
+            RolEmpresa.ADMIN_EMPRESA,
+            RolEmpresa.RRHH,
+            RolEmpresa.OPERACIONES,
+            RolEmpresa.CONTABILIDAD,
+            RolEmpresa.LECTURA,
+        )
+
+    @property
+    def es_gestion_personal(self) -> bool:
+        """Indica si puede gestionar personal (empleados, expedientes)"""
+        return self in (RolEmpresa.ADMIN_EMPRESA, RolEmpresa.RRHH)
+
+    @property
+    def puede_gestionar_empresa(self) -> bool:
+        """Indica si puede cambiar configuración de la empresa"""
+        return self == RolEmpresa.ADMIN_EMPRESA
+
+
 # =============================================================================
 # ENUMS DE ENTREGABLES
 # =============================================================================

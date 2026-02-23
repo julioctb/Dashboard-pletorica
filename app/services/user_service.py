@@ -653,6 +653,7 @@ class UserService:
                     user_id=UUID(data['user_id']),
                     empresa_id=data['empresa_id'],
                     es_principal=data['es_principal'],
+                    rol_empresa=data.get('rol_empresa', 'lectura'),
                     fecha_creacion=data.get('fecha_creacion'),
                     empresa_nombre=empresa_data.get('nombre_comercial'),
                     empresa_rfc=empresa_data.get('rfc'),
@@ -955,6 +956,101 @@ class UserService:
 
         except Exception as e:
             logger.error(f"Error verificando acceso: {e}")
+            return False
+
+    async def asignar_rol_empresa(
+        self, user_id: UUID, empresa_id: int, rol_empresa: str
+    ) -> UserCompany:
+        """
+        Asigna o actualiza el rol de un usuario en una empresa.
+
+        Args:
+            user_id: UUID del usuario
+            empresa_id: ID de la empresa
+            rol_empresa: Rol a asignar (admin_empresa, rrhh, operaciones, etc.)
+
+        Returns:
+            UserCompany actualizada
+
+        Raises:
+            NotFoundError: Si la relación usuario-empresa no existe
+            ValidationError: Si el rol no es válido
+            DatabaseError: Si hay error de BD
+        """
+        from app.core.enums import RolEmpresa
+
+        # Validar que el rol sea válido
+        roles_validos = [r.value for r in RolEmpresa]
+        if rol_empresa not in roles_validos:
+            raise ValidationError(
+                f"Rol de empresa inválido: {rol_empresa}. "
+                f"Valores válidos: {', '.join(roles_validos)}"
+            )
+
+        # Verificar que la relación existe
+        try:
+            result = self.supabase_admin.table(self.tabla_companies)\
+                .select('id')\
+                .eq('user_id', str(user_id))\
+                .eq('empresa_id', empresa_id)\
+                .execute()
+
+            if not result.data:
+                raise NotFoundError(
+                    f"El usuario {user_id} no tiene asignada la empresa {empresa_id}"
+                )
+
+            # Actualizar rol
+            result = self.supabase_admin.table(self.tabla_companies)\
+                .update({'rol_empresa': rol_empresa})\
+                .eq('user_id', str(user_id))\
+                .eq('empresa_id', empresa_id)\
+                .execute()
+
+            if not result.data:
+                raise DatabaseError("No se pudo actualizar el rol de empresa")
+
+            logger.info(
+                f"Rol '{rol_empresa}' asignado a usuario {user_id} "
+                f"en empresa {empresa_id}"
+            )
+            return UserCompany(**result.data[0])
+
+        except (NotFoundError, ValidationError):
+            raise
+        except Exception as e:
+            logger.error(f"Error asignando rol de empresa: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def verificar_permiso_empresa(
+        self, user_id: UUID, empresa_id: int, roles_requeridos: list[str]
+    ) -> bool:
+        """
+        Verifica si el usuario tiene alguno de los roles requeridos en la empresa.
+
+        Args:
+            user_id: UUID del usuario
+            empresa_id: ID de la empresa
+            roles_requeridos: Lista de roles aceptados (ej: ['rrhh', 'admin_empresa'])
+
+        Returns:
+            True si tiene alguno de los roles requeridos
+        """
+        try:
+            result = self.supabase_admin.table(self.tabla_companies)\
+                .select('rol_empresa')\
+                .eq('user_id', str(user_id))\
+                .eq('empresa_id', empresa_id)\
+                .execute()
+
+            if not result.data:
+                return False
+
+            rol_actual = result.data[0].get('rol_empresa', 'lectura')
+            return rol_actual in roles_requeridos
+
+        except Exception as e:
+            logger.error(f"Error verificando permiso de empresa: {e}")
             return False
 
     async def obtener_empresa_principal(
