@@ -608,3 +608,103 @@ class EstatusPago(str, Enum):
             'PAGADO': 'Pagado',
         }
         return descripciones.get(self.value, self.value)
+
+
+# =============================================================================
+# ENUMS DE ONBOARDING
+# =============================================================================
+
+class EstatusOnboarding(str, Enum):
+    """Estados del proceso de onboarding de un empleado."""
+    REGISTRADO = 'REGISTRADO'
+    DATOS_PENDIENTES = 'DATOS_PENDIENTES'
+    DOCUMENTOS_PENDIENTES = 'DOCUMENTOS_PENDIENTES'
+    EN_REVISION = 'EN_REVISION'
+    APROBADO = 'APROBADO'
+    RECHAZADO = 'RECHAZADO'
+    ACTIVO_COMPLETO = 'ACTIVO_COMPLETO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del estatus"""
+        descripciones = {
+            'REGISTRADO': 'Registrado por RRHH',
+            'DATOS_PENDIENTES': 'Esperando datos del empleado',
+            'DOCUMENTOS_PENDIENTES': 'Esperando documentos del empleado',
+            'EN_REVISION': 'Expediente en revisión',
+            'APROBADO': 'Expediente aprobado',
+            'RECHAZADO': 'Expediente rechazado (requiere correcciones)',
+            'ACTIVO_COMPLETO': 'Onboarding completado',
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def requiere_accion_empleado(self) -> bool:
+        """Indica si el empleado debe actuar en este estado."""
+        return self in (
+            EstatusOnboarding.DATOS_PENDIENTES,
+            EstatusOnboarding.DOCUMENTOS_PENDIENTES,
+            EstatusOnboarding.RECHAZADO,
+        )
+
+
+class TipoDocumentoEmpleado(str, Enum):
+    """Tipos de documento del expediente de un empleado."""
+    INE = 'INE'
+    COMPROBANTE_DOMICILIO = 'COMPROBANTE_DOMICILIO'
+    CARATULA_BANCARIA = 'CARATULA_BANCARIA'
+    CURP_DOCUMENTO = 'CURP_DOCUMENTO'
+    RFC_DOCUMENTO = 'RFC_DOCUMENTO'
+    NSS_DOCUMENTO = 'NSS_DOCUMENTO'
+    ACTA_NACIMIENTO = 'ACTA_NACIMIENTO'
+    COMPROBANTE_ESTUDIOS = 'COMPROBANTE_ESTUDIOS'
+    FOTOGRAFIA = 'FOTOGRAFIA'
+    OTRO = 'OTRO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del tipo"""
+        descripciones = {
+            'INE': 'Identificación oficial (INE)',
+            'COMPROBANTE_DOMICILIO': 'Comprobante de domicilio',
+            'CARATULA_BANCARIA': 'Carátula bancaria',
+            'CURP_DOCUMENTO': 'Documento CURP',
+            'RFC_DOCUMENTO': 'Constancia de RFC',
+            'NSS_DOCUMENTO': 'Documento NSS (IMSS)',
+            'ACTA_NACIMIENTO': 'Acta de nacimiento',
+            'COMPROBANTE_ESTUDIOS': 'Comprobante de estudios',
+            'FOTOGRAFIA': 'Fotografía',
+            'OTRO': 'Otro documento',
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def es_obligatorio(self) -> bool:
+        """Indica si el documento es obligatorio para completar onboarding."""
+        return self in (
+            TipoDocumentoEmpleado.INE,
+            TipoDocumentoEmpleado.COMPROBANTE_DOMICILIO,
+            TipoDocumentoEmpleado.CARATULA_BANCARIA,
+            TipoDocumentoEmpleado.CURP_DOCUMENTO,
+            TipoDocumentoEmpleado.RFC_DOCUMENTO,
+            TipoDocumentoEmpleado.NSS_DOCUMENTO,
+            TipoDocumentoEmpleado.ACTA_NACIMIENTO,
+            TipoDocumentoEmpleado.FOTOGRAFIA,
+        )
+
+
+class EstatusDocumento(str, Enum):
+    """Estados de revisión de un documento de empleado."""
+    PENDIENTE_REVISION = 'PENDIENTE_REVISION'
+    APROBADO = 'APROBADO'
+    RECHAZADO = 'RECHAZADO'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del estatus"""
+        descripciones = {
+            'PENDIENTE_REVISION': 'Pendiente de revisión',
+            'APROBADO': 'Aprobado',
+            'RECHAZADO': 'Rechazado',
+        }
+        return descripciones.get(self.value, self.value)

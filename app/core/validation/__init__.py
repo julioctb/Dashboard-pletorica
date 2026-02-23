@@ -232,6 +232,16 @@ from .constants import (
     # Longitudes - Restricciones
     MOTIVO_RESTRICCION_MIN,
     MOTIVO_RESTRICCION_MAX,
+    # Longitudes - Datos bancarios / Onboarding
+    CUENTA_BANCARIA_MIN,
+    CUENTA_BANCARIA_MAX,
+    CLABE_LEN,
+    BANCO_MAX,
+    ENTIDAD_NACIMIENTO_MAX,
+    OBSERVACION_RECHAZO_MAX,
+    # Patrones - Bancarios
+    CLABE_PATTERN,
+    CUENTA_BANCARIA_PATTERN,
 )
 
 __all__ = [
@@ -403,6 +413,16 @@ __all__ = [
     # Longitudes - Restricciones
     "MOTIVO_RESTRICCION_MIN",
     "MOTIVO_RESTRICCION_MAX",
+    # Longitudes - Datos bancarios / Onboarding
+    "CUENTA_BANCARIA_MIN",
+    "CUENTA_BANCARIA_MAX",
+    "CLABE_LEN",
+    "BANCO_MAX",
+    "ENTIDAD_NACIMIENTO_MAX",
+    "OBSERVACION_RECHAZO_MAX",
+    # Patrones - Bancarios
+    "CLABE_PATTERN",
+    "CUENTA_BANCARIA_PATTERN",
     # Secciones - Sedes
     "SECCION_SEDE_INFO",
     "SECCION_SEDE_JERARQUIA",

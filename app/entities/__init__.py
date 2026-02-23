@@ -37,6 +37,10 @@ from app.core.enums import (
     # Enums de Entregable y Pago
     EstatusEntregable,
     EstatusPago,
+    # Enums de Onboarding
+    EstatusOnboarding,
+    TipoDocumentoEmpleado,
+    EstatusDocumento,
 )
 
 # Empresa
@@ -220,6 +224,39 @@ try:
 except ImportError:
     pass  # El módulo puede no existir aún
 
+# Empleado Documento
+from app.entities.empleado_documento import (
+    EmpleadoDocumento,
+    EmpleadoDocumentoCreate,
+    EmpleadoDocumentoResumen,
+)
+
+# Cuenta Bancaria Historial
+from app.entities.cuenta_bancaria_historial import (
+    CuentaBancariaHistorial,
+    CuentaBancariaHistorialCreate,
+)
+
+# Configuración Operativa Empresa
+from app.entities.configuracion_operativa_empresa import (
+    ConfiguracionOperativaEmpresa,
+    ConfiguracionOperativaEmpresaCreate,
+    ConfiguracionOperativaEmpresaUpdate,
+)
+
+# CURP Validación
+from app.entities.curp_validacion import (
+    CurpValidacionResponse,
+    CurpRenapoResponse,
+)
+
+# Onboarding
+from app.entities.onboarding import (
+    AltaEmpleadoBuap,
+    CompletarDatosEmpleado,
+    ExpedienteStatus,
+)
+
 
 __all__ = [
     # Enums
@@ -242,6 +279,10 @@ __all__ = [
     "RolEmpresa",
     "EstatusEntregable",
     "EstatusPago",
+    # Enums de Onboarding
+    "EstatusOnboarding",
+    "TipoDocumentoEmpleado",
+    "EstatusDocumento",
     # Empresa
     "Empresa",
     "EmpresaCreate",
@@ -359,4 +400,22 @@ __all__ = [
     # Notificacion
     "Notificacion",
     "NotificacionCreate",
+    # Empleado Documento
+    "EmpleadoDocumento",
+    "EmpleadoDocumentoCreate",
+    "EmpleadoDocumentoResumen",
+    # Cuenta Bancaria Historial
+    "CuentaBancariaHistorial",
+    "CuentaBancariaHistorialCreate",
+    # Configuración Operativa Empresa
+    "ConfiguracionOperativaEmpresa",
+    "ConfiguracionOperativaEmpresaCreate",
+    "ConfiguracionOperativaEmpresaUpdate",
+    # CURP Validación
+    "CurpValidacionResponse",
+    "CurpRenapoResponse",
+    # Onboarding
+    "AltaEmpleadoBuap",
+    "CompletarDatosEmpleado",
+    "ExpedienteStatus",
 ]

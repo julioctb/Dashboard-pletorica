@@ -132,6 +132,12 @@ from app.services.notificacion_service import (
     notificacion_service,
 )
 
+# CURP
+from app.services.curp_service import (
+    CurpService,
+    curp_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -196,4 +202,7 @@ __all__ = [
     # Notificacion
     "NotificacionService",
     "notificacion_service",
+    # CURP
+    "CurpService",
+    "curp_service",
 ]

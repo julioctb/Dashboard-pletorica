@@ -221,3 +221,19 @@ ROLES_EMPRESA_VALIDOS = [
 
 MOTIVO_RESTRICCION_MIN = 10
 MOTIVO_RESTRICCION_MAX = 500
+
+
+# =============================================================================
+# CONSTANTES DE LONGITUD - DATOS BANCARIOS / ONBOARDING
+# =============================================================================
+
+CUENTA_BANCARIA_MIN = 10
+CUENTA_BANCARIA_MAX = 18
+CLABE_LEN = 18
+BANCO_MAX = 100
+ENTIDAD_NACIMIENTO_MAX = 100
+OBSERVACION_RECHAZO_MAX = 1000
+
+# Patrones bancarios
+CLABE_PATTERN = r'^\d{18}$'
+CUENTA_BANCARIA_PATTERN = r'^\d{10,18}$'
