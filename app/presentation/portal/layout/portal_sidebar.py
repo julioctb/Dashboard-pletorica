@@ -16,53 +16,32 @@ from app.presentation.theme import (
     Spacing,
     Transitions,
     Typography,
-    Shadows,
 )
 
 
 # =============================================================================
-# CONFIGURACION DE NAVEGACION DEL PORTAL
+# HELPERS DE VISIBILIDAD
 # =============================================================================
 
-PORTAL_NAVIGATION = [
-    {
-        "label": None,
-        "items": [
-            {"text": "Dashboard", "icon": "layout-dashboard", "href": "/portal"},
-        ],
-    },
-    {
-        "label": "Mi Empresa",
-        "items": [
-            {"text": "Datos Empresa", "icon": "building-2", "href": "/portal/mi-empresa"},
-            {"text": "Empleados", "icon": "users", "href": "/portal/empleados"},
-            {"text": "Alta Masiva", "icon": "upload", "href": "/portal/alta-masiva"},
-            {"text": "Configuracion", "icon": "settings", "href": "/portal/configuracion-empresa"},
-        ],
-    },
-    {
-        "label": "RRHH",
-        "items": [
-            {"text": "Alta Empleados", "icon": "user-plus", "href": "/portal/onboarding"},
-            {"text": "Expedientes", "icon": "folder-check", "href": "/portal/expedientes"},
-        ],
-    },
-    {
-        "label": "Autoservicio",
-        "items": [
-            {"text": "Mis Datos", "icon": "user-check", "href": "/portal/mis-datos"},
-        ],
-    },
-    {
-        "label": "Operacion",
-        "items": [
-            {"text": "Contratos", "icon": "file-text", "href": "/portal/contratos"},
-            {"text": "Entregables", "icon": "package-check", "href": "/portal/entregables"},
-            {"text": "Plazas", "icon": "briefcase", "href": "/portal/plazas"},
-            {"text": "Requisiciones", "icon": "clipboard-list", "href": "/portal/requisiciones"},
-        ],
-    },
-]
+
+def _cond_item(condition, text: str, icon: str, href: str) -> rx.Component:
+    """Renderiza un item de navegacion solo si la condicion es verdadera."""
+    return rx.cond(condition, _portal_item(text, icon, href), rx.fragment())
+
+
+def _cond_group(condition, label: str, *items) -> rx.Component:
+    """Renderiza un grupo completo solo si la condicion es verdadera."""
+    return rx.cond(
+        condition,
+        rx.vstack(
+            _portal_group_label(label),
+            *items,
+            spacing="1",
+            width="100%",
+            align_items="stretch",
+        ),
+        rx.fragment(),
+    )
 
 
 # =============================================================================
@@ -161,34 +140,50 @@ def _portal_group_label(label: str) -> rx.Component:
     )
 
 
-def _portal_group(group: dict) -> rx.Component:
-    """Renderiza un grupo de navegacion."""
-    items = [
-        _portal_item(text=item["text"], icon=item["icon"], href=item["href"])
-        for item in group["items"]
-    ]
 
-    if group["label"]:
-        return rx.vstack(
-            _portal_group_label(group["label"]),
-            *items,
+def _portal_navigation() -> rx.Component:
+    """Navegacion completa del portal, filtrada por rol_empresa."""
+    return rx.vstack(
+        # --- Dashboard (siempre visible) ---
+        rx.vstack(
+            _portal_item("Dashboard", "layout-dashboard", "/portal"),
             spacing="1",
             width="100%",
             align_items="stretch",
-        )
-    return rx.vstack(
-        *items,
-        spacing="1",
-        width="100%",
-        align_items="stretch",
-    )
-
-
-def _portal_navigation() -> rx.Component:
-    """Navegacion completa del portal."""
-    groups = [_portal_group(group) for group in PORTAL_NAVIGATION]
-    return rx.vstack(
-        *groups,
+        ),
+        # --- Mi Empresa (admin_empresa, rrhh) ---
+        _cond_group(
+            AuthState.es_rrhh | AuthState.es_admin_empresa,
+            "Mi Empresa",
+            _cond_item(AuthState.es_admin_empresa, "Datos Empresa", "building-2", "/portal/mi-empresa"),
+            _cond_item(AuthState.puede_gestionar_personal, "Empleados", "users", "/portal/empleados"),
+            _cond_item(AuthState.puede_gestionar_personal, "Alta Masiva", "upload", "/portal/alta-masiva"),
+            _cond_item(AuthState.puede_configurar_empresa, "Configuracion", "settings", "/portal/configuracion-empresa"),
+        ),
+        # --- RRHH (puede_registrar_personal) ---
+        _cond_group(
+            AuthState.puede_registrar_personal,
+            "RRHH",
+            _cond_item(AuthState.puede_registrar_personal, "Alta Empleados", "user-plus", "/portal/onboarding"),
+            _cond_item(AuthState.es_rrhh, "Expedientes", "folder-check", "/portal/expedientes"),
+        ),
+        # --- Autoservicio (siempre visible) ---
+        rx.vstack(
+            _portal_group_label("Autoservicio"),
+            _portal_item("Mis Datos", "user-check", "/portal/mis-datos"),
+            spacing="1",
+            width="100%",
+            align_items="stretch",
+        ),
+        # --- Operacion (operaciones, contabilidad, admin_empresa) ---
+        _cond_group(
+            AuthState.es_operaciones | AuthState.es_contabilidad,
+            "Operacion",
+            _cond_item(AuthState.es_operaciones, "Contratos", "file-text", "/portal/contratos"),
+            _cond_item(AuthState.es_operaciones | AuthState.es_contabilidad, "Entregables", "package-check", "/portal/entregables"),
+            _cond_item(AuthState.es_rrhh, "Plazas", "briefcase", "/portal/plazas"),
+            _cond_item(AuthState.es_operaciones, "Requisiciones", "clipboard-list", "/portal/requisiciones"),
+        ),
         spacing="0",
         width="100%",
         flex="1",
