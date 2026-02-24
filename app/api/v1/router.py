@@ -8,12 +8,14 @@ from fastapi import APIRouter
 
 from app.api.v1.empresas.router import router as empresas_router
 from app.api.v1.curp.router import router as curp_router
+from app.api.v1.onboarding.router import router as onboarding_router
 
 api_v1_router = APIRouter()
 
 # Registrar routers de modulos
 api_v1_router.include_router(empresas_router)
 api_v1_router.include_router(curp_router)
+api_v1_router.include_router(onboarding_router)
 
 # Para agregar nuevos modulos:
 # from app.api.v1.empleados.router import router as empleados_router

@@ -124,6 +124,27 @@ class Empleado(BaseModel):
         description="UUID del admin que aplico la restriccion"
     )
 
+    # Datos bancarios
+    cuenta_bancaria: Optional[str] = Field(None, max_length=18)
+    banco: Optional[str] = Field(None, max_length=100)
+    clabe_interbancaria: Optional[str] = Field(None, max_length=18)
+
+    # Datos adicionales
+    entidad_nacimiento: Optional[str] = Field(None, max_length=100)
+    renapo_validado: bool = False
+    renapo_fecha_validacion: Optional[datetime] = None
+
+    # Onboarding
+    estatus_onboarding: Optional[str] = Field(default='REGISTRADO')
+
+    # Autoservicio
+    user_id: Optional[UUID] = Field(None)
+    requiere_cambio_password: bool = True
+    fecha_primer_acceso: Optional[datetime] = None
+
+    # Sede
+    sede_id: Optional[int] = Field(None)
+
     # Auditoría
     fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None
@@ -381,6 +402,19 @@ class EmpleadoUpdate(BaseModel):
     restricted_at: Optional[datetime] = None
     restricted_by: Optional[UUID] = None
 
+    # Onboarding / autoservicio
+    estatus_onboarding: Optional[str] = None
+    user_id: Optional[UUID] = None
+    sede_id: Optional[int] = None
+
+    # Datos bancarios
+    cuenta_bancaria: Optional[str] = Field(None, max_length=18)
+    banco: Optional[str] = Field(None, max_length=100)
+    clabe_interbancaria: Optional[str] = Field(None, max_length=18)
+
+    # Datos adicionales
+    entidad_nacimiento: Optional[str] = Field(None, max_length=100)
+
     # Validadores reutilizados
     validar_rfc_update = field_validator('rfc', mode='before')(Empleado.validar_rfc.__func__)
     validar_nss_update = field_validator('nss', mode='before')(Empleado.validar_nss.__func__)
@@ -413,6 +447,7 @@ class EmpleadoResumen(BaseModel):
     fecha_ingreso: date
     telefono: Optional[str] = None
     email: Optional[str] = None
+    estatus_onboarding: Optional[str] = None
 
     @classmethod
     def from_empleado(cls, empleado: Empleado, empresa_nombre: Optional[str] = None) -> 'EmpleadoResumen':

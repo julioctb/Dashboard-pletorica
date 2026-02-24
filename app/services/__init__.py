@@ -144,6 +144,30 @@ from app.services.curp_service import (
     curp_service,
 )
 
+# Cuenta Bancaria Historial
+from app.services.cuenta_bancaria_historial_service import (
+    CuentaBancariaHistorialService,
+    cuenta_bancaria_historial_service,
+)
+
+# Configuracion Operativa
+from app.services.configuracion_operativa_service import (
+    ConfiguracionOperativaService,
+    configuracion_operativa_service,
+)
+
+# Empleado Documento
+from app.services.empleado_documento_service import (
+    EmpleadoDocumentoService,
+    empleado_documento_service,
+)
+
+# Onboarding
+from app.services.onboarding_service import (
+    OnboardingService,
+    onboarding_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -214,4 +238,16 @@ __all__ = [
     # CURP
     "CurpService",
     "curp_service",
+    # Cuenta Bancaria Historial
+    "CuentaBancariaHistorialService",
+    "cuenta_bancaria_historial_service",
+    # Configuracion Operativa
+    "ConfiguracionOperativaService",
+    "configuracion_operativa_service",
+    # Empleado Documento
+    "EmpleadoDocumentoService",
+    "empleado_documento_service",
+    # Onboarding
+    "OnboardingService",
+    "onboarding_service",
 ]

@@ -40,6 +40,13 @@ PORTAL_NAVIGATION = [
         ],
     },
     {
+        "label": "RRHH",
+        "items": [
+            {"text": "Alta Empleados", "icon": "user-plus", "href": "/portal/onboarding"},
+            {"text": "Expedientes", "icon": "folder-check", "href": "/portal/expedientes"},
+        ],
+    },
+    {
         "label": "Operacion",
         "items": [
             {"text": "Contratos", "icon": "file-text", "href": "/portal/contratos"},
