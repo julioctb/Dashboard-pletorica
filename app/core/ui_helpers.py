@@ -21,8 +21,7 @@ Uso:
         return opciones_desde_enum(EstatusEmpleado, incluir_todos=True)
 """
 from enum import Enum
-from typing import List, Dict, Any, Optional, Type
-from decimal import Decimal, InvalidOperation
+from typing import List, Dict, Any, Type
 
 
 # =============================================================================
@@ -32,6 +31,9 @@ from decimal import Decimal, InvalidOperation
 FILTRO_TODOS = "__TODOS__"
 FILTRO_SIN_SELECCION = ""
 FILTRO_TODAS = "__TODAS__"  # Alias femenino
+FILTRO_TODOS_LEGACY = "TODOS"
+FILTRO_TODAS_LEGACY = "TODAS"
+FILTRO_SIN_SELECCION_LEGACY = "0"
 
 
 # =============================================================================
@@ -172,128 +174,8 @@ def opciones_si_no(
 
 
 # =============================================================================
-# FORMATEO DE DATOS
-# =============================================================================
-
-def formatear_moneda(valor: Any, prefijo: str = "$", decimales: int = 2) -> str:
-    """
-    Formatea un valor como moneda mexicana.
-
-    Args:
-        valor: Número, string o Decimal a formatear
-        prefijo: Símbolo de moneda
-        decimales: Número de decimales
-
-    Returns:
-        String formateado (ej: "$1,234.56")
-
-    Ejemplo:
-        >>> formatear_moneda(1234.5)
-        "$1,234.50"
-        >>> formatear_moneda("1234.567", decimales=2)
-        "$1,234.57"
-    """
-    try:
-        if valor is None or valor == "":
-            return ""
-
-        # Limpiar string
-        if isinstance(valor, str):
-            valor = valor.replace("$", "").replace(",", "").strip()
-            if not valor:
-                return ""
-
-        numero = Decimal(str(valor))
-        formateado = f"{numero:,.{decimales}f}"
-        return f"{prefijo}{formateado}"
-
-    except (InvalidOperation, ValueError):
-        return str(valor) if valor else ""
-
-
-def parsear_moneda(valor: str) -> Optional[Decimal]:
-    """
-    Parsea un string de moneda a Decimal.
-
-    Args:
-        valor: String con formato moneda (ej: "$1,234.56")
-
-    Returns:
-        Decimal o None si no es válido
-
-    Ejemplo:
-        >>> parsear_moneda("$1,234.56")
-        Decimal('1234.56')
-    """
-    try:
-        if not valor:
-            return None
-        limpio = valor.replace("$", "").replace(",", "").strip()
-        if not limpio:
-            return None
-        return Decimal(limpio)
-    except (InvalidOperation, ValueError):
-        return None
-
-
-def formatear_telefono(valor: str) -> str:
-    """
-    Formatea un teléfono a formato mexicano (10 dígitos).
-
-    Args:
-        valor: String con dígitos
-
-    Returns:
-        Formato "(55) 1234-5678" o string original si no tiene 10 dígitos
-    """
-    if not valor:
-        return ""
-
-    # Solo dígitos
-    digitos = ''.join(c for c in valor if c.isdigit())
-
-    if len(digitos) == 10:
-        return f"({digitos[:2]}) {digitos[2:6]}-{digitos[6:]}"
-
-    return valor
-
-
-def truncar_texto(texto: str, max_length: int = 50, sufijo: str = "...") -> str:
-    """
-    Trunca texto largo agregando sufijo.
-
-    Args:
-        texto: Texto a truncar
-        max_length: Longitud máxima
-        sufijo: Sufijo a agregar si se trunca
-
-    Returns:
-        Texto truncado o original si es más corto
-    """
-    if not texto:
-        return ""
-    if len(texto) <= max_length:
-        return texto
-    return texto[:max_length - len(sufijo)] + sufijo
-
-
-# =============================================================================
 # HELPERS DE FORMULARIOS
 # =============================================================================
-
-def normalizar_para_busqueda(texto: str) -> str:
-    """
-    Normaliza texto para búsquedas (mayúsculas, sin espacios extra).
-
-    Args:
-        texto: Texto a normalizar
-
-    Returns:
-        Texto normalizado
-    """
-    if not texto:
-        return ""
-    return " ".join(texto.upper().split())
 
 
 def es_filtro_activo(valor: str) -> bool:
@@ -306,20 +188,16 @@ def es_filtro_activo(valor: str) -> bool:
     Returns:
         True si el filtro está activo
     """
-    return valor not in (FILTRO_TODOS, FILTRO_TODAS, FILTRO_SIN_SELECCION, "", None)
-
-
-def limpiar_filtros_dict(filtros: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Limpia un dict de filtros removiendo valores vacíos/todos.
-
-    Args:
-        filtros: Dict con filtros
-
-    Returns:
-        Dict solo con filtros activos
-    """
-    return {k: v for k, v in filtros.items() if es_filtro_activo(v)}
+    return valor not in (
+        FILTRO_TODOS,
+        FILTRO_TODAS,
+        FILTRO_SIN_SELECCION,
+        FILTRO_TODOS_LEGACY,
+        FILTRO_TODAS_LEGACY,
+        FILTRO_SIN_SELECCION_LEGACY,
+        "",
+        None,
+    )
 
 
 # =============================================================================

@@ -21,6 +21,7 @@ from app.core.ui_helpers import (
     FILTRO_SIN_SELECCION,
     calcular_paginas,
     calcular_offset,
+    es_filtro_activo as es_filtro_activo_ui,
 )
 
 # Importar excepciones para manejo centralizado
@@ -499,7 +500,7 @@ class BaseState(rx.State):
         Returns:
             True si no es "todos" ni vacío
         """
-        return valor not in (FILTRO_TODOS, FILTRO_SIN_SELECCION, "", None, "__TODAS__")
+        return es_filtro_activo_ui(valor)
 
     def obtener_filtros_activos(self, filtros: Dict[str, Any]) -> Dict[str, Any]:
         """
