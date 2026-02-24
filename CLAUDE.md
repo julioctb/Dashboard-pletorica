@@ -11,7 +11,7 @@ Dashboard application built with **Reflex (v0.8.21)** for managing dependency co
 **Database**: Supabase PostgreSQL (hosted) with Row Level Security (RLS)
 **Storage**: Supabase Storage (bucket: `archivos`)
 **Auth**: Supabase Auth (JWT tokens)
-**Migrations**: Manual SQL scripts in `migrations/` (34 migrations)
+**Migrations**: Manual SQL scripts in `migrations/` (40 migrations)
 
 ## Development Commands
 
@@ -62,7 +62,7 @@ app/
 │
 ├── core/                         # Cross-cutting concerns
 │   ├── config/                  # Environment configuration
-│   ├── enums.py                 # All enums (Estatus, TipoEmpresa, RolUsuario, etc.)
+│   ├── enums.py                 # All enums (Estatus, TipoEmpresa, RolUsuario, RolPlataforma, RolEmpresa, etc.)
 │   ├── exceptions.py            # ApplicationError hierarchy
 │   ├── text_utils.py            # capitalizar, formatear_telefono, etc.
 │   ├── ui_helpers.py            # opciones_desde_enum, FILTRO_TODOS, paginacion
@@ -95,7 +95,13 @@ app/
 │   ├── dashboard.py             # DashboardMetricas (value object, not persisted)
 │   ├── alta_masiva.py           # ResultadoValidacion, ResultadoProcesamiento
 │   ├── empleado_restriccion_log.py  # EmpleadoRestriccionLog (audit, immutable)
-│   └── costo_patronal.py        # ConfiguracionEmpresa, Trabajador, ResultadoCuotas
+│   ├── costo_patronal.py        # ConfiguracionEmpresa, Trabajador, ResultadoCuotas
+│   ├── institucion.py           # Institucion, InstitucionCreate, InstitucionUpdate, InstitucionResumen
+│   ├── empleado_documento.py    # EmpleadoDocumento, EmpleadoDocumentoCreate
+│   ├── cuenta_bancaria_historial.py # CuentaBancariaHistorial, CuentaBancariaHistorialCreate
+│   ├── configuracion_operativa_empresa.py # ConfiguracionOperativaEmpresa CRUD models
+│   ├── curp_validacion.py       # CurpValidacionResponse, CurpRenapoResponse
+│   └── onboarding.py            # AltaEmpleadoBuap, CompletarDatosEmpleado, ExpedienteStatus
 │
 ├── repositories/                 # Data access layer (Supabase)
 │   ├── base_repository.py       # BaseRepository[T] - generic CRUD, search, pagination
@@ -134,7 +140,13 @@ app/
 │   ├── alta_masiva_service.py   # alta_masiva_service (bulk import orchestrator)
 │   ├── alta_masiva_parser.py    # alta_masiva_parser (Excel/CSV parsing)
 │   ├── reporte_alta_masiva_service.py # Excel report generation
-│   └── plantilla_service.py     # plantilla_service (templates)
+│   ├── plantilla_service.py     # plantilla_service (templates)
+│   ├── institucion_service.py   # institucion_service (direct access)
+│   ├── onboarding_service.py    # onboarding_service (alta BUAP + expediente)
+│   ├── curp_service.py          # curp_service (CURP validation via RENAPO)
+│   ├── empleado_documento_service.py # empleado_documento_service
+│   ├── cuenta_bancaria_historial_service.py # cuenta_bancaria_historial_service
+│   └── configuracion_operativa_service.py # configuracion_operativa_service
 │
 ├── database/
 │   └── connection.py             # DatabaseManager singleton (db_manager)
@@ -156,7 +168,9 @@ app/
 │   │   ├── configuracion/
 │   │   ├── simulador/
 │   │   ├── login/
-│   │   └── admin/usuarios/      # User management
+│   │   ├── admin/usuarios/      # User management
+│   │   ├── admin_onboarding/    # Admin onboarding management
+│   │   └── instituciones/       # Instituciones CRUD + empresas
 │   │
 │   ├── portal/                  # Client Portal (separate subsystem)
 │   │   ├── layout/              # portal_layout.py, portal_sidebar.py
@@ -167,7 +181,11 @@ app/
 │   │       ├── mis_empleados/   # Modularized (page, state, modal, components)
 │   │       ├── mis_contratos.py
 │   │       ├── alta_masiva/     # 3-step wizard (paso_1, paso_2, paso_3)
-│   │       └── mis_entregables.py
+│   │       ├── mis_entregables.py
+│   │       ├── mis_datos.py     # Autoservicio empleado
+│   │       ├── expedientes.py   # Expedientes digitales
+│   │       ├── onboarding_alta.py # Alta empleado BUAP
+│   │       └── configuracion_empresa.py # Config operativa empresa
 │   │
 │   ├── components/
 │   │   ├── ui/                  # Reusable UI component library
@@ -418,6 +436,8 @@ form_input(
 | `/configuracion` | Configuracion Requisiciones | configuracion |
 | `/simulador` | Simulador | simulador |
 | `/admin/usuarios` | Admin Usuarios | admin/usuarios |
+| `/admin/onboarding` | Admin Onboarding | admin_onboarding |
+| `/admin/instituciones` | Instituciones | instituciones |
 | `/login` | Login (no layout) | login |
 
 ### Portal Routes (wrapped in `portal_index()` layout)
@@ -430,6 +450,10 @@ form_input(
 | `/portal/contratos` | Mis Contratos |
 | `/portal/alta-masiva` | Alta Masiva (3-step wizard) |
 | `/portal/entregables` | Mis Entregables |
+| `/portal/mis-datos` | Autoservicio Mis Datos |
+| `/portal/expedientes` | Expedientes Digitales |
+| `/portal/onboarding` | Alta Empleado BUAP |
+| `/portal/configuracion-empresa` | Configuracion Operativa |
 
 ### API Routes
 
@@ -529,6 +553,12 @@ module/
 | 031 | ampliar_campos_requisicion | Expand requisicion fields |
 | 032 | numero_requisicion_nullable | Nullable requisicion number |
 | 033 | permisos_granulares | Granular permissions system |
+| 034 | add_rol_empresa_to_user_companies | RolEmpresa enum + column |
+| 035 | extend_empleados_onboarding | Onboarding fields for empleados |
+| 036 | create_empleado_documentos | Employee document management |
+| 037 | create_cuenta_bancaria_historial | Bank account change history |
+| 038 | create_configuracion_operativa_empresa | Company operational config |
+| 039 | pivot_saas_roles | SaaS role pivot (RolPlataforma, RolEmpresa) |
 
 ### Migration Structure
 
