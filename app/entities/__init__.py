@@ -12,6 +12,7 @@ from app.core.enums import (
     TipoEmpresa,
     # Enums de Usuario
     RolUsuario,
+    RolPlataforma,
     RolEmpresa,
     # Enums de Contrato
     TipoContrato,
@@ -64,6 +65,14 @@ from app.entities.user_company import(
     UserCompany,
     UserCompanyCreate,
     UserCompanyResumen
+)
+
+# Institucion
+from app.entities.institucion import (
+    Institucion,
+    InstitucionCreate,
+    InstitucionResumen,
+    InstitucionEmpresa,
 )
 
 # Tipo de Servicio
@@ -276,6 +285,7 @@ __all__ = [
     "TipoContratacion",
     "GrupoConfiguracion",
     "RolUsuario",
+    "RolPlataforma",
     "RolEmpresa",
     "EstatusEntregable",
     "EstatusPago",
@@ -297,6 +307,11 @@ __all__ = [
     "UserCompany",
     "UserCompanyCreate",
     "UserCompanyResumen",
+    # Institucion
+    "Institucion",
+    "InstitucionCreate",
+    "InstitucionResumen",
+    "InstitucionEmpresa",
     # Tipo de Servicio
     "TipoServicio",
     "TipoServicioCreate",

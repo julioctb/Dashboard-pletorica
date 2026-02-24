@@ -427,54 +427,105 @@ class RolUsuario(str, Enum):
         return self == RolUsuario.ADMIN
 
 
-class RolEmpresa(str, Enum):
+class RolPlataforma(str, Enum):
     """
-    Roles de usuario dentro de una empresa específica.
+    Tipo de organización que representa el usuario en la plataforma.
 
-    Determina qué puede hacer un usuario en el contexto de UNA empresa.
-    Un mismo usuario puede tener roles diferentes en empresas diferentes.
+    Define QUÉ TIPO de actor es, no qué puede hacer.
+    Los permisos específicos se definen en RolEmpresa (user_companies).
+
+    Valores de compatibilidad:
+    - 'admin' equivale a 'superadmin' (usuarios existentes)
+    - 'client' equivale a 'proveedor' (usuarios existentes)
     """
-    ADMIN_EMPRESA = 'admin_empresa'
-    RRHH = 'rrhh'
-    OPERACIONES = 'operaciones'
-    CONTABILIDAD = 'contabilidad'
-    LECTURA = 'lectura'
-    VALIDADOR_EXTERNO = 'validador_externo'
+    SUPERADMIN = 'superadmin'
+    ADMIN = 'admin'
+    INSTITUCION = 'institucion'
+    PROVEEDOR = 'proveedor'
+    CLIENT = 'client'
     EMPLEADO = 'empleado'
 
     @property
     def descripcion(self) -> str:
         """Descripción legible del rol"""
         descripciones = {
-            'admin_empresa': 'Administrador de empresa',
-            'rrhh': 'Recursos Humanos',
-            'operaciones': 'Operaciones',
-            'contabilidad': 'Contabilidad',
-            'lectura': 'Solo lectura',
-            'validador_externo': 'Validador externo (institución cliente)',
-            'empleado': 'Empleado (autoservicio)',
+            'superadmin': 'Super Administrador (Plataforma)',
+            'admin': 'Administrador (Compatibilidad)',
+            'institucion': 'Institución Cliente',
+            'proveedor': 'Empresa Proveedora',
+            'client': 'Cliente (Compatibilidad)',
+            'empleado': 'Empleado',
         }
         return descripciones.get(self.value, self.value)
 
     @property
-    def es_interno(self) -> bool:
-        """Indica si es un rol interno de la empresa (no externo ni empleado)"""
-        return self in (
-            RolEmpresa.ADMIN_EMPRESA,
-            RolEmpresa.RRHH,
-            RolEmpresa.OPERACIONES,
-            RolEmpresa.CONTABILIDAD,
-            RolEmpresa.LECTURA,
-        )
+    def es_superadmin(self) -> bool:
+        """True para superadmin y admin (compatibilidad)."""
+        return self.value in ('superadmin', 'admin')
+
+    @property
+    def es_proveedor(self) -> bool:
+        """True para proveedor y client (compatibilidad)."""
+        return self.value in ('proveedor', 'client')
+
+    @property
+    def es_institucion(self) -> bool:
+        """True solo para institucion."""
+        return self == RolPlataforma.INSTITUCION
+
+    @property
+    def es_empleado(self) -> bool:
+        """True solo para empleado."""
+        return self == RolPlataforma.EMPLEADO
+
+
+class RolEmpresa(str, Enum):
+    """
+    Permisos de un usuario dentro de una empresa específica.
+
+    Define QUÉ PUEDE HACER el usuario en el contexto de UNA empresa.
+    Un mismo usuario puede tener roles diferentes en empresas diferentes.
+
+    Solo aplica a usuarios 'proveedor' (y 'client' por compatibilidad):
+        admin_empresa, rrhh, operaciones, contabilidad, lectura
+
+    Y a usuarios 'empleado':
+        empleado
+
+    Usuarios 'institucion' NO usan user_companies — su acceso viene
+    de instituciones_empresas y sus permisos son fijos en código.
+    """
+    # --- Roles de proveedor ---
+    ADMIN_EMPRESA = 'admin_empresa'
+    RRHH = 'rrhh'
+    OPERACIONES = 'operaciones'
+    CONTABILIDAD = 'contabilidad'
+    LECTURA = 'lectura'
+
+    # --- Roles de empleado ---
+    EMPLEADO = 'empleado'
+
+    @property
+    def descripcion(self) -> str:
+        """Descripción legible del rol"""
+        descripciones = {
+            'admin_empresa': 'Administrador de Empresa',
+            'rrhh': 'Recursos Humanos',
+            'operaciones': 'Operaciones',
+            'contabilidad': 'Contabilidad',
+            'lectura': 'Solo Lectura',
+            'empleado': 'Empleado',
+        }
+        return descripciones.get(self.value, self.value)
 
     @property
     def es_gestion_personal(self) -> bool:
-        """Indica si puede gestionar personal (empleados, expedientes)"""
+        """Indica si puede gestionar personal (empleados, expedientes)."""
         return self in (RolEmpresa.ADMIN_EMPRESA, RolEmpresa.RRHH)
 
     @property
     def puede_gestionar_empresa(self) -> bool:
-        """Indica si puede cambiar configuración de la empresa"""
+        """Indica si puede cambiar configuración de la empresa."""
         return self == RolEmpresa.ADMIN_EMPRESA
 
 

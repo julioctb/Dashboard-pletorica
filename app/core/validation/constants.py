@@ -212,7 +212,7 @@ PASSWORD_MIN = 8
 
 ROLES_EMPRESA_VALIDOS = [
     'admin_empresa', 'rrhh', 'operaciones',
-    'contabilidad', 'lectura', 'validador_externo', 'empleado'
+    'contabilidad', 'lectura', 'empleado'
 ]
 
 # =============================================================================

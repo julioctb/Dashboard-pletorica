@@ -93,6 +93,12 @@ from app.services.contacto_buap_service import (
 # User (Autenticación y Perfiles)
 from app.services.user_service import user_service
 
+# Institucion
+from app.services.institucion_service import (
+    InstitucionService,
+    institucion_service,
+)
+
 # Alta Masiva
 from app.services.alta_masiva_parser import (
     AltaMasivaParser,
@@ -184,6 +190,9 @@ __all__ = [
     "contacto_buap_service",
     # User (Autenticación y Perfiles)
     "user_service",
+    # Institucion
+    "InstitucionService",
+    "institucion_service",
     # Alta Masiva
     "AltaMasivaParser",
     "alta_masiva_parser",

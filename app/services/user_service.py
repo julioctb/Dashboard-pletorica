@@ -459,7 +459,7 @@ class UserService:
 
         Args:
             user_id: UUID del usuario
-            nuevo_rol: Nuevo rol ('admin' o 'client')
+            nuevo_rol: Nuevo rol (superadmin, admin, institucion, proveedor, client, empleado)
 
         Returns:
             UserProfile actualizado
@@ -472,8 +472,11 @@ class UserService:
         Note:
             Esta operación debería estar protegida para solo admins.
         """
-        if nuevo_rol not in ('admin', 'client'):
-            raise ValidationError(f"Rol inválido: {nuevo_rol}. Use 'admin' o 'client'")
+        roles_validos = ('superadmin', 'admin', 'institucion', 'proveedor', 'client', 'empleado')
+        if nuevo_rol not in roles_validos:
+            raise ValidationError(
+                f"Rol inválido: {nuevo_rol}. Valores válidos: {', '.join(roles_validos)}"
+            )
 
         return await self.actualizar_perfil(
             user_id,

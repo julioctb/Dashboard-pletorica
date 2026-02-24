@@ -80,6 +80,12 @@ class UserProfile(BaseModel):
     activo: bool = Field(default=True)
     ultimo_acceso: Optional[datetime] = None
 
+    # Institución (solo para rol='institucion')
+    institucion_id: Optional[int] = Field(
+        default=None,
+        description="FK a instituciones. Solo aplica cuando rol=institucion."
+    )
+
     # Permisos granulares
     puede_gestionar_usuarios: bool = Field(
         default=False,
@@ -375,6 +381,10 @@ class UserProfileResumen(BaseModel):
     # Permisos granulares
     puede_gestionar_usuarios: bool = False
     permisos: dict = Field(default_factory=dict)
+
+    # Institución (para usuarios institucionales)
+    institucion_id: Optional[int] = None
+    institucion_nombre: Optional[str] = None
 
     # Datos enriquecidos (se llenan desde el servicio)
     email: Optional[str] = None  # Viene de auth.users

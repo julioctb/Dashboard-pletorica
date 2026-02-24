@@ -81,6 +81,16 @@ class AuthState(BaseState):
     _sesion_verificada: bool = False
 
     # =========================================================================
+    # ESTADO DE INSTITUCIÓN (solo para rol='institucion')
+    # =========================================================================
+
+    # Datos de la institución del usuario (dict para serialización Reflex)
+    institucion_actual: dict = {}
+
+    # Lista de empresas que supervisa la institución
+    empresas_institucion: List[dict] = []
+
+    # =========================================================================
     # SIMULACIÓN DE CLIENTE (solo DEBUG)
     # =========================================================================
     _simulando_cliente: bool = False
@@ -312,11 +322,6 @@ class AuthState(BaseState):
         return self.rol_empresa_actual in ('contabilidad', 'admin_empresa')
 
     @rx.var
-    def es_validador_externo(self) -> bool:
-        """Es personal de institución cliente (solo ve entregables)."""
-        return self.rol_empresa_actual == 'validador_externo'
-
-    @rx.var
     def es_empleado_portal(self) -> bool:
         """Es empleado con acceso al portal de autoservicio."""
         if not self.usuario_actual:
@@ -324,19 +329,65 @@ class AuthState(BaseState):
         rol = self.usuario_actual.get('rol', '')
         return rol == 'empleado' or self.rol_empresa_actual == 'empleado'
 
+    # --- Nivel plataforma (nuevos) ---
+
+    @rx.var
+    def es_institucion(self) -> bool:
+        """Indica si el usuario es personal de una institución cliente."""
+        if not self.usuario_actual:
+            return False
+        return self.usuario_actual.get('rol', '') == 'institucion'
+
+    @rx.var
+    def es_proveedor(self) -> bool:
+        """Indica si el usuario es personal de empresa proveedora.
+        Reconoce tanto 'proveedor' como 'client' (compatibilidad)."""
+        if self._simulando_cliente:
+            return True
+        if not self.usuario_actual:
+            return False
+        rol = self.usuario_actual.get('rol', '')
+        return rol in ('proveedor', 'client')
+
+    # --- Helpers de permisos ---
+
     @rx.var
     def puede_gestionar_personal(self) -> bool:
-        """Helper: ¿puede ver/editar empleados y expedientes?"""
+        """¿Puede editar empleados, aprobar docs, crear accesos?
+        Acceso: rrhh, admin_empresa, superadmin.
+        NOTA: gestor_institucional NO puede (solo registra, no gestiona)."""
         return self.es_rrhh
+
+    @rx.var
+    def puede_registrar_personal(self) -> bool:
+        """¿Puede dar de alta personal nuevo?
+        Acceso: institucion (fijo), rrhh, admin_empresa, superadmin."""
+        if self.es_superadmin:
+            return True
+        if self.es_institucion:
+            return True
+        return self.rol_empresa_actual in ('rrhh', 'admin_empresa')
 
     @rx.var
     def puede_aprobar_documentos(self) -> bool:
-        """Helper: ¿puede aprobar/rechazar docs de empleados?"""
+        """¿Puede aprobar/rechazar documentos de empleados?
+        Acceso: rrhh, admin_empresa, superadmin."""
         return self.es_rrhh
 
     @rx.var
+    def puede_validar_entregables(self) -> bool:
+        """¿Puede aprobar/rechazar entregables contractuales?
+        Acceso: institucion (fijo), admin_empresa, superadmin."""
+        if self.es_superadmin:
+            return True
+        if self.es_institucion:
+            return True
+        return self.rol_empresa_actual == 'admin_empresa'
+
+    @rx.var
     def puede_configurar_empresa(self) -> bool:
-        """Helper: ¿puede cambiar configuración de la empresa?"""
+        """¿Puede cambiar configuración de la empresa?
+        Acceso: admin_empresa, superadmin."""
         return self.es_admin_empresa
 
     # =========================================================================
@@ -388,9 +439,15 @@ class AuthState(BaseState):
 
             logger.info(f"Login exitoso: {email}")
 
-            # Redirigir segun rol
+            # Cargar institución si aplica
             rol = self.usuario_actual.get('rol', '')
-            if rol == 'client':
+            if rol == 'institucion':
+                await self._cargar_institucion_usuario()
+
+            # Redirigir según rol
+            if rol in ('client', 'proveedor', 'institucion'):
+                return rx.redirect("/portal")
+            if rol == 'empleado':
                 return rx.redirect("/portal")
             return rx.redirect("/")
 
@@ -465,6 +522,9 @@ class AuthState(BaseState):
                 # Token válido, actualizar perfil
                 self.usuario_actual = profile.model_dump(mode='json')
                 await self._cargar_empresas_usuario()
+                # Cargar institución si aplica
+                if self.usuario_actual.get('rol') == 'institucion':
+                    await self._cargar_institucion_usuario()
                 logger.debug("Sesión verificada correctamente")
             else:
                 # Token inválido, intentar refrescar
@@ -590,6 +650,8 @@ class AuthState(BaseState):
         self.usuario_actual = {}
         self.empresa_actual = {}
         self.empresas_disponibles = []
+        self.institucion_actual = {}
+        self.empresas_institucion = []
         self._sesion_verificada = False
         self._simulando_cliente = False
         self._empresas_simulacion = []
@@ -630,6 +692,61 @@ class AuthState(BaseState):
         except Exception as e:
             logger.error(f"Error cargando empresas del usuario: {e}")
             self.empresas_disponibles = []
+
+    async def _cargar_institucion_usuario(self):
+        """
+        Carga la institución y sus empresas para usuarios institucionales.
+
+        Solo se llama cuando user_profiles.rol = 'institucion'.
+        La institución se obtiene de user_profiles.institucion_id,
+        y las empresas de instituciones_empresas.
+        """
+        if not self.usuario_actual:
+            return
+
+        institucion_id = self.usuario_actual.get('institucion_id')
+        if not institucion_id:
+            logger.warning(
+                f"Usuario institucional sin institucion_id: "
+                f"{self.usuario_actual.get('id')}"
+            )
+            return
+
+        try:
+            from app.services import institucion_service
+
+            # Cargar datos de la institución
+            inst = await institucion_service.obtener_por_id(institucion_id)
+            self.institucion_actual = {
+                'id': inst.id,
+                'nombre': inst.nombre,
+                'codigo': inst.codigo,
+            }
+
+            # Cargar empresas supervisadas
+            empresas = await institucion_service.obtener_empresas(institucion_id)
+            self.empresas_institucion = [
+                {
+                    'empresa_id': e.empresa_id,
+                    'empresa_nombre': e.empresa_nombre,
+                    'empresa_rfc': e.empresa_rfc,
+                }
+                for e in empresas
+            ]
+
+            # Para instituciones, la primera empresa supervisada es la "activa"
+            if self.empresas_institucion and not self.empresa_actual:
+                self.empresa_actual = self.empresas_institucion[0]
+
+            logger.debug(
+                f"Institución cargada: {inst.codigo} con "
+                f"{len(self.empresas_institucion)} empresas"
+            )
+
+        except Exception as e:
+            logger.error(f"Error cargando institución del usuario: {e}")
+            self.institucion_actual = {}
+            self.empresas_institucion = []
 
     async def cambiar_empresa(self, empresa_id: int):
         """
@@ -739,15 +856,27 @@ class AuthState(BaseState):
             empresa_id: ID de la empresa a verificar
 
         Returns:
-            True si es admin o tiene la empresa asignada
+            True si es admin, tiene la empresa asignada vía user_companies,
+            o su institución supervisa esa empresa.
         """
         if self.es_admin:
             return True
 
-        return any(
+        # Proveedores: acceso vía user_companies
+        if any(
             e.get('empresa_id') == empresa_id
             for e in self.empresas_disponibles
-        )
+        ):
+            return True
+
+        # Instituciones: acceso vía instituciones_empresas
+        if any(
+            e.get('empresa_id') == empresa_id
+            for e in self.empresas_institucion
+        ):
+            return True
+
+        return False
 
 
 # =============================================================================
