@@ -395,3 +395,64 @@ class BaseRepository(Generic[T], ABC):
         if limite:
             return query.range(offset, offset + limite - 1)
         return query
+
+    async def existe_campo(
+        self,
+        campo: str,
+        valor: Any,
+        excluir_id: Optional[int] = None
+    ) -> bool:
+        """
+        Verifica si ya existe un registro con cierto valor en un campo.
+
+        Args:
+            campo: Nombre del campo (ej: 'clave', 'rfc')
+            valor: Valor a buscar
+            excluir_id: ID a excluir de la búsqueda (para updates)
+
+        Returns:
+            True si ya existe
+        """
+        return await self._ejecutar_query(
+            f"verificar existencia de {campo}",
+            lambda: self._query_existe_campo(campo, valor, excluir_id),
+        )
+
+    def _query_existe_campo(self, campo: str, valor: Any, excluir_id: Optional[int]) -> bool:
+        """Ejecuta query de existencia por campo."""
+        query = self.supabase.table(self.tabla).select('id').eq(campo, valor)
+        if excluir_id:
+            query = query.neq('id', excluir_id)
+        result = query.execute()
+        return len(result.data) > 0
+
+    async def actualizar_entidad(self, entidad: T) -> T:
+        """
+        Actualiza una entidad completa (alternativa a actualizar(id, datos)).
+
+        Útil cuando el service ya tiene la entidad modificada y quiere
+        persistir todos sus campos.
+
+        Args:
+            entidad: Entidad con campos actualizados (debe tener .id)
+
+        Returns:
+            Entidad actualizada desde BD
+        """
+        return await self._ejecutar_query(
+            f"actualizar {self.entidad_nombre}",
+            lambda: self._update_entidad(entidad),
+            not_found_msg=f"{self.entidad_nombre} con ID {entidad.id} no encontrado",
+            check_duplicate=True
+        )
+
+    def _update_entidad(self, entidad: T) -> T:
+        """Ejecuta UPDATE desde entidad completa."""
+        datos = entidad.model_dump(
+            mode='json',
+            exclude={'id', 'fecha_creacion', 'fecha_actualizacion'}
+        )
+        result = self.supabase.table(self.tabla).update(datos).eq('id', entidad.id).execute()
+        if not result.data:
+            return None
+        return self.entidad_class(**result.data[0])

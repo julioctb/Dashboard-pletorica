@@ -139,25 +139,7 @@ class EmpresasState(AuthState):
         self.solo_activas = bool(value)
         await self._fetch_empresas()
 
-    # ========================
-    # SETTERS DE VISTA (tabla/cards)
-    # ========================
-    def set_view_table(self):
-        self.view_mode = "table"
-
-    def set_view_cards(self):
-        self.view_mode = "cards"
-
-    def toggle_view(self):
-        self.view_mode = "cards" if self.view_mode == "table" else "table"
-
-    @rx.var
-    def is_table_view(self) -> bool:
-        return self.view_mode == "table"
-
-    @rx.var
-    def is_cards_view(self) -> bool:
-        return self.view_mode == "cards"
+    # View toggle heredado de BaseState
 
     # ========================
     # SETTERS DE FORMULARIO (Reflex v0.8.9+ requiere explícitos)

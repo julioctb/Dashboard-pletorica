@@ -18,11 +18,12 @@ from app.entities import (
 from app.core.enums import Estatus
 from app.repositories import SupabaseTipoServicioRepository
 from app.core.exceptions import BusinessRuleError
+from app.services.base_service import BaseService
 
 logger = logging.getLogger(__name__)
 
 
-class TipoServicioService:
+class TipoServicioService(BaseService):
     """
     Servicio de aplicacion para tipos de servicio.
     Orquesta las operaciones de negocio delegando acceso a datos al repositorio.
@@ -125,13 +126,7 @@ class TipoServicioService:
             DuplicateError: Si la nueva clave ya existe
             DatabaseError: Si hay error de BD
         """
-        tipo_actual = await self.repository.obtener_por_id(tipo_id)
-
-        datos_actualizados = tipo_update.model_dump(exclude_unset=True)
-
-        for campo, valor in datos_actualizados.items():
-            if valor is not None:
-                setattr(tipo_actual, campo, valor)
+        tipo_actual = await self._merge_y_actualizar(tipo_id, tipo_update, self.repository)
 
         logger.info(f"Actualizando tipo de servicio ID {tipo_id}")
 
@@ -144,7 +139,7 @@ class TipoServicioService:
                 value=tipo_actual.clave
             )
 
-        return await self.repository.actualizar(tipo_actual)
+        return await self.repository.actualizar_entidad(tipo_actual)
 
     async def eliminar(self, tipo_id: int) -> bool:
         """
@@ -172,16 +167,10 @@ class TipoServicioService:
             BusinessRuleError: Si ya esta activo
             DatabaseError: Si hay error de BD
         """
-        tipo = await self.repository.obtener_por_id(tipo_id)
-
-        if tipo.estatus == Estatus.ACTIVO.value:
-            raise BusinessRuleError("El tipo ya esta activo")
-
-        tipo.estatus = Estatus.ACTIVO.value
-
-        logger.info(f"Activando tipo de servicio: {tipo.clave}")
-
-        return await self.repository.actualizar(tipo)
+        logger.info(f"Activando tipo de servicio ID {tipo_id}")
+        return await self._cambiar_estatus(
+            tipo_id, Estatus.ACTIVO.value, self.repository, "El tipo"
+        )
 
     # ==========================================
     # VALIDACIONES DE NEGOCIO (privadas)

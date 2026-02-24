@@ -160,18 +160,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
     error_telefono: str = ""
     error_empresa_id: str = ""
 
-    # ========================
-    # SETTERS DE VISTA
-    # ========================
-    def set_view_table(self):
-        self.view_mode = "table"
-
-    def set_view_cards(self):
-        self.view_mode = "cards"
-
-    @rx.var
-    def is_table_view(self) -> bool:
-        return self.view_mode == "table"
+    # View toggle heredado de BaseState
 
     # ========================
     # SETTERS DE FILTROS

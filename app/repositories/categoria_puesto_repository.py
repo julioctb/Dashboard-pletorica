@@ -1,81 +1,48 @@
 """
-Repositorio de Categorias de Puesto - Implementacion para Supabase.
+Repositorio de Categorias de Puesto - Hereda de BaseRepository.
 
-Patron de manejo de errores:
-- NotFoundError: Cuando no se encuentra un recurso
-- DuplicateError: Cuando se viola unicidad (clave duplicada en tipo)
-- DatabaseError: Errores de conexion o infraestructura
+Metodos heredados de BaseRepository:
+- obtener_por_id, crear, actualizar_entidad, eliminar, existe, existe_campo
+
+Metodos custom:
+- obtener_por_tipo_servicio, obtener_todas, buscar, existe_clave_en_tipo
 """
-import logging
 from typing import List, Optional
 
 from app.entities.categoria_puesto import CategoriaPuesto
-from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
+from app.core.exceptions import DuplicateError
+from app.repositories.base_repository import BaseRepository
 
-logger = logging.getLogger(__name__)
 
+class SupabaseCategoriaPuestoRepository(BaseRepository[CategoriaPuesto]):
+    """Repositorio de categorias de puesto usando Supabase."""
 
-class SupabaseCategoriaPuestoRepository:
-    """Implementacion del repositorio de categorias de puesto usando Supabase."""
+    tabla = 'categorias_puesto'
+    entidad_class = CategoriaPuesto
+    entidad_nombre = 'Categoria de puesto'
 
-    def __init__(self, db_manager=None):
-        if db_manager is None:
-            from app.database import db_manager as default_db
-            db_manager = default_db
-
-        self.supabase = db_manager.get_client()
-        self.tabla = 'categorias_puesto'
-
-    async def obtener_por_id(self, categoria_id: int) -> CategoriaPuesto:
-        """
-        Obtiene una categoria por su ID.
-
-        Raises:
-            NotFoundError: Si la categoria no existe
-            DatabaseError: Si hay error de BD
-        """
-        try:
-            result = self.supabase.table(self.tabla).select('*').eq('id', categoria_id).execute()
-
-            if not result.data:
-                raise NotFoundError(f"Categoria de puesto con ID {categoria_id} no encontrada")
-
-            return CategoriaPuesto(**result.data[0])
-
-        except NotFoundError:
-            raise
-        except Exception as e:
-            logger.error(f"Error obteniendo categoria {categoria_id}: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
+    # =========================================================================
+    # QUERIES CUSTOM
+    # =========================================================================
 
     async def obtener_por_tipo_servicio(
         self,
         tipo_servicio_id: int,
         incluir_inactivas: bool = False
     ) -> List[CategoriaPuesto]:
-        """
-        Obtiene todas las categorias de un tipo de servicio.
+        """Obtiene todas las categorias de un tipo de servicio."""
+        return await self._ejecutar_query(
+            "obtener categorias por tipo",
+            lambda: self._query_por_tipo(tipo_servicio_id, incluir_inactivas),
+            return_list=True
+        )
 
-        Returns:
-            Lista ordenada por 'orden' y luego por 'nombre'
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        try:
-            query = self.supabase.table(self.tabla).select('*').eq('tipo_servicio_id', tipo_servicio_id)
-
-            if not incluir_inactivas:
-                query = query.eq('estatus', 'ACTIVO')
-
-            query = query.order('orden', desc=False).order('nombre', desc=False)
-
-            result = query.execute()
-            return [CategoriaPuesto(**data) for data in result.data]
-
-        except Exception as e:
-            logger.error(f"Error obteniendo categorias del tipo {tipo_servicio_id}: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
+    def _query_por_tipo(self, tipo_servicio_id, incluir_inactivas):
+        query = self.supabase.table(self.tabla).select('*').eq('tipo_servicio_id', tipo_servicio_id)
+        query = self._aplicar_filtro_estatus(query, incluir_inactivas)
+        query = query.order('orden', desc=False).order('nombre', desc=False)
+        result = query.execute()
+        return [CategoriaPuesto(**data) for data in result.data]
 
     async def obtener_todas(
         self,
@@ -83,31 +50,22 @@ class SupabaseCategoriaPuestoRepository:
         limite: Optional[int] = None,
         offset: int = 0
     ) -> List[CategoriaPuesto]:
-        """
-        Obtiene todas las categorias con paginacion.
+        """Obtiene todas las categorias con paginacion."""
+        return await self._ejecutar_query(
+            "obtener todas las categorias",
+            lambda: self._query_obtener_todas(incluir_inactivas, limite, offset),
+            return_list=True
+        )
 
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        try:
-            query = self.supabase.table(self.tabla).select('*')
-
-            if not incluir_inactivas:
-                query = query.eq('estatus', 'ACTIVO')
-
-            query = query.order('tipo_servicio_id', desc=False).order('orden', desc=False)
-
-            if limite is None:
-                limite = 100
-
-            query = query.range(offset, offset + limite - 1)
-
-            result = query.execute()
-            return [CategoriaPuesto(**data) for data in result.data]
-
-        except Exception as e:
-            logger.error(f"Error obteniendo categorias: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
+    def _query_obtener_todas(self, incluir_inactivas, limite, offset):
+        query = self.supabase.table(self.tabla).select('*')
+        query = self._aplicar_filtro_estatus(query, incluir_inactivas)
+        query = query.order('tipo_servicio_id', desc=False).order('orden', desc=False)
+        if limite is None:
+            limite = 100
+        query = query.range(offset, offset + limite - 1)
+        result = query.execute()
+        return [CategoriaPuesto(**data) for data in result.data]
 
     async def buscar(
         self,
@@ -115,105 +73,57 @@ class SupabaseCategoriaPuestoRepository:
         tipo_servicio_id: Optional[int] = None,
         limite: int = 10
     ) -> List[CategoriaPuesto]:
-        """
-        Busca categorias por nombre o clave.
+        """Busca categorias por nombre o clave."""
+        return await self._ejecutar_query(
+            "buscar categorias",
+            lambda: self._query_buscar(termino, tipo_servicio_id, limite),
+            return_list=True
+        )
 
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        try:
-            termino_upper = termino.strip().upper()
+    def _query_buscar(self, termino, tipo_servicio_id, limite):
+        termino_upper = termino.strip().upper()
+        query = self.supabase.table(self.tabla)\
+            .select('*')\
+            .eq('estatus', 'ACTIVO')\
+            .or_(f"nombre.ilike.%{termino_upper}%,clave.ilike.%{termino_upper}%")
+        if tipo_servicio_id:
+            query = query.eq('tipo_servicio_id', tipo_servicio_id)
+        query = query.limit(limite)
+        result = query.execute()
+        return [CategoriaPuesto(**data) for data in result.data]
 
-            query = self.supabase.table(self.tabla)\
-                .select('*')\
-                .eq('estatus', 'ACTIVO')\
-                .or_(
-                    f"nombre.ilike.%{termino_upper}%,"
-                    f"clave.ilike.%{termino_upper}%"
-                )
+    # =========================================================================
+    # OVERRIDES
+    # =========================================================================
 
-            if tipo_servicio_id:
-                query = query.eq('tipo_servicio_id', tipo_servicio_id)
+    async def crear(self, entidad: CategoriaPuesto) -> CategoriaPuesto:
+        """Crea categoria verificando unicidad de clave en el tipo de servicio."""
+        if await self.existe_clave_en_tipo(entidad.tipo_servicio_id, entidad.clave):
+            raise DuplicateError(
+                f"La clave '{entidad.clave}' ya existe en este tipo de servicio",
+                field="clave",
+                value=entidad.clave
+            )
+        return await super().crear(entidad)
 
-            query = query.limit(limite)
-            result = query.execute()
+    def _insertar(self, entidad: CategoriaPuesto) -> CategoriaPuesto:
+        """Override: excluir fecha_actualizacion tambien."""
+        datos = entidad.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
+        result = self.supabase.table(self.tabla).insert(datos).execute()
+        if not result.data:
+            return None
+        return CategoriaPuesto(**result.data[0])
 
-            return [CategoriaPuesto(**data) for data in result.data]
+    def _delete(self, id: int) -> bool:
+        """Soft delete: marca como INACTIVO en lugar de borrar."""
+        result = self.supabase.table(self.tabla).update(
+            {'estatus': 'INACTIVO'}
+        ).eq('id', id).execute()
+        return bool(result.data)
 
-        except Exception as e:
-            logger.error(f"Error buscando categorias con termino '{termino}': {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
-
-    async def crear(self, categoria: CategoriaPuesto) -> CategoriaPuesto:
-        """
-        Crea una nueva categoria de puesto.
-
-        Raises:
-            DuplicateError: Si la clave ya existe en el tipo de servicio
-            DatabaseError: Si hay error de BD
-        """
-        try:
-            if await self.existe_clave_en_tipo(categoria.tipo_servicio_id, categoria.clave):
-                raise DuplicateError(
-                    f"La clave '{categoria.clave}' ya existe en este tipo de servicio",
-                    field="clave",
-                    value=categoria.clave
-                )
-
-            datos = categoria.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
-            result = self.supabase.table(self.tabla).insert(datos).execute()
-
-            if not result.data:
-                raise DatabaseError("No se pudo crear la categoria")
-
-            return CategoriaPuesto(**result.data[0])
-
-        except (DuplicateError, DatabaseError):
-            raise
-        except Exception as e:
-            logger.error(f"Error creando categoria: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
-
-    async def actualizar(self, categoria: CategoriaPuesto) -> CategoriaPuesto:
-        """
-        Actualiza una categoria existente.
-
-        Raises:
-            NotFoundError: Si la categoria no existe
-            DatabaseError: Si hay error de BD
-        """
-        try:
-            datos = categoria.model_dump(exclude={'id', 'fecha_creacion', 'fecha_actualizacion'})
-            result = self.supabase.table(self.tabla).update(datos).eq('id', categoria.id).execute()
-
-            if not result.data:
-                raise NotFoundError(f"Categoria con ID {categoria.id} no encontrada")
-
-            return CategoriaPuesto(**result.data[0])
-
-        except NotFoundError:
-            raise
-        except Exception as e:
-            logger.error(f"Error actualizando categoria {categoria.id}: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
-
-    async def eliminar(self, categoria_id: int) -> bool:
-        """
-        Elimina (desactiva) una categoria.
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        try:
-            result = self.supabase.table(self.tabla).update(
-                {'estatus': 'INACTIVO'}
-            ).eq('id', categoria_id).execute()
-
-            return bool(result.data)
-
-        except Exception as e:
-            logger.error(f"Error eliminando categoria {categoria_id}: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
+    # =========================================================================
+    # VERIFICACIONES
+    # =========================================================================
 
     async def existe_clave_en_tipo(
         self,
@@ -221,24 +131,18 @@ class SupabaseCategoriaPuestoRepository:
         clave: str,
         excluir_id: Optional[int] = None
     ) -> bool:
-        """
-        Verifica si una clave ya existe en el tipo de servicio.
+        """Verifica si una clave ya existe en el tipo de servicio."""
+        return await self._ejecutar_query(
+            "verificar clave en tipo",
+            lambda: self._query_existe_clave_en_tipo(tipo_servicio_id, clave, excluir_id),
+        )
 
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        try:
-            query = self.supabase.table(self.tabla)\
-                .select('id')\
-                .eq('tipo_servicio_id', tipo_servicio_id)\
-                .eq('clave', clave.upper())
-
-            if excluir_id:
-                query = query.neq('id', excluir_id)
-
-            result = query.execute()
-            return len(result.data) > 0
-
-        except Exception as e:
-            logger.error(f"Error verificando clave {clave}: {e}")
-            raise DatabaseError(f"Error de base de datos: {str(e)}")
+    def _query_existe_clave_en_tipo(self, tipo_servicio_id, clave, excluir_id):
+        query = self.supabase.table(self.tabla)\
+            .select('id')\
+            .eq('tipo_servicio_id', tipo_servicio_id)\
+            .eq('clave', clave.upper())
+        if excluir_id:
+            query = query.neq('id', excluir_id)
+        result = query.execute()
+        return len(result.data) > 0

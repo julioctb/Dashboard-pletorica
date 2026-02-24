@@ -18,11 +18,12 @@ from app.entities.categoria_puesto import (
 from app.core.enums import Estatus
 from app.repositories import SupabaseCategoriaPuestoRepository
 from app.core.exceptions import DuplicateError, BusinessRuleError
+from app.services.base_service import BaseService
 
 logger = logging.getLogger(__name__)
 
 
-class CategoriaPuestoService:
+class CategoriaPuestoService(BaseService):
     """
     Servicio de aplicacion para categorias de puesto.
     Orquesta las operaciones de negocio delegando acceso a datos al repositorio.
@@ -123,13 +124,9 @@ class CategoriaPuestoService:
             DuplicateError: Si la nueva clave ya existe en el tipo de servicio
             DatabaseError: Si hay error de BD
         """
-        categoria_actual = await self.repository.obtener_por_id(categoria_id)
-
-        datos_actualizados = categoria_update.model_dump(exclude_unset=True)
-
-        for campo, valor in datos_actualizados.items():
-            if valor is not None:
-                setattr(categoria_actual, campo, valor)
+        categoria_actual = await self._merge_y_actualizar(
+            categoria_id, categoria_update, self.repository
+        )
 
         logger.info(f"Actualizando categoria ID {categoria_id}")
 
@@ -145,7 +142,7 @@ class CategoriaPuestoService:
                 value=categoria_actual.clave
             )
 
-        return await self.repository.actualizar(categoria_actual)
+        return await self.repository.actualizar_entidad(categoria_actual)
 
     async def eliminar(self, categoria_id: int) -> bool:
         """
@@ -173,16 +170,10 @@ class CategoriaPuestoService:
             BusinessRuleError: Si ya esta activa
             DatabaseError: Si hay error de BD
         """
-        categoria = await self.repository.obtener_por_id(categoria_id)
-
-        if categoria.estatus == Estatus.ACTIVO:
-            raise BusinessRuleError("La categoria ya esta activa")
-
-        categoria.estatus = Estatus.ACTIVO
-
-        logger.info(f"Activando categoria: {categoria.clave}")
-
-        return await self.repository.actualizar(categoria)
+        logger.info(f"Activando categoria ID {categoria_id}")
+        return await self._cambiar_estatus(
+            categoria_id, Estatus.ACTIVO, self.repository, "La categoria"
+        )
 
     # ==========================================
     # VALIDACIONES DE NEGOCIO (privadas)

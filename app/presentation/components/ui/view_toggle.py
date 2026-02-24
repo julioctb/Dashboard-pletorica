@@ -4,31 +4,18 @@ View Toggle - Toggle de Vista Tabla/Cards
 
 Componente para cambiar entre vista de tabla y vista de cards.
 
-IMPORTANTE: Reflex no soporta mixins para State. Debes agregar
-los campos y métodos directamente en tu clase State.
+Los metodos set_view_table, set_view_cards, toggle_view, is_table_view
+e is_cards_view estan definidos en BaseState. Solo necesitas declarar
+la variable `view_mode: str = "table"` en tu State.
 
 Uso:
     from app.presentation.components.ui import view_toggle
-    
-    # 1. En tu State, agrega estos campos y métodos:
-    class MiState(rx.State):
-        view_mode: str = "table"  # "table" o "cards"
-        
-        def set_view_table(self):
-            self.view_mode = "table"
-        
-        def set_view_cards(self):
-            self.view_mode = "cards"
-        
-        @rx.var
-        def is_table_view(self) -> bool:
-            return self.view_mode == "table"
-        
-        @rx.var
-        def is_cards_view(self) -> bool:
-            return self.view_mode == "cards"
-    
-    # 2. En tu componente:
+
+    class MiState(BaseState):
+        view_mode: str = "table"
+        # Los metodos de view toggle se heredan de BaseState
+
+    # En tu componente:
     view_toggle(
         value=MiState.view_mode,
         on_change_table=MiState.set_view_table,
@@ -38,35 +25,6 @@ Uso:
 
 import reflex as rx
 from app.presentation.theme import Colors, Transitions
-
-
-# =============================================================================
-# CAMPOS Y MÉTODOS PARA COPIAR A TU STATE
-# =============================================================================
-# 
-# Copia esto directamente en tu clase State:
-#
-# class MiState(rx.State):
-#     view_mode: str = "table"
-#     
-#     def set_view_table(self):
-#         self.view_mode = "table"
-#     
-#     def set_view_cards(self):
-#         self.view_mode = "cards"
-#     
-#     def toggle_view(self):
-#         self.view_mode = "cards" if self.view_mode == "table" else "table"
-#     
-#     @rx.var
-#     def is_table_view(self) -> bool:
-#         return self.view_mode == "table"
-#     
-#     @rx.var
-#     def is_cards_view(self) -> bool:
-#         return self.view_mode == "cards"
-#
-# =============================================================================
 
 
 def view_toggle(

@@ -121,30 +121,7 @@ class PlazasState(BaseState):
     error_salario_mensual: str = ""
     error_cantidad: str = ""
 
-    # ========================
-    # SETTERS DE VISTA
-    # ========================
-    def set_view_table(self):
-        """Cambiar a vista de tabla."""
-        self.view_mode = "table"
-
-    def set_view_cards(self):
-        """Cambiar a vista de cards."""
-        self.view_mode = "cards"
-
-    def toggle_view(self):
-        """Alternar entre vistas."""
-        self.view_mode = "cards" if self.view_mode == "table" else "table"
-
-    @rx.var
-    def is_table_view(self) -> bool:
-        """True si la vista actual es tabla."""
-        return self.view_mode == "table"
-
-    @rx.var
-    def is_cards_view(self) -> bool:
-        """True si la vista actual es cards."""
-        return self.view_mode == "cards"
+    # View toggle heredado de BaseState
 
     @rx.var
     def mostrar_vista_inicial(self) -> bool:

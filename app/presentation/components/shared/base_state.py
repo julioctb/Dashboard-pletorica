@@ -528,6 +528,34 @@ class BaseState(rx.State):
     # ========================
     # NORMALIZACIÓN DE SETTERS
     # ========================
+    # ========================
+    # VIEW TOGGLE (tabla/cards)
+    # ========================
+    def set_view_table(self):
+        """Cambiar a vista de tabla."""
+        self.view_mode = "table"
+
+    def set_view_cards(self):
+        """Cambiar a vista de cards."""
+        self.view_mode = "cards"
+
+    def toggle_view(self):
+        """Alternar entre vistas."""
+        self.view_mode = "cards" if self.view_mode == "table" else "table"
+
+    @rx.var
+    def is_table_view(self) -> bool:
+        """True si la vista actual es tabla."""
+        return getattr(self, 'view_mode', 'table') == "table"
+
+    @rx.var
+    def is_cards_view(self) -> bool:
+        """True si la vista actual es cards."""
+        return getattr(self, 'view_mode', 'table') == "cards"
+
+    # ========================
+    # NORMALIZACIÓN DE SETTERS
+    # ========================
     @staticmethod
     def normalizar_mayusculas(valor: str) -> str:
         """Normaliza string a mayúsculas (para CURP, RFC, etc.)"""

@@ -451,21 +451,7 @@ class RequisicionesState(AuthState):
     def set_filtro_tipo(self, v: str):
         self.filtro_tipo = v if v else FILTRO_TODOS
 
-    # ========================
-    # SETTERS DE VISTA
-    # ========================
-    def set_view_table(self):
-        self.view_mode = "table"
-
-    def set_view_cards(self):
-        self.view_mode = "cards"
-
-    # ========================
-    # COMPUTED VARS
-    # ========================
-    @rx.var
-    def is_table_view(self) -> bool:
-        return self.view_mode == "table"
+    # View toggle heredado de BaseState
 
     @rx.var
     def tiene_requisiciones(self) -> bool:

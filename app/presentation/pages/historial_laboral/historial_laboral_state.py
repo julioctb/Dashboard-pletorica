@@ -44,18 +44,7 @@ class HistorialLaboralState(BaseState):
     def set_filtro_empleado_id(self, value: str):
         self.filtro_empleado_id = value if value else ""
 
-    # ========================
-    # SETTERS DE VISTA
-    # ========================
-    def set_view_table(self):
-        self.view_mode = "table"
-
-    def set_view_cards(self):
-        self.view_mode = "cards"
-
-    @rx.var
-    def is_table_view(self) -> bool:
-        return self.view_mode == "table"
+    # View toggle heredado de BaseState
 
     # ========================
     # COMPUTED VARS
