@@ -2,13 +2,17 @@
 Componentes de subida de documentos para el autoservicio del empleado.
 
 Lista de tipos de documento obligatorios/opcionales con estatus y
-area de subida por tipo.
+area de subida. Usa un solo rx.upload con id estatico para evitar
+problemas de id dinamico dentro de rx.foreach.
 """
 import reflex as rx
 
 from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import MisDatosState
+
+# ID estatico para el upload (uno solo, el tipo se setea en state)
+UPLOAD_ID = "upload_doc_expediente"
 
 
 # =============================================================================
@@ -32,8 +36,6 @@ def _badge_doc_estatus(estatus: str) -> rx.Component:
 
 def fila_tipo_documento(tipo_doc: dict) -> rx.Component:
     """Fila individual para un tipo de documento."""
-    upload_id = "upload_doc_" + tipo_doc["tipo"].to(str)
-
     return rx.hstack(
         # Icono
         rx.cond(
@@ -72,36 +74,24 @@ def fila_tipo_documento(tipo_doc: dict) -> rx.Component:
         rx.spacer(),
         # Badge estatus
         _badge_doc_estatus(tipo_doc["estatus"]),
-        # Boton subir/resubir
+        # Boton para seleccionar tipo y abrir upload
         rx.cond(
             MisDatosState.puede_subir_docs,
-            rx.upload(
-                rx.button(
-                    rx.cond(
-                        tipo_doc["subido"],
-                        rx.text("Resubir", font_size=Typography.SIZE_XS),
-                        rx.text("Subir", font_size=Typography.SIZE_XS),
-                    ),
-                    rx.icon("upload", size=14),
-                    size="1",
-                    variant="outline",
-                    color_scheme=rx.cond(
-                        tipo_doc["estatus"] == "RECHAZADO",
-                        "red",
-                        "blue",
-                    ),
+            rx.button(
+                rx.cond(
+                    tipo_doc["subido"],
+                    rx.text("Resubir", font_size=Typography.SIZE_XS),
+                    rx.text("Subir", font_size=Typography.SIZE_XS),
                 ),
-                id=upload_id,
-                accept={
-                    "application/pdf": [".pdf"],
-                    "image/png": [".png"],
-                    "image/jpeg": [".jpg", ".jpeg"],
-                },
-                max_files=1,
-                on_drop=[
-                    MisDatosState.set_tipo_documento_subiendo(tipo_doc["tipo"].to(str)),
-                    MisDatosState.handle_upload_documento(rx.upload_files(upload_id=upload_id)),
-                ],
+                rx.icon("upload", size=14),
+                size="1",
+                variant="outline",
+                color_scheme=rx.cond(
+                    tipo_doc["estatus"] == "RECHAZADO",
+                    "red",
+                    "blue",
+                ),
+                on_click=MisDatosState.set_tipo_documento_subiendo(tipo_doc["tipo"]),
             ),
             rx.fragment(),
         ),
@@ -110,6 +100,89 @@ def fila_tipo_documento(tipo_doc: dict) -> rx.Component:
         padding_x=Spacing.MD,
         align="center",
         border_bottom=f"1px solid {Colors.BORDER}",
+    )
+
+
+# =============================================================================
+# AREA DE SUBIDA (unica, estatica)
+# =============================================================================
+
+def area_subida_documento() -> rx.Component:
+    """Area de upload que aparece cuando se selecciona un tipo de documento."""
+    return rx.cond(
+        MisDatosState.tipo_documento_subiendo != "",
+        rx.vstack(
+            rx.hstack(
+                rx.icon("file-up", size=18, color="var(--blue-9)"),
+                rx.text(
+                    "Subir documento: ",
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                ),
+                rx.text(
+                    MisDatosState.tipo_documento_subiendo,
+                    font_size=Typography.SIZE_SM,
+                    color="var(--blue-9)",
+                    font_weight=Typography.WEIGHT_BOLD,
+                ),
+                rx.spacer(),
+                rx.icon_button(
+                    rx.icon("x", size=14),
+                    size="1",
+                    variant="ghost",
+                    color_scheme="gray",
+                    on_click=MisDatosState.set_tipo_documento_subiendo(""),
+                ),
+                align="center",
+                width="100%",
+            ),
+            rx.upload(
+                rx.vstack(
+                    rx.cond(
+                        MisDatosState.subiendo_archivo,
+                        rx.spinner(size="2"),
+                        rx.icon("cloud-upload", size=32, color=Colors.TEXT_MUTED),
+                    ),
+                    rx.text(
+                        "Arrastre un archivo o haga clic para seleccionar",
+                        font_size=Typography.SIZE_SM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    rx.text(
+                        "PDF, PNG o JPG (max 1 archivo)",
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.TEXT_MUTED,
+                    ),
+                    align="center",
+                    spacing="2",
+                    padding_y=Spacing.LG,
+                ),
+                id=UPLOAD_ID,
+                accept={
+                    "application/pdf": [".pdf"],
+                    "image/png": [".png"],
+                    "image/jpeg": [".jpg", ".jpeg"],
+                },
+                max_files=1,
+                on_drop=MisDatosState.handle_upload_documento(
+                    rx.upload_files(upload_id=UPLOAD_ID),
+                ),
+                border=f"2px dashed {Colors.BORDER}",
+                border_radius="8px",
+                width="100%",
+                cursor="pointer",
+                style={
+                    "_hover": {"border_color": "var(--blue-7)"},
+                },
+            ),
+            width="100%",
+            spacing="2",
+            padding=Spacing.MD,
+            background="var(--blue-2)",
+            border=f"1px solid var(--blue-6)",
+            border_radius="8px",
+        ),
+        rx.fragment(),
     )
 
 
@@ -145,10 +218,13 @@ def lista_documentos_requeridos() -> rx.Component:
             align="center",
         ),
         rx.text(
-            "Suba cada documento requerido. Los documentos rechazados deben ser resubidos.",
+            "Seleccione un documento y suba el archivo correspondiente.",
             font_size=Typography.SIZE_SM,
             color=Colors.TEXT_SECONDARY,
         ),
+        # Area de subida (aparece al seleccionar tipo)
+        area_subida_documento(),
+        # Lista de tipos
         rx.box(
             rx.foreach(
                 MisDatosState.tipos_documento_lista,

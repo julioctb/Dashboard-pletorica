@@ -5,29 +5,10 @@ Pipeline cards, tabla de empleados y badges.
 """
 import reflex as rx
 
-from app.presentation.components.ui import skeleton_tabla
+from app.presentation.components.ui import skeleton_tabla, badge_onboarding, select_estatus_onboarding
 from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import AdminOnboardingState
-
-
-# =============================================================================
-# BADGES
-# =============================================================================
-
-def badge_onboarding(estatus: str) -> rx.Component:
-    """Badge de estatus de onboarding (replica del de expedientes)."""
-    return rx.match(
-        estatus,
-        ("REGISTRADO", rx.badge("Registrado", color_scheme="gray", variant="soft", size="1")),
-        ("DATOS_PENDIENTES", rx.badge("Datos Pendientes", color_scheme="yellow", variant="soft", size="1")),
-        ("DOCUMENTOS_PENDIENTES", rx.badge("Docs Pendientes", color_scheme="orange", variant="soft", size="1")),
-        ("EN_REVISION", rx.badge("En Revision", color_scheme="blue", variant="soft", size="1")),
-        ("APROBADO", rx.badge("Aprobado", color_scheme="green", variant="soft", size="1")),
-        ("RECHAZADO", rx.badge("Rechazado", color_scheme="red", variant="soft", size="1")),
-        ("ACTIVO_COMPLETO", rx.badge("Completo", color_scheme="teal", variant="soft", size="1")),
-        rx.badge(estatus, size="1"),
-    )
 
 
 # =============================================================================
@@ -110,12 +91,12 @@ def pipeline_cards() -> rx.Component:
         _pipeline_card(
             "Aprobado",
             AdminOnboardingState.conteo_aprobado,
-            "green", "check-circle", "APROBADO",
+            "green", "circle-check", "APROBADO",
         ),
         _pipeline_card(
             "Rechazado",
             AdminOnboardingState.conteo_rechazado,
-            "red", "x-circle", "RECHAZADO",
+            "red", "circle-x", "RECHAZADO",
         ),
         width="100%",
         gap=Spacing.MD,
@@ -130,24 +111,12 @@ def pipeline_cards() -> rx.Component:
 def filtros_onboarding_admin() -> rx.Component:
     """Filtros para la tabla de onboarding admin."""
     return rx.hstack(
-        rx.select.root(
-            rx.select.trigger(placeholder="Filtrar por estatus..."),
-            rx.select.content(
-                rx.foreach(
-                    AdminOnboardingState.opciones_estatus_pipeline,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
+        select_estatus_onboarding(
+            opciones=AdminOnboardingState.opciones_estatus_pipeline,
             value=AdminOnboardingState.filtro_estatus_onboarding,
             on_change=AdminOnboardingState.set_filtro_estatus_onboarding,
-            size="2",
-        ),
-        rx.icon_button(
-            rx.icon("refresh-cw", size=16),
-            size="2",
-            variant="outline",
-            color_scheme="gray",
-            on_click=AdminOnboardingState.recargar_pipeline,
+            on_reload=AdminOnboardingState.recargar_pipeline,
+            placeholder="Filtrar por estatus...",
         ),
         rx.spacer(),
         rx.text(
@@ -223,7 +192,7 @@ def tabla_onboarding_admin() -> rx.Component:
     """Tabla de empleados en onboarding (admin global)."""
     return rx.cond(
         AdminOnboardingState.loading,
-        skeleton_tabla(filas=6, columnas=6),
+        skeleton_tabla(columnas=ENCABEZADOS_ONBOARDING, filas=6),
         rx.cond(
             AdminOnboardingState.total_filtrados > 0,
             rx.table.root(

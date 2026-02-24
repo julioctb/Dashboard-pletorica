@@ -83,3 +83,18 @@ def resultado_badge(resultado: str) -> rx.Component:
         ("ERROR", rx.badge("Error", color_scheme="red", variant="soft", size="1")),
         rx.badge(resultado, color_scheme="gray", size="1"),
     )
+
+
+def badge_onboarding(estatus: str) -> rx.Component:
+    """Badge de estatus de onboarding."""
+    return rx.match(
+        estatus,
+        ("REGISTRADO", rx.badge("Registrado", color_scheme="gray", variant="soft", size="1")),
+        ("DATOS_PENDIENTES", rx.badge("Datos Pendientes", color_scheme="yellow", variant="soft", size="1")),
+        ("DOCUMENTOS_PENDIENTES", rx.badge("Docs Pendientes", color_scheme="orange", variant="soft", size="1")),
+        ("EN_REVISION", rx.badge("En Revision", color_scheme="blue", variant="soft", size="1")),
+        ("APROBADO", rx.badge("Aprobado", color_scheme="green", variant="soft", size="1")),
+        ("RECHAZADO", rx.badge("Rechazado", color_scheme="red", variant="soft", size="1")),
+        ("ACTIVO_COMPLETO", rx.badge("Completo", color_scheme="teal", variant="soft", size="1")),
+        rx.badge(estatus, size="1"),
+    )

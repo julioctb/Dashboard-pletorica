@@ -11,10 +11,8 @@ from typing import List, Optional
 from app.presentation.portal.state.portal_state import PortalState
 from app.services.onboarding_service import onboarding_service
 from app.services.empleado_documento_service import empleado_documento_service
-from app.core.enums import TipoDocumentoEmpleado, EstatusDocumento
+from app.core.enums import TipoDocumentoEmpleado
 from app.core.exceptions import (
-    DatabaseError,
-    NotFoundError,
     BusinessRuleError,
     ValidationError,
 )
@@ -109,8 +107,8 @@ class MisDatosState(PortalState):
         return self.estatus_actual in ("APROBADO", "ACTIVO_COMPLETO")
 
     @rx.var
-    def porcentaje_expediente(self) -> float:
-        return self.expediente_status.get("porcentaje_completado", 0.0)
+    def porcentaje_expediente(self) -> int:
+        return int(self.expediente_status.get("porcentaje_completado", 0))
 
     @rx.var
     def docs_requeridos(self) -> int:

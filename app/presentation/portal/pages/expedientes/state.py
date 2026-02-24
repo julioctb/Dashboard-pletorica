@@ -15,6 +15,7 @@ from app.core.exceptions import (
     BusinessRuleError,
     ValidationError,
 )
+from app.core.ui_options import OPCIONES_ESTATUS_ONBOARDING_EXPEDIENTES
 
 
 class ExpedientesState(PortalState):
@@ -58,7 +59,7 @@ class ExpedientesState(PortalState):
     @rx.var
     def empleados_expedientes_filtrados(self) -> List[dict]:
         """Filtra empleados por estatus de onboarding."""
-        if not self.filtro_estatus_expediente:
+        if not self.filtro_estatus_expediente or self.filtro_estatus_expediente == "TODOS":
             return self.empleados_expedientes
         return [
             e for e in self.empleados_expedientes
@@ -68,14 +69,7 @@ class ExpedientesState(PortalState):
     @rx.var
     def opciones_estatus_expediente(self) -> List[dict]:
         """Opciones para filtro de estatus."""
-        return [
-            {"value": "", "label": "Todos"},
-            {"value": "DATOS_PENDIENTES", "label": "Datos Pendientes"},
-            {"value": "DOCUMENTOS_PENDIENTES", "label": "Docs Pendientes"},
-            {"value": "EN_REVISION", "label": "En Revision"},
-            {"value": "APROBADO", "label": "Aprobado"},
-            {"value": "RECHAZADO", "label": "Rechazado"},
-        ]
+        return OPCIONES_ESTATUS_ONBOARDING_EXPEDIENTES
 
     @rx.var
     def nombre_empleado_seleccionado(self) -> str:
@@ -88,9 +82,9 @@ class ExpedientesState(PortalState):
         return self.empleado_seleccionado.get("clave", "")
 
     @rx.var
-    def porcentaje_expediente(self) -> float:
+    def porcentaje_expediente(self) -> int:
         """Porcentaje de completado del expediente."""
-        return self.expediente_status.get("porcentaje_completado", 0.0)
+        return int(self.expediente_status.get("porcentaje_completado", 0))
 
     @rx.var
     def total_docs_requeridos(self) -> int:

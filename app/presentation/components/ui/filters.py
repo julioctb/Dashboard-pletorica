@@ -1,6 +1,6 @@
 """Componentes reutilizables para filtros y búsqueda."""
 import reflex as rx
-from typing import Callable
+from typing import Callable, Optional
 
 
 def input_busqueda(
@@ -154,6 +154,56 @@ def switch_inactivos(
         ),
         rx.text(label, size="2", color="gray"),
         spacing="2",
+        align="center",
+    )
+
+
+def select_estatus_onboarding(
+    opciones: rx.Var,
+    value: rx.Var,
+    on_change: Callable,
+    on_reload: Optional[Callable] = None,
+    placeholder: str = "Estatus onboarding",
+) -> rx.Component:
+    """
+    Select de estatus de onboarding reutilizable con boton recargar opcional.
+
+    Args:
+        opciones: Var con lista de dicts [{value, label}]
+        value: Var con el valor seleccionado
+        on_change: Handler al cambiar seleccion
+        on_reload: Handler del boton recargar (si None, no se muestra)
+        placeholder: Texto placeholder del trigger
+    """
+    children = [
+        rx.select.root(
+            rx.select.trigger(placeholder=placeholder),
+            rx.select.content(
+                rx.foreach(
+                    opciones,
+                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
+                ),
+            ),
+            value=value,
+            on_change=on_change,
+            size="2",
+        ),
+    ]
+
+    if on_reload is not None:
+        children.append(
+            rx.button(
+                rx.icon("refresh-cw", size=14),
+                "Recargar",
+                on_click=on_reload,
+                variant="soft",
+                size="2",
+            ),
+        )
+
+    return rx.hstack(
+        *children,
+        spacing="3",
         align="center",
     )
 

@@ -11,6 +11,7 @@ from app.presentation.components.ui import (
     skeleton_tabla,
     tabla_action_button,
     tabla_action_buttons,
+    badge_onboarding,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 
@@ -27,21 +28,6 @@ def estatus_badge(estatus: str) -> rx.Component:
         ("INACTIVO", rx.badge("INACTIVO", color_scheme="red", size="1")),
         ("SUSPENDIDO", rx.badge("SUSPENDIDO", color_scheme="amber", size="1")),
         rx.badge(estatus, color_scheme="gray", size="1"),
-    )
-
-
-def badge_onboarding_empleado(estatus: str) -> rx.Component:
-    """Badge de estatus de onboarding en la tabla de empleados."""
-    return rx.match(
-        estatus,
-        ("REGISTRADO", rx.badge("Registrado", color_scheme="gray", variant="soft", size="1")),
-        ("DATOS_PENDIENTES", rx.badge("Datos Pend.", color_scheme="yellow", variant="soft", size="1")),
-        ("DOCUMENTOS_PENDIENTES", rx.badge("Docs Pend.", color_scheme="orange", variant="soft", size="1")),
-        ("EN_REVISION", rx.badge("En Revision", color_scheme="blue", variant="soft", size="1")),
-        ("APROBADO", rx.badge("Aprobado", color_scheme="green", variant="soft", size="1")),
-        ("RECHAZADO", rx.badge("Rechazado", color_scheme="red", variant="soft", size="1")),
-        ("ACTIVO_COMPLETO", rx.badge("Completo", color_scheme="teal", variant="soft", size="1")),
-        rx.fragment(),
     )
 
 
@@ -193,7 +179,7 @@ def fila_empleado(empleado: dict) -> rx.Component:
         rx.table.cell(
             rx.cond(
                 empleado["estatus_onboarding"] != "",
-                badge_onboarding_empleado(empleado["estatus_onboarding"]),
+                badge_onboarding(empleado["estatus_onboarding"]),
                 rx.fragment(),
             ),
             on_click=_abrir, style=_cell_style,

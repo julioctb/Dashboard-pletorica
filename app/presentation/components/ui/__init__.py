@@ -2,7 +2,7 @@
 
 from .headers import page_header
 from .form_input import form_input, form_select, form_textarea, form_date, form_row
-from .badges import estatus_badge
+from .badges import estatus_badge, badge_onboarding
 from .tables import tabla_vacia, tabla
 from .skeletons import skeleton_tabla
 from .filters import (
@@ -11,6 +11,7 @@ from .filters import (
     contador_registros,
     switch_inactivos,
     barra_filtros,
+    select_estatus_onboarding,
 )
 from .modals import (
     modal_confirmar_eliminar,
@@ -76,6 +77,7 @@ __all__ = [
     'form_date',
     'form_row',
     'estatus_badge',
+    'badge_onboarding',
     # tablas
     'tabla_vacia',
     'tabla',
@@ -86,6 +88,7 @@ __all__ = [
     'contador_registros',
     'switch_inactivos',
     'barra_filtros',
+    'select_estatus_onboarding',
     # modales
     'modal_confirmar_eliminar',
     'modal_confirmar_accion',

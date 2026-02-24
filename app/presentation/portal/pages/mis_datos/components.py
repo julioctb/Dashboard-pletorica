@@ -248,7 +248,7 @@ def estado_aprobado() -> rx.Component:
     """Card informativa cuando el expediente esta aprobado."""
     return rx.center(
         rx.vstack(
-            rx.icon("check-circle", size=48, color="var(--green-9)"),
+            rx.icon("circle-check", size=48, color="var(--green-9)"),
             rx.text(
                 "Expediente aprobado",
                 font_size=Typography.SIZE_LG,

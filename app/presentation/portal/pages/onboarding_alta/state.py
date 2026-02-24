@@ -19,6 +19,7 @@ from app.presentation.pages.empleados.empleados_validators import (
     validar_apellido_paterno,
     validar_email,
 )
+from app.core.ui_options import OPCIONES_ESTATUS_ONBOARDING
 
 
 class OnboardingAltaState(PortalState):
@@ -153,7 +154,7 @@ class OnboardingAltaState(PortalState):
     @rx.var
     def empleados_onboarding_filtrados(self) -> List[dict]:
         """Filtra por estatus de onboarding."""
-        if not self.filtro_estatus_onboarding:
+        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == "TODOS":
             return self.empleados_onboarding
         return [
             e for e in self.empleados_onboarding
@@ -163,16 +164,7 @@ class OnboardingAltaState(PortalState):
     @rx.var
     def opciones_estatus_onboarding(self) -> List[dict]:
         """Opciones para el filtro de estatus."""
-        return [
-            {"value": "", "label": "Todos"},
-            {"value": "REGISTRADO", "label": "Registrado"},
-            {"value": "DATOS_PENDIENTES", "label": "Datos Pendientes"},
-            {"value": "DOCUMENTOS_PENDIENTES", "label": "Docs Pendientes"},
-            {"value": "EN_REVISION", "label": "En Revision"},
-            {"value": "APROBADO", "label": "Aprobado"},
-            {"value": "RECHAZADO", "label": "Rechazado"},
-            {"value": "ACTIVO_COMPLETO", "label": "Completo"},
-        ]
+        return OPCIONES_ESTATUS_ONBOARDING
 
     # ========================
     # MONTAJE

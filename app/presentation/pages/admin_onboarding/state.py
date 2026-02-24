@@ -10,6 +10,7 @@ from typing import List
 from app.presentation.components.shared.auth_state import AuthState
 from app.services.onboarding_service import onboarding_service
 from app.core.exceptions import DatabaseError
+from app.core.ui_options import OPCIONES_ESTATUS_ONBOARDING_PIPELINE
 
 
 class AdminOnboardingState(AuthState):
@@ -35,7 +36,7 @@ class AdminOnboardingState(AuthState):
     @rx.var
     def empleados_filtrados(self) -> List[dict]:
         """Filtra empleados por estatus seleccionado."""
-        if not self.filtro_estatus_onboarding:
+        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == "TODOS":
             return self.empleados_pipeline
         return [
             e for e in self.empleados_pipeline
@@ -44,7 +45,7 @@ class AdminOnboardingState(AuthState):
 
     @rx.var
     def total_filtrados(self) -> int:
-        if not self.filtro_estatus_onboarding:
+        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == "TODOS":
             return self.total_pipeline
         return len(self.empleados_filtrados)
 
@@ -70,15 +71,7 @@ class AdminOnboardingState(AuthState):
 
     @rx.var
     def opciones_estatus_pipeline(self) -> List[dict]:
-        return [
-            {"value": "", "label": "Todos"},
-            {"value": "DATOS_PENDIENTES", "label": "Datos Pendientes"},
-            {"value": "DOCUMENTOS_PENDIENTES", "label": "Docs Pendientes"},
-            {"value": "EN_REVISION", "label": "En Revision"},
-            {"value": "APROBADO", "label": "Aprobado"},
-            {"value": "RECHAZADO", "label": "Rechazado"},
-            {"value": "ACTIVO_COMPLETO", "label": "Activo Completo"},
-        ]
+        return OPCIONES_ESTATUS_ONBOARDING_PIPELINE
 
     # ========================
     # MONTAJE
@@ -118,6 +111,6 @@ class AdminOnboardingState(AuthState):
     def filtrar_por_estatus(self, estatus: str):
         """Filtra la tabla por estatus clickeado en pipeline card."""
         if self.filtro_estatus_onboarding == estatus:
-            self.filtro_estatus_onboarding = ""
+            self.filtro_estatus_onboarding = "TODOS"
         else:
             self.filtro_estatus_onboarding = estatus

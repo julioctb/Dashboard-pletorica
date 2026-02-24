@@ -13,7 +13,6 @@ from app.core.enums import EstatusOnboarding
 from app.core.exceptions import (
     BusinessRuleError,
     DatabaseError,
-    NotFoundError,
     ValidationError,
 )
 from app.entities.onboarding import AltaEmpleadoBuap, ExpedienteStatus

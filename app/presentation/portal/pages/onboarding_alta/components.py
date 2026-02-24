@@ -5,25 +5,10 @@ Tabla, filtros y badges de estatus onboarding.
 """
 import reflex as rx
 
-from app.presentation.components.ui import skeleton_tabla
+from app.presentation.components.ui import skeleton_tabla, badge_onboarding, select_estatus_onboarding
 from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import OnboardingAltaState
-
-
-def badge_onboarding(estatus: str) -> rx.Component:
-    """Badge de estatus de onboarding."""
-    return rx.match(
-        estatus,
-        ("REGISTRADO", rx.badge("Registrado", color_scheme="gray", variant="soft", size="1")),
-        ("DATOS_PENDIENTES", rx.badge("Datos Pendientes", color_scheme="yellow", variant="soft", size="1")),
-        ("DOCUMENTOS_PENDIENTES", rx.badge("Docs Pendientes", color_scheme="orange", variant="soft", size="1")),
-        ("EN_REVISION", rx.badge("En Revision", color_scheme="blue", variant="soft", size="1")),
-        ("APROBADO", rx.badge("Aprobado", color_scheme="green", variant="soft", size="1")),
-        ("RECHAZADO", rx.badge("Rechazado", color_scheme="red", variant="soft", size="1")),
-        ("ACTIVO_COMPLETO", rx.badge("Completo", color_scheme="teal", variant="soft", size="1")),
-        rx.badge(estatus, size="1"),
-    )
 
 
 def fila_onboarding(emp: dict) -> rx.Component:
@@ -137,26 +122,9 @@ def tabla_onboarding() -> rx.Component:
 
 def filtros_onboarding() -> rx.Component:
     """Filtros de la tabla de onboarding."""
-    return rx.hstack(
-        rx.select.root(
-            rx.select.trigger(placeholder="Estatus onboarding"),
-            rx.select.content(
-                rx.foreach(
-                    OnboardingAltaState.opciones_estatus_onboarding,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
-            value=OnboardingAltaState.filtro_estatus_onboarding,
-            on_change=OnboardingAltaState.set_filtro_estatus_onboarding,
-            size="2",
-        ),
-        rx.button(
-            rx.icon("refresh-cw", size=14),
-            "Recargar",
-            on_click=OnboardingAltaState.recargar_onboarding,
-            variant="soft",
-            size="2",
-        ),
-        spacing="3",
-        align="center",
+    return select_estatus_onboarding(
+        opciones=OnboardingAltaState.opciones_estatus_onboarding,
+        value=OnboardingAltaState.filtro_estatus_onboarding,
+        on_change=OnboardingAltaState.set_filtro_estatus_onboarding,
+        on_reload=OnboardingAltaState.recargar_onboarding,
     )

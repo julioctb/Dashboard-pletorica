@@ -11,6 +11,8 @@ from app.presentation.components.ui import (
     boton_guardar,
     boton_cancelar,
     tabla_action_button,
+    badge_onboarding,
+    select_estatus_onboarding,
 )
 from app.presentation.theme import Colors, Typography, Spacing, Radius
 
@@ -20,21 +22,6 @@ from .state import ExpedientesState
 # =============================================================================
 # BADGES
 # =============================================================================
-
-def badge_onboarding(estatus: str) -> rx.Component:
-    """Badge de estatus de onboarding."""
-    return rx.match(
-        estatus,
-        ("REGISTRADO", rx.badge("Registrado", color_scheme="gray", variant="soft", size="1")),
-        ("DATOS_PENDIENTES", rx.badge("Datos Pendientes", color_scheme="yellow", variant="soft", size="1")),
-        ("DOCUMENTOS_PENDIENTES", rx.badge("Docs Pendientes", color_scheme="orange", variant="soft", size="1")),
-        ("EN_REVISION", rx.badge("En Revision", color_scheme="blue", variant="soft", size="1")),
-        ("APROBADO", rx.badge("Aprobado", color_scheme="green", variant="soft", size="1")),
-        ("RECHAZADO", rx.badge("Rechazado", color_scheme="red", variant="soft", size="1")),
-        ("ACTIVO_COMPLETO", rx.badge("Completo", color_scheme="teal", variant="soft", size="1")),
-        rx.badge(estatus, size="1"),
-    )
-
 
 def badge_documento(estatus: str) -> rx.Component:
     """Badge de estatus de documento."""
@@ -158,28 +145,11 @@ def tabla_expedientes() -> rx.Component:
 
 def filtros_expedientes() -> rx.Component:
     """Filtros para la tabla de expedientes."""
-    return rx.hstack(
-        rx.select.root(
-            rx.select.trigger(placeholder="Estatus onboarding"),
-            rx.select.content(
-                rx.foreach(
-                    ExpedientesState.opciones_estatus_expediente,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
-            value=ExpedientesState.filtro_estatus_expediente,
-            on_change=ExpedientesState.set_filtro_estatus_expediente,
-            size="2",
-        ),
-        rx.button(
-            rx.icon("refresh-cw", size=14),
-            "Recargar",
-            on_click=ExpedientesState.recargar_expedientes,
-            variant="soft",
-            size="2",
-        ),
-        spacing="3",
-        align="center",
+    return select_estatus_onboarding(
+        opciones=ExpedientesState.opciones_estatus_expediente,
+        value=ExpedientesState.filtro_estatus_expediente,
+        on_change=ExpedientesState.set_filtro_estatus_expediente,
+        on_reload=ExpedientesState.recargar_expedientes,
     )
 
 
