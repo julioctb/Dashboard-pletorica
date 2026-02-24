@@ -17,10 +17,13 @@ Uso:
     notification_bell_portal()
 """
 
+import logging
 import reflex as rx
 from typing import Callable, List
 from app.presentation.theme import Colors, Spacing, Radius
 from app.entities.notificacion import Notificacion
+
+logger = logging.getLogger(__name__)
 
 
 def _notificacion_to_dict(n: Notificacion) -> dict:
@@ -95,7 +98,8 @@ class NotificationBellState(rx.State):
                 )
 
             self._procesar_notificaciones(notificaciones)
-        except Exception:
+        except Exception as e:
+            logger.warning("Error cargando notificaciones admin: %s", e)
             self.notificaciones = []
             self.total_no_leidas = 0
         finally:
@@ -109,7 +113,8 @@ class NotificationBellState(rx.State):
             empresa_id = portal.id_empresa_actual
             if empresa_id:
                 await self._cargar_notificaciones_empresa(empresa_id)
-        except Exception:
+        except Exception as e:
+            logger.warning("Error cargando notificaciones portal: %s", e)
             self.notificaciones = []
             self.total_no_leidas = 0
 
@@ -125,7 +130,8 @@ class NotificationBellState(rx.State):
                 limite=10,
             )
             self._procesar_notificaciones(notificaciones)
-        except Exception:
+        except Exception as e:
+            logger.warning("Error cargando notificaciones empresa %s: %s", empresa_id, e)
             self.notificaciones = []
             self.total_no_leidas = 0
         finally:
@@ -150,8 +156,8 @@ class NotificationBellState(rx.State):
                 if n.get("id") == notificacion_id:
                     n["leida"] = True
             self.total_no_leidas = max(0, self.total_no_leidas - 1)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Error marcando notificación %s como leída: %s", notificacion_id, e)
 
     async def marcar_todas_leidas(self):
         """Marca todas las notificaciones como leidas (admin + personales)."""
@@ -168,8 +174,8 @@ class NotificationBellState(rx.State):
                 await notificacion_service.marcar_todas_leidas_admin()
 
             self._marcar_todas_localmente()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Error marcando todas las notificaciones (admin) como leídas: %s", e)
 
     async def marcar_todas_leidas_empresa(self):
         """Marca todas las notificaciones como leidas (portal cliente)."""
@@ -182,8 +188,8 @@ class NotificationBellState(rx.State):
             from app.services import notificacion_service
             await notificacion_service.marcar_todas_leidas_empresa(empresa_id)
             self._marcar_todas_localmente()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Error marcando notificaciones de empresa como leídas: %s", e)
 
     # =========================================================================
     # NAVEGACION

@@ -13,11 +13,10 @@ Uso:
     metricas = await dashboard_service.obtener_metricas()
 """
 
+import asyncio
 import logging
-from typing import Optional
 
 from app.entities.dashboard import DashboardMetricas
-from app.core.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
 
@@ -56,81 +55,70 @@ class DashboardService:
             requisicion_service,
         )
 
-        # Recolectar métricas con tolerancia a fallos parciales.
-        # Si un servicio falla, se loguea y se deja en 0.
-        empresas_activas = 0
-        empleados_activos = 0
-        contratos_activos = 0
+        async def _seguro(coro, default, label: str):
+            try:
+                return await coro
+            except Exception as e:
+                logger.error("Dashboard: Error %s: %s", label, e)
+                return default
+
+        empresas, empleados_activos, contratos, por_vencer, req_borrador, req_revision = await asyncio.gather(
+            _seguro(
+                empresa_service.obtener_todas(incluir_inactivas=False, limite=500),
+                [],
+                "obteniendo empresas",
+            ),
+            _seguro(
+                empleado_service.contar(estatus="ACTIVO"),
+                0,
+                "contando empleados",
+            ),
+            _seguro(
+                contrato_service.obtener_todos(incluir_inactivos=False, limite=500),
+                [],
+                "obteniendo contratos",
+            ),
+            _seguro(
+                contrato_service.obtener_por_vencer(dias=30),
+                [],
+                "obteniendo contratos por vencer",
+            ),
+            _seguro(
+                requisicion_service.buscar_con_filtros(estado="BORRADOR", limite=500),
+                [],
+                "contando requisiciones BORRADOR",
+            ),
+            _seguro(
+                requisicion_service.buscar_con_filtros(estado="EN_REVISION", limite=500),
+                [],
+                "contando requisiciones EN_REVISION",
+            ),
+        )
+
+        empresas_activas = len(empresas)
+        contratos_activos = len(contratos)
+        contratos_por_vencer = len(por_vencer)
+        requisiciones_pendientes = len(req_borrador) + len(req_revision)
+
         plazas_ocupadas = 0
         plazas_vacantes = 0
-        requisiciones_pendientes = 0
-        contratos_por_vencer = 0
-
-        # --- Empresas activas ---
-        try:
-            empresas = await empresa_service.obtener_todas(
-                incluir_inactivas=False, limite=500
-            )
-            empresas_activas = len(empresas)
-        except Exception as e:
-            logger.error(f"Dashboard: Error obteniendo empresas: {e}")
-
-        # --- Empleados activos ---
-        try:
-            empleados_activos = await empleado_service.contar(estatus="ACTIVO")
-        except Exception as e:
-            logger.error(f"Dashboard: Error contando empleados: {e}")
-
-        # --- Contratos activos ---
-        try:
-            contratos = await contrato_service.obtener_todos(
-                incluir_inactivos=False, limite=500
-            )
-            contratos_activos = len(contratos)
-        except Exception as e:
-            logger.error(f"Dashboard: Error obteniendo contratos: {e}")
 
         # --- Plazas (ocupadas y vacantes) ---
-        # Iteramos contratos activos para calcular totales.
-        # Mismo patrón que usa PortalState pero centralizado aquí.
-        try:
-            if contratos_activos == 0:
-                # Re-obtener contratos si el bloque anterior falló
-                contratos = await contrato_service.obtener_todos(
-                    incluir_inactivos=False, limite=500
-                )
-
-            for contrato in contratos:
-                try:
-                    resumen = await plaza_service.calcular_totales_contrato(
-                        contrato.id
-                    )
-                    plazas_ocupadas += resumen.plazas_ocupadas
-                    plazas_vacantes += resumen.plazas_vacantes
-                except Exception:
-                    # Contrato sin plazas o error puntual, continuar
-                    pass
-        except Exception as e:
-            logger.error(f"Dashboard: Error calculando plazas: {e}")
-
-        # --- Contratos por vencer (próximos 30 días) ---
-        try:
-            por_vencer = await contrato_service.obtener_por_vencer(dias=30)
-            contratos_por_vencer = len(por_vencer)
-        except Exception as e:
-            logger.error(f"Dashboard: Error obteniendo contratos por vencer: {e}")
-
-        # --- Requisiciones pendientes (BORRADOR + EN_REVISION) ---
-        try:
-            req_borrador = await requisicion_service.buscar_con_filtros(
-                estado="BORRADOR", limite=500
+        # Ejecutar cálculos por contrato en paralelo para reducir latencia.
+        if contratos:
+            resultados_plazas = await asyncio.gather(
+                *(
+                    plaza_service.calcular_totales_contrato(contrato.id)
+                    for contrato in contratos
+                ),
+                return_exceptions=True,
             )
-            req_revision = await requisicion_service.buscar_con_filtros(
-                estado="EN_REVISION", limite=500
-            )
-            requisiciones_pendientes = len(req_borrador) + len(req_revision)
-        except Exception as e:
-            logger.error(f"Dashboard: Error contando requisiciones: {e}")
+            for resultado in resultados_plazas:
+                if isinstance(resultado, Exception):
+                    logger.debug("Dashboard: Error puntual calculando plazas: %s", resultado)
+                    continue
+                plazas_ocupadas += resultado.plazas_ocupadas
+                plazas_vacantes += resultado.plazas_vacantes
 
         return DashboardMetricas(
             empresas_activas=empresas_activas,
