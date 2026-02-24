@@ -30,6 +30,21 @@ def estatus_badge(estatus: str) -> rx.Component:
     )
 
 
+def badge_onboarding_empleado(estatus: str) -> rx.Component:
+    """Badge de estatus de onboarding en la tabla de empleados."""
+    return rx.match(
+        estatus,
+        ("REGISTRADO", rx.badge("Registrado", color_scheme="gray", variant="soft", size="1")),
+        ("DATOS_PENDIENTES", rx.badge("Datos Pend.", color_scheme="yellow", variant="soft", size="1")),
+        ("DOCUMENTOS_PENDIENTES", rx.badge("Docs Pend.", color_scheme="orange", variant="soft", size="1")),
+        ("EN_REVISION", rx.badge("En Revision", color_scheme="blue", variant="soft", size="1")),
+        ("APROBADO", rx.badge("Aprobado", color_scheme="green", variant="soft", size="1")),
+        ("RECHAZADO", rx.badge("Rechazado", color_scheme="red", variant="soft", size="1")),
+        ("ACTIVO_COMPLETO", rx.badge("Completo", color_scheme="teal", variant="soft", size="1")),
+        rx.fragment(),
+    )
+
+
 def restriccion_badge(is_restricted) -> rx.Component:
     """Badge que indica si el empleado esta restringido."""
     return rx.cond(
@@ -127,6 +142,7 @@ ENCABEZADOS_EMPLEADOS = [
     {"nombre": "CURP", "ancho": "180px"},
     {"nombre": "Empresa", "ancho": "150px"},
     {"nombre": "Estatus", "ancho": "100px"},
+    {"nombre": "Onboarding", "ancho": "130px"},
     {"nombre": "Acciones", "ancho": "120px"},
 ]
 
@@ -170,6 +186,15 @@ def fila_empleado(empleado: dict) -> rx.Component:
                 estatus_badge(empleado["estatus"]),
                 restriccion_badge(empleado["is_restricted"]),
                 spacing="1",
+            ),
+            on_click=_abrir, style=_cell_style,
+        ),
+        # Onboarding
+        rx.table.cell(
+            rx.cond(
+                empleado["estatus_onboarding"] != "",
+                badge_onboarding_empleado(empleado["estatus_onboarding"]),
+                rx.fragment(),
             ),
             on_click=_abrir, style=_cell_style,
         ),

@@ -34,6 +34,9 @@ from .presentation.portal.pages.alta_masiva import alta_masiva_page
 from .presentation.portal.pages.mis_entregables import mis_entregables_page
 from .presentation.portal.pages.onboarding_alta import onboarding_alta_page
 from .presentation.portal.pages.expedientes import expedientes_page
+from .presentation.portal.pages.mis_datos import mis_datos_page
+from .presentation.portal.pages.configuracion_empresa import configuracion_empresa_page
+from .presentation.pages.admin_onboarding import admin_onboarding_page
 
 #se dibuja el layout para todas las paginas
 def index(content: rx.Component) -> rx.Component:
@@ -109,3 +112,6 @@ app.add_page(lambda: portal_index(alta_masiva_page()), route="/portal/alta-masiv
 app.add_page(lambda: portal_index(mis_entregables_page()), route="/portal/entregables")
 app.add_page(lambda: portal_index(onboarding_alta_page()), route="/portal/onboarding")
 app.add_page(lambda: portal_index(expedientes_page()), route="/portal/expedientes")
+app.add_page(lambda: portal_index(mis_datos_page()), route="/portal/mis-datos")
+app.add_page(lambda: portal_index(configuracion_empresa_page()), route="/portal/configuracion-empresa")
+app.add_page(lambda: index(admin_onboarding_page()), route="/admin/onboarding")

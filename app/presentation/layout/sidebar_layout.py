@@ -65,6 +65,7 @@ NAVIGATION_GROUPS = [
         "label": "Personal",
         "items": [
             {"text": "Empleados", "icon": "users", "href": "/empleados"},
+            {"text": "Onboarding", "icon": "user-plus", "href": "/admin/onboarding"},
             {"text": "Historial", "icon": "history", "href": "/historial-laboral"},
         ],
     },

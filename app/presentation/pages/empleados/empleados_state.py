@@ -1047,6 +1047,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
                 "notas": emp.notas or "",
                 "fecha_baja": formatear_fecha(emp.fecha_baja) if emp.fecha_baja else "",
                 "motivo_baja": emp.motivo_baja or "",
+                "estatus_onboarding": emp.estatus_onboarding or "",
                 "is_restricted": emp.is_restricted,
                 "restriction_reason": emp.restriction_reason or "",
                 "restricted_at": emp.restricted_at.isoformat() if emp.restricted_at else "",

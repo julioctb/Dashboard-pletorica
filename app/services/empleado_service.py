@@ -88,6 +88,30 @@ class EmpleadoService:
         """
         return await self.repository.obtener_por_curp(curp.upper())
 
+    async def obtener_por_user_id(self, user_id: UUID) -> Optional[Empleado]:
+        """
+        Busca empleado por user_id (para autoservicio). None si no existe.
+        """
+        from app.database import db_manager
+
+        try:
+            supabase = db_manager.get_client()
+            result = (
+                supabase.table('empleados')
+                .select('*')
+                .eq('user_id', str(user_id))
+                .limit(1)
+                .execute()
+            )
+
+            if not result.data:
+                return None
+
+            return Empleado(**result.data[0])
+        except Exception as e:
+            logger.warning(f"Error buscando empleado por user_id {user_id}: {e}")
+            return None
+
     async def obtener_por_clave(self, clave: str) -> Optional[Empleado]:
         """
         Obtiene un empleado por su clave (B25-00001).

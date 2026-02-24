@@ -37,6 +37,7 @@ PORTAL_NAVIGATION = [
             {"text": "Datos Empresa", "icon": "building-2", "href": "/portal/mi-empresa"},
             {"text": "Empleados", "icon": "users", "href": "/portal/empleados"},
             {"text": "Alta Masiva", "icon": "upload", "href": "/portal/alta-masiva"},
+            {"text": "Configuracion", "icon": "settings", "href": "/portal/configuracion-empresa"},
         ],
     },
     {
@@ -44,6 +45,12 @@ PORTAL_NAVIGATION = [
         "items": [
             {"text": "Alta Empleados", "icon": "user-plus", "href": "/portal/onboarding"},
             {"text": "Expedientes", "icon": "folder-check", "href": "/portal/expedientes"},
+        ],
+    },
+    {
+        "label": "Autoservicio",
+        "items": [
+            {"text": "Mis Datos", "icon": "user-check", "href": "/portal/mis-datos"},
         ],
     },
     {
