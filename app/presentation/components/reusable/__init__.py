@@ -5,6 +5,11 @@ from .document_row_primitives import (
     documento_requerido_badge,
     documento_subido_icon,
 )
+from .document_list_kit import (
+    document_empty_state,
+    document_section_container,
+    document_section_header,
+)
 from .employee_form_modal import employee_form_modal
 from .employee_list import employee_filters_bar, employee_table
 from .employee_form_sections import (
@@ -24,6 +29,9 @@ __all__ = [
     "documento_observacion",
     "documento_requerido_badge",
     "documento_subido_icon",
+    "document_empty_state",
+    "document_section_container",
+    "document_section_header",
     "employee_form_modal",
     "employee_filters_bar",
     "employee_table",

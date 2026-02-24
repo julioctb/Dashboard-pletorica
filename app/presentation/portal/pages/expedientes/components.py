@@ -16,7 +16,7 @@ from app.presentation.components.ui import (
     empty_state_card,
     document_status_badge,
 )
-from app.presentation.components.reusable import documento_observacion
+from app.presentation.components.reusable import document_empty_state, documento_observacion
 from app.presentation.theme import Colors, Typography, Spacing, Radius
 
 from .state import ExpedientesState
@@ -312,19 +312,10 @@ def detalle_expediente() -> rx.Component:
                 width="100%",
                 variant="surface",
             ),
-            rx.center(
-                rx.vstack(
-                    rx.icon("file-x", size=36, color=Colors.TEXT_MUTED),
-                    rx.text(
-                        "No hay documentos subidos aun",
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    spacing="2",
-                    align="center",
-                ),
-                padding=Spacing.LG,
-                width="100%",
+            document_empty_state(
+                title="No hay documentos subidos aun",
+                description="El empleado aun no carga documentos para este expediente.",
+                icon="file-x",
             ),
         ),
 

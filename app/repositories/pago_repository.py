@@ -11,6 +11,12 @@ from decimal import Decimal
 
 from app.entities import Pago
 from app.core.exceptions import NotFoundError, DatabaseError
+from app.repositories.shared import (
+    apply_date_range_filter,
+    apply_eq_filters,
+    apply_order,
+    apply_pagination,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,20 +48,13 @@ class SupabasePagoRepository:
             DatabaseError: Si hay error de conexion
         """
         try:
-            query = self.supabase.table(self.tabla)\
-                .select('*, contratos(codigo, empresa_id, empresas(nombre_comercial))')\
-                .order('fecha_pago', desc=True)
-
-            if contrato_id:
-                query = query.eq('contrato_id', contrato_id)
-
-            if fecha_desde:
-                query = query.gte('fecha_pago', fecha_desde)
-
-            if fecha_hasta:
-                query = query.lte('fecha_pago', fecha_hasta)
-
-            query = query.range(offset, offset + limite - 1)
+            query = self.supabase.table(self.tabla).select(
+                '*, contratos(codigo, empresa_id, empresas(nombre_comercial))'
+            )
+            query = apply_order(query, 'fecha_pago', desc=True)
+            query = apply_eq_filters(query, {'contrato_id': contrato_id})
+            query = apply_date_range_filter(query, 'fecha_pago', fecha_desde, fecha_hasta)
+            query = apply_pagination(query, limite, offset)
             result = query.execute()
 
             # Transformar datos para incluir info del contrato
@@ -88,15 +87,8 @@ class SupabasePagoRepository:
         try:
             query = self.supabase.table(self.tabla)\
                 .select('id', count='exact')
-
-            if contrato_id:
-                query = query.eq('contrato_id', contrato_id)
-
-            if fecha_desde:
-                query = query.gte('fecha_pago', fecha_desde)
-
-            if fecha_hasta:
-                query = query.lte('fecha_pago', fecha_hasta)
+            query = apply_eq_filters(query, {'contrato_id': contrato_id})
+            query = apply_date_range_filter(query, 'fecha_pago', fecha_desde, fecha_hasta)
 
             result = query.execute()
             return result.count or 0
@@ -136,13 +128,12 @@ class SupabasePagoRepository:
             DatabaseError: Si hay error de conexion
         """
         try:
-            query = self.supabase.table(self.tabla)\
-                .select('*')\
-                .eq('contrato_id', contrato_id)\
-                .order('fecha_pago', desc=True)
+            query = self.supabase.table(self.tabla).select('*')
+            query = apply_eq_filters(query, {'contrato_id': contrato_id})
+            query = apply_order(query, 'fecha_pago', desc=True)
 
             if limite:
-                query = query.range(offset, offset + limite - 1)
+                query = apply_pagination(query, limite, offset)
 
             result = query.execute()
             return [Pago(**data) for data in result.data]

@@ -15,6 +15,12 @@ from app.entities import (
     EstatusEmpresa,
 )
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
+from app.repositories.shared import (
+    apply_eq_filters,
+    apply_order,
+    apply_pagination,
+    build_ilike_or,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +73,12 @@ class SupabaseEmpresaRepository:
             if not incluir_inactivas:
                 query = query.eq('estatus', EstatusEmpresa.ACTIVO.value)
 
-            query = query.order('fecha_creacion', desc=True)
+            query = apply_order(query, 'fecha_creacion', desc=True)
 
             if limite is None:
                 limite = 100
 
-            query = query.range(offset, offset + limite - 1)
+            query = apply_pagination(query, limite, offset)
 
             result = query.execute()
             return [Empresa(**data) for data in result.data]
@@ -88,12 +94,10 @@ class SupabaseEmpresaRepository:
             DatabaseError: Si hay error de BD
         """
         try:
+            or_clause = build_ilike_or(termino, ['nombre_comercial', 'razon_social'])
             result = self.supabase.table(self.tabla)\
                 .select('*')\
-                .or_(
-                    f"nombre_comercial.ilike.%{termino}%,"
-                    f"razon_social.ilike.%{termino}%"
-                )\
+                .or_(or_clause)\
                 .limit(limite)\
                 .execute()
 
@@ -121,23 +125,23 @@ class SupabaseEmpresaRepository:
             query = self.supabase.table(self.tabla).select('*')
 
             if texto and texto.strip():
-                query = query.or_(
-                    f"nombre_comercial.ilike.%{texto}%,"
-                    f"razon_social.ilike.%{texto}%"
-                )
+                query = query.or_(build_ilike_or(texto, ['nombre_comercial', 'razon_social']))
 
-            if tipo_empresa:
-                query = query.eq('tipo_empresa', tipo_empresa)
+            estatus_filtro = estatus if estatus else (
+                None if incluir_inactivas else EstatusEmpresa.ACTIVO.value
+            )
+            query = apply_eq_filters(
+                query,
+                {
+                    'tipo_empresa': tipo_empresa,
+                    'estatus': estatus_filtro,
+                },
+            )
 
-            if estatus:
-                query = query.eq('estatus', estatus)
-            elif not incluir_inactivas:
-                query = query.eq('estatus', EstatusEmpresa.ACTIVO.value)
-
-            query = query.order('fecha_creacion', desc=True)
+            query = apply_order(query, 'fecha_creacion', desc=True)
 
             if limite > 0:
-                query = query.range(offset, offset + limite - 1)
+                query = apply_pagination(query, limite, offset)
 
             result = query.execute()
             return [Empresa(**data) for data in result.data]

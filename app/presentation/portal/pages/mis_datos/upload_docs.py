@@ -9,6 +9,8 @@ import reflex as rx
 
 from app.presentation.components.ui import document_status_badge
 from app.presentation.components.reusable import (
+    document_section_container,
+    document_section_header,
     documento_observacion,
     documento_requerido_badge,
     documento_subido_icon,
@@ -177,16 +179,10 @@ def area_subida_documento() -> rx.Component:
 def lista_documentos_requeridos() -> rx.Component:
     """Lista de todos los tipos de documento con su estatus."""
     return rx.vstack(
-        rx.hstack(
-            rx.text(
-                "Documentos del expediente",
-                font_size=Typography.SIZE_LG,
-                font_weight=Typography.WEIGHT_BOLD,
-                color=Colors.TEXT_PRIMARY,
-            ),
-            rx.spacer(),
-            # Boton enviar a revision
-            rx.cond(
+        document_section_header(
+            title="Documentos del expediente",
+            subtitle="Seleccione un documento y suba el archivo correspondiente.",
+            actions=rx.cond(
                 MisDatosState.puede_enviar_revision,
                 rx.button(
                     rx.icon("send", size=16),
@@ -198,27 +194,15 @@ def lista_documentos_requeridos() -> rx.Component:
                 ),
                 rx.fragment(),
             ),
-            width="100%",
-            align="center",
-        ),
-        rx.text(
-            "Seleccione un documento y suba el archivo correspondiente.",
-            font_size=Typography.SIZE_SM,
-            color=Colors.TEXT_SECONDARY,
         ),
         # Area de subida (aparece al seleccionar tipo)
         area_subida_documento(),
         # Lista de tipos
-        rx.box(
+        document_section_container(
             rx.foreach(
                 MisDatosState.tipos_documento_lista,
                 fila_tipo_documento,
             ),
-            width="100%",
-            border=f"1px solid {Colors.BORDER}",
-            border_radius="8px",
-            background=Colors.SURFACE,
-            overflow="hidden",
         ),
         width="100%",
         spacing="3",
