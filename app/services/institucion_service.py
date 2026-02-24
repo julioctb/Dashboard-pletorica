@@ -18,6 +18,7 @@ from app.database import db_manager
 from app.entities.institucion import (
     Institucion,
     InstitucionCreate,
+    InstitucionUpdate,
     InstitucionResumen,
     InstitucionEmpresa,
 )
@@ -121,6 +122,77 @@ class InstitucionService:
                     value=datos.codigo,
                 )
             logger.error(f"Error creando institución: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def actualizar(self, id: int, datos: InstitucionUpdate) -> Institucion:
+        """Actualiza una institución existente."""
+        try:
+            update_data = datos.model_dump(mode='json', exclude_none=True)
+            if not update_data:
+                return await self.obtener_por_id(id)
+
+            result = self.supabase.table(self.tabla)\
+                .update(update_data)\
+                .eq('id', id)\
+                .execute()
+
+            if not result.data:
+                raise NotFoundError(f"Institución con ID {id} no encontrada")
+
+            logger.info(f"Institución {id} actualizada")
+            return Institucion(**result.data[0])
+
+        except (NotFoundError, DuplicateError):
+            raise
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "duplicate" in error_msg or "unique" in error_msg:
+                raise DuplicateError(
+                    f"Ya existe una institución con ese código",
+                    field="codigo",
+                    value=datos.codigo or "",
+                )
+            logger.error(f"Error actualizando institución {id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def desactivar(self, id: int) -> Institucion:
+        """Desactiva una institución (soft delete)."""
+        try:
+            result = self.supabase.table(self.tabla)\
+                .update({'activo': False})\
+                .eq('id', id)\
+                .execute()
+
+            if not result.data:
+                raise NotFoundError(f"Institución con ID {id} no encontrada")
+
+            logger.info(f"Institución {id} desactivada")
+            return Institucion(**result.data[0])
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error desactivando institución {id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def activar(self, id: int) -> Institucion:
+        """Reactiva una institución."""
+        try:
+            result = self.supabase.table(self.tabla)\
+                .update({'activo': True})\
+                .eq('id', id)\
+                .execute()
+
+            if not result.data:
+                raise NotFoundError(f"Institución con ID {id} no encontrada")
+
+            logger.info(f"Institución {id} activada")
+            return Institucion(**result.data[0])
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error activando institución {id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     # =========================================================================

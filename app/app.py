@@ -20,6 +20,7 @@ from .presentation.pages.entregables import entregables_page, entregable_detalle
 from .presentation.pages.pagos.pagos_page import pagos_page
 from .presentation.pages.login.login_page import login_page
 from .presentation.pages.admin.usuarios.usuarios_page import usuarios_admin_page
+from .presentation.pages.instituciones.instituciones_page import instituciones_page
 
 from .presentation.layout.sidebar_layout import sidebar
 from .presentation.components.shared.auth_state import AuthState
@@ -115,3 +116,4 @@ app.add_page(lambda: portal_index(expedientes_page()), route="/portal/expediente
 app.add_page(lambda: portal_index(mis_datos_page()), route="/portal/mis-datos")
 app.add_page(lambda: portal_index(configuracion_empresa_page()), route="/portal/configuracion-empresa")
 app.add_page(lambda: index(admin_onboarding_page()), route="/admin/onboarding")
+app.add_page(lambda: index(instituciones_page()), route="/admin/instituciones")

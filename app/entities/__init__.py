@@ -71,6 +71,7 @@ from app.entities.user_company import(
 from app.entities.institucion import (
     Institucion,
     InstitucionCreate,
+    InstitucionUpdate,
     InstitucionResumen,
     InstitucionEmpresa,
 )
@@ -310,6 +311,7 @@ __all__ = [
     # Institucion
     "Institucion",
     "InstitucionCreate",
+    "InstitucionUpdate",
     "InstitucionResumen",
     "InstitucionEmpresa",
     # Tipo de Servicio

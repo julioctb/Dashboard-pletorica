@@ -90,6 +90,7 @@ ADMIN_NAVIGATION_GROUP = {
     "label": "Administracion",
     "items": [
         {"text": "Usuarios", "icon": "shield", "href": "/admin/usuarios"},
+        {"text": "Instituciones", "icon": "building", "href": "/admin/instituciones"},
     ],
 }
 

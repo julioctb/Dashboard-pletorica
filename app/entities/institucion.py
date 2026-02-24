@@ -84,6 +84,26 @@ class InstitucionCreate(BaseModel):
     )
 
 
+class InstitucionUpdate(BaseModel):
+    """Modelo para actualizar una institución existente."""
+
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+    nombre: Optional[str] = Field(
+        default=None,
+        min_length=2,
+        max_length=200,
+    )
+    codigo: Optional[str] = Field(
+        default=None,
+        min_length=2,
+        max_length=20,
+    )
+
+
 # =============================================================================
 # MODELO RESUMIDO PARA LISTADOS
 # =============================================================================
