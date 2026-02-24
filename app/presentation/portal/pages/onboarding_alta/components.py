@@ -5,8 +5,14 @@ Tabla, filtros y badges de estatus onboarding.
 """
 import reflex as rx
 
-from app.presentation.components.ui import skeleton_tabla, badge_onboarding, select_estatus_onboarding
-from app.presentation.theme import Colors, Typography, Spacing
+from app.presentation.components.ui import (
+    badge_onboarding,
+)
+from app.presentation.components.reusable.onboarding_list import (
+    onboarding_filters,
+    onboarding_table,
+)
+from app.presentation.theme import Colors, Typography
 
 from .state import OnboardingAltaState
 
@@ -60,69 +66,26 @@ ENCABEZADOS_ONBOARDING = [
 
 def tabla_onboarding() -> rx.Component:
     """Tabla de empleados en onboarding."""
-    return rx.cond(
-        OnboardingAltaState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_ONBOARDING, filas=5),
-        rx.cond(
-            OnboardingAltaState.total_onboarding > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_ONBOARDING,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            OnboardingAltaState.empleados_onboarding_filtrados,
-                            fila_onboarding,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                rx.text(
-                    "Mostrando ",
-                    OnboardingAltaState.total_onboarding,
-                    " empleado(s) en onboarding",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_SECONDARY,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            rx.center(
-                rx.vstack(
-                    rx.icon("user-plus", size=48, color=Colors.TEXT_MUTED),
-                    rx.text(
-                        "No hay empleados en proceso de onboarding",
-                        font_size=Typography.SIZE_LG,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    rx.text(
-                        "Registre un nuevo empleado para iniciar su proceso de alta",
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_MUTED,
-                    ),
-                    spacing="3",
-                    align="center",
-                ),
-                padding=Spacing.MD,
-                width="100%",
-            ),
-        ),
+    return onboarding_table(
+        loading=OnboardingAltaState.loading,
+        headers=ENCABEZADOS_ONBOARDING,
+        rows=OnboardingAltaState.empleados_onboarding_filtrados,
+        row_renderer=fila_onboarding,
+        total=OnboardingAltaState.total_onboarding,
+        total_condition=OnboardingAltaState.total_onboarding > 0,
+        empty_title="No hay empleados en proceso de onboarding",
+        empty_description="Registre un nuevo empleado para iniciar su proceso de alta",
+        empty_icon="user-plus",
+        loading_rows=5,
+        total_caption="Mostrando "
+        + OnboardingAltaState.total_onboarding.to(str)
+        + " empleado(s) en onboarding",
     )
 
 
 def filtros_onboarding() -> rx.Component:
     """Filtros de la tabla de onboarding."""
-    return select_estatus_onboarding(
+    return onboarding_filters(
         opciones=OnboardingAltaState.opciones_estatus_onboarding,
         value=OnboardingAltaState.filtro_estatus_onboarding,
         on_change=OnboardingAltaState.set_filtro_estatus_onboarding,

@@ -7,6 +7,12 @@ problemas de id dinamico dentro de rx.foreach.
 """
 import reflex as rx
 
+from app.presentation.components.ui import document_status_badge
+from app.presentation.components.reusable import (
+    documento_observacion,
+    documento_requerido_badge,
+    documento_subido_icon,
+)
 from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import MisDatosState
@@ -21,13 +27,7 @@ UPLOAD_ID = "upload_doc_expediente"
 
 def _badge_doc_estatus(estatus: str) -> rx.Component:
     """Badge de estatus de un documento."""
-    return rx.match(
-        estatus,
-        ("PENDIENTE_REVISION", rx.badge("Pendiente", color_scheme="yellow", variant="soft", size="1")),
-        ("APROBADO", rx.badge("Aprobado", color_scheme="green", variant="soft", size="1")),
-        ("RECHAZADO", rx.badge("Rechazado", color_scheme="red", variant="soft", size="1")),
-        rx.badge("Sin subir", color_scheme="gray", variant="outline", size="1"),
-    )
+    return document_status_badge(estatus)
 
 
 # =============================================================================
@@ -38,11 +38,7 @@ def fila_tipo_documento(tipo_doc: dict) -> rx.Component:
     """Fila individual para un tipo de documento."""
     return rx.hstack(
         # Icono
-        rx.cond(
-            tipo_doc["subido"],
-            rx.icon("file-check", size=20, color="var(--green-9)"),
-            rx.icon("file-x", size=20, color=Colors.TEXT_MUTED),
-        ),
+        documento_subido_icon(tipo_doc["subido"]),
         # Nombre y obligatorio
         rx.vstack(
             rx.hstack(
@@ -51,24 +47,12 @@ def fila_tipo_documento(tipo_doc: dict) -> rx.Component:
                     font_size=Typography.SIZE_SM,
                     font_weight=Typography.WEIGHT_MEDIUM,
                 ),
-                rx.cond(
-                    tipo_doc["obligatorio"],
-                    rx.badge("Obligatorio", color_scheme="blue", variant="outline", size="1"),
-                    rx.badge("Opcional", color_scheme="gray", variant="outline", size="1"),
-                ),
+                documento_requerido_badge(tipo_doc["obligatorio"]),
                 align="center",
                 gap="2",
             ),
             # Observacion de rechazo si existe
-            rx.cond(
-                tipo_doc["observacion"] != "",
-                rx.text(
-                    tipo_doc["observacion"],
-                    font_size=Typography.SIZE_XS,
-                    color="var(--red-9)",
-                ),
-                rx.fragment(),
-            ),
+            documento_observacion(tipo_doc["observacion"]),
             spacing="1",
         ),
         rx.spacer(),

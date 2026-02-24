@@ -34,22 +34,13 @@ class ConfiguracionEmpresaState(PortalState):
     # SETTERS
     # ========================
     def set_form_dias_bloqueo(self, value: str):
-        try:
-            self.form_dias_bloqueo = int(value)
-        except (ValueError, TypeError):
-            pass
+        self.set_int_attr("form_dias_bloqueo", value, 3)
 
     def set_form_dia_pago_1q(self, value: str):
-        try:
-            self.form_dia_pago_1q = int(value)
-        except (ValueError, TypeError):
-            pass
+        self.set_int_attr("form_dia_pago_1q", value, 15)
 
     def set_form_dia_pago_2q(self, value: str):
-        try:
-            self.form_dia_pago_2q = int(value)
-        except (ValueError, TypeError):
-            pass
+        self.set_int_attr("form_dia_pago_2q", value, 0)
 
     # ========================
     # COMPUTED VARS

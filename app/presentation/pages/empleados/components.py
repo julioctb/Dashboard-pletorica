@@ -6,9 +6,9 @@ Tabla, cards, badges, acciones y filtros.
 import reflex as rx
 
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
+from app.presentation.components.reusable import employee_filters_bar, employee_table
 from app.presentation.components.ui import (
     tabla_vacia,
-    skeleton_tabla,
     tabla_action_button,
     tabla_action_buttons,
     badge_onboarding,
@@ -212,45 +212,16 @@ def _boton_ver_mas() -> rx.Component:
 
 def tabla_empleados() -> rx.Component:
     """Vista de tabla de empleados"""
-    return rx.cond(
-        EmpleadosState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_EMPLEADOS, filas=5),
-        rx.cond(
-            EmpleadosState.tiene_empleados,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_EMPLEADOS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            EmpleadosState.empleados_filtrados,
-                            fila_empleado,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                # Contador
-                rx.text(
-                    "Mostrando ", EmpleadosState.total_empleados, " empleado(s)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                _boton_ver_mas(),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(onclick=EmpleadosState.abrir_modal_crear),
-        ),
+    return employee_table(
+        loading=EmpleadosState.loading,
+        headers=ENCABEZADOS_EMPLEADOS,
+        rows=EmpleadosState.empleados_filtrados,
+        row_renderer=fila_empleado,
+        has_rows=EmpleadosState.tiene_empleados,
+        empty_component=tabla_vacia(onclick=EmpleadosState.abrir_modal_crear),
+        total_caption="Mostrando " + EmpleadosState.total_empleados.to(str) + " empleado(s)",
+        footer_component=_boton_ver_mas(),
+        loading_rows=5,
     )
 
 
@@ -393,7 +364,7 @@ def grid_empleados() -> rx.Component:
 
 def filtros_empleados() -> rx.Component:
     """Filtros para empleados"""
-    return rx.hstack(
+    return employee_filters_bar(
         # Filtro por empresa
         rx.select.root(
             rx.select.trigger(placeholder="Empresa", width="180px"),
@@ -435,6 +406,4 @@ def filtros_empleados() -> rx.Component:
             variant="ghost",
             size="2",
         ),
-        spacing="3",
-        align="center",
     )

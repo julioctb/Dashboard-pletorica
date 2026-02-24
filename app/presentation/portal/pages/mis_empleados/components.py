@@ -6,23 +6,19 @@ Tabla, filtros y badges.
 import reflex as rx
 
 from app.presentation.components.ui import (
-    skeleton_tabla,
     tabla_action_button,
+    empty_state_card,
+    employee_status_badge,
 )
-from app.presentation.theme import Colors, Typography, Spacing
+from app.presentation.components.reusable import employee_filters_bar, employee_table
+from app.presentation.theme import Colors, Typography
 
 from .state import MisEmpleadosState
 
 
 def badge_estatus(estatus: str) -> rx.Component:
     """Badge de estatus del empleado."""
-    return rx.match(
-        estatus,
-        ("ACTIVO", rx.badge("Activo", color_scheme="green", variant="soft", size="1")),
-        ("INACTIVO", rx.badge("Inactivo", color_scheme="red", variant="soft", size="1")),
-        ("SUSPENDIDO", rx.badge("Suspendido", color_scheme="orange", variant="soft", size="1")),
-        rx.badge(estatus, size="1"),
-    )
+    return employee_status_badge(estatus)
 
 
 def fila_empleado(emp: dict) -> rx.Component:
@@ -78,64 +74,27 @@ ENCABEZADOS_EMPLEADOS = [
 
 def tabla_empleados() -> rx.Component:
     """Tabla de empleados."""
-    return rx.cond(
-        MisEmpleadosState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_EMPLEADOS, filas=5),
-        rx.cond(
-            MisEmpleadosState.total_empleados_lista > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_EMPLEADOS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            MisEmpleadosState.empleados_filtrados,
-                            fila_empleado,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                rx.text(
-                    "Mostrando ",
-                    MisEmpleadosState.total_empleados_lista,
-                    " empleado(s)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_SECONDARY,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            rx.center(
-                rx.vstack(
-                    rx.icon("users", size=48, color=Colors.TEXT_MUTED),
-                    rx.text(
-                        "No hay empleados registrados",
-                        font_size=Typography.SIZE_LG,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    spacing="3",
-                    align="center",
-                ),
-                padding=Spacing.MD,
-                width="100%",
-            ),
+    return employee_table(
+        loading=MisEmpleadosState.loading,
+        headers=ENCABEZADOS_EMPLEADOS,
+        rows=MisEmpleadosState.empleados_filtrados,
+        row_renderer=fila_empleado,
+        has_rows=MisEmpleadosState.total_empleados_lista > 0,
+        empty_component=empty_state_card(
+            title="No hay empleados registrados",
+            description="Cree el primer empleado para esta empresa.",
+            icon="users",
         ),
+        total_caption="Mostrando "
+        + MisEmpleadosState.total_empleados_lista.to(str)
+        + " empleado(s)",
+        loading_rows=5,
     )
 
 
 def filtros_empleados() -> rx.Component:
     """Filtros de la tabla de empleados."""
-    return rx.hstack(
+    return employee_filters_bar(
         rx.select.root(
             rx.select.trigger(placeholder="Estatus"),
             rx.select.content(
@@ -153,6 +112,4 @@ def filtros_empleados() -> rx.Component:
             variant="soft",
             size="2",
         ),
-        spacing="3",
-        align="center",
     )

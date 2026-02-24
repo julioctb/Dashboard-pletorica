@@ -14,6 +14,7 @@ Uso:
     # En formularios Reflex
     rx.select(list(ESTADOS_DISPLAY.values()), ...)
 """
+from app.core.ui_option_sets import opciones_estatus_onboarding
 
 # =============================================================================
 # ESTADOS DE MÉXICO (32 estados)
@@ -93,34 +94,19 @@ TIPO_SALARIO_CALCULO = {
 # =============================================================================
 
 # Todas las opciones (para onboarding_alta portal — incluye REGISTRADO)
-OPCIONES_ESTATUS_ONBOARDING = [
-    {"value": "TODOS", "label": "Todos"},
-    {"value": "REGISTRADO", "label": "Registrado"},
-    {"value": "DATOS_PENDIENTES", "label": "Datos Pendientes"},
-    {"value": "DOCUMENTOS_PENDIENTES", "label": "Docs Pendientes"},
-    {"value": "EN_REVISION", "label": "En Revision"},
-    {"value": "APROBADO", "label": "Aprobado"},
-    {"value": "RECHAZADO", "label": "Rechazado"},
-    {"value": "ACTIVO_COMPLETO", "label": "Activo Completo"},
-]
+OPCIONES_ESTATUS_ONBOARDING = opciones_estatus_onboarding(
+    include_registrado=True,
+    include_activo_completo=True,
+)
 
 # Pipeline admin (sin REGISTRADO, con ACTIVO_COMPLETO)
-OPCIONES_ESTATUS_ONBOARDING_PIPELINE = [
-    {"value": "TODOS", "label": "Todos"},
-    {"value": "DATOS_PENDIENTES", "label": "Datos Pendientes"},
-    {"value": "DOCUMENTOS_PENDIENTES", "label": "Docs Pendientes"},
-    {"value": "EN_REVISION", "label": "En Revision"},
-    {"value": "APROBADO", "label": "Aprobado"},
-    {"value": "RECHAZADO", "label": "Rechazado"},
-    {"value": "ACTIVO_COMPLETO", "label": "Activo Completo"},
-]
+OPCIONES_ESTATUS_ONBOARDING_PIPELINE = opciones_estatus_onboarding(
+    include_registrado=False,
+    include_activo_completo=True,
+)
 
 # Expedientes portal (sin REGISTRADO, sin ACTIVO_COMPLETO)
-OPCIONES_ESTATUS_ONBOARDING_EXPEDIENTES = [
-    {"value": "TODOS", "label": "Todos"},
-    {"value": "DATOS_PENDIENTES", "label": "Datos Pendientes"},
-    {"value": "DOCUMENTOS_PENDIENTES", "label": "Docs Pendientes"},
-    {"value": "EN_REVISION", "label": "En Revision"},
-    {"value": "APROBADO", "label": "Aprobado"},
-    {"value": "RECHAZADO", "label": "Rechazado"},
-]
+OPCIONES_ESTATUS_ONBOARDING_EXPEDIENTES = opciones_estatus_onboarding(
+    include_registrado=False,
+    include_activo_completo=False,
+)

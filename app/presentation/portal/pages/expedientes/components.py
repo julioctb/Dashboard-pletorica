@@ -13,7 +13,10 @@ from app.presentation.components.ui import (
     tabla_action_button,
     badge_onboarding,
     select_estatus_onboarding,
+    empty_state_card,
+    document_status_badge,
 )
+from app.presentation.components.reusable import documento_observacion
 from app.presentation.theme import Colors, Typography, Spacing, Radius
 
 from .state import ExpedientesState
@@ -25,13 +28,7 @@ from .state import ExpedientesState
 
 def badge_documento(estatus: str) -> rx.Component:
     """Badge de estatus de documento."""
-    return rx.match(
-        estatus,
-        ("PENDIENTE_REVISION", rx.badge("Pendiente", color_scheme="yellow", variant="soft", size="1")),
-        ("APROBADO", rx.badge("Aprobado", color_scheme="green", variant="soft", size="1")),
-        ("RECHAZADO", rx.badge("Rechazado", color_scheme="red", variant="soft", size="1")),
-        rx.badge(estatus, size="1"),
-    )
+    return document_status_badge(estatus)
 
 
 # =============================================================================
@@ -125,19 +122,10 @@ def tabla_expedientes() -> rx.Component:
                 width="100%",
                 spacing="3",
             ),
-            rx.center(
-                rx.vstack(
-                    rx.icon("folder-check", size=48, color=Colors.TEXT_MUTED),
-                    rx.text(
-                        "No hay expedientes para revisar",
-                        font_size=Typography.SIZE_LG,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    spacing="3",
-                    align="center",
-                ),
-                padding=Spacing.MD,
-                width="100%",
+            empty_state_card(
+                title="No hay expedientes para revisar",
+                description="Cuando existan expedientes pendientes apareceran aqui.",
+                icon="folder-check",
             ),
         ),
     )
@@ -187,14 +175,7 @@ def fila_documento(doc: dict) -> rx.Component:
             badge_documento(doc.get("estatus", "")),
         ),
         rx.table.cell(
-            rx.cond(
-                doc.get("observacion_rechazo", "") != "",
-                rx.tooltip(
-                    rx.icon("message-circle", size=14, color=Colors.ERROR),
-                    content=doc.get("observacion_rechazo", ""),
-                ),
-                rx.fragment(),
-            ),
+            documento_observacion(doc.get("observacion_rechazo", ""), mode="tooltip"),
         ),
         rx.table.cell(
             rx.cond(

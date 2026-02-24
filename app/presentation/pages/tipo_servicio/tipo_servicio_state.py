@@ -203,8 +203,13 @@ class TipoServicioState(BaseState):
 
     async def limpiar_filtros(self):
         """Limpiar todos los filtros y recargar"""
-        self.filtro_busqueda = ""
-        self.incluir_inactivas = False
+        self.resetear_filtros(
+            {
+                "filtro_busqueda": "",
+                "incluir_inactivas": False,
+            },
+            resetear_pagina=False,
+        )
         async for _ in self._recargar_datos(self._fetch_tipos):
             yield
 

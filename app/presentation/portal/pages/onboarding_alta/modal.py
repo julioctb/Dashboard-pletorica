@@ -5,6 +5,11 @@ import reflex as rx
 
 from app.presentation.theme import Colors, Typography, Spacing
 from app.presentation.components.ui import boton_guardar, boton_cancelar
+from app.presentation.components.reusable import (
+    employee_curp_field,
+    employee_email_field,
+    employee_name_fields_section,
+)
 
 from .state import OnboardingAltaState
 
@@ -70,25 +75,16 @@ def modal_alta_empleado() -> rx.Component:
 
 def _campo_curp() -> rx.Component:
     """Campo CURP con indicador de validacion realtime."""
-    return rx.vstack(
-        rx.text(
-            "CURP *",
-            font_size=Typography.SIZE_SM,
-            font_weight=Typography.WEIGHT_MEDIUM,
-        ),
-        rx.input(
-            value=OnboardingAltaState.form_curp,
-            on_change=OnboardingAltaState.set_form_curp,
-            on_blur=[
-                OnboardingAltaState.validar_curp_blur,
-                OnboardingAltaState.validar_curp_realtime,
-            ],
-            placeholder="18 caracteres (ej: ABCD123456HDFXXX00)",
-            max_length=18,
-            width="100%",
-        ),
-        # Indicador de validacion
-        rx.cond(
+    return employee_curp_field(
+        value=OnboardingAltaState.form_curp,
+        on_change=OnboardingAltaState.set_form_curp,
+        on_blur=[
+            OnboardingAltaState.validar_curp_blur,
+            OnboardingAltaState.validar_curp_realtime,
+        ],
+        error=OnboardingAltaState.error_curp,
+        placeholder="18 caracteres (ej: ABCD123456HDFXXX00)",
+        validation_indicator=rx.cond(
             OnboardingAltaState.curp_validado,
             rx.hstack(
                 rx.cond(
@@ -115,119 +111,37 @@ def _campo_curp() -> rx.Component:
                     ),
                 ),
             ),
+            rx.fragment(),
         ),
-        # Error de validacion local
-        rx.cond(
-            (OnboardingAltaState.error_curp != "") & (~OnboardingAltaState.curp_validado),
-            rx.text(
-                OnboardingAltaState.error_curp,
-                font_size=Typography.SIZE_XS,
-                color=Colors.ERROR,
-            ),
-        ),
-        width="100%",
-        spacing="1",
+        local_error_condition=(OnboardingAltaState.error_curp != "") & (~OnboardingAltaState.curp_validado),
     )
 
 
 def _campos_nombre() -> rx.Component:
     """Campos de nombre y apellidos."""
-    return rx.vstack(
-        rx.hstack(
-            rx.vstack(
-                rx.text(
-                    "Nombre *",
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                ),
-                rx.input(
-                    value=OnboardingAltaState.form_nombre,
-                    on_change=OnboardingAltaState.set_form_nombre,
-                    on_blur=OnboardingAltaState.validar_nombre_blur,
-                    placeholder="Nombre(s)",
-                    width="100%",
-                ),
-                rx.cond(
-                    OnboardingAltaState.error_nombre != "",
-                    rx.text(
-                        OnboardingAltaState.error_nombre,
-                        font_size=Typography.SIZE_XS,
-                        color=Colors.ERROR,
-                    ),
-                ),
-                width="100%",
-                spacing="1",
-            ),
-            rx.vstack(
-                rx.text(
-                    "Ap. Paterno *",
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                ),
-                rx.input(
-                    value=OnboardingAltaState.form_apellido_paterno,
-                    on_change=OnboardingAltaState.set_form_apellido_paterno,
-                    on_blur=OnboardingAltaState.validar_apellido_paterno_blur,
-                    placeholder="Apellido paterno",
-                    width="100%",
-                ),
-                rx.cond(
-                    OnboardingAltaState.error_apellido_paterno != "",
-                    rx.text(
-                        OnboardingAltaState.error_apellido_paterno,
-                        font_size=Typography.SIZE_XS,
-                        color=Colors.ERROR,
-                    ),
-                ),
-                width="100%",
-                spacing="1",
-            ),
-            spacing="3",
-            width="100%",
-        ),
-        rx.vstack(
-            rx.text(
-                "Ap. Materno",
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
-            ),
-            rx.input(
-                value=OnboardingAltaState.form_apellido_materno,
-                on_change=OnboardingAltaState.set_form_apellido_materno,
-                placeholder="Apellido materno (opcional)",
-                width="100%",
-            ),
-            width="50%",
-            spacing="1",
-        ),
-        spacing="3",
-        width="100%",
+    return employee_name_fields_section(
+        nombre_value=OnboardingAltaState.form_nombre,
+        nombre_on_change=OnboardingAltaState.set_form_nombre,
+        nombre_on_blur=OnboardingAltaState.validar_nombre_blur,
+        nombre_error=OnboardingAltaState.error_nombre,
+        apellido_paterno_value=OnboardingAltaState.form_apellido_paterno,
+        apellido_paterno_on_change=OnboardingAltaState.set_form_apellido_paterno,
+        apellido_paterno_on_blur=OnboardingAltaState.validar_apellido_paterno_blur,
+        apellido_paterno_error=OnboardingAltaState.error_apellido_paterno,
+        apellido_materno_value=OnboardingAltaState.form_apellido_materno,
+        apellido_materno_on_change=OnboardingAltaState.set_form_apellido_materno,
+        materno_requerido=False,
+        materno_placeholder="Apellido materno (opcional)",
+        materno_inline=False,
     )
 
 
 def _campo_email() -> rx.Component:
     """Campo email."""
-    return rx.vstack(
-        rx.text(
-            "Email",
-            font_size=Typography.SIZE_SM,
-            font_weight=Typography.WEIGHT_MEDIUM,
-        ),
-        rx.input(
-            value=OnboardingAltaState.form_email,
-            on_change=OnboardingAltaState.set_form_email,
-            on_blur=OnboardingAltaState.validar_email_blur,
-            placeholder="correo@ejemplo.com (opcional)",
-            width="100%",
-        ),
-        rx.cond(
-            OnboardingAltaState.error_email != "",
-            rx.text(
-                OnboardingAltaState.error_email,
-                font_size=Typography.SIZE_XS,
-                color=Colors.ERROR,
-            ),
-        ),
-        width="100%",
-        spacing="1",
+    return employee_email_field(
+        value=OnboardingAltaState.form_email,
+        on_change=OnboardingAltaState.set_form_email,
+        on_blur=OnboardingAltaState.validar_email_blur,
+        error=OnboardingAltaState.error_email,
+        placeholder="correo@ejemplo.com (opcional)",
     )

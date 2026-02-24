@@ -23,6 +23,7 @@ Uso:
 """
 
 import reflex as rx
+from app.presentation.components.ui.view_toggle import view_toggle as ui_view_toggle
 from app.presentation.theme import (
     Colors,
     Spacing,
@@ -136,33 +137,10 @@ def view_toggle(
         on_change_table: Callback al seleccionar tabla
         on_change_cards: Callback al seleccionar cards
     """
-    return rx.hstack(
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("list", size=18),
-                size="2",
-                variant=rx.cond(current_view == "table", "solid", "ghost"),
-                color_scheme="gray",
-                on_click=on_change_table,
-                cursor="pointer",
-            ),
-            content="Vista de tabla",
-        ),
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("layout-grid", size=18),
-                size="2",
-                variant=rx.cond(current_view == "cards", "solid", "ghost"),
-                color_scheme="gray",
-                on_click=on_change_cards,
-                cursor="pointer",
-            ),
-            content="Vista de tarjetas",
-        ),
-        spacing="1",
-        padding="4px",
-        background=Colors.SECONDARY_LIGHT,
-        border_radius="8px",
+    return ui_view_toggle(
+        value=current_view,
+        on_change_table=on_change_table,
+        on_change_cards=on_change_cards,
     )
 
 

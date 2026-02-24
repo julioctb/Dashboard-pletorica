@@ -9,6 +9,7 @@ from typing import Optional
 from fastapi import APIRouter, Query
 
 from app.services.curp_service import curp_service
+from app.api.v1.common import ok, raise_http_from_exc
 from app.api.v1.schemas import APIResponse
 from app.api.v1.curp.schemas import CurpValidacionSchema
 
@@ -43,15 +44,7 @@ async def validar_curp(
             excluir_empleado_id=excluir_empleado_id,
         )
 
-        return APIResponse(
-            success=True,
-            data=CurpValidacionSchema.model_validate(resultado.model_dump()),
-            total=1,
-        )
+        return ok(CurpValidacionSchema.model_validate(resultado.model_dump()))
 
     except Exception as e:
-        logger.error(f"Error validando CURP {curp}: {e}")
-        return APIResponse(
-            success=False,
-            message="Error interno del servidor",
-        )
+        raise_http_from_exc(e, logger, f"validando CURP {curp}")

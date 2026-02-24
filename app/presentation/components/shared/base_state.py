@@ -74,6 +74,20 @@ class BaseState(rx.State):
         """Setter para estado de guardado"""
         self.saving = value
 
+    def set_int_attr(self, attr: str, value: str, default: int):
+        """Convierte string a int y asigna; conserva valor actual si es inválido."""
+        try:
+            setattr(self, attr, int(value) if value not in ("", None) else default)
+        except (ValueError, TypeError):
+            logger.debug("Valor int inválido para %s: %r", attr, value)
+
+    def set_float_attr(self, attr: str, value: str, default: float):
+        """Convierte string a float y asigna; conserva valor actual si es inválido."""
+        try:
+            setattr(self, attr, float(value) if value not in ("", None) else default)
+        except (ValueError, TypeError):
+            logger.debug("Valor float inválido para %s: %r", attr, value)
+
     # ========================
     # MENSAJES
     # ========================

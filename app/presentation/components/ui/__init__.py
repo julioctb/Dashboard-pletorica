@@ -3,6 +3,7 @@
 from .headers import page_header
 from .form_input import form_input, form_select, form_textarea, form_date, form_row
 from .badges import estatus_badge, badge_onboarding
+from .badges_domain import employee_status_badge, document_status_badge
 from .tables import tabla_vacia, tabla
 from .skeletons import skeleton_tabla
 from .filters import (
@@ -53,6 +54,7 @@ from .entity_card import (
 )
 
 from .metric_card import metric_card
+from .cards import empty_state_card
 
 from .notification_bell import (
     notification_bell,
@@ -77,6 +79,8 @@ __all__ = [
     'form_date',
     'form_row',
     'estatus_badge',
+    'employee_status_badge',
+    'document_status_badge',
     'badge_onboarding',
     # tablas
     'tabla_vacia',
@@ -117,6 +121,8 @@ __all__ = [
     "entity_grid",
     # Metric card
     "metric_card",
+    # Empty state card
+    "empty_state_card",
     # Notification bell
     "notification_bell",
     "notification_bell_portal",

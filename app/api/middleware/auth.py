@@ -99,7 +99,28 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-        # TODO: Validar JWT con Supabase en fase futura
-        logger.debug(f"Token recibido para {path} (validacion JWT pendiente)")
+        try:
+            from app.services import user_service
+
+            profile = await user_service.validar_token(token)
+            if not profile:
+                raise ValueError("Token inválido o usuario inactivo")
+
+            request.state.user = {
+                "user_id": str(profile.id),
+                "rol": str(profile.rol.value if hasattr(profile.rol, "value") else profile.rol),
+                "activo": bool(profile.activo),
+            }
+        except Exception as e:
+            logger.warning("Token inválido para %s: %s", path, e)
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "success": False,
+                    "data": None,
+                    "total": 0,
+                    "message": "Token invalido o expirado",
+                },
+            )
 
         return await call_next(request)

@@ -105,8 +105,13 @@ class RequisicionService:
                     from app.services.empresa_service import empresa_service
                     empresa = await empresa_service.obtener_por_id(req.empresa_id)
                     empresa_nombre = empresa.nombre_comercial
-                except Exception:
-                    pass  # No bloquear por error al obtener nombre de empresa
+                except Exception as e:
+                    logger.debug(
+                        "No se pudo resolver empresa %s para requisición %s: %s",
+                        req.empresa_id,
+                        req.id,
+                        e,
+                    )
 
             resumenes.append(RequisicionResumen(
                 id=req.id,

@@ -38,6 +38,9 @@ from app.repositories.historial_laboral_repository import SupabaseHistorialLabor
 # Archivo
 from app.repositories.archivo_repository import SupabaseArchivoRepository
 
+# Entregable
+from app.repositories.entregable_repository import SupabaseEntregableRepository
+
 
 __all__ = [
     "SupabaseEmpresaRepository",
@@ -51,4 +54,5 @@ __all__ = [
     "SupabasePagoRepository",
     "SupabaseHistorialLaboralRepository",
     "SupabaseArchivoRepository",
+    "SupabaseEntregableRepository",
 ]

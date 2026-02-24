@@ -4,12 +4,12 @@ Endpoints REST del modulo Onboarding.
 Alta de empleados, gestion de expedientes y documentos.
 """
 import logging
-from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Query, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 
-from app.api.v1.schemas import APIResponse, APIListResponse
+from app.api.v1.common import ok, raise_http_from_exc
+from app.api.v1.schemas import APIResponse
 from app.api.v1.onboarding.schemas import (
     AltaEmpleadoRequest,
     EmpleadoOnboardingResponse,
@@ -27,13 +27,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 
 
+def _obtener_user_id_request(request: Request) -> UUID:
+    """Extrae user_id validado por middleware desde request.state."""
+    user = getattr(request.state, "user", None)
+    if not user or not user.get("user_id"):
+        raise HTTPException(status_code=401, detail="Usuario autenticado no disponible")
+    try:
+        return UUID(str(user["user_id"]))
+    except Exception as e:
+        logger.warning("user_id inválido en request.state.user: %s", e)
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+
 @router.post(
     "/alta",
     response_model=APIResponse[EmpleadoOnboardingResponse],
     summary="Registrar empleado",
     description="Da de alta un nuevo empleado en el proceso de onboarding.",
 )
-async def alta_empleado(request: AltaEmpleadoRequest):
+async def alta_empleado(request_http: Request, request: AltaEmpleadoRequest):
     """Registra un nuevo empleado desde RRHH."""
     try:
         datos = AltaEmpleadoBuap(
@@ -46,8 +58,7 @@ async def alta_empleado(request: AltaEmpleadoRequest):
             sede_id=request.sede_id,
         )
 
-        # TODO: obtener UUID del token JWT cuando auth este implementado
-        registrado_por = UUID('00000000-0000-0000-0000-000000000000')
+        registrado_por = _obtener_user_id_request(request_http)
 
         empleado = await onboarding_service.alta_empleado_buap(datos, registrado_por)
 
@@ -55,9 +66,8 @@ async def alta_empleado(request: AltaEmpleadoRequest):
         if empleado.apellido_materno:
             nombre_completo += f" {empleado.apellido_materno}"
 
-        return APIResponse(
-            success=True,
-            data=EmpleadoOnboardingResponse(
+        return ok(
+            EmpleadoOnboardingResponse(
                 id=empleado.id,
                 clave=empleado.clave,
                 curp=empleado.curp,
@@ -65,15 +75,10 @@ async def alta_empleado(request: AltaEmpleadoRequest):
                 estatus_onboarding=empleado.estatus_onboarding,
                 email=empleado.email,
                 fecha_creacion=empleado.fecha_creacion,
-            ),
-            total=1,
+            )
         )
     except Exception as e:
-        logger.error(f"Error en alta de empleado: {e}")
-        return APIResponse(
-            success=False,
-            message=str(e),
-        )
+        raise_http_from_exc(e, logger, "en alta de empleado")
 
 
 @router.get(
@@ -87,9 +92,8 @@ async def obtener_expediente(empleado_id: int):
     try:
         expediente = await onboarding_service.obtener_expediente(empleado_id)
 
-        return APIResponse(
-            success=True,
-            data=ExpedienteStatusResponse(
+        return ok(
+            ExpedienteStatusResponse(
                 documentos_requeridos=expediente.documentos_requeridos,
                 documentos_subidos=expediente.documentos_subidos,
                 documentos_aprobados=expediente.documentos_aprobados,
@@ -97,15 +101,10 @@ async def obtener_expediente(empleado_id: int):
                 porcentaje_completado=expediente.porcentaje_completado,
                 esta_completo=expediente.esta_completo,
                 tiene_rechazados=expediente.tiene_rechazados,
-            ),
-            total=1,
+            )
         )
     except Exception as e:
-        logger.error(f"Error obteniendo expediente empleado {empleado_id}: {e}")
-        return APIResponse(
-            success=False,
-            message=str(e),
-        )
+        raise_http_from_exc(e, logger, f"obteniendo expediente empleado {empleado_id}")
 
 
 @router.post(
@@ -115,12 +114,14 @@ async def obtener_expediente(empleado_id: int):
     description="Sube un documento al expediente de un empleado.",
 )
 async def subir_documento(
+    request_http: Request,
     file: UploadFile = File(...),
     empleado_id: int = Form(...),
     tipo_documento: str = Form(...),
 ):
     """Sube un documento al expediente."""
     try:
+        _obtener_user_id_request(request_http)
         contenido = await file.read()
 
         datos = EmpleadoDocumentoCreate(
@@ -135,24 +136,18 @@ async def subir_documento(
             tipo_mime=file.content_type or "application/octet-stream",
         )
 
-        return APIResponse(
-            success=True,
-            data=DocumentoResponse(
+        return ok(
+            DocumentoResponse(
                 id=documento.id,
                 tipo_documento=documento.tipo_documento,
                 nombre_archivo=documento.nombre_archivo,
                 estatus=documento.estatus,
                 version=documento.version,
                 fecha_creacion=documento.fecha_creacion,
-            ),
-            total=1,
+            )
         )
     except Exception as e:
-        logger.error(f"Error subiendo documento: {e}")
-        return APIResponse(
-            success=False,
-            message=str(e),
-        )
+        raise_http_from_exc(e, logger, "subiendo documento")
 
 
 @router.put(
@@ -161,20 +156,18 @@ async def subir_documento(
     summary="Aprobar documento",
     description="Aprueba un documento pendiente de revision.",
 )
-async def aprobar_documento(documento_id: int):
+async def aprobar_documento(documento_id: int, request: Request):
     """Aprueba un documento."""
     try:
-        # TODO: obtener UUID del token JWT cuando auth este implementado
-        revisado_por = UUID('00000000-0000-0000-0000-000000000000')
+        revisado_por = _obtener_user_id_request(request)
 
         documento = await empleado_documento_service.aprobar_documento(
             documento_id=documento_id,
             revisado_por=revisado_por,
         )
 
-        return APIResponse(
-            success=True,
-            data=DocumentoResponse(
+        return ok(
+            DocumentoResponse(
                 id=documento.id,
                 tipo_documento=documento.tipo_documento,
                 nombre_archivo=documento.nombre_archivo,
@@ -182,15 +175,10 @@ async def aprobar_documento(documento_id: int):
                 version=documento.version,
                 fecha_creacion=documento.fecha_creacion,
                 fecha_revision=documento.fecha_revision,
-            ),
-            total=1,
+            )
         )
     except Exception as e:
-        logger.error(f"Error aprobando documento {documento_id}: {e}")
-        return APIResponse(
-            success=False,
-            message=str(e),
-        )
+        raise_http_from_exc(e, logger, f"aprobando documento {documento_id}")
 
 
 @router.put(
@@ -199,11 +187,14 @@ async def aprobar_documento(documento_id: int):
     summary="Rechazar documento",
     description="Rechaza un documento pendiente de revision con observacion.",
 )
-async def rechazar_documento(documento_id: int, request: RechazoDocumentoRequest):
+async def rechazar_documento(
+    documento_id: int,
+    request_http: Request,
+    request: RechazoDocumentoRequest,
+):
     """Rechaza un documento con observacion."""
     try:
-        # TODO: obtener UUID del token JWT cuando auth este implementado
-        revisado_por = UUID('00000000-0000-0000-0000-000000000000')
+        revisado_por = _obtener_user_id_request(request_http)
 
         documento = await empleado_documento_service.rechazar_documento(
             documento_id=documento_id,
@@ -211,9 +202,8 @@ async def rechazar_documento(documento_id: int, request: RechazoDocumentoRequest
             observacion=request.observacion,
         )
 
-        return APIResponse(
-            success=True,
-            data=DocumentoResponse(
+        return ok(
+            DocumentoResponse(
                 id=documento.id,
                 tipo_documento=documento.tipo_documento,
                 nombre_archivo=documento.nombre_archivo,
@@ -222,12 +212,7 @@ async def rechazar_documento(documento_id: int, request: RechazoDocumentoRequest
                 version=documento.version,
                 fecha_creacion=documento.fecha_creacion,
                 fecha_revision=documento.fecha_revision,
-            ),
-            total=1,
+            )
         )
     except Exception as e:
-        logger.error(f"Error rechazando documento {documento_id}: {e}")
-        return APIResponse(
-            success=False,
-            message=str(e),
-        )
+        raise_http_from_exc(e, logger, f"rechazando documento {documento_id}")

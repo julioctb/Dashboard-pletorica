@@ -13,7 +13,7 @@ import logging
 from decimal import Decimal, InvalidOperation
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class ResultadoValidacionCFDI(BaseModel):
     rfc_receptor: Optional[str] = None
     monto_total: Optional[Decimal] = None
     folio_fiscal: Optional[str] = None
-    errores: List[str] = []
+    errores: List[str] = Field(default_factory=list)
 
 
 def validar_cfdi(

@@ -5,7 +5,13 @@ Pipeline cards, tabla de empleados y badges.
 """
 import reflex as rx
 
-from app.presentation.components.ui import skeleton_tabla, badge_onboarding, select_estatus_onboarding
+from app.presentation.components.ui import (
+    badge_onboarding,
+)
+from app.presentation.components.reusable.onboarding_list import (
+    onboarding_filters,
+    onboarding_table,
+)
 from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import AdminOnboardingState
@@ -110,22 +116,13 @@ def pipeline_cards() -> rx.Component:
 
 def filtros_onboarding_admin() -> rx.Component:
     """Filtros para la tabla de onboarding admin."""
-    return rx.hstack(
-        select_estatus_onboarding(
-            opciones=AdminOnboardingState.opciones_estatus_pipeline,
-            value=AdminOnboardingState.filtro_estatus_onboarding,
-            on_change=AdminOnboardingState.set_filtro_estatus_onboarding,
-            on_reload=AdminOnboardingState.recargar_pipeline,
-            placeholder="Filtrar por estatus...",
-        ),
-        rx.spacer(),
-        rx.text(
-            AdminOnboardingState.total_filtrados.to(str) + " empleados",
-            font_size=Typography.SIZE_SM,
-            color=Colors.TEXT_SECONDARY,
-        ),
-        align="center",
-        width="100%",
+    return onboarding_filters(
+        opciones=AdminOnboardingState.opciones_estatus_pipeline,
+        value=AdminOnboardingState.filtro_estatus_onboarding,
+        on_change=AdminOnboardingState.set_filtro_estatus_onboarding,
+        on_reload=AdminOnboardingState.recargar_pipeline,
+        placeholder="Filtrar por estatus...",
+        total_text=AdminOnboardingState.total_filtrados.to(str) + " empleados",
     )
 
 
@@ -190,51 +187,16 @@ def fila_onboarding_admin(emp: dict) -> rx.Component:
 
 def tabla_onboarding_admin() -> rx.Component:
     """Tabla de empleados en onboarding (admin global)."""
-    return rx.cond(
-        AdminOnboardingState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_ONBOARDING, filas=6),
-        rx.cond(
-            AdminOnboardingState.total_filtrados > 0,
-            rx.table.root(
-                rx.table.header(
-                    rx.table.row(
-                        *[
-                            rx.table.column_header_cell(
-                                rx.text(
-                                    h["nombre"],
-                                    font_size=Typography.SIZE_XS,
-                                    font_weight=Typography.WEIGHT_SEMIBOLD,
-                                    color=Colors.TEXT_MUTED,
-                                    text_transform="uppercase",
-                                ),
-                                width=h["ancho"],
-                            )
-                            for h in ENCABEZADOS_ONBOARDING
-                        ],
-                    ),
-                ),
-                rx.table.body(
-                    rx.foreach(
-                        AdminOnboardingState.empleados_filtrados,
-                        fila_onboarding_admin,
-                    ),
-                ),
-                width="100%",
-                variant="surface",
-            ),
-            # Sin resultados
-            rx.center(
-                rx.vstack(
-                    rx.icon("users", size=40, color=Colors.TEXT_MUTED),
-                    rx.text(
-                        "No hay empleados en onboarding",
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_MUTED,
-                    ),
-                    align="center",
-                    spacing="2",
-                ),
-                padding_y="60px",
-            ),
-        ),
+    return onboarding_table(
+        loading=AdminOnboardingState.loading,
+        headers=ENCABEZADOS_ONBOARDING,
+        rows=AdminOnboardingState.empleados_filtrados,
+        row_renderer=fila_onboarding_admin,
+        total=AdminOnboardingState.total_filtrados,
+        total_condition=AdminOnboardingState.total_filtrados > 0,
+        empty_title="No hay empleados en onboarding",
+        empty_description="No hay registros para el filtro seleccionado.",
+        empty_icon="users",
+        loading_rows=6,
+        header_variant="admin",
     )

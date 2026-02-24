@@ -7,7 +7,17 @@ import reflex as rx
 
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
 from app.presentation.theme import Colors
-from app.presentation.components.ui import boton_guardar, boton_cancelar
+from app.presentation.components.reusable import (
+    employee_form_modal,
+    employee_address_field,
+    employee_birth_gender_row,
+    employee_curp_field,
+    employee_emergency_contact_section,
+    employee_name_fields_section,
+    employee_notes_field,
+    employee_phone_email_row,
+    employee_rfc_nss_row,
+)
 from .components import estatus_badge, restriccion_badge
 
 
@@ -17,12 +27,11 @@ from .components import estatus_badge, restriccion_badge
 
 def modal_empleado() -> rx.Component:
     """Modal para crear/editar empleado"""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(EmpleadosState.titulo_modal),
-            rx.dialog.description("Complete los datos del empleado"),
-
-            rx.vstack(
+    return employee_form_modal(
+        open_state=EmpleadosState.mostrar_modal_empleado,
+        title=EmpleadosState.titulo_modal,
+        description="Complete los datos del empleado",
+        body=rx.vstack(
                 # Empresa
                 rx.vstack(
                     rx.text("Empresa", size="2", weight="medium"),
@@ -51,258 +60,112 @@ def modal_empleado() -> rx.Component:
                 # CURP (obligatorio, solo en creación)
                 rx.cond(
                     ~EmpleadosState.es_edicion,
-                    rx.vstack(
-                        rx.text("CURP *", size="2", weight="medium"),
-                        rx.input(
-                            value=EmpleadosState.form_curp,
-                            on_change=EmpleadosState.set_form_curp,
-                            on_blur=EmpleadosState.validar_curp_blur,
-                            placeholder="18 caracteres",
-                            max_length=18,
-                            width="100%",
-                        ),
-                        rx.cond(
-                            EmpleadosState.error_curp != "",
-                            rx.text(EmpleadosState.error_curp, size="1", color="red"),
-                        ),
-                        width="100%",
-                        spacing="1",
+                    employee_curp_field(
+                        value=EmpleadosState.form_curp,
+                        on_change=EmpleadosState.set_form_curp,
+                        on_blur=EmpleadosState.validar_curp_blur,
+                        error=EmpleadosState.error_curp,
+                        placeholder="18 caracteres",
                     ),
                 ),
 
                 # Nombre y apellidos
-                rx.hstack(
-                    rx.vstack(
-                        rx.text("Nombre *", size="2", weight="medium"),
-                        rx.input(
-                            value=EmpleadosState.form_nombre,
-                            on_change=EmpleadosState.set_form_nombre,
-                            on_blur=EmpleadosState.validar_nombre_blur,
-                            placeholder="Nombre(s)",
-                            width="100%",
-                        ),
-                        rx.cond(
-                            EmpleadosState.error_nombre != "",
-                            rx.text(EmpleadosState.error_nombre, size="1", color="red"),
-                        ),
-                        width="100%",
-                        spacing="1",
-                    ),
-                    rx.vstack(
-                        rx.text("Apellido Paterno *", size="2", weight="medium"),
-                        rx.input(
-                            value=EmpleadosState.form_apellido_paterno,
-                            on_change=EmpleadosState.set_form_apellido_paterno,
-                            on_blur=EmpleadosState.validar_apellido_paterno_blur,
-                            placeholder="Apellido paterno",
-                            width="100%",
-                        ),
-                        rx.cond(
-                            EmpleadosState.error_apellido_paterno != "",
-                            rx.text(EmpleadosState.error_apellido_paterno, size="1", color="red"),
-                        ),
-                        width="100%",
-                        spacing="1",
-                    ),
-                    rx.vstack(
-                        rx.text("Apellido Materno", size="2", weight="medium"),
-                        rx.input(
-                            value=EmpleadosState.form_apellido_materno,
-                            on_change=EmpleadosState.set_form_apellido_materno,
-                            placeholder="Apellido materno (opcional)",
-                            width="100%",
-                        ),
-                        width="100%",
-                        spacing="1",
-                    ),
-                    spacing="3",
-                    width="100%",
+                employee_name_fields_section(
+                    nombre_value=EmpleadosState.form_nombre,
+                    nombre_on_change=EmpleadosState.set_form_nombre,
+                    nombre_on_blur=EmpleadosState.validar_nombre_blur,
+                    nombre_error=EmpleadosState.error_nombre,
+                    apellido_paterno_value=EmpleadosState.form_apellido_paterno,
+                    apellido_paterno_on_change=EmpleadosState.set_form_apellido_paterno,
+                    apellido_paterno_on_blur=EmpleadosState.validar_apellido_paterno_blur,
+                    apellido_paterno_error=EmpleadosState.error_apellido_paterno,
+                    apellido_materno_value=EmpleadosState.form_apellido_materno,
+                    apellido_materno_on_change=EmpleadosState.set_form_apellido_materno,
+                    materno_requerido=False,
+                    materno_placeholder="Apellido materno (opcional)",
                 ),
 
                 # RFC y NSS
-                rx.hstack(
-                    rx.vstack(
-                        rx.text("RFC", size="2", weight="medium"),
-                        rx.input(
-                            value=EmpleadosState.form_rfc,
-                            on_change=EmpleadosState.set_form_rfc,
-                            on_blur=EmpleadosState.validar_rfc_blur,
-                            placeholder="13 caracteres",
-                            max_length=13,
-                            width="100%",
-                        ),
-                        rx.cond(
-                            EmpleadosState.error_rfc != "",
-                            rx.text(EmpleadosState.error_rfc, size="1", color="red"),
-                        ),
-                        width="100%",
-                        spacing="1",
-                    ),
-                    rx.vstack(
-                        rx.text("NSS", size="2", weight="medium"),
-                        rx.input(
-                            value=EmpleadosState.form_nss,
-                            on_change=EmpleadosState.set_form_nss,
-                            on_blur=EmpleadosState.validar_nss_blur,
-                            placeholder="11 dígitos",
-                            max_length=11,
-                            width="100%",
-                        ),
-                        rx.cond(
-                            EmpleadosState.error_nss != "",
-                            rx.text(EmpleadosState.error_nss, size="1", color="red"),
-                        ),
-                        width="100%",
-                        spacing="1",
-                    ),
-                    spacing="3",
-                    width="100%",
+                employee_rfc_nss_row(
+                    rfc_value=EmpleadosState.form_rfc,
+                    rfc_on_change=EmpleadosState.set_form_rfc,
+                    rfc_on_blur=EmpleadosState.validar_rfc_blur,
+                    rfc_error=EmpleadosState.error_rfc,
+                    nss_value=EmpleadosState.form_nss,
+                    nss_on_change=EmpleadosState.set_form_nss,
+                    nss_on_blur=EmpleadosState.validar_nss_blur,
+                    nss_error=EmpleadosState.error_nss,
+                    rfc_required=False,
+                    nss_required=False,
+                    rfc_placeholder="13 caracteres",
+                    nss_placeholder="11 dígitos",
                 ),
 
                 # Fecha nacimiento y género
-                rx.hstack(
-                    rx.vstack(
-                        rx.text("Fecha de Nacimiento", size="2", weight="medium"),
-                        rx.input(
-                            type="date",
-                            value=EmpleadosState.form_fecha_nacimiento,
-                            on_change=EmpleadosState.set_form_fecha_nacimiento,
-                            width="100%",
-                        ),
-                        width="100%",
-                        spacing="1",
-                    ),
-                    rx.vstack(
-                        rx.text("Género", size="2", weight="medium"),
-                        rx.select.root(
-                            rx.select.trigger(
-                                placeholder="Seleccionar...",
-                                width="100%",
-                            ),
-                            rx.select.content(
-                                rx.foreach(
-                                    EmpleadosState.opciones_genero,
-                                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                                ),
-                            ),
-                            value=EmpleadosState.form_genero,
-                            on_change=EmpleadosState.set_form_genero,
-                        ),
-                        width="100%",
-                        spacing="1",
-                    ),
-                    spacing="3",
-                    width="100%",
+                employee_birth_gender_row(
+                    fecha_value=EmpleadosState.form_fecha_nacimiento,
+                    fecha_on_change=EmpleadosState.set_form_fecha_nacimiento,
+                    genero_value=EmpleadosState.form_genero,
+                    genero_on_change=EmpleadosState.set_form_genero,
+                    opciones_genero=EmpleadosState.opciones_genero,
+                    fecha_required=False,
+                    genero_required=False,
+                    genero_label="Género",
                 ),
 
                 # Teléfono y email
-                rx.hstack(
-                    rx.vstack(
-                        rx.text("Teléfono", size="2", weight="medium"),
-                        rx.input(
-                            value=EmpleadosState.form_telefono,
-                            on_change=EmpleadosState.set_form_telefono,
-                            on_blur=EmpleadosState.validar_telefono_blur,
-                            placeholder="10 dígitos",
-                            max_length=15,
-                            width="100%",
-                        ),
-                        rx.cond(
-                            EmpleadosState.error_telefono != "",
-                            rx.text(EmpleadosState.error_telefono, size="1", color="red"),
-                        ),
-                        width="100%",
-                        spacing="1",
-                    ),
-                    rx.vstack(
-                        rx.text("Email", size="2", weight="medium"),
-                        rx.input(
-                            value=EmpleadosState.form_email,
-                            on_change=EmpleadosState.set_form_email,
-                            on_blur=EmpleadosState.validar_email_blur,
-                            placeholder="correo@ejemplo.com",
-                            width="100%",
-                        ),
-                        rx.cond(
-                            EmpleadosState.error_email != "",
-                            rx.text(EmpleadosState.error_email, size="1", color="red"),
-                        ),
-                        width="100%",
-                        spacing="1",
-                    ),
-                    spacing="3",
-                    width="100%",
+                employee_phone_email_row(
+                    telefono_value=EmpleadosState.form_telefono,
+                    telefono_on_change=EmpleadosState.set_form_telefono,
+                    telefono_on_blur=EmpleadosState.validar_telefono_blur,
+                    telefono_error=EmpleadosState.error_telefono,
+                    email_value=EmpleadosState.form_email,
+                    email_on_change=EmpleadosState.set_form_email,
+                    email_on_blur=EmpleadosState.validar_email_blur,
+                    email_error=EmpleadosState.error_email,
+                    telefono_required=False,
+                    telefono_placeholder="10 dígitos",
+                    email_placeholder="correo@ejemplo.com",
                 ),
 
                 # Dirección
-                rx.vstack(
-                    rx.text("Dirección", size="2", weight="medium"),
-                    rx.text_area(
-                        value=EmpleadosState.form_direccion,
-                        on_change=EmpleadosState.set_form_direccion,
-                        placeholder="Dirección completa",
-                        width="100%",
-                        rows="2",
-                    ),
-                    width="100%",
-                    spacing="1",
+                employee_address_field(
+                    value=EmpleadosState.form_direccion,
+                    on_change=EmpleadosState.set_form_direccion,
+                    placeholder="Dirección completa",
+                    label="Dirección",
                 ),
 
                 # Contacto de emergencia
-                rx.vstack(
-                    rx.text("Contacto de Emergencia", size="2", weight="medium"),
-                    rx.input(
-                        value=EmpleadosState.form_contacto_emergencia,
-                        on_change=EmpleadosState.set_form_contacto_emergencia,
-                        placeholder="Nombre y teléfono",
-                        width="100%",
-                    ),
-                    width="100%",
-                    spacing="1",
+                employee_emergency_contact_section(
+                    mode="simple",
+                    simple_value=EmpleadosState.form_contacto_emergencia,
+                    simple_on_change=EmpleadosState.set_form_contacto_emergencia,
+                    simple_placeholder="Nombre y teléfono",
+                    label_weight="medium",
                 ),
 
                 # Notas
-                rx.vstack(
-                    rx.text("Notas", size="2", weight="medium"),
-                    rx.text_area(
-                        value=EmpleadosState.form_notas,
-                        on_change=EmpleadosState.set_form_notas,
-                        placeholder="Observaciones adicionales",
-                        width="100%",
-                        rows="2",
-                    ),
-                    width="100%",
-                    spacing="1",
+                employee_notes_field(
+                    value=EmpleadosState.form_notas,
+                    on_change=EmpleadosState.set_form_notas,
+                    placeholder="Observaciones adicionales",
                 ),
 
                 spacing="4",
                 width="100%",
                 padding_y="4",
-            ),
-
-            # Botones de acción
-            rx.hstack(
-                boton_cancelar(on_click=EmpleadosState.cerrar_modal_empleado),
-                boton_guardar(
-                    texto=rx.cond(
-                        EmpleadosState.es_edicion,
-                        "Guardar Cambios",
-                        "Crear Empleado",
-                    ),
-                    texto_guardando="Guardando...",
-                    on_click=EmpleadosState.guardar_empleado,
-                    saving=EmpleadosState.saving,
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-            ),
-
-            max_width="600px",
         ),
-        open=EmpleadosState.mostrar_modal_empleado,
-        # No cerrar al hacer click fuera - solo con botones
-        on_open_change=rx.noop,
+        on_cancel=EmpleadosState.cerrar_modal_empleado,
+        on_save=EmpleadosState.guardar_empleado,
+        save_text=rx.cond(
+            EmpleadosState.es_edicion,
+            "Guardar Cambios",
+            "Crear Empleado",
+        ),
+        saving=EmpleadosState.saving,
+        save_loading_text="Guardando...",
+        max_width="600px",
     )
 
 

@@ -136,8 +136,12 @@ class PortalState(AuthState):
                     resumen = await plaza_service.calcular_totales_contrato(contrato.id)
                     ocupadas += resumen.plazas_ocupadas
                     vacantes += resumen.plazas_vacantes
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(
+                        "Error calculando métricas de plazas para contrato %s: %s",
+                        contrato.id,
+                        e,
+                    )
             self.total_plazas_ocupadas = ocupadas
             self.total_plazas_vacantes = vacantes
 

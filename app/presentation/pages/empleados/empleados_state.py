@@ -1056,10 +1056,14 @@ class EmpleadosState(AuthState, CRUDStateMixin):
 
     async def limpiar_filtros(self):
         """Limpia todos los filtros"""
-        self.filtro_busqueda = ""
-        self.filtro_empresa_id = FILTRO_TODAS
-        self.filtro_estatus = FILTRO_TODOS
-        self.pagina = 1
+        self.resetear_filtros(
+            {
+                "filtro_busqueda": "",
+                "filtro_empresa_id": FILTRO_TODAS,
+                "filtro_estatus": FILTRO_TODOS,
+            },
+            resetear_pagina=True,
+        )
         async for _ in self._recargar_datos(self._fetch_empleados):
             yield
 

@@ -42,40 +42,22 @@ class SimuladorState(BaseState):
     # SETTERS (conversión de string a número)
     # ─────────────────────────────────────────────────────────────────
     def set_salario_mensual(self, value: str):
-        try:
-            self.salario_mensual= float(value)
-        except ValueError:
-            pass
+        self.set_float_attr("salario_mensual", value, 0.0)
 
     def set_prima_riesgo(self, value: str):
-        try:
-            self.prima_riesgo = float(value) if value else 0.0
-        except ValueError:
-            pass
+        self.set_float_attr("prima_riesgo", value, 0.0)
 
     def set_prima_vacacional(self, value: str):
-        try:
-            self.prima_vacacional = float(value) if value else 0.0
-        except ValueError:
-            pass
+        self.set_float_attr("prima_vacacional", value, 0.0)
 
     def set_antiguedad_anos(self, value: str):
-        try:
-            self.antiguedad_anos = int(value) if value else 1
-        except ValueError:
-            pass
+        self.set_int_attr("antiguedad_anos", value, 1)
 
     def set_dias_cotizados(self, value: str):
-        try:
-            self.dias_cotizados = float(value) if value else 30.0
-        except ValueError:
-            pass
+        self.set_float_attr("dias_cotizados", value, 30.0)
 
     def set_dias_aguinaldo(self, value: str):
-        try:
-            self.dias_aguinaldo = int(value) if value else 15
-        except ValueError:
-            pass
+        self.set_int_attr("dias_aguinaldo", value, 15)
     
     def set_tipo_salario_calculo(self, value: str):
             self.tipo_salario_calculo = value

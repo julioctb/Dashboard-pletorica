@@ -9,9 +9,9 @@ import logging
 from fastapi import APIRouter, Query
 
 from app.services import empresa_service
+from app.api.v1.common import ok, ok_list, raise_http_from_exc
 from app.api.v1.schemas import APIListResponse, APIResponse
 from app.api.v1.empresas.schemas import EmpresaResponse
-from app.core.exceptions import NotFoundError, DatabaseError
 
 logger = logging.getLogger(__name__)
 
@@ -49,24 +49,10 @@ async def listar_empresas(
             for e in empresas
         ]
 
-        return APIListResponse(
-            success=True,
-            data=data,
-            total=len(data),
-        )
+        return ok_list(data)
 
-    except DatabaseError as e:
-        logger.error(f"Error de BD listando empresas: {e}")
-        return APIListResponse(
-            success=False,
-            message=f"Error de base de datos: {e}",
-        )
     except Exception as e:
-        logger.error(f"Error inesperado listando empresas: {e}")
-        return APIListResponse(
-            success=False,
-            message="Error interno del servidor",
-        )
+        raise_http_from_exc(e, logger, "listando empresas")
 
 
 @router.get(
@@ -80,26 +66,6 @@ async def obtener_empresa(empresa_id: int):
     try:
         empresa = await empresa_service.obtener_por_id(empresa_id)
 
-        return APIResponse(
-            success=True,
-            data=EmpresaResponse.model_validate(empresa.model_dump()),
-            total=1,
-        )
-
-    except NotFoundError:
-        return APIResponse(
-            success=False,
-            message=f"Empresa con ID {empresa_id} no encontrada",
-        )
-    except DatabaseError as e:
-        logger.error(f"Error de BD obteniendo empresa {empresa_id}: {e}")
-        return APIResponse(
-            success=False,
-            message=f"Error de base de datos: {e}",
-        )
+        return ok(EmpresaResponse.model_validate(empresa.model_dump()))
     except Exception as e:
-        logger.error(f"Error inesperado obteniendo empresa {empresa_id}: {e}")
-        return APIResponse(
-            success=False,
-            message="Error interno del servidor",
-        )
+        raise_http_from_exc(e, logger, f"obteniendo empresa {empresa_id}")

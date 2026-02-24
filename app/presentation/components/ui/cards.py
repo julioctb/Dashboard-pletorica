@@ -6,18 +6,9 @@ def empty_state_card(
     title: str,
     description: str,
     icon: str = "inbox",
-    action_button: Optional[rx.Component] = None
+    action_button: Optional[rx.Component] = None,
 ) -> rx.Component:
-    """
-    Tarjeta para estados vacíos
-    
-    Args:
-        title: Título del estado vacío
-        description: Descripción del estado
-        icon: Icono a mostrar
-        action_button: Botón de acción opcional
-    """
-    
+    """Tarjeta reutilizable para estados vacíos."""
     return rx.center(
         rx.vstack(
             rx.icon(icon, size=48, color="var(--gray-6)"),
@@ -26,8 +17,8 @@ def empty_state_card(
             rx.cond(action_button, action_button, rx.fragment()),
             spacing="3",
             align="center",
-            max_width="300px"
+            max_width="300px",
         ),
         padding="8",
-        width="100%"
+        width="100%",
     )

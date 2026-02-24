@@ -605,9 +605,14 @@ class RequisicionesState(AuthState):
 
     async def limpiar_filtros(self):
         """Limpia todos los filtros."""
-        self.filtro_busqueda = ""
-        self.filtro_estado = FILTRO_TODOS
-        self.filtro_tipo = FILTRO_TODOS
+        self.resetear_filtros(
+            {
+                "filtro_busqueda": "",
+                "filtro_estado": FILTRO_TODOS,
+                "filtro_tipo": FILTRO_TODOS,
+            },
+            resetear_pagina=False,
+        )
         async for _ in self._recargar_datos(self._fetch_requisiciones):
             yield
 
