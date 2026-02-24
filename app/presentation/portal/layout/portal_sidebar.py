@@ -72,7 +72,7 @@ def _portal_header() -> rx.Component:
                 max_width="130px",
             ),
             rx.text(
-                "Portal Cliente",
+                rx.cond(AuthState.es_empleado_portal, "Portal Empleado", "Portal Cliente"),
                 font_size=Typography.SIZE_XS,
                 color=Colors.TEXT_MUTED,
                 line_height="1.2",
@@ -259,7 +259,7 @@ def _portal_user_section() -> rx.Component:
                         spacing="2",
                         align="center",
                     ),
-                    on_click=rx.redirect("/portal/perfil"),
+                    on_click=rx.redirect("/portal/mis-datos"),
                 ),
                 rx.menu.separator(),
                 rx.menu.item(

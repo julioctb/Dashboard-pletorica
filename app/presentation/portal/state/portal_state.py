@@ -56,8 +56,8 @@ class PortalState(AuthState):
         if self.es_admin:
             return rx.redirect("/")
 
-        # Si no tiene empresa asignada
-        if not self.id_empresa_actual:
+        # Si no tiene empresa asignada (empleados se vinculan por user_id, no user_companies)
+        if not self.es_empleado_portal and not self.id_empresa_actual:
             return rx.toast.error(
                 "No tienes una empresa asignada. Contacta al administrador.",
                 position="top-center",
