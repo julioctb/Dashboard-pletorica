@@ -121,7 +121,6 @@ def nav_group_label(label: str) -> rx.Component:
 def nav_group(*items, label: str | None = None) -> rx.Component:
     """Grupo de navegación vertical con etiqueta opcional."""
     label_component = nav_group_label(label) if label is not None else rx.fragment()
-
     return rx.vstack(
         label_component,
         *items,
