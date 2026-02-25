@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 import re
 
-from app.core.enums import RolUsuario
+from app.core.enums import RolPlataforma
 from app.core.validation.constants import (
     TELEFONO_DIGITOS,
     EMAIL_PATTERN,
@@ -58,7 +58,7 @@ class UserProfile(BaseModel):
     id: UUID
 
     # Rol en el sistema
-    rol: RolUsuario = Field(default=RolUsuario.CLIENT)
+    rol: RolPlataforma = Field(default=RolPlataforma.CLIENT)
 
     # Datos personales
     nombre_completo: str = Field(
@@ -142,8 +142,10 @@ class UserProfile(BaseModel):
 
     def es_admin(self) -> bool:
         """Verifica si el usuario tiene rol de administrador."""
-        return self.rol == RolUsuario.ADMIN or (
-            isinstance(self.rol, str) and self.rol == 'admin'
+        return (
+            self.rol in (RolPlataforma.ADMIN, RolPlataforma.SUPERADMIN)
+            if not isinstance(self.rol, str)
+            else self.rol in ('admin', 'superadmin')
         )
 
     def puede_iniciar_sesion(self) -> bool:
@@ -196,7 +198,7 @@ class UserProfileCreate(BaseModel):
             email="juan@ejemplo.com",
             password="contraseña_segura",
             nombre_completo="Juan Pérez García",
-            rol=RolUsuario.CLIENT,
+            rol=RolPlataforma.CLIENT,
             telefono="5512345678"
         )
         # Luego se envía a supabase.auth.admin.create_user()
@@ -222,7 +224,7 @@ class UserProfileCreate(BaseModel):
         min_length=NOMBRE_COMPLETO_MIN,
         max_length=NOMBRE_COMPLETO_MAX,
     )
-    rol: RolUsuario = Field(default=RolUsuario.CLIENT)
+    rol: RolPlataforma = Field(default=RolPlataforma.CLIENT)
     telefono: Optional[str] = Field(
         default=None,
         min_length=TELEFONO_DIGITOS,
@@ -324,7 +326,7 @@ class UserProfileUpdate(BaseModel):
         max_length=TELEFONO_DIGITOS,
         pattern=r'^\d{10}$',
     )
-    rol: Optional[RolUsuario] = None
+    rol: Optional[RolPlataforma] = None
     activo: Optional[bool] = None
 
     # Permisos granulares

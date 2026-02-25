@@ -19,6 +19,7 @@ from app.presentation.components.reusable import (
     employee_phone_email_row,
     employee_rfc_nss_row,
 )
+from app.presentation.components.ui import boton_cancelar, boton_guardar
 from .components import estatus_badge, restriccion_badge
 
 

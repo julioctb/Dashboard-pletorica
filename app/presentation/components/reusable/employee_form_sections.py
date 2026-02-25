@@ -200,7 +200,8 @@ def employee_birth_gender_row(
     genero_label: str = "Genero",
 ) -> rx.Component:
     """Fila reutilizable Fecha de nacimiento + Genero."""
-    opciones_genero = opciones_genero or []
+    if opciones_genero is None:
+        opciones_genero = []
 
     return rx.hstack(
         rx.vstack(
@@ -360,7 +361,8 @@ def employee_emergency_contact_section(
             spacing="1",
         )
 
-    opciones_parentesco = opciones_parentesco or []
+    if opciones_parentesco is None:
+        opciones_parentesco = []
     title = rx.text(
         "Contacto de Emergencia",
         font_size=Typography.SIZE_SM,
