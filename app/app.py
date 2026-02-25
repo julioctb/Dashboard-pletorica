@@ -20,6 +20,7 @@ from .presentation.pages.entregables import entregables_page, entregable_detalle
 from .presentation.pages.pagos.pagos_page import pagos_page
 from .presentation.pages.login.login_page import login_page
 from .presentation.pages.admin.usuarios.usuarios_page import usuarios_admin_page
+from .presentation.pages.admin.dashboard import super_admin_dashboard_page
 from .presentation.pages.instituciones.instituciones_page import instituciones_page
 
 from .presentation.layout.sidebar_layout import sidebar
@@ -102,6 +103,7 @@ app.add_page(lambda: index(sedes_page()), route="/sedes")
 app.add_page(lambda: index(entregables_page()), route="/entregables")
 app.add_page(lambda: index(entregable_detalle_page()), route="/entregables/[entregable_id]")
 app.add_page(login_page, route="/login")
+app.add_page(lambda: index(super_admin_dashboard_page()), route="/admin")
 app.add_page(lambda: index(usuarios_admin_page()), route="/admin/usuarios")
 
 # Portal de cliente
