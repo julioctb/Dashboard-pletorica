@@ -16,7 +16,7 @@ from app.presentation.components.ui import (
     empty_state_card,
     document_status_badge,
 )
-from app.presentation.components.reusable import document_empty_state, documento_observacion
+from app.presentation.components.reusable import document_table_shell, documento_observacion
 from app.presentation.theme import Colors, Typography, Spacing, Radius
 
 from .state import ExpedientesState
@@ -289,34 +289,14 @@ def detalle_expediente() -> rx.Component:
         ),
 
         # Tabla de documentos
-        rx.cond(
-            ExpedientesState.documentos_empleado.length() > 0,
-            rx.table.root(
-                rx.table.header(
-                    rx.table.row(
-                        rx.foreach(
-                            ENCABEZADOS_DOCUMENTOS,
-                            lambda col: rx.table.column_header_cell(
-                                col["nombre"],
-                                width=col["ancho"],
-                            ),
-                        ),
-                    ),
-                ),
-                rx.table.body(
-                    rx.foreach(
-                        ExpedientesState.documentos_empleado,
-                        fila_documento,
-                    ),
-                ),
-                width="100%",
-                variant="surface",
-            ),
-            document_empty_state(
-                title="No hay documentos subidos aun",
-                description="El empleado aun no carga documentos para este expediente.",
-                icon="file-x",
-            ),
+        document_table_shell(
+            headers=ENCABEZADOS_DOCUMENTOS,
+            items=ExpedientesState.documentos_empleado,
+            row_renderer=fila_documento,
+            has_items=ExpedientesState.documentos_empleado.length() > 0,
+            empty_title="No hay documentos subidos aun",
+            empty_description="El empleado aun no carga documentos para este expediente.",
+            empty_icon="file-x",
         ),
 
         width="100%",

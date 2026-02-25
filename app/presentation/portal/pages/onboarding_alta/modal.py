@@ -5,6 +5,7 @@ import reflex as rx
 
 from app.presentation.theme import Colors, Typography, Spacing
 from app.presentation.components.reusable import (
+    employee_form_body,
     employee_form_modal,
     employee_curp_field,
     employee_email_field,
@@ -27,15 +28,13 @@ def modal_alta_empleado() -> rx.Component:
                 as_="span",
             ),
         ),
-        body=rx.vstack(
+        body=employee_form_body(
             # CURP con validacion realtime
             _campo_curp(),
             # Nombre y apellidos
             _campos_nombre(),
             # Email
             _campo_email(),
-            spacing="4",
-            width="100%",
             padding_y=Spacing.BASE,
         ),
         on_cancel=OnboardingAltaState.cerrar_modal_alta,

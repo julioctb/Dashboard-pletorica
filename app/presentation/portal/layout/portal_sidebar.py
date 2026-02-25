@@ -11,6 +11,7 @@ from app.core.config import Config
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.components.ui.notification_bell import notification_bell_portal, NotificationBellState
+from app.presentation.layout.primitives import nav_group, nav_item
 from app.presentation.theme import (
     Colors,
     Spacing,
@@ -26,20 +27,14 @@ from app.presentation.theme import (
 
 def _cond_item(condition, text: str, icon: str, href: str) -> rx.Component:
     """Renderiza un item de navegacion solo si la condicion es verdadera."""
-    return rx.cond(condition, _portal_item(text, icon, href), rx.fragment())
+    return rx.cond(condition, nav_item(text=text, icon=icon, href=href), rx.fragment())
 
 
 def _cond_group(condition, label: str, *items) -> rx.Component:
     """Renderiza un grupo completo solo si la condicion es verdadera."""
     return rx.cond(
         condition,
-        rx.vstack(
-            _portal_group_label(label),
-            *items,
-            spacing="1",
-            width="100%",
-            align_items="stretch",
-        ),
+        nav_group(*items, label=label),
         rx.fragment(),
     )
 
@@ -90,67 +85,11 @@ def _portal_header() -> rx.Component:
     )
 
 
-def _portal_item(text: str, icon: str, href: str) -> rx.Component:
-    """Item de navegacion del portal."""
-    return rx.link(
-        rx.hstack(
-            rx.icon(
-                icon,
-                size=20,
-                color=Colors.TEXT_SECONDARY,
-                flex_shrink="0",
-            ),
-            rx.text(
-                text,
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
-                color=Colors.TEXT_PRIMARY,
-                white_space="nowrap",
-            ),
-            width="100%",
-            padding_x=Spacing.MD,
-            padding_y=Spacing.SM,
-            align="center",
-            gap=Spacing.SM,
-            border_radius="8px",
-            transition=Transitions.FAST,
-            style={
-                "_hover": {
-                    "background": Colors.SIDEBAR_ITEM_HOVER,
-                },
-            },
-        ),
-        href=href,
-        underline="none",
-        width="100%",
-    )
-
-
-def _portal_group_label(label: str) -> rx.Component:
-    """Etiqueta de grupo."""
-    return rx.text(
-        label.upper(),
-        font_size=Typography.SIZE_XS,
-        font_weight=Typography.WEIGHT_SEMIBOLD,
-        color=Colors.TEXT_MUTED,
-        letter_spacing=Typography.LETTER_SPACING_WIDE,
-        padding_x=Spacing.MD,
-        padding_top=Spacing.LG,
-        padding_bottom=Spacing.XS,
-    )
-
-
-
 def _portal_navigation() -> rx.Component:
     """Navegacion completa del portal, filtrada por rol_empresa."""
     return rx.vstack(
         # --- Dashboard (siempre visible) ---
-        rx.vstack(
-            _portal_item("Dashboard", "layout-dashboard", "/portal"),
-            spacing="1",
-            width="100%",
-            align_items="stretch",
-        ),
+        nav_group(nav_item(text="Dashboard", icon="layout-dashboard", href="/portal")),
         # --- Mi Empresa (admin_empresa, rrhh) ---
         _cond_group(
             AuthState.es_rrhh | AuthState.es_admin_empresa,
@@ -168,12 +107,9 @@ def _portal_navigation() -> rx.Component:
             _cond_item(AuthState.es_rrhh, "Expedientes", "folder-check", "/portal/expedientes"),
         ),
         # --- Autoservicio (siempre visible) ---
-        rx.vstack(
-            _portal_group_label("Autoservicio"),
-            _portal_item("Mis Datos", "user-check", "/portal/mis-datos"),
-            spacing="1",
-            width="100%",
-            align_items="stretch",
+        nav_group(
+            nav_item(text="Mis Datos", icon="user-check", href="/portal/mis-datos"),
+            label="Autoservicio",
         ),
         # --- Operacion (operaciones, contabilidad, admin_empresa) ---
         _cond_group(

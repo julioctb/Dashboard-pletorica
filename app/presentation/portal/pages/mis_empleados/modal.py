@@ -5,6 +5,7 @@ import reflex as rx
 
 from app.presentation.theme import Colors, Typography, Spacing
 from app.presentation.components.reusable import (
+    employee_form_body,
     employee_form_modal,
     employee_address_field,
     employee_birth_gender_row,
@@ -40,7 +41,7 @@ def modal_empleado() -> rx.Component:
                 ),
             ),
         ),
-        body=rx.vstack(
+        body=employee_form_body(
                 # CURP (obligatorio en creacion, inmutable en edicion)
                 _campo_curp(),
 
@@ -65,8 +66,6 @@ def modal_empleado() -> rx.Component:
                 # Notas
                 _campo_notas(),
 
-                spacing="4",
-                width="100%",
                 padding_y=Spacing.BASE,
             ),
         on_cancel=MisEmpleadosState.cerrar_modal_empleado,

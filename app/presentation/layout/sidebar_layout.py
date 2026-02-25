@@ -28,6 +28,7 @@ import reflex as rx
 from app.core.config import Config
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.layout.sidebar_state import SidebarState
+from app.presentation.layout.primitives import collapsible_nav_item, nav_group, nav_group_label
 from app.presentation.components.ui.notification_bell import notification_bell, NotificationBellState
 from app.presentation.theme import (
     Colors,
@@ -156,62 +157,12 @@ def sidebar_item(text: str, icon: str, href: str, badge: rx.Component = None) ->
     Muestra tooltip en modo colapsado.
     Soporta badge opcional para alertas.
     """
-    # Contenido base del item
-    item_content = rx.hstack(
-        rx.icon(
-            icon,
-            size=20,
-            color=Colors.TEXT_SECONDARY,
-            flex_shrink="0",
-        ),
-        # Texto solo visible cuando esta expandido
-        rx.cond(
-            ~SidebarState.is_collapsed,
-            rx.hstack(
-                rx.text(
-                    text,
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                    color=Colors.TEXT_PRIMARY,
-                    white_space="nowrap",
-                ),
-                rx.spacer(),
-                badge if badge else rx.fragment(),
-                width="100%",
-                align="center",
-            ),
-        ),
-        width="100%",
-        padding_x=Spacing.MD,
-        padding_y=Spacing.SM,
-        align="center",
-        justify=rx.cond(SidebarState.is_collapsed, "center", "start"),
-        gap=Spacing.SM,
-        border_radius="8px",
-        transition=Transitions.FAST,
-        style={
-            "_hover": {
-                "background": Colors.SIDEBAR_ITEM_HOVER,
-            },
-        },
-    )
-
-    # Envolver en tooltip si esta colapsado
-    item_with_tooltip = rx.cond(
-        SidebarState.is_collapsed,
-        rx.tooltip(
-            item_content,
-            content=text,
-            side="right",
-        ),
-        item_content,
-    )
-
-    return rx.link(
-        item_with_tooltip,
+    return collapsible_nav_item(
+        text=text,
+        icon=icon,
         href=href,
-        underline="none",
-        width="100%",
+        is_collapsed=SidebarState.is_collapsed,
+        badge=badge,
     )
 
 
@@ -222,16 +173,7 @@ def sidebar_group_label(label: str) -> rx.Component:
     """
     return rx.cond(
         ~SidebarState.is_collapsed,
-        rx.text(
-            label.upper(),
-            font_size=Typography.SIZE_XS,
-            font_weight=Typography.WEIGHT_SEMIBOLD,
-            color=Colors.TEXT_MUTED,
-            letter_spacing=Typography.LETTER_SPACING_WIDE,
-            padding_x=Spacing.MD,
-            padding_top=Spacing.LG,
-            padding_bottom=Spacing.XS,
-        ),
+        nav_group_label(label),
         # En modo colapsado, mostrar separador sutil
         rx.box(
             height="1px",
@@ -282,20 +224,12 @@ def sidebar_group(group: dict) -> rx.Component:
             )
 
     if group["label"]:
-        return rx.vstack(
-            sidebar_group_label(group["label"]),
+        return nav_group(
             *items,
-            spacing="1",
-            width="100%",
-            align_items="stretch",
+            label=group["label"],
         )
     else:
-        return rx.vstack(
-            *items,
-            spacing="1",
-            width="100%",
-            align_items="stretch",
-        )
+        return nav_group(*items)
 
 
 def sidebar_admin_group() -> rx.Component:

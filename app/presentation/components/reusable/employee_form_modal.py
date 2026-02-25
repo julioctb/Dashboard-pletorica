@@ -5,6 +5,22 @@ import reflex as rx
 from app.presentation.components.ui import boton_cancelar, boton_guardar
 
 
+def employee_form_body(*children, spacing: str = "4", padding_y="4") -> rx.Component:
+    """Contenedor reusable para cuerpos de formulario de empleado.
+
+    Contrato:
+    - Recibe componentes (`children`) ya construidos por el modulo consumidor.
+    - Estandariza `spacing`, `width` y `padding_y`.
+    - No contiene logica de negocio ni handlers de estado.
+    """
+    return rx.vstack(
+        *children,
+        spacing=spacing,
+        width="100%",
+        padding_y=padding_y,
+    )
+
+
 def employee_form_modal(
     *,
     open_state,
@@ -19,7 +35,13 @@ def employee_form_modal(
     save_color_scheme: str = "blue",
     max_width: str = "600px",
 ) -> rx.Component:
-    """Modal shell reusable para formularios de empleado."""
+    """Modal shell reusable para formularios de empleado.
+
+    Contrato:
+    - `body` debe ser un componente ya compuesto (idealmente `employee_form_body(...)`).
+    - `on_cancel` y `on_save` son handlers del state consumidor.
+    - Solo encapsula shell visual y footer de acciones.
+    """
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title(title),

@@ -8,6 +8,7 @@ import reflex as rx
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
 from app.presentation.theme import Colors
 from app.presentation.components.reusable import (
+    employee_form_body,
     employee_form_modal,
     employee_address_field,
     employee_birth_gender_row,
@@ -31,7 +32,7 @@ def modal_empleado() -> rx.Component:
         open_state=EmpleadosState.mostrar_modal_empleado,
         title=EmpleadosState.titulo_modal,
         description="Complete los datos del empleado",
-        body=rx.vstack(
+        body=employee_form_body(
                 # Empresa
                 rx.vstack(
                     rx.text("Empresa", size="2", weight="medium"),
@@ -152,8 +153,6 @@ def modal_empleado() -> rx.Component:
                     placeholder="Observaciones adicionales",
                 ),
 
-                spacing="4",
-                width="100%",
                 padding_y="4",
         ),
         on_cancel=EmpleadosState.cerrar_modal_empleado,

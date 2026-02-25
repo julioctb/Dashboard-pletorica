@@ -23,6 +23,7 @@ Uso:
 """
 
 import reflex as rx
+from app.presentation.components.ui.headers import page_header as ui_page_header
 from app.presentation.components.ui.view_toggle import view_toggle as ui_view_toggle
 from app.presentation.theme import (
     Colors,
@@ -42,81 +43,18 @@ def page_header(
     icono: str = None,
     accion_principal: rx.Component = None,
 ) -> rx.Component:
-    """
-    Header estándar de página.
-    
-    Args:
-        titulo: Título principal de la página
-        subtitulo: Descripción breve (opcional)
-        icono: Nombre del icono Lucide (opcional)
-        accion_principal: Botón de acción principal (ej: "Nuevo")
-    
-    Ejemplo:
-        page_header(
-            titulo="Contratos",
-            subtitulo="Gestione los contratos del sistema",
-            icono="file-text",
-            accion_principal=rx.button("+ Nuevo Contrato", ...),
-        )
-    """
-    return rx.hstack(
-        # Lado izquierdo: Icono + Títulos
-        rx.hstack(
-            # Icono (opcional)
-            rx.cond(
-                icono is not None,
-                rx.center(
-                    rx.icon(
-                        icono,
-                        size=28,
-                        color=Colors.PRIMARY,
-                    ),
-                    width="48px",
-                    height="48px",
-                    background=Colors.PRIMARY_LIGHT,
-                    border_radius="12px",
-                ),
-            ) if icono else rx.fragment(),
-            # Títulos
-            rx.vstack(
-                rx.heading(
-                    titulo,
-                    size="7",
-                    font_weight=Typography.WEIGHT_SEMIBOLD,
-                    color=Colors.TEXT_PRIMARY,
-                    line_height=Typography.LINE_HEIGHT_TIGHT,
-                ),
-                rx.cond(
-                    subtitulo != "",
-                    rx.text(
-                        subtitulo,
-                        font_size=Typography.SIZE_BASE,
-                        color=Colors.TEXT_SECONDARY,
-                ),  
-                rx.fragment(),
-                    ),
-                spacing="1",
-                align_items="start",
-            ),
-            spacing="4",
-            align="center",
+    """Adapter compatible que delega al header shared de UI."""
+    return rx.box(
+        ui_page_header(
+            icono=icono,
+            titulo=titulo,
+            subtitulo=subtitulo,
+            accion_principal=accion_principal,
         ),
-        
-        rx.spacer(),
-        
-        # Lado derecho: Acción principal (opcional)
-        rx.cond(
-        accion_principal,
-        accion_principal,
-          rx.fragment(),
-        ),
-            
-        
         width="100%",
         padding_bottom=Spacing.LG,
         margin_bottom=Spacing.MD,
         border_bottom=f"1px solid {Colors.BORDER}",
-        align="center",
     )
 
 
