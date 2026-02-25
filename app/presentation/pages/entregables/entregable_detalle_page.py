@@ -8,7 +8,13 @@ import reflex as rx
 from app.presentation.pages.entregables.entregable_detalle_state import EntregableDetalleState
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.layout import page_layout
-from app.presentation.components.ui import status_badge_reactive, form_input, form_textarea, form_date
+from app.presentation.components.ui import (
+    status_badge_reactive,
+    form_input,
+    form_textarea,
+    form_date,
+    table_shell,
+)
 from app.presentation.theme import Colors, Spacing, Radius, Shadows
 
 
@@ -339,21 +345,22 @@ def _seccion_detalle_personal() -> rx.Component:
             rx.cond(
                 EntregableDetalleState.tiene_detalle_personal,
                 rx.box(
-                    rx.table.root(
-                        rx.table.header(
-                            rx.table.row(
-                                rx.table.column_header_cell("Categoría"),
-                                rx.table.column_header_cell("Reportado"),
-                                rx.table.column_header_cell("Validado"),
-                                rx.table.column_header_cell("Rango"),
-                                rx.table.column_header_cell("Tarifa"),
-                                rx.table.column_header_cell("Subtotal"),
-                            ),
+                    table_shell(
+                        loading=EntregableDetalleState.loading,
+                        has_rows=True,
+                        header_cells=[
+                            rx.table.column_header_cell("Categoría"),
+                            rx.table.column_header_cell("Reportado"),
+                            rx.table.column_header_cell("Validado"),
+                            rx.table.column_header_cell("Rango"),
+                            rx.table.column_header_cell("Tarifa"),
+                            rx.table.column_header_cell("Subtotal"),
+                        ],
+                        body_component=rx.foreach(
+                            EntregableDetalleState.detalle_personal,
+                            _fila_detalle_personal,
                         ),
-                        rx.table.body(
-                            rx.foreach(EntregableDetalleState.detalle_personal, _fila_detalle_personal),
-                        ),
-                        width="100%",
+                        empty_component=rx.fragment(),
                     ),
                     overflow_x="auto",
                 ),

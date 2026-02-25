@@ -131,21 +131,35 @@ class SedesState(BaseState):
     # VALIDACION EN TIEMPO REAL
     # ========================
     def validar_codigo_campo(self):
-        self.error_codigo = validar_codigo(self.form_codigo)
+        self.validar_y_asignar_error(
+            valor=self.form_codigo,
+            validador=validar_codigo,
+            error_attr="error_codigo",
+        )
 
     def validar_nombre_campo(self):
-        self.error_nombre = validar_nombre(self.form_nombre)
+        self.validar_y_asignar_error(
+            valor=self.form_nombre,
+            validador=validar_nombre,
+            error_attr="error_nombre",
+        )
 
     def validar_nombre_corto_campo(self):
-        self.error_nombre_corto = validar_nombre_corto(self.form_nombre_corto)
+        self.validar_y_asignar_error(
+            valor=self.form_nombre_corto,
+            validador=validar_nombre_corto,
+            error_attr="error_nombre_corto",
+        )
 
     def validar_tipo_sede_campo(self):
         self.error_tipo_sede = "Seleccione un tipo de sede" if not self.form_tipo_sede else ""
 
     def validar_todos_los_campos(self):
-        self.validar_codigo_campo()
-        self.validar_nombre_campo()
-        self.validar_nombre_corto_campo()
+        self.validar_lote_campos([
+            ("error_codigo", self.form_codigo, validar_codigo),
+            ("error_nombre", self.form_nombre, validar_nombre),
+            ("error_nombre_corto", self.form_nombre_corto, validar_nombre_corto),
+        ])
         self.validar_tipo_sede_campo()
 
     @rx.var
@@ -435,9 +449,6 @@ class SedesState(BaseState):
     def _limpiar_formulario(self):
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
-        self.error_codigo = ""
-        self.error_nombre = ""
-        self.error_nombre_corto = ""
-        self.error_tipo_sede = ""
+        self.limpiar_errores_campos(["codigo", "nombre", "nombre_corto", "tipo_sede"])
         self.sede_seleccionada = None
         self.es_edicion = False

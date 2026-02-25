@@ -46,46 +46,46 @@ class SuperAdminDashboardState(AuthState):
         return self.metricas.onboarding_rechazado
 
     @rx.var
+    def contratos_por_vencer(self) -> int:
+        if self.metricas is None:
+            return 0
+        return self.metricas.contratos_por_vencer
+
+    @rx.var
     def instituciones_sin_empresas(self) -> int:
         if self.metricas is None:
             return 0
         return self.metricas.instituciones_sin_empresas
 
-    async def verificar_y_redirigir(self):
-        """
-        Verifica sesión y acceso de super admin.
-        """
-        await self.verificar_sesion()
-
-        if self.requiere_login and not self.esta_autenticado:
-            return rx.redirect("/login")
-
-        if not self.es_super_admin:
-            return rx.redirect("/")
-
-        return None
+    async def _cargar_metricas_core(self):
+        """Carga métricas sin manejar flags de loading (reutilizable)."""
+        try:
+            metricas, advertencias = await super_admin_dashboard_service.obtener_metricas_super_admin()
+            self.metricas = metricas
+            self.advertencias = advertencias
+        except Exception as e:
+            logger.error("Error cargando metricas de super admin: %s", e)
+            self.metricas = self.metricas or SuperAdminDashboard()
+            self.advertencias = [
+                "No se pudieron cargar todas las metricas del panel. Intente actualizar."
+            ]
 
     async def montar_pagina(self):
-        """Monta la página: verifica acceso y carga métricas."""
+        """Monta la pagina: valida acceso y carga métricas (auth la maneja el layout)."""
         self.error = None
         self.advertencias = []
 
-        try:
-            resultado = await self.verificar_y_redirigir()
-            if resultado:
-                self.cargando = False
-                self.loading = False
-                yield resultado
-                return
-        except Exception as e:
-            logger.error("Error verificando acceso de super admin: %s", e)
-            self.error = "No se pudo verificar la sesión o los permisos."
-            self.cargando = False
+        # Auth ya se verifica en el wrapper global index(...). Aquí solo autorizamos.
+        # Leemos el AuthState raíz para evitar desincronización entre states heredados en Reflex.
+        auth = await self.get_state(AuthState)
+        if not (auth.es_superadmin or auth.es_super_admin):
             self.loading = False
-            yield
+            self.cargando = False
+            yield rx.redirect("/")
             return
 
-        async for _ in self.cargar_metricas():
+        # Cargar metricas con skeleton
+        async for _ in self._montar_pagina(self._cargar_metricas_core):
             yield
 
     async def cargar_metricas(self):
@@ -96,15 +96,7 @@ class SuperAdminDashboardState(AuthState):
         yield
 
         try:
-            metricas, advertencias = await super_admin_dashboard_service.obtener_metricas_super_admin()
-            self.metricas = metricas
-            self.advertencias = advertencias
-        except Exception as e:
-            logger.error("Error cargando métricas de super admin: %s", e)
-            self.metricas = self.metricas or SuperAdminDashboard()
-            self.advertencias = [
-                "No se pudieron cargar todas las métricas del panel. Intente actualizar."
-            ]
+            await self._cargar_metricas_core()
         finally:
             self.cargando = False
             self.loading = False

@@ -36,6 +36,7 @@ from app.core.exceptions import (
     BusinessRuleError,
     ValidationError,
 )
+from app.core.validation import validar_password_usuario
 from app.database import db_manager
 from app.entities.user_profile import (
     UserProfile,
@@ -47,6 +48,7 @@ from app.entities.user_company import (
     UserCompany,
     UserCompanyCreate,
     UserCompanyResumen,
+    UserCompanyAsignacionInicial,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,6 +92,7 @@ class UserService:
         datos: UserProfileCreate,
         empresas_ids: Optional[List[int]] = None,
         empresa_principal_id: Optional[int] = None,
+        asignaciones_empresas: Optional[List[UserCompanyAsignacionInicial]] = None,
     ) -> UserProfile:
         """
         Crea un nuevo usuario en Supabase Auth.
@@ -116,12 +119,52 @@ class UserService:
                 "No se puede crear usuarios: SUPABASE_SERVICE_KEY no configurada"
             )
 
-        # Validar empresa_principal está en la lista
+        rol_plataforma = datos.rol if isinstance(datos.rol, str) else datos.rol.value
+
+        # Compatibilidad: si no vienen asignaciones nuevas, construirlas desde firma legacy
+        if asignaciones_empresas is None and empresas_ids:
+            asignaciones_empresas = [
+                UserCompanyAsignacionInicial(
+                    empresa_id=empresa_id,
+                    es_principal=(empresa_id == empresa_principal_id) if empresa_principal_id else False,
+                )
+                for empresa_id in empresas_ids
+            ]
+
+        # Validar empresa_principal está en la lista legacy
         if empresa_principal_id and empresas_ids:
             if empresa_principal_id not in empresas_ids:
                 raise ValidationError(
                     "La empresa principal debe estar en la lista de empresas asignadas"
                 )
+
+        # Reglas por rol de plataforma
+        if rol_plataforma == 'institucion' and asignaciones_empresas:
+            raise ValidationError(
+                "Los usuarios institucionales no usan asignaciones de empresa (user_companies)"
+            )
+
+        if rol_plataforma in ('proveedor', 'client'):
+            if not asignaciones_empresas:
+                raise ValidationError(
+                    "Los usuarios proveedor requieren al menos una empresa asignada"
+                )
+
+        if rol_plataforma in ('admin', 'superadmin', 'empleado') and asignaciones_empresas:
+            raise ValidationError(
+                f"El rol '{rol_plataforma}' no debe incluir asignaciones de empresa"
+            )
+
+        if asignaciones_empresas:
+            ids_empresas = [a.empresa_id for a in asignaciones_empresas]
+            if len(set(ids_empresas)) != len(ids_empresas):
+                raise ValidationError("No se puede asignar la misma empresa dos veces")
+
+            principales = [a for a in asignaciones_empresas if a.es_principal]
+            if len(principales) == 0:
+                asignaciones_empresas[0].es_principal = True
+            elif len(principales) > 1:
+                raise ValidationError("Solo puede existir una empresa principal")
 
         try:
             # Preparar metadata para el trigger
@@ -149,7 +192,7 @@ class UserService:
             # Obtener el profile creado por el trigger
             profile = await self.obtener_por_id(user_id)
 
-            # Actualizar permisos granulares si se proporcionaron
+            # Actualizar campos que el trigger aún no soporta (permisos e institucion_id)
             if datos.permisos or datos.puede_gestionar_usuarios:
                 permisos_update = {}
                 if datos.permisos:
@@ -163,19 +206,30 @@ class UserService:
                         .execute()
                     profile = await self.obtener_por_id(user_id)
 
+            if datos.institucion_id:
+                self.supabase_admin.table(self.tabla_profiles)\
+                    .update({'institucion_id': datos.institucion_id})\
+                    .eq('id', str(user_id))\
+                    .execute()
+                profile = await self.obtener_por_id(user_id)
+
             # Asignar empresas si se proporcionaron
-            if empresas_ids:
-                for empresa_id in empresas_ids:
-                    es_principal = (empresa_id == empresa_principal_id)
+            if asignaciones_empresas:
+                for asignacion in asignaciones_empresas:
                     try:
                         await self.asignar_empresa(
                             user_id=user_id,
-                            empresa_id=empresa_id,
-                            es_principal=es_principal,
+                            empresa_id=asignacion.empresa_id,
+                            es_principal=asignacion.es_principal,
+                            rol_empresa=(
+                                asignacion.rol_empresa
+                                if isinstance(asignacion.rol_empresa, str)
+                                else asignacion.rol_empresa.value
+                            ),
                         )
                     except Exception as e:
                         logger.warning(
-                            f"Error asignando empresa {empresa_id} a usuario {user_id}: {e}"
+                            f"Error asignando empresa {asignacion.empresa_id} a usuario {user_id}: {e}"
                         )
 
             return profile
@@ -307,6 +361,30 @@ class UserService:
             logger.debug(f"Token inválido o expirado: {e}")
             return None
 
+    async def obtener_email_desde_token(self, access_token: str) -> Optional[str]:
+        """
+        Obtiene el email del usuario autenticado a partir del access token.
+
+        Args:
+            access_token: JWT de acceso vigente
+
+        Returns:
+            Email normalizado si se pudo resolver, None en caso contrario
+        """
+        if not access_token:
+            return None
+
+        try:
+            response = self.supabase.auth.get_user(access_token)
+            user = getattr(response, "user", None)
+            email = getattr(user, "email", None) if user else None
+            if not email:
+                return None
+            return str(email).strip().lower()
+        except Exception as e:
+            logger.debug(f"No se pudo resolver email desde token: {e}")
+            return None
+
     async def refrescar_token(self, refresh_token: str) -> Optional[dict]:
         """
         Refresca un token de acceso usando el refresh token.
@@ -335,6 +413,59 @@ class UserService:
         except Exception as e:
             logger.debug(f"Error refrescando token: {e}")
             return None
+
+    async def cambiar_password_usuario_autenticado(
+        self,
+        access_token: str,
+        refresh_token: str,
+        nueva_password: str,
+    ) -> None:
+        """
+        Cambia la contraseña del usuario autenticado usando su sesión actual.
+
+        Args:
+            access_token: Access token del usuario autenticado
+            refresh_token: Refresh token del usuario autenticado
+            nueva_password: Nueva contraseña (mínimo 8 caracteres)
+
+        Raises:
+            ValidationError: Si la contraseña no cumple reglas mínimas
+            DatabaseError: Si Supabase rechaza la operación
+        """
+        if not access_token or not refresh_token:
+            raise ValidationError("La sesión es inválida o expiró. Inicia sesión nuevamente.")
+
+        error_password = validar_password_usuario(nueva_password)
+        if error_password:
+            raise ValidationError(
+                "La contraseña debe tener al menos 8 caracteres"
+                if "Minimo" in error_password
+                else error_password
+            )
+
+        try:
+            cliente_auth = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
+
+            # Compatibilidad defensiva con distintas firmas de supabase-py
+            try:
+                cliente_auth.auth.set_session(access_token, refresh_token)
+            except TypeError:
+                cliente_auth.auth.set_session({
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                })
+
+            try:
+                cliente_auth.auth.update_user({"password": nueva_password})
+            except TypeError:
+                cliente_auth.auth.update_user(password=nueva_password)
+
+            logger.info("Contraseña actualizada por usuario autenticado")
+        except ValidationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error cambiando contraseña de usuario autenticado: {e}")
+            raise DatabaseError(f"Error al cambiar contraseña: {str(e)}")
 
     # =========================================================================
     # GESTIÓN DE PERFILES
@@ -676,6 +807,7 @@ class UserService:
         user_id: UUID,
         empresa_id: int,
         es_principal: bool = False,
+        rol_empresa: Optional[str] = None,
     ) -> UserCompany:
         """
         Asigna una empresa a un usuario.
@@ -710,6 +842,8 @@ class UserService:
                 'empresa_id': empresa_id,
                 'es_principal': es_principal,
             }
+            if rol_empresa:
+                datos['rol_empresa'] = rol_empresa
 
             result = self.supabase_admin.table(self.tabla_companies)\
                 .insert(datos)\

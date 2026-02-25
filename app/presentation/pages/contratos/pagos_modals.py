@@ -3,6 +3,7 @@ Modales para el módulo de Pagos de Contratos.
 """
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_textarea, form_date
+from app.presentation.components.ui import table_shell
 from app.presentation.components.ui.modals import modal_confirmar_eliminar as modal_eliminar_generico
 from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.pages.contratos.pagos_state import PagosState
@@ -110,21 +111,19 @@ def tabla_pagos() -> rx.Component:
     """Tabla de pagos del contrato"""
     return rx.cond(
         PagosState.cantidad_pagos > 0,
-        rx.table.root(
-            rx.table.header(
-                rx.table.row(
-                    rx.table.column_header_cell("Fecha", width="100px"),
-                    rx.table.column_header_cell("Monto", width="120px"),
-                    rx.table.column_header_cell("Concepto", width="200px"),
-                    rx.table.column_header_cell("Factura", width="100px"),
-                    rx.table.column_header_cell("Acciones", width="80px"),
-                ),
-            ),
-            rx.table.body(
-                rx.foreach(PagosState.pagos, fila_pago),
-            ),
-            width="100%",
-            size="1",
+        table_shell(
+            loading=False,
+            has_rows=True,
+            empty_component=rx.fragment(),
+            header_cells=[
+                rx.table.column_header_cell("Fecha", width="100px"),
+                rx.table.column_header_cell("Monto", width="120px"),
+                rx.table.column_header_cell("Concepto", width="200px"),
+                rx.table.column_header_cell("Factura", width="100px"),
+                rx.table.column_header_cell("Acciones", width="80px"),
+            ],
+            body_component=rx.foreach(PagosState.pagos, fila_pago),
+            table_size="1",
         ),
         rx.callout(
             "No hay pagos registrados para este contrato",

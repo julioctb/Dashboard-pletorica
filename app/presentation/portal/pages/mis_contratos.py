@@ -41,7 +41,15 @@ class MisContratosState(PortalState):
         self.filtro_estatus_cto = value
 
     async def on_mount_contratos(self):
-        async for _ in self._montar_pagina_portal(self._fetch_contratos):
+        resultado = await self.on_mount_portal()
+        if resultado:
+            self.loading = False
+            yield resultado
+            return
+        if not self.es_operaciones:
+            yield rx.redirect("/portal")
+            return
+        async for _ in self._montar_pagina(self._fetch_contratos):
             yield
 
     async def _fetch_contratos(self):

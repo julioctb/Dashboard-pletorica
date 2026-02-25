@@ -7,6 +7,7 @@ Usa AuthState para manejar la autenticación.
 import reflex as rx
 
 from app.presentation.components.shared.auth_state import AuthState
+from app.presentation.components.ui import boton_guardar
 from app.presentation.theme import Colors, Spacing
 
 
@@ -83,12 +84,22 @@ class LoginState(AuthState):
 
     async def submit_login(self):
         """Procesa el formulario de login."""
+        # Evitar dobles clicks / reentradas mientras ya hay un login en curso
+        if self.loading:
+            return
+
         # Validar primero
         if not self._validar_formulario():
             return
 
+        # Activar loading antes de la llamada async para deshabilitar UI inmediatamente
+        self.loading = True
+        yield  # Forzar actualización UI (spinner/disabled) antes del await
+
         # Delegar a AuthState.iniciar_sesion
-        return await self.iniciar_sesion(self.email, self.password)
+        resultado = await self.iniciar_sesion(self.email, self.password)
+        if resultado is not None:
+            yield resultado
 
     def _limpiar_formulario(self):
         """Limpia el formulario."""
@@ -224,21 +235,16 @@ def _input_password() -> rx.Component:
 
 def _boton_login() -> rx.Component:
     """Botón de inicio de sesión."""
-    return rx.button(
-        rx.cond(
-            LoginState.loading,
-            rx.hstack(
-                rx.spinner(size="1"),
-                rx.text("Iniciando sesión..."),
-                spacing="2",
-            ),
-            rx.text("Iniciar Sesión"),
-        ),
-        on_click=LoginState.submit_login,
+    return boton_guardar(
+        texto="Iniciar Sesión",
+        texto_guardando="Iniciando sesión...",
+        saving=LoginState.loading,
         disabled=~LoginState.puede_enviar,
+        type="submit",
         size="3",
         width="100%",
         cursor=rx.cond(LoginState.puede_enviar, "pointer", "not-allowed"),
+        color_scheme="blue",
     )
 
 

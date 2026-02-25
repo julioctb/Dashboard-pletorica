@@ -263,25 +263,53 @@ class EmpleadosState(AuthState, CRUDStateMixin):
     # VALIDADORES ON_BLUR
     # ========================
     def validar_curp_blur(self):
-        self.error_curp = validar_curp(self.form_curp)
+        self.validar_y_asignar_error(
+            valor=self.form_curp,
+            validador=validar_curp,
+            error_attr="error_curp",
+        )
 
     def validar_rfc_blur(self):
-        self.error_rfc = validar_rfc(self.form_rfc)
+        self.validar_y_asignar_error(
+            valor=self.form_rfc,
+            validador=validar_rfc,
+            error_attr="error_rfc",
+        )
 
     def validar_nss_blur(self):
-        self.error_nss = validar_nss(self.form_nss)
+        self.validar_y_asignar_error(
+            valor=self.form_nss,
+            validador=validar_nss,
+            error_attr="error_nss",
+        )
 
     def validar_nombre_blur(self):
-        self.error_nombre = validar_nombre(self.form_nombre)
+        self.validar_y_asignar_error(
+            valor=self.form_nombre,
+            validador=validar_nombre,
+            error_attr="error_nombre",
+        )
 
     def validar_apellido_paterno_blur(self):
-        self.error_apellido_paterno = validar_apellido_paterno(self.form_apellido_paterno)
+        self.validar_y_asignar_error(
+            valor=self.form_apellido_paterno,
+            validador=validar_apellido_paterno,
+            error_attr="error_apellido_paterno",
+        )
 
     def validar_email_blur(self):
-        self.error_email = validar_email(self.form_email)
+        self.validar_y_asignar_error(
+            valor=self.form_email,
+            validador=validar_email,
+            error_attr="error_email",
+        )
 
     def validar_telefono_blur(self):
-        self.error_telefono = validar_telefono(self.form_telefono)
+        self.validar_y_asignar_error(
+            valor=self.form_telefono,
+            validador=validar_telefono,
+            error_attr="error_telefono",
+        )
 
     # ========================
     # COMPUTED VARS
@@ -1092,6 +1120,10 @@ class EmpleadosState(AuthState, CRUDStateMixin):
         self.empleado_id_edicion = 0
         self._limpiar_formulario_crud()  # Usa _campos_formulario y _campos_error
 
+    def _limpiar_errores(self):
+        """Compatibilidad local: limpia errores declarados del formulario."""
+        self.limpiar_errores_campos(self._campos_error)
+
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es válido."""
         self._limpiar_errores()
@@ -1101,46 +1133,50 @@ class EmpleadosState(AuthState, CRUDStateMixin):
 
         # CURP obligatorio (solo en creación)
         if not self.es_edicion:
-            error = validar_curp(self.form_curp)
-            if error:
-                self.error_curp = error
+            if not self.validar_y_asignar_error(
+                valor=self.form_curp,
+                validador=validar_curp,
+                error_attr="error_curp",
+            ):
                 es_valido = False
 
-        # Nombre obligatorio
-        error = validar_nombre(self.form_nombre)
-        if error:
-            self.error_nombre = error
-            es_valido = False
-
-        # Apellido paterno obligatorio
-        error = validar_apellido_paterno(self.form_apellido_paterno)
-        if error:
-            self.error_apellido_paterno = error
+        if not self.validar_lote_campos([
+            ("error_nombre", self.form_nombre, validar_nombre),
+            ("error_apellido_paterno", self.form_apellido_paterno, validar_apellido_paterno),
+        ]):
             es_valido = False
 
         # Validaciones opcionales (solo si tienen valor)
         if self.form_rfc:
-            error = validar_rfc(self.form_rfc)
-            if error:
-                self.error_rfc = error
+            if not self.validar_y_asignar_error(
+                valor=self.form_rfc,
+                validador=validar_rfc,
+                error_attr="error_rfc",
+            ):
                 es_valido = False
 
         if self.form_nss:
-            error = validar_nss(self.form_nss)
-            if error:
-                self.error_nss = error
+            if not self.validar_y_asignar_error(
+                valor=self.form_nss,
+                validador=validar_nss,
+                error_attr="error_nss",
+            ):
                 es_valido = False
 
         if self.form_email:
-            error = validar_email(self.form_email)
-            if error:
-                self.error_email = error
+            if not self.validar_y_asignar_error(
+                valor=self.form_email,
+                validador=validar_email,
+                error_attr="error_email",
+            ):
                 es_valido = False
 
         if self.form_telefono:
-            error = validar_telefono(self.form_telefono)
-            if error:
-                self.error_telefono = error
+            if not self.validar_y_asignar_error(
+                valor=self.form_telefono,
+                validador=validar_telefono,
+                error_attr="error_telefono",
+            ):
                 es_valido = False
 
         return es_valido

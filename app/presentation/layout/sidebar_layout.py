@@ -32,6 +32,7 @@ from app.presentation.layout.primitives import collapsible_nav_item, nav_group, 
 from app.presentation.components.ui.notification_bell import notification_bell, NotificationBellState
 from app.presentation.theme import (
     Colors,
+    Radius,
     Spacing,
     Transitions,
     Typography,
@@ -48,13 +49,12 @@ NAVIGATION_GROUPS = [
     {
         "label": None,  # Sin etiqueta = item suelto
         "items": [
-            {"text": "Dashboard", "icon": "layout-dashboard", "href": "/"},
+            {"text": "Dashboard", "icon": "layout-dashboard", "href": "/admin"},
         ],
     },
     {
         "label": "Operacion",
         "items": [
-            {"text": "Requisiciones", "icon": "clipboard-list", "href": "/requisiciones"},
             {"text": "Contratos", "icon": "file-text", "href": "/contratos"},
             {"text": "Entregables", "icon": "package-check", "href": "/entregables"},
             {"text": "Pagos", "icon": "credit-card", "href": "/pagos"},
@@ -162,6 +162,7 @@ def sidebar_item(text: str, icon: str, href: str, badge: rx.Component = None) ->
         icon=icon,
         href=href,
         is_collapsed=SidebarState.is_collapsed,
+        is_active=SidebarState.router.route_id == href,
         badge=badge,
     )
 
@@ -234,11 +235,11 @@ def sidebar_group(group: dict) -> rx.Component:
 
 def sidebar_admin_group() -> rx.Component:
     """
-    Grupo de administracion, solo visible para usuarios con rol admin.
+    Grupo de administracion, visible para superadmins (rol/plataforma o permiso).
     """
     admin_group = sidebar_group(ADMIN_NAVIGATION_GROUP)
     return rx.cond(
-        SidebarState.es_admin,
+        SidebarState.es_superadmin | SidebarState.es_super_admin,
         admin_group,
         rx.fragment(),
     )
@@ -327,7 +328,7 @@ def _user_section_expanded() -> rx.Component:
                         max_width="140px",
                     ),
                     rx.text(
-                        SidebarState.nombre_empresa_actual,
+                        SidebarState.usuario_contexto_sidebar,
                         font_size=Typography.SIZE_XS,
                         color=Colors.TEXT_MUTED,
                         white_space="nowrap",
@@ -367,15 +368,15 @@ def _user_section_expanded() -> rx.Component:
                 padding_y="8px",
             ),
             rx.menu.separator(),
-            # Configuracion
+            # Mi Perfil
             rx.menu.item(
                 rx.hstack(
-                    rx.icon("settings", size=14),
-                    rx.text("Configuracion"),
+                    rx.icon("user", size=14),
+                    rx.text("Mi Perfil"),
                     spacing="2",
                     align="center",
                 ),
-                on_click=rx.redirect("/configuracion"),
+                on_click=rx.redirect("/mi-perfil"),
             ),
             rx.menu.separator(),
             # Cerrar sesion
@@ -422,7 +423,7 @@ def _user_section_collapsed() -> rx.Component:
                     font_weight=Typography.WEIGHT_MEDIUM,
                 ),
                 rx.text(
-                    SidebarState.nombre_empresa_actual,
+                    SidebarState.usuario_contexto_sidebar,
                     font_size=Typography.SIZE_XS,
                     color=Colors.TEXT_MUTED,
                 ),
@@ -432,12 +433,12 @@ def _user_section_collapsed() -> rx.Component:
             rx.menu.separator(),
             rx.menu.item(
                 rx.hstack(
-                    rx.icon("settings", size=14),
-                    rx.text("Configuracion"),
+                    rx.icon("user", size=14),
+                    rx.text("Mi Perfil"),
                     spacing="2",
                     align="center",
                 ),
-                on_click=rx.redirect("/configuracion"),
+                on_click=rx.redirect("/mi-perfil"),
             ),
             rx.menu.separator(),
             rx.menu.item(
@@ -501,7 +502,7 @@ def _dev_view_switcher() -> rx.Component:
     # Botón Admin
     btn_admin = rx.button(
         rx.icon("shield", size=14),
-        rx.cond(~SidebarState.is_collapsed, rx.text("Admin", font_size="12px"), rx.fragment()),
+        rx.cond(~SidebarState.is_collapsed, rx.text("Admin", font_size=Typography.SIZE_XS), rx.fragment()),
         size="1",
         variant=rx.cond(~AuthState.dev_modo_cliente_activo, "solid", "outline"),
         color_scheme="gray",
@@ -513,7 +514,7 @@ def _dev_view_switcher() -> rx.Component:
     # Botón Cliente
     btn_cliente = rx.button(
         rx.icon("building-2", size=14),
-        rx.cond(~SidebarState.is_collapsed, rx.text("Cliente", font_size="12px"), rx.fragment()),
+        rx.cond(~SidebarState.is_collapsed, rx.text("Cliente", font_size=Typography.SIZE_XS), rx.fragment()),
         size="1",
         variant=rx.cond(AuthState.dev_modo_cliente_activo, "solid", "outline"),
         color_scheme="teal",
@@ -544,9 +545,9 @@ def _dev_view_switcher() -> rx.Component:
     expanded = rx.vstack(
         rx.text(
             "DEV VIEW",
-            font_size="10px",
+            font_size=Typography.SIZE_XS,
             font_weight=Typography.WEIGHT_BOLD,
-            color="var(--red-9)",
+            color=Colors.ERROR,
             letter_spacing=Typography.LETTER_SPACING_WIDE,
         ),
         rx.hstack(
@@ -559,20 +560,20 @@ def _dev_view_switcher() -> rx.Component:
         width="100%",
         spacing="2",
         padding=Spacing.SM,
-        background="var(--red-2)",
-        border_radius="8px",
-        border="1px dashed var(--red-6)",
+        background=Colors.ERROR_LIGHT,
+        border_radius=Radius.LG,
+        border=f"1px dashed {Colors.ERROR}",
     )
 
     # Versión colapsada: solo icono bug con tooltip
     collapsed = rx.tooltip(
         rx.center(
-            rx.icon("bug", size=16, color="var(--red-9)"),
+            rx.icon("bug", size=16, color=Colors.ERROR),
             width="36px",
             height="36px",
-            border_radius="8px",
-            background="var(--red-2)",
-            border="1px dashed var(--red-6)",
+            border_radius=Radius.LG,
+            background=Colors.ERROR_LIGHT,
+            border=f"1px dashed {Colors.ERROR}",
             cursor="pointer",
         ),
         content="Dev View Switcher",

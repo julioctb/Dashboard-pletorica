@@ -7,12 +7,13 @@ import reflex as rx
 
 from app.presentation.components.ui import (
     badge_onboarding,
+    table_text_sm,
 )
 from app.presentation.components.reusable.onboarding_list import (
     onboarding_filters,
     onboarding_table,
 )
-from app.presentation.theme import Colors, Typography, Spacing
+from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 from .state import AdminOnboardingState
 
@@ -38,7 +39,7 @@ def _pipeline_card(
                 rx.spacer(),
                 rx.text(
                     count_var,
-                    font_size="24px",
+                    font_size=Typography.SIZE_2XL,
                     font_weight=Typography.WEIGHT_BOLD,
                     color=f"var(--{color_scheme}-9)",
                 ),
@@ -55,7 +56,7 @@ def _pipeline_card(
             width="100%",
         ),
         padding=Spacing.MD,
-        border_radius="8px",
+        border_radius=Radius.LG,
         border=rx.cond(
             is_active,
             f"2px solid var(--{color_scheme}-9)",
@@ -144,42 +145,25 @@ def fila_onboarding_admin(emp: dict) -> rx.Component:
     """Fila de la tabla de onboarding admin."""
     return rx.table.row(
         rx.table.cell(
-            rx.text(
+            table_text_sm(
                 emp["clave"],
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
-                color=Colors.TEXT_PRIMARY,
+                weight=Typography.WEIGHT_MEDIUM,
             ),
         ),
         rx.table.cell(
-            rx.text(
-                emp["nombre_completo"],
-                font_size=Typography.SIZE_SM,
-            ),
+            table_text_sm(emp["nombre_completo"]),
         ),
         rx.table.cell(
-            rx.text(
-                emp["nombre_empresa"],
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            ),
+            table_text_sm(emp["nombre_empresa"], tone="secondary"),
         ),
         rx.table.cell(
-            rx.text(
-                emp["curp"],
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_MUTED,
-            ),
+            table_text_sm(emp["curp"], tone="muted"),
         ),
         rx.table.cell(
             badge_onboarding(emp.get("estatus_onboarding", "")),
         ),
         rx.table.cell(
-            rx.text(
-                emp.get("email", ""),
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            ),
+            table_text_sm(emp.get("email", ""), tone="secondary"),
         ),
         _hover={"background": Colors.SURFACE_HOVER},
     )

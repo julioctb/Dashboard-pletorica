@@ -10,9 +10,11 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
+    table_cell_actions,
+    table_cell_badge,
+    table_shell,
     status_badge_reactive,
     tabla_vacia,
-    skeleton_tabla,
     switch_inactivos,
     tabla_action_button,
     tabla_action_buttons,
@@ -109,13 +111,9 @@ def fila_sede(sede: dict) -> rx.Component:
             ),
         ),
         # Estatus
-        rx.table.cell(
-            status_badge_reactive(sede["estatus"], show_icon=True),
-        ),
+        table_cell_badge(status_badge_reactive(sede["estatus"], show_icon=True)),
         # Acciones
-        rx.table.cell(
-            acciones_sede(sede),
-        ),
+        table_cell_actions(acciones_sede(sede)),
     )
 
 
@@ -131,44 +129,15 @@ ENCABEZADOS_SEDES = [
 
 def tabla_sedes() -> rx.Component:
     """Vista de tabla de sedes"""
-    return rx.cond(
-        SedesState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_SEDES, filas=5),
-        rx.cond(
-            SedesState.total_sedes > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_SEDES,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            SedesState.sedes,
-                            fila_sede,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                # Contador
-                rx.text(
-                    "Mostrando ", SedesState.total_sedes, " sede(s)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(onclick=SedesState.abrir_modal_crear),
-        ),
+    return table_shell(
+        loading=SedesState.loading,
+        headers=ENCABEZADOS_SEDES,
+        rows=SedesState.sedes,
+        row_renderer=fila_sede,
+        has_rows=SedesState.total_sedes > 0,
+        empty_component=tabla_vacia(onclick=SedesState.abrir_modal_crear),
+        total_caption="Mostrando " + SedesState.total_sedes.to(str) + " sede(s)",
+        loading_rows=5,
     )
 
 

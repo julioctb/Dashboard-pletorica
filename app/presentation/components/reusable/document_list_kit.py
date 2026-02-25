@@ -2,6 +2,7 @@
 
 import reflex as rx
 
+from app.presentation.components.ui import table_shell
 from app.presentation.theme import Colors, Typography, Spacing
 
 
@@ -81,31 +82,18 @@ def document_table_shell(
     - `row_renderer`: función que devuelve una `rx.table.row`.
     - `has_items`: condición reactiva booleana para decidir tabla vs vacío.
     """
-    return rx.cond(
-        has_items,
-        rx.table.root(
-            rx.table.header(
-                rx.table.row(
-                    rx.foreach(
-                        headers,
-                        lambda col: rx.table.column_header_cell(
-                            col["nombre"],
-                            width=col.get("ancho", "auto"),
-                        ),
-                    ),
-                ),
-            ),
-            rx.table.body(
-                rx.foreach(items, row_renderer),
-            ),
-            width="100%",
-            variant=variant,
-        ),
-        document_empty_state(
+    return table_shell(
+        loading=False,
+        headers=headers,
+        rows=items,
+        row_renderer=row_renderer,
+        has_rows=has_items,
+        empty_component=document_empty_state(
             title=empty_title,
             description=empty_description,
             icon=empty_icon,
         ),
+        table_variant=variant,
     )
 
 

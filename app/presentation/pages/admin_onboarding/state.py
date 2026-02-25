@@ -77,7 +77,7 @@ class AdminOnboardingState(AuthState):
     # MONTAJE
     # ========================
     async def on_mount_admin_onboarding(self):
-        async for _ in self._montar_pagina(self._fetch_pipeline):
+        async for _ in self._montar_pagina_auth(self._fetch_pipeline):
             yield
 
     # ========================

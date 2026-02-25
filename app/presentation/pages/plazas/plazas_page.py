@@ -10,9 +10,12 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
+    table_cell_actions,
+    table_cell_badge,
+    table_shell,
+    skeleton_tabla,
     status_badge_reactive,
     tabla_vacia,
-    skeleton_tabla,
     breadcrumb_dynamic,
     switch_inactivos,
     tabla_action_button,
@@ -134,13 +137,9 @@ def fila_plaza(plaza: dict) -> rx.Component:
             ),
         ),
         # Estatus
-        rx.table.cell(
-            status_badge_reactive(plaza["estatus"], show_icon=True),
-        ),
+        table_cell_badge(status_badge_reactive(plaza["estatus"], show_icon=True)),
         # Acciones
-        rx.table.cell(
-            acciones_plaza(plaza),
-        ),
+        table_cell_actions(acciones_plaza(plaza)),
     )
 
 
@@ -157,44 +156,15 @@ ENCABEZADOS_PLAZAS = [
 
 def tabla_plazas() -> rx.Component:
     """Vista de tabla de plazas"""
-    return rx.cond(
-        PlazasState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_PLAZAS, filas=5),
-        rx.cond(
-            PlazasState.total_plazas > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_PLAZAS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            PlazasState.plazas_filtradas,
-                            fila_plaza,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                # Contador
-                rx.text(
-                    "Mostrando ", PlazasState.total_plazas, " plaza(s)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(onclick=PlazasState.abrir_modal_crear),
-        ),
+    return table_shell(
+        loading=PlazasState.loading,
+        headers=ENCABEZADOS_PLAZAS,
+        rows=PlazasState.plazas_filtradas,
+        row_renderer=fila_plaza,
+        has_rows=PlazasState.total_plazas > 0,
+        empty_component=tabla_vacia(onclick=PlazasState.abrir_modal_crear),
+        total_caption="Mostrando " + PlazasState.total_plazas.to(str) + " plaza(s)",
+        loading_rows=5,
     )
 
 
@@ -544,35 +514,14 @@ def tabla_resumen_inicial() -> rx.Component:
             # Tabla de resumen (si hay datos)
             rx.cond(
                 PlazasState.tiene_resumen,
-                rx.vstack(
-                    rx.table.root(
-                        rx.table.header(
-                            rx.table.row(
-                                rx.foreach(
-                                    ENCABEZADOS_RESUMEN,
-                                    lambda col: rx.table.column_header_cell(
-                                        col["nombre"],
-                                        width=col["ancho"],
-                                    ),
-                                ),
-                            ),
-                        ),
-                        rx.table.body(
-                            rx.foreach(
-                                PlazasState.resumen_categorias,
-                                fila_resumen,
-                            ),
-                        ),
-                        width="100%",
-                        variant="surface",
-                    ),
-                    rx.text(
-                        PlazasState.resumen_categorias.length(), " categoria(s) con plazas",
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_MUTED,
-                    ),
-                    width="100%",
-                    spacing="3",
+                table_shell(
+                    loading=False,
+                    headers=ENCABEZADOS_RESUMEN,
+                    rows=PlazasState.resumen_categorias,
+                    row_renderer=fila_resumen,
+                    has_rows=True,
+                    empty_component=rx.fragment(),
+                    total_caption=PlazasState.resumen_categorias.length().to(str) + " categoria(s) con plazas",
                 ),
             ),
 

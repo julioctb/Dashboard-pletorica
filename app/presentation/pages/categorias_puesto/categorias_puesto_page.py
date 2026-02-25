@@ -11,8 +11,8 @@ from app.presentation.layout import (
 )
 from app.presentation.components.ui import (
     status_badge_reactive,
+    table_shell,
     tabla_vacia,
-    skeleton_tabla,
     switch_inactivos,
     tabla_action_button,
     tabla_action_buttons,
@@ -119,44 +119,15 @@ ENCABEZADOS_CATEGORIAS = [
 
 def tabla_categorias() -> rx.Component:
     """Vista de tabla de categorias"""
-    return rx.cond(
-        CategoriasPuestoState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_CATEGORIAS, filas=5),
-        rx.cond(
-            CategoriasPuestoState.total_categorias > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_CATEGORIAS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            CategoriasPuestoState.categorias,
-                            fila_categoria,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                # Contador
-                rx.text(
-                    "Mostrando ", CategoriasPuestoState.total_categorias, " categoria(s)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(onclick=CategoriasPuestoState.abrir_modal_crear),
-        ),
+    return table_shell(
+        loading=CategoriasPuestoState.loading,
+        headers=ENCABEZADOS_CATEGORIAS,
+        rows=CategoriasPuestoState.categorias,
+        row_renderer=fila_categoria,
+        has_rows=CategoriasPuestoState.total_categorias > 0,
+        empty_component=tabla_vacia(onclick=CategoriasPuestoState.abrir_modal_crear),
+        total_caption="Mostrando " + CategoriasPuestoState.total_categorias.to(str) + " categoria(s)",
+        loading_rows=5,
     )
 
 

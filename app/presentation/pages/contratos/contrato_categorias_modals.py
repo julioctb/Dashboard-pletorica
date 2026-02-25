@@ -3,6 +3,7 @@ Modales para el módulo de Categorías de Contrato.
 """
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_textarea, form_select
+from app.presentation.components.ui import table_shell
 from app.presentation.components.ui.modals import modal_confirmar_eliminar as modal_eliminar_generico
 from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.pages.contratos.contrato_categorias_state import ContratoCategoriaState
@@ -113,22 +114,20 @@ def tabla_categorias() -> rx.Component:
     """Tabla de categorías asignadas al contrato"""
     return rx.cond(
         ContratoCategoriaState.cantidad_categorias > 0,
-        rx.table.root(
-            rx.table.header(
-                rx.table.row(
-                    rx.table.column_header_cell("Clave", width="80px"),
-                    rx.table.column_header_cell("Categoría", width="150px"),
-                    rx.table.column_header_cell("Mín.", width="60px"),
-                    rx.table.column_header_cell("Máx.", width="60px"),
-                    rx.table.column_header_cell("Costo Unit.", width="100px"),
-                    rx.table.column_header_cell("Acciones", width="80px"),
-                ),
-            ),
-            rx.table.body(
-                rx.foreach(ContratoCategoriaState.categorias_asignadas, fila_categoria),
-            ),
-            width="100%",
-            size="1",
+        table_shell(
+            loading=False,
+            has_rows=True,
+            empty_component=rx.fragment(),
+            header_cells=[
+                rx.table.column_header_cell("Clave", width="80px"),
+                rx.table.column_header_cell("Categoría", width="150px"),
+                rx.table.column_header_cell("Mín.", width="60px"),
+                rx.table.column_header_cell("Máx.", width="60px"),
+                rx.table.column_header_cell("Costo Unit.", width="100px"),
+                rx.table.column_header_cell("Acciones", width="80px"),
+            ],
+            body_component=rx.foreach(ContratoCategoriaState.categorias_asignadas, fila_categoria),
+            table_size="1",
         ),
         rx.callout(
             "No hay categorías de personal asignadas a este contrato",

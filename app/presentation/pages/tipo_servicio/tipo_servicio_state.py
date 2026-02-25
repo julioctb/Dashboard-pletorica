@@ -106,21 +106,35 @@ class TipoServicioState(BaseState):
     # ========================
     def validar_clave_campo(self):
         """Validar clave en tiempo real"""
-        self.error_clave = validar_clave(self.form_clave)
+        self.validar_y_asignar_error(
+            valor=self.form_clave,
+            validador=validar_clave,
+            error_attr="error_clave",
+        )
 
     def validar_nombre_campo(self):
         """Validar nombre en tiempo real"""
-        self.error_nombre = validar_nombre(self.form_nombre)
+        self.validar_y_asignar_error(
+            valor=self.form_nombre,
+            validador=validar_nombre,
+            error_attr="error_nombre",
+        )
 
     def validar_descripcion_campo(self):
         """Validar descripción en tiempo real"""
-        self.error_descripcion = validar_descripcion(self.form_descripcion)
+        self.validar_y_asignar_error(
+            valor=self.form_descripcion,
+            validador=validar_descripcion,
+            error_attr="error_descripcion",
+        )
 
     def validar_todos_los_campos(self):
         """Validar todos los campos del formulario"""
-        self.validar_clave_campo()
-        self.validar_nombre_campo()
-        self.validar_descripcion_campo()
+        self.validar_lote_campos([
+            ("error_clave", self.form_clave, validar_clave),
+            ("error_nombre", self.form_nombre, validar_nombre),
+            ("error_descripcion", self.form_descripcion, validar_descripcion),
+        ])
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
@@ -355,8 +369,6 @@ class TipoServicioState(BaseState):
         """Limpiar todos los campos del formulario"""
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
-        self.error_clave = ""
-        self.error_nombre = ""
-        self.error_descripcion = ""
+        self.limpiar_errores_campos(["clave", "nombre", "descripcion"])
         self.tipo_seleccionado = None
         self.es_edicion = False

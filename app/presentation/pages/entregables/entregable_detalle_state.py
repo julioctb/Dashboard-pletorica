@@ -56,21 +56,32 @@ class EntregableDetalleState(AuthState):
     # =========================================================================
     # SETTERS
     # =========================================================================
+    @staticmethod
+    def _validar_observaciones_minimas(valor: str) -> str:
+        texto = (valor or "").strip()
+        if len(texto) < 10:
+            return "Las observaciones deben tener al menos 10 caracteres"
+        return ""
+
+    @staticmethod
+    def _validar_fecha_pago_requerida(valor: str) -> str:
+        return "" if valor else "La fecha de pago es requerida"
+
     def set_monto_a_aprobar(self, value: str):
         self.monto_a_aprobar = formatear_moneda(value) if value else ""
-        self.error_monto = ""
+        self.limpiar_errores_campos(["monto"])
 
     def set_observaciones_rechazo(self, value: str):
         self.observaciones_rechazo = value
-        self.error_observaciones = ""
+        self.limpiar_errores_campos(["observaciones"])
 
     def set_observaciones_prefactura(self, value: str):
         self.observaciones_prefactura = value
-        self.error_observaciones_prefactura = ""
+        self.limpiar_errores_campos(["observaciones_prefactura"])
 
     def set_fecha_pago(self, value: str):
         self.fecha_pago = value
-        self.error_fecha_pago = ""
+        self.limpiar_errores_campos(["fecha_pago"])
 
     def set_referencia_pago(self, value: str):
         self.referencia_pago = value
@@ -348,30 +359,35 @@ class EntregableDetalleState(AuthState):
             return
         raw = self.entregable.get("monto_calculado", "0")
         self.monto_a_aprobar = formatear_moneda(raw) if raw else ""
-        self.error_monto = ""
+        self.limpiar_errores_campos(["monto"])
         self.mostrar_modal_aprobar = True
 
     def cerrar_modal_aprobar(self):
         self.mostrar_modal_aprobar = False
         self.monto_a_aprobar = ""
-        self.error_monto = ""
+        self.limpiar_errores_campos(["monto"])
 
     def _limpiar_monto(self, valor: str) -> str:
         """Remueve formato de moneda para obtener valor numérico limpio."""
         return valor.replace(",", "").replace("$", "").strip()
 
     def validar_monto(self):
-        if not self.monto_a_aprobar:
-            self.error_monto = "El monto es requerido"
-            return
-        try:
-            monto = Decimal(self._limpiar_monto(self.monto_a_aprobar))
-            if monto <= 0:
-                self.error_monto = "El monto debe ser mayor a cero"
-            else:
-                self.error_monto = ""
-        except Exception:
-            self.error_monto = "Ingrese un monto válido"
+        def _validar(valor: str) -> str:
+            if not valor:
+                return "El monto es requerido"
+            try:
+                monto = Decimal(self._limpiar_monto(valor))
+                if monto <= 0:
+                    return "El monto debe ser mayor a cero"
+            except Exception:
+                return "Ingrese un monto válido"
+            return ""
+
+        self.validar_y_asignar_error(
+            valor=self.monto_a_aprobar,
+            validador=_validar,
+            error_attr="error_monto",
+        )
 
     async def confirmar_aprobacion(self):
         self.validar_monto()
@@ -404,19 +420,20 @@ class EntregableDetalleState(AuthState):
             self.mostrar_mensaje("Este entregable no está en revisión", "warning")
             return
         self.observaciones_rechazo = ""
-        self.error_observaciones = ""
+        self.limpiar_errores_campos(["observaciones"])
         self.mostrar_modal_rechazar = True
 
     def cerrar_modal_rechazar(self):
         self.mostrar_modal_rechazar = False
         self.observaciones_rechazo = ""
-        self.error_observaciones = ""
+        self.limpiar_errores_campos(["observaciones"])
 
     def validar_observaciones(self):
-        if not self.observaciones_rechazo or len(self.observaciones_rechazo.strip()) < 10:
-            self.error_observaciones = "Las observaciones deben tener al menos 10 caracteres"
-        else:
-            self.error_observaciones = ""
+        self.validar_y_asignar_error(
+            valor=self.observaciones_rechazo,
+            validador=self._validar_observaciones_minimas,
+            error_attr="error_observaciones",
+        )
 
     async def confirmar_rechazo(self):
         self.validar_observaciones()
@@ -466,19 +483,20 @@ class EntregableDetalleState(AuthState):
             self.mostrar_mensaje("Este entregable no tiene prefactura en revisión", "warning")
             return
         self.observaciones_prefactura = ""
-        self.error_observaciones_prefactura = ""
+        self.limpiar_errores_campos(["observaciones_prefactura"])
         self.mostrar_modal_rechazar_prefactura = True
 
     def cerrar_modal_rechazar_prefactura(self):
         self.mostrar_modal_rechazar_prefactura = False
         self.observaciones_prefactura = ""
-        self.error_observaciones_prefactura = ""
+        self.limpiar_errores_campos(["observaciones_prefactura"])
 
     def validar_observaciones_prefactura(self):
-        if not self.observaciones_prefactura or len(self.observaciones_prefactura.strip()) < 10:
-            self.error_observaciones_prefactura = "Las observaciones deben tener al menos 10 caracteres"
-        else:
-            self.error_observaciones_prefactura = ""
+        self.validar_y_asignar_error(
+            valor=self.observaciones_prefactura,
+            validador=self._validar_observaciones_minimas,
+            error_attr="error_observaciones_prefactura",
+        )
 
     async def confirmar_rechazo_prefactura(self):
         self.validar_observaciones_prefactura()
@@ -511,20 +529,21 @@ class EntregableDetalleState(AuthState):
             return
         self.fecha_pago = ""
         self.referencia_pago = ""
-        self.error_fecha_pago = ""
+        self.limpiar_errores_campos(["fecha_pago"])
         self.mostrar_modal_registrar_pago = True
 
     def cerrar_modal_registrar_pago(self):
         self.mostrar_modal_registrar_pago = False
         self.fecha_pago = ""
         self.referencia_pago = ""
-        self.error_fecha_pago = ""
+        self.limpiar_errores_campos(["fecha_pago"])
 
     def validar_fecha_pago(self):
-        if not self.fecha_pago:
-            self.error_fecha_pago = "La fecha de pago es requerida"
-        else:
-            self.error_fecha_pago = ""
+        self.validar_y_asignar_error(
+            valor=self.fecha_pago,
+            validador=self._validar_fecha_pago_requerida,
+            error_attr="error_fecha_pago",
+        )
 
     async def confirmar_registrar_pago(self):
         self.validar_fecha_pago()

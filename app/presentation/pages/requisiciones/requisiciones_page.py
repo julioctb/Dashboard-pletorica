@@ -112,6 +112,18 @@ def requisiciones_page() -> rx.Component:
                 on_search_clear=lambda: RequisicionesState.set_filtro_busqueda(""),
                 filters=_filtros_requisiciones(),
                 show_view_toggle=False,
+                extra_right=rx.cond(
+                    RequisicionesState.puede_operar_requisiciones,
+                    rx.button(
+                        rx.icon("settings", size=14),
+                        "Configuración de requisiciones",
+                        variant="soft",
+                        color_scheme="gray",
+                        size="2",
+                        on_click=rx.redirect("/configuracion"),
+                    ),
+                    rx.fragment(),
+                ),
             ),
             content=rx.vstack(
                 # Tabla de requisiciones

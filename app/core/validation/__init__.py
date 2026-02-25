@@ -42,6 +42,39 @@ from .custom_validators import (
     limpiar_telefono,
 )
 
+# Validadores de usuario (reutilizados por UI + entidades)
+from .user_validators import (
+    validar_email_usuario,
+    validar_password_usuario,
+    validar_nombre_completo_usuario,
+    validar_telefono_usuario,
+    normalizar_email_usuario,
+    normalizar_nombre_completo_usuario,
+    normalizar_telefono_usuario,
+)
+
+# Validadores de empleados (UI)
+from .employee_validators import (
+    validar_curp_empleado,
+    validar_rfc_empleado,
+    validar_nss_empleado,
+    validar_nombre_empleado,
+    validar_apellido_empleado,
+    validar_apellido_paterno_empleado,
+    validar_apellido_materno_empleado,
+    validar_email_empleado,
+    validar_telefono_empleado,
+    validar_fecha_nacimiento_empleado,
+    validar_empresa_seleccionada_empleado,
+    validar_motivo_restriccion_empleado,
+    validar_rfc_empleado_requerido,
+    validar_nss_empleado_requerido,
+    validar_telefono_empleado_requerido,
+    validar_genero_empleado_requerido,
+    validar_contacto_emergencia_nombre,
+    validar_contacto_emergencia_telefono,
+)
+
 # Validadores comunes reutilizables
 from .common_validators import (
     # Utilidades
@@ -260,6 +293,31 @@ __all__ = [
     "validar_registro_patronal_detallado",
     "formatear_registro_patronal",
     "limpiar_telefono",
+    "validar_email_usuario",
+    "validar_password_usuario",
+    "validar_nombre_completo_usuario",
+    "validar_telefono_usuario",
+    "normalizar_email_usuario",
+    "normalizar_nombre_completo_usuario",
+    "normalizar_telefono_usuario",
+    "validar_curp_empleado",
+    "validar_rfc_empleado",
+    "validar_nss_empleado",
+    "validar_nombre_empleado",
+    "validar_apellido_empleado",
+    "validar_apellido_paterno_empleado",
+    "validar_apellido_materno_empleado",
+    "validar_email_empleado",
+    "validar_telefono_empleado",
+    "validar_fecha_nacimiento_empleado",
+    "validar_empresa_seleccionada_empleado",
+    "validar_motivo_restriccion_empleado",
+    "validar_rfc_empleado_requerido",
+    "validar_nss_empleado_requerido",
+    "validar_telefono_empleado_requerido",
+    "validar_genero_empleado_requerido",
+    "validar_contacto_emergencia_nombre",
+    "validar_contacto_emergencia_telefono",
     # Validadores comunes
     "limpiar_moneda",
     "validar_select_requerido",

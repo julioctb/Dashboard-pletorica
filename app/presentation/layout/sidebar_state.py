@@ -77,3 +77,18 @@ class SidebarState(AuthState):
     def toggle_tooltip(self) -> str:
         """Retorna el tooltip del botón toggle."""
         return "Expandir menú" if self.is_collapsed else "Colapsar menú"
+
+    @rx.var
+    def usuario_contexto_sidebar(self) -> str:
+        """
+        Texto secundario del usuario en el sidebar.
+
+        Evita mostrar "Sin empresa" para perfiles internos de plataforma.
+        """
+        if self.es_superadmin:
+            return "Administrador"
+
+        if self.es_institucion and self.institucion_actual:
+            return str(self.institucion_actual.get("nombre", "Institución"))
+
+        return self.nombre_empresa_actual

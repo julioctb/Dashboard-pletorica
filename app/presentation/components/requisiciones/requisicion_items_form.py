@@ -1,5 +1,6 @@
 """Sub-componente para gestionar items dentro del formulario de requisiciones."""
 import reflex as rx
+from app.presentation.components.ui import table_shell
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 
 
@@ -106,19 +107,16 @@ def requisicion_items_form(modo_detalle: bool = False) -> rx.Component:
             align="center",
             width="100%",
         ),
-        rx.table.root(
-            rx.table.header(
-                rx.table.row(*header_cols),
+        table_shell(
+            loading=False,
+            has_rows=True,
+            empty_component=rx.fragment(),
+            header_cells=header_cols,
+            body_component=rx.foreach(
+                RequisicionesState.form_items,
+                lambda item, idx: _fila_item_readonly(item, idx) if modo_detalle else _fila_item(item, idx),
             ),
-            rx.table.body(
-                rx.foreach(
-                    RequisicionesState.form_items,
-                    lambda item, idx: _fila_item_readonly(item, idx) if modo_detalle else _fila_item(item, idx),
-                ),
-            ),
-            width="100%",
-            variant="surface",
-            size="1",
+            table_size="1",
         ),
         *([] if modo_detalle else [
             rx.button(

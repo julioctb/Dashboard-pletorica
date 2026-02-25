@@ -105,31 +105,57 @@ class PagosState(BaseState):
     # VALIDACIÓN EN TIEMPO REAL
     # ========================
     def validar_fecha_pago_campo(self):
-        self.error_fecha_pago = validar_fecha_pago(self.form_fecha_pago)
+        self.validar_y_asignar_error(
+            valor=self.form_fecha_pago,
+            validador=validar_fecha_pago,
+            error_attr="error_fecha_pago",
+        )
 
     def validar_monto_campo(self):
-        self.error_monto = validar_monto(self.form_monto)
+        self.validar_y_asignar_error(
+            valor=self.form_monto,
+            validador=validar_monto,
+            error_attr="error_monto",
+        )
 
     def validar_concepto_campo(self):
-        self.error_concepto = validar_concepto(self.form_concepto)
+        self.validar_y_asignar_error(
+            valor=self.form_concepto,
+            validador=validar_concepto,
+            error_attr="error_concepto",
+        )
 
     def validar_numero_factura_campo(self):
-        self.error_numero_factura = validar_numero_factura(self.form_numero_factura)
+        self.validar_y_asignar_error(
+            valor=self.form_numero_factura,
+            validador=validar_numero_factura,
+            error_attr="error_numero_factura",
+        )
 
     def validar_comprobante_campo(self):
-        self.error_comprobante = validar_comprobante(self.form_comprobante)
+        self.validar_y_asignar_error(
+            valor=self.form_comprobante,
+            validador=validar_comprobante,
+            error_attr="error_comprobante",
+        )
 
     def validar_notas_campo(self):
-        self.error_notas = validar_notas(self.form_notas)
+        self.validar_y_asignar_error(
+            valor=self.form_notas,
+            validador=validar_notas,
+            error_attr="error_notas",
+        )
 
     def _validar_todos_los_campos(self):
         """Valida todos los campos del formulario"""
-        self.validar_fecha_pago_campo()
-        self.validar_monto_campo()
-        self.validar_concepto_campo()
-        self.validar_numero_factura_campo()
-        self.validar_comprobante_campo()
-        self.validar_notas_campo()
+        self.validar_lote_campos([
+            ("error_fecha_pago", self.form_fecha_pago, validar_fecha_pago),
+            ("error_monto", self.form_monto, validar_monto),
+            ("error_concepto", self.form_concepto, validar_concepto),
+            ("error_numero_factura", self.form_numero_factura, validar_numero_factura),
+            ("error_comprobante", self.form_comprobante, validar_comprobante),
+            ("error_notas", self.form_notas, validar_notas),
+        ])
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
@@ -381,12 +407,14 @@ class PagosState(BaseState):
 
     def _limpiar_errores(self):
         """Limpia los errores de validación"""
-        self.error_fecha_pago = ""
-        self.error_monto = ""
-        self.error_concepto = ""
-        self.error_numero_factura = ""
-        self.error_comprobante = ""
-        self.error_notas = ""
+        self.limpiar_errores_campos([
+            "fecha_pago",
+            "monto",
+            "concepto",
+            "numero_factura",
+            "comprobante",
+            "notas",
+        ])
 
     def _cargar_pago_en_formulario(self, pago: dict):
         """Carga datos de un pago en el formulario"""

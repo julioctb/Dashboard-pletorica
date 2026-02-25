@@ -18,10 +18,12 @@ Uso:
 """
 
 import logging
-import reflex as rx
 from typing import Callable, List
-from app.presentation.theme import Colors, Spacing, Radius
+
+import reflex as rx
+
 from app.entities.notificacion import Notificacion
+from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 logger = logging.getLogger(__name__)
 
@@ -206,7 +208,7 @@ class NotificationBellState(rx.State):
         self.popover_abierto = False
         rutas = {
             "ENTREGABLE": f"/entregables/{entidad_id}" if entidad_id else "/entregables",
-            "REQUISICION": "/requisiciones",
+            "REQUISICION": "/wip/requisiciones",
         }
         return rx.redirect(rutas.get(entidad_tipo, "/"))
 
@@ -229,47 +231,59 @@ def _notificacion_item(
     on_click_handler: Callable,
 ) -> rx.Component:
     """Item individual de notificacion en el popover."""
-    return rx.hstack(
-        # Indicador de no leida
-        rx.cond(
-            ~notificacion["leida"],
-            rx.box(
-                width="8px",
-                height="8px",
-                border_radius="50%",
-                background=Colors.PRIMARY,
-                flex_shrink="0",
+    return rx.button(
+        rx.hstack(
+            # Indicador de no leida
+            rx.cond(
+                ~notificacion["leida"],
+                rx.box(
+                    width="8px",
+                    height="8px",
+                    border_radius=Radius.FULL,
+                    background=Colors.PRIMARY,
+                    flex_shrink="0",
+                ),
+                rx.box(width="8px", height="8px", flex_shrink="0"),
             ),
-            rx.box(width="8px", height="8px", flex_shrink="0"),
+            # Contenido
+            rx.vstack(
+                rx.text(
+                    notificacion["titulo"],
+                    size="2",
+                    weight=rx.cond(~notificacion["leida"], "bold", "regular"),
+                    no_of_lines=1,
+                ),
+                rx.text(
+                    notificacion["mensaje"],
+                    size="1",
+                    color=Colors.TEXT_MUTED,
+                    no_of_lines=2,
+                ),
+                spacing="0",
+                align="start",
+                flex="1",
+            ),
+            padding_y=Spacing.XS,
+            padding_x=Spacing.SM,
+            width="100%",
+            align="center",
+            gap=Spacing.SM,
         ),
-        # Contenido
-        rx.vstack(
-            rx.text(
-                notificacion["titulo"],
-                size="2",
-                weight=rx.cond(~notificacion["leida"], "bold", "regular"),
-                no_of_lines=1,
-            ),
-            rx.text(
-                notificacion["mensaje"],
-                size="1",
-                color=Colors.TEXT_MUTED,
-                no_of_lines=2,
-            ),
-            spacing="0",
-            align="start",
-            flex="1",
-        ),
-        padding_y=Spacing.XS,
-        padding_x=Spacing.SM,
+        variant="ghost",
+        size="1",
         width="100%",
         cursor="pointer",
-        border_radius=Radius.MD,
-        _hover={"background": Colors.SURFACE_HOVER},
         on_click=lambda: on_click_handler(
             notificacion["entidad_tipo"],
             notificacion["entidad_id"],
         ),
+        style={
+            "padding": "0",
+            "height": "auto",
+            "justify_content": "flex-start",
+            "border_radius": Radius.MD,
+            "_hover": {"background": Colors.SURFACE_HOVER},
+        },
     )
 
 
@@ -280,9 +294,9 @@ def _badge_conteo() -> rx.Component:
         rx.box(
             rx.text(
                 NotificationBellState.texto_badge,
-                font_size="10px",
+                font_size=Typography.SIZE_XS,
                 font_weight="bold",
-                color="white",
+                color=Colors.TEXT_INVERSE,
                 line_height="1",
             ),
             position="absolute",
@@ -295,7 +309,7 @@ def _badge_conteo() -> rx.Component:
             display="flex",
             align_items="center",
             justify_content="center",
-            padding_x="4px",
+            padding_x=Spacing.XS,
         ),
         rx.fragment(),
     )

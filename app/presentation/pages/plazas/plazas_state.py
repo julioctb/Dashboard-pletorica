@@ -971,11 +971,15 @@ class PlazasState(BaseState):
 
     def _limpiar_errores(self):
         """Limpia todos los errores de validación"""
-        self.error_numero_plaza = ""
-        self.error_codigo = ""
-        self.error_fecha_inicio = ""
-        self.error_salario_mensual = ""
-        self.error_cantidad = ""
+        self.limpiar_errores_campos(
+            [
+                "numero_plaza",
+                "codigo",
+                "fecha_inicio",
+                "salario_mensual",
+                "cantidad",
+            ]
+        )
 
     def _cargar_plaza_en_formulario(self, plaza: dict):
         """Carga datos de plaza en el formulario"""

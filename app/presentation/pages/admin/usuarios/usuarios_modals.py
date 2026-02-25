@@ -10,6 +10,7 @@ from app.presentation.components.ui.form_input import form_input, form_select
 from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.components.ui.modals import modal_confirmar_accion
 from app.presentation.components.shared.auth_state import AuthState
+from app.presentation.theme import Spacing, Radius
 
 
 # =============================================================================
@@ -57,15 +58,18 @@ def _matriz_permisos() -> rx.Component:
         ),
         # Checkbox super admin
         rx.separator(),
-        rx.hstack(
-            rx.checkbox(
-                "Puede gestionar usuarios (super admin)",
-                checked=UsuariosAdminState.form_puede_gestionar_usuarios,
-                on_change=UsuariosAdminState.set_form_puede_gestionar_usuarios,
-                size="2",
+        rx.cond(
+            UsuariosAdminState.puede_mostrar_checkbox_superadmin,
+            rx.hstack(
+                rx.checkbox(
+                    "Puede gestionar usuarios (super admin)",
+                    checked=UsuariosAdminState.form_puede_gestionar_usuarios,
+                    on_change=UsuariosAdminState.set_form_puede_gestionar_usuarios,
+                    size="2",
+                ),
+                spacing="2",
+                align="center",
             ),
-            spacing="2",
-            align="center",
         ),
         spacing="3",
         width="100%",
@@ -117,12 +121,137 @@ def _fila_permiso(modulo: str, label: str, tiene_autorizar: bool) -> rx.Componen
 # MODAL CREAR USUARIO
 # =============================================================================
 
+def _selector_institucion_crear() -> rx.Component:
+    """Selector de institución para perfiles institucionales."""
+    return form_select(
+        label="Institución",
+        required=True,
+        placeholder="Seleccionar institución",
+        options=UsuariosAdminState.opciones_instituciones,
+        value=UsuariosAdminState.form_institucion_id,
+        on_change=UsuariosAdminState.set_form_institucion_id,
+        error=UsuariosAdminState.error_institucion,
+        hint="Aplica para perfiles institucionales (ej. BUAP).",
+    )
+
+
+def _fila_asignacion_inicial(fila: dict) -> rx.Component:
+    """Fila de asignación inicial empresa + rol_empresa."""
+    return rx.vstack(
+        rx.hstack(
+            rx.text("Empresa / Rol", size="1", weight="bold", color="var(--gray-9)"),
+            rx.spacer(),
+            rx.checkbox(
+                "Principal",
+                checked=fila["es_principal"],
+                on_change=lambda _v: UsuariosAdminState.marcar_asignacion_principal(fila["idx"]),
+                size="1",
+            ),
+            rx.cond(
+                UsuariosAdminState.form_asignaciones_empresas.length() > 1,
+                rx.icon_button(
+                    rx.icon("trash-2", size=14),
+                    size="1",
+                    variant="ghost",
+                    color_scheme="red",
+                    on_click=UsuariosAdminState.quitar_asignacion_empresa(fila["idx"]),
+                ),
+            ),
+            align="center",
+            width="100%",
+        ),
+        rx.hstack(
+            rx.select.root(
+                rx.select.trigger(
+                    placeholder="Seleccionar empresa...",
+                    width="100%",
+                ),
+                rx.select.content(
+                    rx.foreach(
+                        UsuariosAdminState.opciones_empresas_creacion,
+                        lambda e: rx.select.item(e["label"], value=e["id"]),
+                    ),
+                ),
+                value=fila["empresa_id"],
+                on_change=lambda value: UsuariosAdminState.set_asignacion_empresa_id(fila["idx"], value),
+                width="100%",
+                min_width="240px",
+                flex="1",
+            ),
+            rx.select.root(
+                rx.select.trigger(
+                    placeholder="Rol dentro de la empresa",
+                    width="100%",
+                ),
+                rx.select.content(
+                    rx.foreach(
+                        UsuariosAdminState.opciones_roles_empresa,
+                        lambda rol: rx.select.item(rol["label"], value=rol["value"]),
+                    ),
+                ),
+                value=fila["rol_empresa"],
+                on_change=lambda value: UsuariosAdminState.set_asignacion_rol_empresa(fila["idx"], value),
+                width="100%",
+                min_width="240px",
+                flex="1",
+            ),
+            width="100%",
+            gap="2",
+            align="start",
+            wrap="wrap",
+        ),
+        width="100%",
+        spacing="2",
+        padding=Spacing.MD,
+        border="1px solid var(--gray-5)",
+        border_radius=Radius.LG,
+        background="var(--gray-2)",
+    )
+
+
+def _seccion_asignaciones_iniciales() -> rx.Component:
+    """Sección de asignaciones empresa + rol_empresa para proveedores."""
+    return rx.vstack(
+        rx.text("Empresas y perfil por empresa", size="2", weight="bold"),
+        rx.text(
+            "Asigna una o más empresas y define el rol del usuario en cada una.",
+            size="1",
+            color="var(--gray-9)",
+        ),
+        rx.foreach(
+            UsuariosAdminState.form_asignaciones_empresas,
+            _fila_asignacion_inicial,
+        ),
+        rx.button(
+            rx.icon("plus", size=14),
+            "Agregar empresa",
+            variant="soft",
+            size="2",
+            on_click=UsuariosAdminState.agregar_asignacion_empresa,
+            width="100%",
+        ),
+        rx.cond(
+            UsuariosAdminState.error_asignaciones != "",
+            rx.text(UsuariosAdminState.error_asignaciones, color="var(--red-9)", size="1"),
+            rx.text("", size="1"),
+        ),
+        spacing="2",
+        width="100%",
+        align_items="stretch",
+    )
+
 def modal_crear_usuario() -> rx.Component:
     """Modal para crear nuevo usuario."""
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Crear Usuario"),
             rx.dialog.description(
+                "Complete los datos y asigne el perfil del usuario.",
+                margin_bottom=Spacing.MD,
+                color="var(--gray-10)",
+            ),
+
+            rx.box(
                 rx.vstack(
                     # Email
                     form_input(
@@ -171,17 +300,26 @@ def modal_crear_usuario() -> rx.Component:
                         max_length=10,
                     ),
 
-                    # Rol
+                    # Rol de plataforma
                     form_select(
-                        label="Rol",
+                        label="Tipo de perfil / rol de plataforma",
                         required=True,
                         placeholder="Seleccionar rol",
-                        options=[
-                            {"label": "Cliente (Empresa proveedora)", "value": "client"},
-                            {"label": "Administrador (BUAP)", "value": "admin"},
-                        ],
+                        options=UsuariosAdminState.opciones_roles_creacion,
                         value=UsuariosAdminState.form_rol,
                         on_change=UsuariosAdminState.set_form_rol,
+                    ),
+
+                    # Institucion (solo rol institucional)
+                    rx.cond(
+                        UsuariosAdminState.mostrar_selector_institucion,
+                        _selector_institucion_crear(),
+                    ),
+
+                    # Asignaciones iniciales por empresa (solo proveedores)
+                    rx.cond(
+                        UsuariosAdminState.mostrar_asignaciones_iniciales,
+                        _seccion_asignaciones_iniciales(),
                     ),
 
                     # Matriz de permisos (solo para admins)
@@ -192,8 +330,13 @@ def modal_crear_usuario() -> rx.Component:
 
                     spacing="4",
                     width="100%",
-                    padding_y="4",
+                    padding="0",
+                    margin="0",
                 ),
+                width="100%",
+                overflow_y="auto",
+                max_height="calc(85vh - 170px)",
+                padding_right=Spacing.XS,
             ),
 
             # Botones
@@ -211,10 +354,19 @@ def modal_crear_usuario() -> rx.Component:
                 spacing="3",
                 justify="end",
                 width="100%",
-                padding_top="4",
+                padding_top=Spacing.SM,
+                border_top="1px solid var(--gray-4)",
+                margin_top=Spacing.SM,
             ),
 
-            max_width="520px",
+            max_width="620px",
+            width=f"calc(100vw - {Spacing.XXL})",
+            max_height="85vh",
+            overflow="hidden",
+            padding=Spacing.LG,
+            border_radius=Radius.XL,
+            display="flex",
+            flex_direction="column",
         ),
         open=UsuariosAdminState.mostrar_modal_crear,
         # No cerrar al hacer click fuera - solo con botones
@@ -232,6 +384,12 @@ def modal_editar_usuario() -> rx.Component:
         rx.dialog.content(
             rx.dialog.title("Editar Usuario"),
             rx.dialog.description(
+                "Actualice los datos del usuario y sus permisos según su rol.",
+                margin_bottom=Spacing.MD,
+                color="var(--gray-10)",
+            ),
+
+            rx.box(
                 rx.vstack(
                     # Email (solo lectura)
                     rx.box(
@@ -277,10 +435,7 @@ def modal_editar_usuario() -> rx.Component:
                         label="Rol",
                         required=True,
                         placeholder="Seleccionar rol",
-                        options=[
-                            {"label": "Cliente (Empresa proveedora)", "value": "client"},
-                            {"label": "Administrador (BUAP)", "value": "admin"},
-                        ],
+                        options=UsuariosAdminState.opciones_roles_edicion,
                         value=UsuariosAdminState.form_edit_rol,
                         on_change=UsuariosAdminState.set_form_edit_rol,
                     ),
@@ -299,8 +454,12 @@ def modal_editar_usuario() -> rx.Component:
 
                     spacing="4",
                     width="100%",
-                    padding_y="4",
+                    padding="0",
                 ),
+                width="100%",
+                overflow_y="auto",
+                max_height="calc(85vh - 170px)",
+                padding_right=Spacing.XS,
             ),
 
             # Botones
@@ -318,10 +477,19 @@ def modal_editar_usuario() -> rx.Component:
                 spacing="3",
                 justify="end",
                 width="100%",
-                padding_top="4",
+                padding_top=Spacing.SM,
+                border_top="1px solid var(--gray-4)",
+                margin_top=Spacing.SM,
             ),
 
-            max_width="520px",
+            max_width="620px",
+            width=f"calc(100vw - {Spacing.XXL})",
+            max_height="85vh",
+            overflow="hidden",
+            padding=Spacing.LG,
+            border_radius=Radius.XL,
+            display="flex",
+            flex_direction="column",
         ),
         open=UsuariosAdminState.mostrar_modal_editar,
         # No cerrar al hacer click fuera - solo con botones

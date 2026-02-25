@@ -64,7 +64,8 @@ from app.entities.user_profile import (
 from app.entities.user_company import(
     UserCompany,
     UserCompanyCreate,
-    UserCompanyResumen
+    UserCompanyResumen,
+    UserCompanyAsignacionInicial,
 )
 
 # Institucion

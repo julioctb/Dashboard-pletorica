@@ -61,6 +61,33 @@ class PagosPageState(BaseState):
     # ========================
     # SETTERS
     # ========================
+    @staticmethod
+    def _validar_contrato_id(valor: str) -> str:
+        return "" if valor else "Seleccione un contrato"
+
+    @staticmethod
+    def _validar_fecha_pago(valor: str) -> str:
+        return "" if valor else "La fecha es obligatoria"
+
+    @staticmethod
+    def _validar_monto(valor: str) -> str:
+        if not valor:
+            return "El monto es obligatorio"
+        try:
+            monto = Decimal(str(valor).replace(",", "").replace("$", "").strip())
+            if monto <= 0:
+                return "El monto debe ser mayor a 0"
+        except Exception:
+            return "Monto invalido"
+        return ""
+
+    @staticmethod
+    def _validar_concepto(valor: str) -> str:
+        texto = (valor or "").strip()
+        if len(texto) < 3:
+            return "El concepto debe tener al menos 3 caracteres"
+        return ""
+
     def set_filtro_contrato_id(self, value: str):
         self.filtro_contrato_id = value
 
@@ -72,19 +99,19 @@ class PagosPageState(BaseState):
 
     def set_form_contrato_id(self, value: str):
         self.form_contrato_id = value
-        self.error_contrato_id = ""
+        self.limpiar_errores_campos(["contrato_id"])
 
     def set_form_fecha_pago(self, value: str):
         self.form_fecha_pago = value
-        self.error_fecha_pago = ""
+        self.limpiar_errores_campos(["fecha_pago"])
 
     def set_form_monto(self, value: str):
         self.form_monto = value
-        self.error_monto = ""
+        self.limpiar_errores_campos(["monto"])
 
     def set_form_concepto(self, value: str):
         self.form_concepto = value
-        self.error_concepto = ""
+        self.limpiar_errores_campos(["concepto"])
 
     def set_form_numero_factura(self, value: str):
         self.form_numero_factura = value.upper() if value else ""
@@ -225,41 +252,21 @@ class PagosPageState(BaseState):
 
     def _limpiar_errores(self):
         """Limpia los errores."""
-        self.error_contrato_id = ""
-        self.error_fecha_pago = ""
-        self.error_monto = ""
-        self.error_concepto = ""
+        self.limpiar_errores_campos(
+            ["contrato_id", "fecha_pago", "monto", "concepto"]
+        )
 
     def _validar_formulario(self) -> bool:
         """Valida el formulario. Retorna True si hay errores."""
-        hay_error = False
-
-        if not self.form_contrato_id:
-            self.error_contrato_id = "Seleccione un contrato"
-            hay_error = True
-
-        if not self.form_fecha_pago:
-            self.error_fecha_pago = "La fecha es obligatoria"
-            hay_error = True
-
-        if not self.form_monto:
-            self.error_monto = "El monto es obligatorio"
-            hay_error = True
-        else:
-            try:
-                monto = Decimal(self.form_monto.replace(",", "").replace("$", "").strip())
-                if monto <= 0:
-                    self.error_monto = "El monto debe ser mayor a 0"
-                    hay_error = True
-            except Exception:
-                self.error_monto = "Monto invalido"
-                hay_error = True
-
-        if not self.form_concepto or len(self.form_concepto.strip()) < 3:
-            self.error_concepto = "El concepto debe tener al menos 3 caracteres"
-            hay_error = True
-
-        return hay_error
+        todos_validos = self.validar_lote_campos(
+            [
+                ("error_contrato_id", self.form_contrato_id, self._validar_contrato_id),
+                ("error_fecha_pago", self.form_fecha_pago, self._validar_fecha_pago),
+                ("error_monto", self.form_monto, self._validar_monto),
+                ("error_concepto", self.form_concepto, self._validar_concepto),
+            ]
+        )
+        return not todos_validos
 
     async def guardar_pago(self):
         """Guarda el pago (crear o editar)."""

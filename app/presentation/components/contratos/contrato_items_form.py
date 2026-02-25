@@ -6,6 +6,7 @@ la requisicion con cantidades ajustables y precios obligatorios.
 """
 import reflex as rx
 from app.presentation.pages.contratos.contratos_state import ContratosState
+from app.presentation.components.ui import table_shell
 
 
 def _fila_contrato_item(item: dict, index: int) -> rx.Component:
@@ -73,26 +74,23 @@ def contrato_items_form() -> rx.Component:
             align="center",
             width="100%",
         ),
-        rx.table.root(
-            rx.table.header(
-                rx.table.row(
-                    rx.table.column_header_cell("", width="40px"),
-                    rx.table.column_header_cell("#", width="40px"),
-                    rx.table.column_header_cell("Unidad", width="80px"),
-                    rx.table.column_header_cell("Cant.", width="80px"),
-                    rx.table.column_header_cell("Descripcion"),
-                    rx.table.column_header_cell("Precio Unit.", width="130px"),
-                ),
+        table_shell(
+            has_rows=True,
+            header_cells=[
+                rx.table.column_header_cell("", width="40px"),
+                rx.table.column_header_cell("#", width="40px"),
+                rx.table.column_header_cell("Unidad", width="80px"),
+                rx.table.column_header_cell("Cant.", width="80px"),
+                rx.table.column_header_cell("Descripcion"),
+                rx.table.column_header_cell("Precio Unit.", width="130px"),
+            ],
+            body_component=rx.foreach(
+                ContratosState.form_contrato_items,
+                lambda item, idx: _fila_contrato_item(item, idx),
             ),
-            rx.table.body(
-                rx.foreach(
-                    ContratosState.form_contrato_items,
-                    lambda item, idx: _fila_contrato_item(item, idx),
-                ),
-            ),
-            width="100%",
-            variant="surface",
-            size="1",
+            empty_component=rx.fragment(),
+            table_variant="surface",
+            table_size="1",
         ),
         spacing="3",
         width="100%",

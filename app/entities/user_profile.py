@@ -14,16 +14,18 @@ Roles:
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
-from pydantic import BaseModel, Field, field_validator, ConfigDict
-
-import re
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 from app.core.enums import RolPlataforma
 from app.core.validation.constants import (
     TELEFONO_DIGITOS,
-    EMAIL_PATTERN,
     NOMBRE_COMPLETO_MIN,
     NOMBRE_COMPLETO_MAX,
+)
+from app.core.validation.user_validators import (
+    normalizar_email_usuario,
+    normalizar_nombre_completo_usuario,
+    normalizar_telefono_usuario,
 )
 
 
@@ -115,22 +117,13 @@ class UserProfile(BaseModel):
     @classmethod
     def validar_nombre_completo(cls, v: str) -> str:
         """Normaliza el nombre: strip y título"""
-        if v:
-            # Capitalizar cada palabra respetando preposiciones comunes
-            return v.strip().title()
-        return v
+        return normalizar_nombre_completo_usuario(v, requerido=True)
 
     @field_validator('telefono')
     @classmethod
     def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
         """Valida que el teléfono tenga exactamente 10 dígitos"""
-        if v is None:
-            return None
-        # Eliminar cualquier caracter no numérico
-        digitos = ''.join(c for c in v if c.isdigit())
-        if len(digitos) != TELEFONO_DIGITOS:
-            raise ValueError(f'El teléfono debe tener exactamente {TELEFONO_DIGITOS} dígitos')
-        return digitos
+        return normalizar_telefono_usuario(v, requerido=False)
 
     # =========================================================================
     # MÉTODOS DE NEGOCIO
@@ -231,6 +224,11 @@ class UserProfileCreate(BaseModel):
         max_length=TELEFONO_DIGITOS,
         pattern=r'^\d{10}$',
     )
+    institucion_id: Optional[int] = Field(
+        default=None,
+        gt=0,
+        description="FK a instituciones. Requerido cuando rol=institucion."
+    )
 
     # Permisos granulares (solo para admins)
     puede_gestionar_usuarios: bool = False
@@ -253,27 +251,34 @@ class UserProfileCreate(BaseModel):
     @classmethod
     def validar_email(cls, v: str) -> str:
         """Normaliza y valida el formato de email."""
-        v = v.strip().lower()
-        if not re.match(EMAIL_PATTERN, v):
-            raise ValueError('Formato de email invalido')
-        return v
+        return normalizar_email_usuario(v, requerido=True)
 
     @field_validator('nombre_completo')
     @classmethod
     def validar_nombre(cls, v: str) -> str:
         """Normaliza el nombre."""
-        return v.strip().title() if v else v
+        return normalizar_nombre_completo_usuario(v, requerido=True)
 
     @field_validator('telefono')
     @classmethod
     def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
         """Extrae solo dígitos del teléfono."""
-        if v is None:
-            return None
-        digitos = ''.join(c for c in v if c.isdigit())
-        if len(digitos) != TELEFONO_DIGITOS:
-            raise ValueError(f'El teléfono debe tener {TELEFONO_DIGITOS} dígitos')
-        return digitos
+        return normalizar_telefono_usuario(v, requerido=False)
+
+    @model_validator(mode='after')
+    def validar_consistencia_rol(self):
+        """Valida combinaciones de rol e institución."""
+        rol = self.rol if isinstance(self.rol, str) else self.rol.value
+
+        if rol == 'institucion' and not self.institucion_id:
+            raise ValueError("institucion_id es requerido cuando rol='institucion'")
+
+        if rol in ('admin', 'superadmin', 'proveedor', 'client', 'empleado') and self.institucion_id:
+            raise ValueError(
+                "institucion_id solo aplica para usuarios con rol='institucion'"
+            )
+
+        return self
 
     # =========================================================================
     # MÉTODOS HELPER
@@ -292,6 +297,8 @@ class UserProfileCreate(BaseModel):
         }
         if self.telefono:
             metadata['telefono'] = self.telefono
+        if self.institucion_id:
+            metadata['institucion_id'] = self.institucion_id
         return metadata
 
 
@@ -327,6 +334,7 @@ class UserProfileUpdate(BaseModel):
         pattern=r'^\d{10}$',
     )
     rol: Optional[RolPlataforma] = None
+    institucion_id: Optional[int] = Field(default=None, gt=0)
     activo: Optional[bool] = None
 
     # Permisos granulares
@@ -341,20 +349,29 @@ class UserProfileUpdate(BaseModel):
     @classmethod
     def validar_nombre(cls, v: Optional[str]) -> Optional[str]:
         """Normaliza el nombre si se proporciona."""
-        if v:
-            return v.strip().title()
-        return v
+        return normalizar_nombre_completo_usuario(v, requerido=False)
 
     @field_validator('telefono')
     @classmethod
     def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
         """Valida teléfono si se proporciona."""
-        if v is None:
-            return None
-        digitos = ''.join(c for c in v if c.isdigit())
-        if len(digitos) != TELEFONO_DIGITOS:
-            raise ValueError(f'El teléfono debe tener {TELEFONO_DIGITOS} dígitos')
-        return digitos
+        return normalizar_telefono_usuario(v, requerido=False)
+
+    @model_validator(mode='after')
+    def validar_consistencia_rol(self):
+        """Valida combinaciones cuando se actualiza rol/institución."""
+        rol = self.rol if isinstance(self.rol, str) else (self.rol.value if self.rol else None)
+
+        if rol == 'institucion' and self.institucion_id is None:
+            # Permite updates parciales sin tocar institucion_id; solo validar si se envía rol.
+            return self
+
+        if rol in ('admin', 'superadmin', 'proveedor', 'client', 'empleado') and self.institucion_id:
+            raise ValueError(
+                "institucion_id solo aplica para usuarios con rol='institucion'"
+            )
+
+        return self
 
 
 # =============================================================================

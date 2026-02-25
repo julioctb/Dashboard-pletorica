@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from app.presentation.theme import Colors, Spacing, Transitions, Typography
+from app.presentation.theme import Colors, Radius, Spacing, Transitions, Typography
 
 
 def nav_item(
@@ -10,6 +10,7 @@ def nav_item(
     text: str,
     icon: str,
     href: str,
+    is_active=False,
     icon_color=Colors.TEXT_SECONDARY,
     text_color=Colors.TEXT_PRIMARY,
     hover_bg=Colors.SIDEBAR_ITEM_HOVER,
@@ -20,14 +21,14 @@ def nav_item(
             rx.icon(
                 icon,
                 size=20,
-                color=icon_color,
+                color=rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE_TEXT, icon_color),
                 flex_shrink="0",
             ),
             rx.text(
                 text,
                 font_size=Typography.SIZE_SM,
                 font_weight=Typography.WEIGHT_MEDIUM,
-                color=text_color,
+                color=rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE_TEXT, text_color),
                 white_space="nowrap",
             ),
             width="100%",
@@ -35,11 +36,12 @@ def nav_item(
             padding_y=Spacing.SM,
             align="center",
             gap=Spacing.SM,
-            border_radius="8px",
+            border_radius=Radius.LG,
             transition=Transitions.FAST,
             style={
+                "background": rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE, "transparent"),
                 "_hover": {
-                    "background": hover_bg,
+                    "background": rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE, hover_bg),
                 },
             },
         ),
@@ -55,6 +57,7 @@ def collapsible_nav_item(
     icon: str,
     href: str,
     is_collapsed,
+    is_active=False,
     badge: rx.Component | None = None,
     tooltip_side: str = "right",
     icon_color=Colors.TEXT_SECONDARY,
@@ -63,7 +66,12 @@ def collapsible_nav_item(
 ) -> rx.Component:
     """Item de navegación con soporte para sidebar colapsable + tooltip."""
     item_content = rx.hstack(
-        rx.icon(icon, size=20, color=icon_color, flex_shrink="0"),
+        rx.icon(
+            icon,
+            size=20,
+            color=rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE_TEXT, icon_color),
+            flex_shrink="0",
+        ),
         rx.cond(
             ~is_collapsed,
             rx.hstack(
@@ -71,7 +79,7 @@ def collapsible_nav_item(
                     text,
                     font_size=Typography.SIZE_SM,
                     font_weight=Typography.WEIGHT_MEDIUM,
-                    color=text_color,
+                    color=rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE_TEXT, text_color),
                     white_space="nowrap",
                 ),
                 rx.spacer(),
@@ -87,9 +95,14 @@ def collapsible_nav_item(
         align="center",
         justify=rx.cond(is_collapsed, "center", "start"),
         gap=Spacing.SM,
-        border_radius="8px",
+        border_radius=Radius.LG,
         transition=Transitions.FAST,
-        style={"_hover": {"background": hover_bg}},
+        style={
+            "background": rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE, "transparent"),
+            "_hover": {
+                "background": rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE, hover_bg)
+            },
+        },
     )
 
     return rx.link(

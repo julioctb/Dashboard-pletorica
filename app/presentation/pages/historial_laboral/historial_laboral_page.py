@@ -13,7 +13,7 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
-    skeleton_tabla,
+    table_shell,
     tabla_vacia,
     action_buttons_reactive,
 )
@@ -126,47 +126,18 @@ ENCABEZADOS_HISTORIAL = [
 
 def tabla_historial() -> rx.Component:
     """Vista de tabla de historial"""
-    return rx.cond(
-        HistorialLaboralState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_HISTORIAL, filas=5),
-        rx.cond(
-            HistorialLaboralState.tiene_historial,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_HISTORIAL,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            HistorialLaboralState.historial_filtrado,
-                            fila_historial,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                # Contador
-                rx.text(
-                    "Mostrando ", HistorialLaboralState.total_filtrado, " registro(s)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(
-                mensaje="No hay registros de historial laboral",
-                submensaje="Los registros se crean automaticamente cuando se realizan cambios en empleados.",
-            ),
+    return table_shell(
+        loading=HistorialLaboralState.loading,
+        headers=ENCABEZADOS_HISTORIAL,
+        rows=HistorialLaboralState.historial_filtrado,
+        row_renderer=fila_historial,
+        has_rows=HistorialLaboralState.tiene_historial,
+        empty_component=tabla_vacia(
+            mensaje="No hay registros de historial laboral",
+            submensaje="Los registros se crean automaticamente cuando se realizan cambios en empleados.",
         ),
+        total_caption="Mostrando " + HistorialLaboralState.total_filtrado.to(str) + " registro(s)",
+        loading_rows=5,
     )
 
 

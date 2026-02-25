@@ -120,6 +120,31 @@ class UserCompanyCreate(BaseModel):
     )
 
 
+class UserCompanyAsignacionInicial(BaseModel):
+    """
+    Modelo para asignar empresas al crear un usuario proveedor.
+
+    Similar a UserCompanyCreate, pero sin user_id porque el usuario todavía
+    no existe al momento de construir el payload del formulario.
+    """
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+    empresa_id: int = Field(..., gt=0, description="ID de la empresa")
+    rol_empresa: RolEmpresa = Field(
+        default=RolEmpresa.ADMIN_EMPRESA,
+        description="Rol del usuario en esta empresa"
+    )
+    es_principal: bool = Field(
+        default=False,
+        description="Si esta empresa debe quedar como principal"
+    )
+
+
 # =============================================================================
 # MODELO RESUMIDO CON DATOS ENRIQUECIDOS
 # =============================================================================

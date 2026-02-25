@@ -7,7 +7,7 @@ badges y modal de rechazo.
 import reflex as rx
 
 from app.presentation.components.ui import (
-    skeleton_tabla,
+    table_shell,
     boton_guardar,
     boton_cancelar,
     tabla_action_button,
@@ -85,49 +85,19 @@ ENCABEZADOS_EXPEDIENTES = [
 
 def tabla_expedientes() -> rx.Component:
     """Tabla de empleados para revision de expedientes."""
-    return rx.cond(
-        ExpedientesState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_EXPEDIENTES, filas=5),
-        rx.cond(
-            ExpedientesState.total_expedientes > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_EXPEDIENTES,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            ExpedientesState.empleados_expedientes_filtrados,
-                            fila_expediente,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                rx.text(
-                    "Mostrando ",
-                    ExpedientesState.total_expedientes,
-                    " empleado(s)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_SECONDARY,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            empty_state_card(
-                title="No hay expedientes para revisar",
-                description="Cuando existan expedientes pendientes apareceran aqui.",
-                icon="folder-check",
-            ),
+    return table_shell(
+        loading=ExpedientesState.loading,
+        headers=ENCABEZADOS_EXPEDIENTES,
+        rows=ExpedientesState.empleados_expedientes_filtrados,
+        row_renderer=fila_expediente,
+        has_rows=ExpedientesState.total_expedientes > 0,
+        empty_component=empty_state_card(
+            title="No hay expedientes para revisar",
+            description="Cuando existan expedientes pendientes apareceran aqui.",
+            icon="folder-check",
         ),
+        total_caption="Mostrando " + ExpedientesState.total_expedientes.to(str) + " empleado(s)",
+        loading_rows=5,
     )
 
 

@@ -12,6 +12,7 @@ from app.presentation.components.ui import (
     tabla_action_button,
     tabla_action_buttons,
     badge_onboarding,
+    table_text_sm,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 
@@ -149,21 +150,17 @@ def fila_empleado(empleado: dict) -> rx.Component:
         ),
         # Nombre completo
         rx.table.cell(
-            rx.text(empleado["nombre_completo"], font_size=Typography.SIZE_SM),
+            table_text_sm(empleado["nombre_completo"]),
             on_click=_abrir, style=_cell_style,
         ),
         # CURP
         rx.table.cell(
-            rx.text(
-                empleado["curp"],
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_MUTED,
-            ),
+            table_text_sm(empleado["curp"], tone="muted"),
             on_click=_abrir, style=_cell_style,
         ),
         # Empresa
         rx.table.cell(
-            rx.text(empleado["empresa_nombre"], font_size=Typography.SIZE_SM),
+            table_text_sm(empleado["empresa_nombre"]),
             on_click=_abrir, style=_cell_style,
         ),
         # Estatus

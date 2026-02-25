@@ -42,7 +42,15 @@ class MiEmpresaState(PortalState):
     error_codigo_postal: str = ""
 
     async def on_mount_mi_empresa(self):
-        async for _ in self._montar_pagina_portal(self.cargar_datos_empresa):
+        resultado = await self.on_mount_portal()
+        if resultado:
+            self.loading = False
+            yield resultado
+            return
+        if not self.es_admin_empresa:
+            yield rx.redirect("/portal")
+            return
+        async for _ in self._montar_pagina(self.cargar_datos_empresa):
             yield
 
     # --- Setters ---

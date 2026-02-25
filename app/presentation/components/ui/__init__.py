@@ -5,6 +5,16 @@ from .form_input import form_input, form_select, form_textarea, form_date, form_
 from .badges import estatus_badge, badge_onboarding
 from .badges_domain import employee_status_badge, document_status_badge
 from .tables import tabla_vacia, tabla
+from .table_primitives import (
+    table_cell_text,
+    table_cell_text_sm,
+    table_cell_badge,
+    table_cell_actions,
+    table_header_cells,
+    table_shell,
+    table_text,
+    table_text_sm,
+)
 from .skeletons import skeleton_tabla
 from .filters import (
     input_busqueda,
@@ -85,6 +95,14 @@ __all__ = [
     # tablas
     'tabla_vacia',
     'tabla',
+    'table_header_cells',
+    'table_shell',
+    'table_cell_text',
+    'table_cell_text_sm',
+    'table_cell_badge',
+    'table_cell_actions',
+    'table_text',
+    'table_text_sm',
     'skeleton_tabla',
     # filtros
     'input_busqueda',

@@ -10,9 +10,11 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
+    table_cell_actions,
+    table_cell_badge,
+    table_shell,
     status_badge_reactive,
     tabla_vacia,
-    skeleton_tabla,
     tabla_action_button,
     tabla_action_buttons,
 )
@@ -97,13 +99,9 @@ def fila_institucion(institucion: dict) -> rx.Component:
             ),
         ),
         # Estatus
-        rx.table.cell(
-            status_badge_reactive(institucion["estatus"], show_icon=True),
-        ),
+        table_cell_badge(status_badge_reactive(institucion["estatus"], show_icon=True)),
         # Acciones
-        rx.table.cell(
-            acciones_institucion(institucion),
-        ),
+        table_cell_actions(acciones_institucion(institucion)),
     )
 
 
@@ -118,44 +116,15 @@ ENCABEZADOS_INSTITUCIONES = [
 
 def tabla_instituciones() -> rx.Component:
     """Vista de tabla de instituciones"""
-    return rx.cond(
-        InstitucionesState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_INSTITUCIONES, filas=5),
-        rx.cond(
-            InstitucionesState.total_instituciones > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_INSTITUCIONES,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            InstitucionesState.instituciones,
-                            fila_institucion,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                # Contador
-                rx.text(
-                    "Mostrando ", InstitucionesState.total_instituciones, " institucion(es)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(onclick=InstitucionesState.abrir_modal_crear),
-        ),
+    return table_shell(
+        loading=InstitucionesState.loading,
+        headers=ENCABEZADOS_INSTITUCIONES,
+        rows=InstitucionesState.instituciones,
+        row_renderer=fila_institucion,
+        has_rows=InstitucionesState.total_instituciones > 0,
+        empty_component=tabla_vacia(onclick=InstitucionesState.abrir_modal_crear),
+        total_caption="Mostrando " + InstitucionesState.total_instituciones.to(str) + " institucion(es)",
+        loading_rows=5,
     )
 
 

@@ -63,6 +63,8 @@ class AltaMasivaState(PortalState):
         resultado = await self.on_mount_portal()
         if resultado:
             return resultado
+        if not self.puede_gestionar_personal:
+            return rx.redirect("/portal")
         self._reset_wizard()
 
     def _reset_wizard(self):

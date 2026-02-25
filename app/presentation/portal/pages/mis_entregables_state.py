@@ -205,7 +205,15 @@ class MisEntregablesState(PortalState):
 
     async def on_load_mis_entregables(self):
         """Verificar auth y cargar entregables de la empresa."""
-        async for _ in self._montar_pagina_portal(self._fetch_entregables_todo):
+        resultado = await self.on_mount_portal()
+        if resultado:
+            self.loading = False
+            yield resultado
+            return
+        if not (self.es_operaciones or self.es_contabilidad):
+            yield rx.redirect("/portal")
+            return
+        async for _ in self._montar_pagina(self._fetch_entregables_todo):
             yield
 
     async def _cargar_contratos(self):

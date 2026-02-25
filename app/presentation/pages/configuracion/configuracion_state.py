@@ -184,11 +184,17 @@ class ConfiguracionState(BaseState):
     # ========================
     # LUGARES DE ENTREGA
     # ========================
+    @staticmethod
+    def _validar_longitud_lugar(valor: str) -> str:
+        if len(valor) > LUGAR_ENTREGA_MAX:
+            return f"Maximo {LUGAR_ENTREGA_MAX} caracteres"
+        return ""
+
     def set_nuevo_lugar(self, valor: str):
         """Setter para el campo de nuevo lugar."""
         self.nuevo_lugar = valor
         if self.error_nuevo_lugar:
-            self.error_nuevo_lugar = ""
+            self.limpiar_errores_campos(["nuevo_lugar"])
 
     def validar_nuevo_lugar(self):
         """Normaliza y valida el campo de nuevo lugar al perder foco."""
@@ -198,10 +204,11 @@ class ConfiguracionState(BaseState):
         normalizado = capitalizar_con_preposiciones(valor)
         if normalizado != self.nuevo_lugar:
             self.nuevo_lugar = normalizado
-        if len(normalizado) > LUGAR_ENTREGA_MAX:
-            self.error_nuevo_lugar = f"Maximo {LUGAR_ENTREGA_MAX} caracteres"
-        else:
-            self.error_nuevo_lugar = ""
+        self.validar_y_asignar_error(
+            valor=normalizado,
+            validador=self._validar_longitud_lugar,
+            error_attr="error_nuevo_lugar",
+        )
 
     async def agregar_lugar(self):
         """Agrega un nuevo lugar de entrega."""
@@ -209,15 +216,18 @@ class ConfiguracionState(BaseState):
         if not nombre:
             return
 
-        if len(nombre) > LUGAR_ENTREGA_MAX:
-            self.error_nuevo_lugar = f"Maximo {LUGAR_ENTREGA_MAX} caracteres"
+        if not self.validar_y_asignar_error(
+            valor=nombre,
+            validador=self._validar_longitud_lugar,
+            error_attr="error_nuevo_lugar",
+        ):
             return
 
         self.saving = True
         try:
             await requisicion_service.crear_lugar_entrega(nombre)
             self.nuevo_lugar = ""
-            self.error_nuevo_lugar = ""
+            self.limpiar_errores_campos(["nuevo_lugar"])
             await self.cargar_lugares_entrega()
             yield rx.toast.success(
                 f"Lugar '{nombre}' agregado",

@@ -6,7 +6,8 @@ import reflex as rx
 from app.presentation.pages.pagos.pagos_state import PagosPageState
 from app.presentation.components.ui import (
     tabla_vacia,
-    skeleton_tabla,
+    table_shell,
+    table_cell_text_sm,
     form_input,
     form_select,
     form_date,
@@ -39,47 +40,30 @@ ENCABEZADOS = [
 def _fila_pago(pago: dict) -> rx.Component:
     """Fila de la tabla de pagos."""
     return rx.table.row(
-        rx.table.cell(
-            rx.text(pago["fecha_pago_fmt"], font_size=Typography.SIZE_SM),
-        ),
+        table_cell_text_sm(pago["fecha_pago_fmt"]),
         rx.table.cell(
             rx.badge(pago["contrato_codigo"], color_scheme="blue", size="1"),
         ),
-        rx.table.cell(
-            rx.text(
-                pago["empresa_nombre"],
-                font_size=Typography.SIZE_SM,
-                max_width="200px",
-                overflow="hidden",
-                text_overflow="ellipsis",
-                white_space="nowrap",
-            ),
+        table_cell_text_sm(
+            pago["empresa_nombre"],
+            max_width="200px",
+            overflow="hidden",
+            text_overflow="ellipsis",
+            white_space="nowrap",
         ),
-        rx.table.cell(
-            rx.text(
-                pago["monto_fmt"],
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_BOLD,
-                color="var(--green-11)",
-            ),
+        table_cell_text_sm(
+            pago["monto_fmt"],
+            tone="success",
+            weight=Typography.WEIGHT_BOLD,
         ),
-        rx.table.cell(
-            rx.text(
-                pago["concepto"],
-                font_size=Typography.SIZE_SM,
-                max_width="250px",
-                overflow="hidden",
-                text_overflow="ellipsis",
-                white_space="nowrap",
-            ),
+        table_cell_text_sm(
+            pago["concepto"],
+            max_width="250px",
+            overflow="hidden",
+            text_overflow="ellipsis",
+            white_space="nowrap",
         ),
-        rx.table.cell(
-            rx.cond(
-                pago["numero_factura"],
-                rx.text(pago["numero_factura"], font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
-                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
-            ),
-        ),
+        table_cell_text_sm(pago["numero_factura"], fallback="-", tone="muted"),
         rx.table.cell(
             tabla_action_buttons([
                 tabla_action_button(
@@ -101,45 +85,18 @@ def _fila_pago(pago: dict) -> rx.Component:
 
 def _tabla_pagos() -> rx.Component:
     """Tabla de pagos."""
-    return rx.cond(
-        PagosPageState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS, filas=5),
-        rx.cond(
-            PagosPageState.tiene_pagos,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(PagosPageState.pagos, _fila_pago),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                rx.text(
-                    "Mostrando ",
-                    PagosPageState.total_registros,
-                    " pago(s)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(
-                mensaje="No hay pagos registrados",
-                onclick=PagosPageState.abrir_modal_crear,
-            ),
+    return table_shell(
+        loading=PagosPageState.loading,
+        headers=ENCABEZADOS,
+        rows=PagosPageState.pagos,
+        row_renderer=_fila_pago,
+        has_rows=PagosPageState.tiene_pagos,
+        empty_component=tabla_vacia(
+            mensaje="No hay pagos registrados",
+            onclick=PagosPageState.abrir_modal_crear,
         ),
+        total_caption="Mostrando " + PagosPageState.total_registros.to(str) + " pago(s)",
+        loading_rows=5,
     )
 
 

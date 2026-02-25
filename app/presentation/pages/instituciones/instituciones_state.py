@@ -87,23 +87,43 @@ class InstitucionesState(AuthState):
     # ========================
     # VALIDACION
     # ========================
+    @staticmethod
+    def _validar_nombre(valor: str) -> str:
+        texto = (valor or "").strip()
+        if len(texto) < 2:
+            return "El nombre debe tener al menos 2 caracteres"
+        return ""
+
+    @staticmethod
+    def _validar_codigo(valor: str) -> str:
+        texto = (valor or "").strip()
+        if len(texto) < 2:
+            return "El codigo debe tener al menos 2 caracteres"
+        if len(texto) > 20:
+            return "El codigo no puede exceder 20 caracteres"
+        return ""
+
     def validar_nombre_campo(self):
-        if not self.form_nombre or len(self.form_nombre.strip()) < 2:
-            self.error_nombre = "El nombre debe tener al menos 2 caracteres"
-        else:
-            self.error_nombre = ""
+        self.validar_y_asignar_error(
+            valor=self.form_nombre,
+            validador=self._validar_nombre,
+            error_attr="error_nombre",
+        )
 
     def validar_codigo_campo(self):
-        if not self.form_codigo or len(self.form_codigo.strip()) < 2:
-            self.error_codigo = "El codigo debe tener al menos 2 caracteres"
-        elif len(self.form_codigo.strip()) > 20:
-            self.error_codigo = "El codigo no puede exceder 20 caracteres"
-        else:
-            self.error_codigo = ""
+        self.validar_y_asignar_error(
+            valor=self.form_codigo,
+            validador=self._validar_codigo,
+            error_attr="error_codigo",
+        )
 
     def validar_todos_los_campos(self):
-        self.validar_nombre_campo()
-        self.validar_codigo_campo()
+        self.validar_lote_campos(
+            [
+                ("error_nombre", self.form_nombre, self._validar_nombre),
+                ("error_codigo", self.form_codigo, self._validar_codigo),
+            ]
+        )
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
@@ -160,7 +180,7 @@ class InstitucionesState(AuthState):
 
     async def on_mount_instituciones(self):
         """Montaje de la pagina."""
-        async for _ in self._montar_pagina(self._fetch_instituciones):
+        async for _ in self._montar_pagina_auth(self._fetch_instituciones):
             yield
 
     async def cargar_instituciones(self):
@@ -403,7 +423,6 @@ class InstitucionesState(AuthState):
     def _limpiar_formulario(self):
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
-        self.error_nombre = ""
-        self.error_codigo = ""
+        self.limpiar_errores_campos(["nombre", "codigo"])
         self.institucion_seleccionada = None
         self.es_edicion = False

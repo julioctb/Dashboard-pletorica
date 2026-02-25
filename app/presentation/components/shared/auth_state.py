@@ -136,25 +136,13 @@ class AuthState(BaseState):
         Si SKIP_AUTH=True, siempre retorna True (acceso completo en dev).
         Retorna False si se está simulando vista de cliente.
         """
-        if self._simulando_cliente:
-            return False
-        if not Config.requiere_autenticacion():
-            return True
-        if not self.usuario_actual:
-            return False
-        rol = self.usuario_actual.get('rol', '')
-        return rol == 'admin'
+        return self.es_superadmin
 
     @rx.var
     def es_client(self) -> bool:
         """Indica si el usuario actual es cliente (empresa proveedora).
         Retorna True si se está simulando vista de cliente."""
-        if self._simulando_cliente:
-            return True
-        if not self.usuario_actual:
-            return False
-        rol = self.usuario_actual.get('rol', '')
-        return rol == 'client'
+        return self.es_proveedor
 
     @rx.var
     def nombre_usuario(self) -> str:
@@ -428,8 +416,12 @@ class AuthState(BaseState):
             self._refresh_token = session_data.get('refresh_token', '')
             self._token_expires_at = session_data.get('expires_at', 0)
 
-            # Guardar perfil como dict
+            # Guardar perfil como dict (enriquecer email para UI)
             self.usuario_actual = profile.model_dump(mode='json')
+            self.usuario_actual = {
+                **self.usuario_actual,
+                "email": email.strip().lower(),
+            }
 
             # Cargar empresas del usuario
             await self._cargar_empresas_usuario()
@@ -444,12 +436,11 @@ class AuthState(BaseState):
             if rol == 'institucion':
                 await self._cargar_institucion_usuario()
 
-            # Redirigir según rol
-            if rol in ('client', 'proveedor', 'institucion'):
-                return rx.redirect("/portal")
-            if rol == 'empleado':
-                return rx.redirect("/portal")
-            return rx.redirect("/")
+            # Reintentar email desde token por consistencia (no crítico si falla)
+            await self._enriquecer_email_usuario_desde_token()
+
+            # Redirigir según rol (una sola fuente de verdad)
+            return rx.redirect(self.obtener_ruta_inicio())
 
         except Exception as e:
             error_msg = str(e)
@@ -521,6 +512,7 @@ class AuthState(BaseState):
             if profile:
                 # Token válido, actualizar perfil
                 self.usuario_actual = profile.model_dump(mode='json')
+                await self._enriquecer_email_usuario_desde_token()
                 await self._cargar_empresas_usuario()
                 # Cargar institución si aplica
                 if self.usuario_actual.get('rol') == 'institucion':
@@ -536,6 +528,30 @@ class AuthState(BaseState):
 
         finally:
             self._sesion_verificada = True
+
+    async def _enriquecer_email_usuario_desde_token(self):
+        """
+        Completa `usuario_actual.email` usando el access token actual.
+
+        Se usa para sidebars y pantallas de cuenta donde el email no viene
+        en `user_profiles`.
+        """
+        if not self.usuario_actual or not self._access_token:
+            return
+
+        try:
+            from app.services import user_service
+
+            email = await user_service.obtener_email_desde_token(self._access_token)
+            if not email:
+                return
+
+            self.usuario_actual = {
+                **self.usuario_actual,
+                "email": email,
+            }
+        except Exception as e:
+            logger.debug(f"No se pudo enriquecer email del usuario actual: {e}")
 
     async def _refrescar_sesion(self):
         """Intenta refrescar el token de acceso usando el refresh token."""
@@ -640,7 +656,7 @@ class AuthState(BaseState):
         self.empresa_actual = {}
         self._empresas_simulacion = []
         logger.info("Simulación cliente desactivada")
-        return rx.redirect("/")
+        return rx.redirect(self.obtener_ruta_inicio())
 
     def _limpiar_sesion(self):
         """Limpia todos los datos de sesión del estado."""
@@ -655,6 +671,41 @@ class AuthState(BaseState):
         self._sesion_verificada = False
         self._simulando_cliente = False
         self._empresas_simulacion = []
+
+    def obtener_ruta_inicio(self) -> str:
+        """
+        Retorna la ruta home según el rol actual.
+
+        Seguridad/UX:
+        - La ruta inicial se decide por rol de plataforma (no por permisos granulares).
+        - `superadmin` aterriza en `/admin` para evitar dos dashboards principales.
+        - Roles de portal aterrizan en `/portal`.
+        - Fallback autenticado: `/admin` (mantiene un único dashboard interno).
+        """
+        if not self.requiere_login:
+            return "/admin"
+
+        if not self.esta_autenticado:
+            return "/login"
+
+        rol = self.usuario_actual.get("rol", "")
+        if rol in ("superadmin", "admin"):
+            return "/admin"
+        if rol in ("institucion", "proveedor", "client", "empleado"):
+            return "/portal"
+        return "/admin"
+
+    async def redirigir_desde_raiz(self):
+        """
+        Dispatcher de la ruta `/`.
+
+        Autenticación la resuelve `verificar_y_redirigir`; si la sesión es válida,
+        envía al espacio principal por rol.
+        """
+        resultado = await self.verificar_y_redirigir()
+        if resultado:
+            return resultado
+        return rx.redirect(self.obtener_ruta_inicio())
 
     # =========================================================================
     # GESTIÓN DE EMPRESAS

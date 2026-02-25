@@ -41,9 +41,13 @@ class EntregablesConfigState(BaseState):
     # =========================================================================
     # SETTERS
     # =========================================================================
+    @staticmethod
+    def _validar_tipo_entregable(valor: str) -> str:
+        return "" if valor else "Seleccione un tipo de entregable"
+
     def set_form_tipo_entregable(self, value: str):
         self.form_tipo_entregable = value
-        self.error_tipo = ""
+        self.limpiar_errores_campos(["tipo"])
 
     def set_form_periodicidad(self, value: str):
         self.form_periodicidad = value
@@ -172,16 +176,26 @@ class EntregablesConfigState(BaseState):
         self.form_requerido = True
         self.form_descripcion = ""
         self.form_instrucciones = ""
-        self.error_tipo = ""
+        self.limpiar_errores_campos(["tipo"])
         self.es_edicion_tipo = False
         self.tipo_editando_id = None
+
+    def validar_tipo_entregable_campo(self):
+        self.validar_y_asignar_error(
+            valor=self.form_tipo_entregable,
+            validador=self._validar_tipo_entregable,
+            error_attr="error_tipo",
+        )
 
     # =========================================================================
     # GUARDAR
     # =========================================================================
     async def guardar_tipo(self):
-        if not self.form_tipo_entregable:
-            self.error_tipo = "Seleccione un tipo de entregable"
+        if not self.validar_y_asignar_error(
+            valor=self.form_tipo_entregable,
+            validador=self._validar_tipo_entregable,
+            error_attr="error_tipo",
+        ):
             return
         self.guardando = True
         try:

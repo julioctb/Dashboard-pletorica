@@ -7,6 +7,7 @@ import reflex as rx
 
 from app.presentation.components.ui import (
     badge_onboarding,
+    table_text_sm,
 )
 from app.presentation.components.reusable.onboarding_list import (
     onboarding_filters,
@@ -21,33 +22,23 @@ def fila_onboarding(emp: dict) -> rx.Component:
     """Fila de la tabla de empleados en onboarding."""
     return rx.table.row(
         rx.table.cell(
-            rx.text(
+            table_text_sm(
                 emp["clave"],
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
+                weight=Typography.WEIGHT_MEDIUM,
                 color=Colors.PORTAL_PRIMARY_TEXT,
             ),
         ),
         rx.table.cell(
-            rx.text(
+            table_text_sm(
                 emp["nombre_completo"],
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
+                weight=Typography.WEIGHT_MEDIUM,
             ),
         ),
         rx.table.cell(
-            rx.text(
-                emp["curp"],
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            ),
+            table_text_sm(emp["curp"], tone="secondary"),
         ),
         rx.table.cell(
-            rx.text(
-                emp.get("email", "-"),
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            ),
+            table_text_sm(emp.get("email", "-"), tone="secondary"),
         ),
         rx.table.cell(
             badge_onboarding(emp.get("estatus_onboarding", "")),

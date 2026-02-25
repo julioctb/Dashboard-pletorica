@@ -3,6 +3,7 @@ Paso 3: Resultados del procesamiento.
 """
 import reflex as rx
 
+from app.presentation.components.ui import table_shell
 from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import AltaMasivaState
@@ -87,26 +88,13 @@ def paso_3_resultados() -> rx.Component:
         rx.cond(
             AltaMasivaState.resultado_detalles.length() > 0,
             rx.box(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_RESULTADOS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            AltaMasivaState.resultado_detalles,
-                            _fila_resultado,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
+                table_shell(
+                    loading=False,
+                    headers=ENCABEZADOS_RESULTADOS,
+                    rows=AltaMasivaState.resultado_detalles,
+                    row_renderer=_fila_resultado,
+                    has_rows=True,
+                    empty_component=rx.fragment(),
                 ),
                 width="100%",
                 overflow_x="auto",

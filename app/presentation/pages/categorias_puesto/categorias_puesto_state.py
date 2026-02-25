@@ -122,26 +122,48 @@ class CategoriasPuestoState(BaseState):
     # VALIDACIÓN EN TIEMPO REAL
     # ========================
     def validar_tipo_servicio_campo(self):
-        self.error_tipo_servicio_id = validar_tipo_servicio_id(self.form_tipo_servicio_id)
+        self.validar_y_asignar_error(
+            valor=self.form_tipo_servicio_id,
+            validador=validar_tipo_servicio_id,
+            error_attr="error_tipo_servicio_id",
+        )
 
     def validar_clave_campo(self):
-        self.error_clave = validar_clave(self.form_clave)
+        self.validar_y_asignar_error(
+            valor=self.form_clave,
+            validador=validar_clave,
+            error_attr="error_clave",
+        )
 
     def validar_nombre_campo(self):
-        self.error_nombre = validar_nombre(self.form_nombre)
+        self.validar_y_asignar_error(
+            valor=self.form_nombre,
+            validador=validar_nombre,
+            error_attr="error_nombre",
+        )
 
     def validar_descripcion_campo(self):
-        self.error_descripcion = validar_descripcion(self.form_descripcion)
+        self.validar_y_asignar_error(
+            valor=self.form_descripcion,
+            validador=validar_descripcion,
+            error_attr="error_descripcion",
+        )
 
     def validar_orden_campo(self):
-        self.error_orden = validar_orden(self.form_orden)
+        self.validar_y_asignar_error(
+            valor=self.form_orden,
+            validador=validar_orden,
+            error_attr="error_orden",
+        )
 
     def validar_todos_los_campos(self):
-        self.validar_tipo_servicio_campo()
-        self.validar_clave_campo()
-        self.validar_nombre_campo()
-        self.validar_descripcion_campo()
-        self.validar_orden_campo()
+        self.validar_lote_campos([
+            ("error_tipo_servicio_id", self.form_tipo_servicio_id, validar_tipo_servicio_id),
+            ("error_clave", self.form_clave, validar_clave),
+            ("error_nombre", self.form_nombre, validar_nombre),
+            ("error_descripcion", self.form_descripcion, validar_descripcion),
+            ("error_orden", self.form_orden, validar_orden),
+        ])
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
@@ -440,11 +462,13 @@ class CategoriasPuestoState(BaseState):
         self.form_nombre = ""
         self.form_descripcion = ""
         self.form_orden = "0"
-        self.error_tipo_servicio_id = ""
-        self.error_clave = ""
-        self.error_nombre = ""
-        self.error_descripcion = ""
-        self.error_orden = ""
+        self.limpiar_errores_campos([
+            "tipo_servicio_id",
+            "clave",
+            "nombre",
+            "descripcion",
+            "orden",
+        ])
         self.categoria_seleccionada = None
         self.es_edicion = False
 

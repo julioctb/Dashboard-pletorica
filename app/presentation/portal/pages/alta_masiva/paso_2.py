@@ -3,6 +3,7 @@ Paso 2: Preview de validacion.
 """
 import reflex as rx
 
+from app.presentation.components.ui import table_shell
 from app.presentation.theme import Colors, Typography, Spacing
 
 from .state import AltaMasivaState
@@ -88,26 +89,13 @@ def paso_2_preview() -> rx.Component:
 
         # Tabla de registros
         rx.box(
-            rx.table.root(
-                rx.table.header(
-                    rx.table.row(
-                        rx.foreach(
-                            ENCABEZADOS_PREVIEW,
-                            lambda col: rx.table.column_header_cell(
-                                col["nombre"],
-                                width=col["ancho"],
-                            ),
-                        ),
-                    ),
-                ),
-                rx.table.body(
-                    rx.foreach(
-                        AltaMasivaState.registros_preview,
-                        _fila_validacion,
-                    ),
-                ),
-                width="100%",
-                variant="surface",
+            table_shell(
+                loading=False,
+                headers=ENCABEZADOS_PREVIEW,
+                rows=AltaMasivaState.registros_preview,
+                row_renderer=_fila_validacion,
+                has_rows=True,
+                empty_component=rx.fragment(),
             ),
             width="100%",
             overflow_x="auto",

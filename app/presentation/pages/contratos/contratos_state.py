@@ -402,40 +402,80 @@ class ContratosState(BaseState, CRUDStateMixin):
     # VALIDACIÓN EN TIEMPO REAL
     # ========================
     def validar_empresa_id_campo(self):
-        self.error_empresa_id = validar_empresa_id(self.form_empresa_id)
+        self.validar_y_asignar_error(
+            valor=self.form_empresa_id,
+            validador=validar_empresa_id,
+            error_attr="error_empresa_id",
+        )
 
     def validar_tipo_servicio_id_campo(self):
-        self.error_tipo_servicio_id = validar_tipo_servicio_id(self.form_tipo_servicio_id)
+        self.validar_y_asignar_error(
+            valor=self.form_tipo_servicio_id,
+            validador=validar_tipo_servicio_id,
+            error_attr="error_tipo_servicio_id",
+        )
 
     def validar_modalidad_campo(self):
-        self.error_modalidad_adjudicacion = validar_modalidad_adjudicacion(self.form_modalidad_adjudicacion)
+        self.validar_y_asignar_error(
+            valor=self.form_modalidad_adjudicacion,
+            validador=validar_modalidad_adjudicacion,
+            error_attr="error_modalidad_adjudicacion",
+        )
 
     def validar_tipo_duracion_campo(self):
-        self.error_tipo_duracion = validar_tipo_duracion(self.form_tipo_duracion)
+        self.validar_y_asignar_error(
+            valor=self.form_tipo_duracion,
+            validador=validar_tipo_duracion,
+            error_attr="error_tipo_duracion",
+        )
 
     def validar_tipo_contrato_campo(self):
-        self.error_tipo_contrato = validar_tipo_contrato(self.form_tipo_contrato)
+        self.validar_y_asignar_error(
+            valor=self.form_tipo_contrato,
+            validador=validar_tipo_contrato,
+            error_attr="error_tipo_contrato",
+        )
 
     def validar_fecha_inicio_campo(self):
-        self.error_fecha_inicio = validar_fecha_inicio(self.form_fecha_inicio)
+        self.validar_y_asignar_error(
+            valor=self.form_fecha_inicio,
+            validador=validar_fecha_inicio,
+            error_attr="error_fecha_inicio",
+        )
 
     def validar_fecha_fin_campo(self):
-        self.error_fecha_fin = validar_fecha_fin(
-            self.form_fecha_fin,
-            self.form_fecha_inicio,
-            self.form_tipo_duracion
+        self.validar_y_asignar_error(
+            valor=self.form_fecha_fin,
+            validador=lambda v: validar_fecha_fin(
+                v,
+                self.form_fecha_inicio,
+                self.form_tipo_duracion
+            ),
+            error_attr="error_fecha_fin",
         )
 
     def validar_monto_minimo_campo(self):
-        self.error_monto_minimo = validar_monto_minimo(self.form_monto_minimo)
+        self.validar_y_asignar_error(
+            valor=self.form_monto_minimo,
+            validador=validar_monto_minimo,
+            error_attr="error_monto_minimo",
+        )
 
     def validar_monto_maximo_campo(self):
-        self.error_monto_maximo = validar_monto_maximo(self.form_monto_maximo)
+        self.validar_y_asignar_error(
+            valor=self.form_monto_maximo,
+            validador=validar_monto_maximo,
+            error_attr="error_monto_maximo",
+        )
         # También validar coherencia
         if not self.error_monto_maximo:
-            self.error_monto_maximo = validar_montos_coherentes(
-                self.form_monto_minimo,
-                self.form_monto_maximo
+            self.validar_y_asignar_error(
+                valor=self.form_monto_maximo,
+                validador=lambda _v: validar_montos_coherentes(
+                    self.form_monto_minimo,
+                    self.form_monto_maximo
+                ),
+                error_attr="error_monto_maximo",
             )
 
     def validar_descripcion_objeto_campo(self):
@@ -443,14 +483,21 @@ class ContratosState(BaseState, CRUDStateMixin):
         if not self.form_descripcion_objeto or not self.form_descripcion_objeto.strip():
             self.error_descripcion_objeto = "La descripción del objeto es obligatoria"
         else:
-            self.error_descripcion_objeto = validar_descripcion_objeto(self.form_descripcion_objeto)
+            self.validar_y_asignar_error(
+                valor=self.form_descripcion_objeto,
+                validador=validar_descripcion_objeto,
+                error_attr="error_descripcion_objeto",
+            )
 
     def _validar_campo(self, campo: str):
         """Valida un campo usando el diccionario de validadores"""
         if campo in CAMPOS_VALIDACION:
             valor = getattr(self, f"form_{campo}")
-            error = CAMPOS_VALIDACION[campo](valor)
-            setattr(self, f"error_{campo}", error)
+            self.validar_y_asignar_error(
+                valor=valor,
+                validador=CAMPOS_VALIDACION[campo],
+                error_attr=f"error_{campo}",
+            )
 
     def _validar_todos_los_campos(self):
         """Valida todos los campos del formulario con lógica condicional"""
@@ -1410,15 +1457,15 @@ class ContratosState(BaseState, CRUDStateMixin):
 
     def _limpiar_errores(self):
         """Limpia todos los errores de validación"""
-        for campo in CAMPOS_VALIDACION:
-            setattr(self, f"error_{campo}", "")
-        self.error_empresa_id = ""
-        self.error_tipo_servicio_id = ""
-        self.error_tipo_contrato = ""
-        self.error_modalidad_adjudicacion = ""
-        self.error_tipo_duracion = ""
-        self.error_fecha_inicio = ""
-        self.error_fecha_fin = ""
+        self.limpiar_errores_campos(list(CAMPOS_VALIDACION.keys()) + [
+            "empresa_id",
+            "tipo_servicio_id",
+            "tipo_contrato",
+            "modalidad_adjudicacion",
+            "tipo_duracion",
+            "fecha_inicio",
+            "fecha_fin",
+        ])
 
     def _cargar_contrato_en_formulario(self, contrato: dict):
         """Carga datos de contrato en el formulario"""

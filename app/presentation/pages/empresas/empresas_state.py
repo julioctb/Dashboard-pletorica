@@ -376,13 +376,18 @@ class EmpresasState(AuthState):
         """Valida un campo usando el diccionario de validadores"""
         if campo in CAMPOS_VALIDACION:
             valor = getattr(self, f"form_{campo}")
-            error = CAMPOS_VALIDACION[campo](valor)
-            setattr(self, f"error_{campo}", error)
+            self.validar_y_asignar_error(
+                valor=valor,
+                validador=CAMPOS_VALIDACION[campo],
+                error_attr=f"error_{campo}",
+            )
 
     def _validar_todos_los_campos(self):
         """Valida todos los campos del formulario"""
-        for campo in CAMPOS_VALIDACION:
-            self._validar_campo(campo)
+        self.validar_lote_campos([
+            (f"error_{campo}", getattr(self, f"form_{campo}"), CAMPOS_VALIDACION[campo])
+            for campo in CAMPOS_VALIDACION
+        ])
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
@@ -450,8 +455,7 @@ class EmpresasState(AuthState):
 
     def _limpiar_errores(self):
         """Limpia todos los errores de validación"""
-        for campo in CAMPOS_VALIDACION:
-            setattr(self, f"error_{campo}", "")
+        self.limpiar_errores_campos(list(CAMPOS_VALIDACION.keys()))
 
     def _cargar_empresa_en_formulario(self, empresa: Empresa):
         """Carga datos de empresa en el formulario"""

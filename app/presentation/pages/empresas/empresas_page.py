@@ -12,8 +12,9 @@ from app.presentation.layout import (
 )
 from app.presentation.components.ui import (
     status_badge_reactive,
+    table_cell_text_sm,
     tabla_vacia,
-    skeleton_tabla,
+    table_shell,
     action_buttons_reactive,
     switch_inactivos,
     tabla_action_button,
@@ -81,28 +82,11 @@ def fila_empresa(empresa: dict) -> rx.Component:
     """Fila de la tabla para una empresa."""
     return rx.table.row(
         # Codigo
-        rx.table.cell(
-            rx.text(
-                empresa["codigo_corto"],
-                font_weight=Typography.WEIGHT_BOLD,
-                font_size=Typography.SIZE_SM,
-            ),
-        ),
+        table_cell_text_sm(empresa["codigo_corto"], weight=Typography.WEIGHT_BOLD),
         # Nombre comercial
-        rx.table.cell(
-            rx.text(
-                empresa["nombre_comercial"],
-                font_size=Typography.SIZE_SM,
-            ),
-        ),
+        table_cell_text_sm(empresa["nombre_comercial"]),
         # Razon social
-        rx.table.cell(
-            rx.text(
-                empresa["razon_social"],
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            ),
-        ),
+        table_cell_text_sm(empresa["razon_social"], tone="secondary"),
         # Tipo
         rx.table.cell(
             tipo_empresa_badge(empresa["tipo_empresa"]),
@@ -132,44 +116,15 @@ ENCABEZADOS_EMPRESAS = [
 
 def tabla_empresas() -> rx.Component:
     """Vista de tabla de empresas"""
-    return rx.cond(
-        EmpresasState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_EMPRESAS, filas=5),
-        rx.cond(
-            EmpresasState.tiene_empresas,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_EMPRESAS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            EmpresasState.empresas_filtradas,
-                            fila_empresa,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                # Contador
-                rx.text(
-                    "Mostrando ", EmpresasState.total_empresas, " empresa(s)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(onclick=EmpresasState.abrir_modal_crear),
-        ),
+    return table_shell(
+        loading=EmpresasState.loading,
+        headers=ENCABEZADOS_EMPRESAS,
+        rows=EmpresasState.empresas_filtradas,
+        row_renderer=fila_empresa,
+        has_rows=EmpresasState.tiene_empresas,
+        empty_component=tabla_vacia(onclick=EmpresasState.abrir_modal_crear),
+        total_caption="Mostrando " + EmpresasState.total_empresas.to(str) + " empresa(s)",
+        loading_rows=5,
     )
 
 

@@ -170,7 +170,15 @@ class OnboardingAltaState(PortalState):
     # MONTAJE
     # ========================
     async def on_mount_onboarding_alta(self):
-        async for _ in self._montar_pagina_portal(self._fetch_empleados_onboarding):
+        resultado = await self.on_mount_portal()
+        if resultado:
+            self.loading = False
+            yield resultado
+            return
+        if not self.puede_registrar_personal:
+            yield rx.redirect("/portal")
+            return
+        async for _ in self._montar_pagina(self._fetch_empleados_onboarding):
             yield
 
     # ========================

@@ -10,7 +10,7 @@ from app.presentation.components.ui import (
     form_input,
     boton_guardar,
 )
-from app.presentation.theme import Colors, Typography, Spacing
+from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 from .state import MisDatosState
 
@@ -163,7 +163,7 @@ def _metric_mini(label: str, value, color_scheme: str) -> rx.Component:
     return rx.vstack(
         rx.text(
             value,
-            font_size="20px",
+            font_size=Typography.SIZE_XL,
             font_weight=Typography.WEIGHT_BOLD,
             color=f"var(--{color_scheme}-9)",
         ),
@@ -175,7 +175,7 @@ def _metric_mini(label: str, value, color_scheme: str) -> rx.Component:
         align="center",
         padding=Spacing.SM,
         border=f"1px solid {Colors.BORDER}",
-        border_radius="8px",
+        border_radius=Radius.LG,
         background=Colors.SURFACE,
         flex="1",
         min_width="100px",

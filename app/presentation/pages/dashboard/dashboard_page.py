@@ -112,7 +112,7 @@ def _metricas_grid() -> rx.Component:
             valor=DashboardState.metricas["requisiciones_pendientes"].to(str),
             icono="clipboard-list",
             color_scheme="amber",
-            href="/requisiciones",
+            href="/wip/requisiciones",
         ),
 
         columns=rx.breakpoints(initial="1", sm="2", lg="3"),

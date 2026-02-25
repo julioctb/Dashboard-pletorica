@@ -27,7 +27,16 @@ from app.presentation.theme import (
 
 def _cond_item(condition, text: str, icon: str, href: str) -> rx.Component:
     """Renderiza un item de navegacion solo si la condicion es verdadera."""
-    return rx.cond(condition, nav_item(text=text, icon=icon, href=href), rx.fragment())
+    return rx.cond(
+        condition,
+        nav_item(
+            text=text,
+            icon=icon,
+            href=href,
+            is_active=PortalState.router.route_id == href,
+        ),
+        rx.fragment(),
+    )
 
 
 def _cond_group(condition, label: str, *items) -> rx.Component:
@@ -195,7 +204,7 @@ def _portal_user_section() -> rx.Component:
                         spacing="2",
                         align="center",
                     ),
-                    on_click=rx.redirect("/portal/mis-datos"),
+                    on_click=rx.redirect("/portal/mi-perfil"),
                 ),
                 rx.menu.separator(),
                 rx.menu.item(
@@ -238,7 +247,7 @@ def _dev_simulation_banner() -> rx.Component:
                 rx.icon("bug", size=14, color=Colors.TEXT_INVERSE),
                 rx.text(
                     "SIMULACION",
-                    font_size="11px",
+                    font_size=Typography.SIZE_XS,
                     font_weight=Typography.WEIGHT_BOLD,
                     color=Colors.TEXT_INVERSE,
                     letter_spacing=Typography.LETTER_SPACING_WIDE,
@@ -249,7 +258,7 @@ def _dev_simulation_banner() -> rx.Component:
             ),
             rx.button(
                 rx.icon("arrow-left", size=14),
-                rx.text("Volver a Admin", font_size="12px"),
+                rx.text("Volver a Admin", font_size=Typography.SIZE_XS),
                 size="1",
                 variant="outline",
                 color_scheme="red",
@@ -258,13 +267,13 @@ def _dev_simulation_banner() -> rx.Component:
                 cursor="pointer",
                 style={
                     "color": Colors.TEXT_INVERSE,
-                    "border_color": "var(--red-7)",
-                    "_hover": {"background": "var(--red-8)"},
+                    "border_color": Colors.ERROR_HOVER,
+                    "_hover": {"background": Colors.ERROR_HOVER},
                 },
             ),
             width="100%",
             padding=Spacing.SM,
-            background="var(--red-9)",
+            background=Colors.ERROR,
             spacing="2",
             align_items="center",
         ),

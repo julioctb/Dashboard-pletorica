@@ -1,6 +1,9 @@
 import reflex as rx
 from typing import Callable
 from .filters import input_busqueda
+from .cards import empty_state_card
+from .table_primitives import table_shell
+from app.presentation.theme import Colors
 
 
 def tabla_vacia(
@@ -8,42 +11,27 @@ def tabla_vacia(
     mensaje: str = "No hay registros guardados",
     submensaje: str = "",
 ) -> rx.Component:
-    """Mensaje cuando no hay registros.
+    """Mensaje cuando no hay registros (legacy; preferir `empty_state_card`).
 
     Args:
         onclick: Callback para el botón de crear (si es None, no muestra botón)
         mensaje: Texto principal
         submensaje: Texto secundario debajo del mensaje
     """
-    items = [
-        rx.icon("inbox", size=48, color="gray"),
-        rx.text(mensaje, color="gray", size="3"),
-    ]
-
-    if submensaje:
-        items.append(
-            rx.text(submensaje, color="gray", size="2", text_align="center", max_width="400px")
-        )
-
-    if onclick is not None:
-        items.append(
+    return empty_state_card(
+        title=mensaje,
+        description=submensaje or "Use el botón para crear el primer registro.",
+        icon="inbox",
+        action_button=rx.cond(
+            onclick is not None,
             rx.button(
                 rx.icon("plus", size=16),
                 "Crear primer registro",
                 on_click=onclick,
                 color_scheme="blue",
-            )
-        )
-
-    return rx.center(
-        rx.vstack(
-            *items,
-            spacing="3",
-            align="center",
-            padding="8",
+            ),
+            rx.fragment(),
         ),
-        width="100%",
-        min_height="200px",
     )
 
 def tabla(
@@ -56,7 +44,7 @@ def tabla(
     boton_derecho: rx.Component = None,
 ) -> rx.Component:
     """
-    Tabla con búsqueda opcional.
+    Tabla con búsqueda opcional (legacy; preferir `table_shell` y wrappers especializados).
 
     Args:
         columnas: Lista de columnas con 'nombre' y 'ancho'
@@ -96,26 +84,13 @@ def tabla(
 
     # Tabla
     contenido.append(
-        rx.table.root(
-            rx.table.header(
-                rx.table.row(
-                    rx.foreach(
-                        columnas,
-                        lambda h: rx.table.column_header_cell(
-                            h['nombre'],
-                            width=h.get('ancho', 'auto'),
-                        ),
-                    )
-                ),
-            ),
-            rx.table.body(
-                rx.foreach(
-                    lista,
-                    filas
-                ),
-            ),
-            width="100%",
-            variant="surface",
+        table_shell(
+            loading=False,
+            headers=columnas,
+            rows=lista,
+            row_renderer=filas,
+            has_rows=True,
+            empty_component=rx.fragment(),
         )
     )
 
@@ -127,4 +102,5 @@ def tabla(
         ),
         size='3',
         width='100%',
+        background=Colors.SURFACE,
     )

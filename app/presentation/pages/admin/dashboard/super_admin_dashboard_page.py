@@ -58,13 +58,46 @@ def _skeleton_dashboard() -> rx.Component:
     )
 
 
-def _kpis() -> rx.Component:
+def _seccion(titulo: str, descripcion: str, contenido: rx.Component, icono: str) -> rx.Component:
+    return rx.vstack(
+        rx.hstack(
+            rx.center(
+                rx.icon(icono, size=16, color="var(--blue-9)"),
+                width="28px",
+                height="28px",
+                border_radius="8px",
+                background="var(--blue-3)",
+            ),
+            rx.vstack(
+                rx.text(titulo, weight="bold"),
+                rx.text(descripcion, size="2", color=Colors.TEXT_SECONDARY),
+                spacing="0",
+                align_items="start",
+            ),
+            spacing="3",
+            align="center",
+        ),
+        contenido,
+        spacing="3",
+        width="100%",
+        align_items="start",
+    )
+
+
+def _kpis_usuarios_acceso() -> rx.Component:
     return rx.grid(
         metric_card(
             titulo="Usuarios activos",
             valor=SuperAdminDashboardState.metricas_dict["usuarios_activos"].to(str),
             icono="users",
             color_scheme="blue",
+            href="/admin/usuarios",
+        ),
+        metric_card(
+            titulo="Usuarios sin último acceso",
+            valor=SuperAdminDashboardState.metricas_dict["usuarios_sin_ultimo_acceso"].to(str),
+            icono="clock-3",
+            color_scheme="orange",
             href="/admin/usuarios",
         ),
         metric_card(
@@ -81,13 +114,14 @@ def _kpis() -> rx.Component:
             color_scheme="violet",
             href="/admin/usuarios",
         ),
-        metric_card(
-            titulo="Instituciones activas",
-            valor=SuperAdminDashboardState.metricas_dict["instituciones_activas"].to(str),
-            icono="building",
-            color_scheme="green",
-            href="/admin/instituciones",
-        ),
+        columns=rx.breakpoints(initial="1", sm="2", lg="4"),
+        spacing="4",
+        width="100%",
+    )
+
+
+def _kpis_operacion() -> rx.Component:
+    return rx.grid(
         metric_card(
             titulo="Onboarding en revisión",
             valor=SuperAdminDashboardState.metricas_dict["onboarding_en_revision"].to(str),
@@ -103,25 +137,11 @@ def _kpis() -> rx.Component:
             href="/admin/onboarding",
         ),
         metric_card(
-            titulo="Usuarios sin último acceso",
-            valor=SuperAdminDashboardState.metricas_dict["usuarios_sin_ultimo_acceso"].to(str),
-            icono="clock-3",
-            color_scheme="orange",
-            href="/admin/usuarios",
-        ),
-        metric_card(
-            titulo="Instituciones sin empresas",
-            valor=SuperAdminDashboardState.metricas_dict["instituciones_sin_empresas"].to(str),
-            icono="building-2",
-            color_scheme="orange",
-            href="/admin/instituciones",
-        ),
-        metric_card(
             titulo="Requisiciones pendientes",
             valor=SuperAdminDashboardState.metricas_dict["requisiciones_pendientes"].to(str),
             icono="clipboard-list",
             color_scheme="amber",
-            href="/requisiciones",
+            href="/wip/requisiciones",
         ),
         metric_card(
             titulo="Contratos por vencer",
@@ -228,6 +248,16 @@ def _panel_alertas() -> rx.Component:
                 rx.fragment(),
             ),
             rx.cond(
+                SuperAdminDashboardState.contratos_por_vencer > 0,
+                _fila_alerta(
+                    "Contratos por vencer",
+                    "Hay contratos próximos a vencer que requieren seguimiento.",
+                    "/contratos",
+                    icono="calendar-clock",
+                ),
+                rx.fragment(),
+            ),
+            rx.cond(
                 SuperAdminDashboardState.instituciones_sin_empresas > 0,
                 _fila_alerta(
                     "Instituciones sin empresas",
@@ -240,6 +270,7 @@ def _panel_alertas() -> rx.Component:
             rx.cond(
                 (SuperAdminDashboardState.usuarios_sin_ultimo_acceso == 0)
                 & (SuperAdminDashboardState.onboarding_rechazado == 0)
+                & (SuperAdminDashboardState.contratos_por_vencer == 0)
                 & (SuperAdminDashboardState.instituciones_sin_empresas == 0),
                 rx.text(
                     "Sin alertas prioritarias por ahora.",
@@ -344,13 +375,28 @@ def _estado_error() -> rx.Component:
 def _contenido_panel() -> rx.Component:
     return rx.vstack(
         _banner_advertencias(),
-        _kpis(),
-        rx.grid(
-            _panel_alertas(),
+        _seccion(
+            "Usuarios y acceso",
+            "Visión rápida del acceso a la plataforma y adopción del sistema.",
+            _kpis_usuarios_acceso(),
+            "users",
+        ),
+        _seccion(
+            "Operación",
+            "Seguimiento de pendientes operativos y alertas relevantes para BUAP.",
+            rx.vstack(
+                _kpis_operacion(),
+                _panel_alertas(),
+                spacing="4",
+                width="100%",
+            ),
+            "activity",
+        ),
+        _seccion(
+            "Accesos rápidos",
+            "Entradas directas a los módulos administrativos y operativos.",
             _panel_accesos_rapidos(),
-            columns=rx.breakpoints(initial="1", xl="2"),
-            spacing="4",
-            width="100%",
+            "zap",
         ),
         spacing="4",
         width="100%",
@@ -363,8 +409,8 @@ def super_admin_dashboard_page() -> rx.Component:
     return rx.box(
         page_layout(
             header=page_header(
-                titulo="Super Admin",
-                subtitulo="Control de acceso, operación global y supervisión",
+                titulo="Dashboard",
+                subtitulo="Control de acceso y operación global (BUAP)",
                 icono="shield-check",
                 accion_principal=_boton_actualizar(),
             ),

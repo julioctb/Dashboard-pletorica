@@ -215,6 +215,108 @@ class BaseState(rx.State):
 
         return rx.toast.error(mensaje, position="top-center")
 
+    def aplicar_errores_validacion(
+        self,
+        error: Exception,
+        *,
+        field_map: Optional[Dict[str, str]] = None,
+        error_prefix: str = "error_",
+        fallback_attr: Optional[str] = None,
+        fallback_msg: str = "Revise los datos capturados",
+    ) -> bool:
+        """
+        Mapea errores estructurados (ej. Pydantic `.errors()`) a atributos `error_*`.
+
+        Args:
+            error: Excepción que expone método `.errors()`
+            field_map: Mapeo opcional de loc -> nombre de atributo error_*
+            error_prefix: Prefijo por default para construir `error_<campo>`
+            fallback_attr: Atributo a usar si no se pudo mapear ningún campo
+            fallback_msg: Mensaje del fallback
+
+        Returns:
+            True si se asignó al menos un error de campo, False en otro caso.
+        """
+        field_map = field_map or {}
+        if not hasattr(error, "errors"):
+            return False
+
+        asigno_error = False
+        try:
+            for err in error.errors():
+                loc = err.get("loc", [])
+                campo = str(loc[-1]) if loc else ""
+                if not campo:
+                    continue
+
+                error_attr = field_map.get(campo, f"{error_prefix}{campo}")
+                if hasattr(self, error_attr):
+                    setattr(self, error_attr, str(err.get("msg", "Valor inválido")))
+                    asigno_error = True
+        except Exception:
+            return False
+
+        if not asigno_error and fallback_attr and hasattr(self, fallback_attr):
+            setattr(self, fallback_attr, fallback_msg)
+
+        return asigno_error
+
+    def limpiar_errores_campos(
+        self,
+        campos: List[str],
+        *,
+        error_prefix: str = "error_",
+    ) -> None:
+        """
+        Limpia atributos de error de formulario (`error_*`) de forma declarativa.
+
+        Args:
+            campos: Lista de nombres de campo ("email") o atributos completos ("error_email")
+            error_prefix: Prefijo usado cuando se pasa nombre de campo
+        """
+        for campo in campos:
+            attr = campo if campo.startswith(error_prefix) else f"{error_prefix}{campo}"
+            if hasattr(self, attr):
+                setattr(self, attr, "")
+
+    def validar_y_asignar_error(
+        self,
+        *,
+        valor: Any,
+        validador: Callable[[Any], str],
+        error_attr: str,
+    ) -> bool:
+        """
+        Ejecuta un validador de formulario y asigna el mensaje al atributo `error_*`.
+
+        Returns:
+            True si el campo es válido, False si hay error.
+        """
+        error_msg = validador(valor)
+        if hasattr(self, error_attr):
+            setattr(self, error_attr, error_msg)
+        return error_msg == ""
+
+    def validar_lote_campos(self, validaciones: List[tuple]) -> bool:
+        """
+        Ejecuta múltiples validaciones de formulario y asigna errores.
+
+        Args:
+            validaciones: Lista de tuplas `(error_attr, valor, validador)`
+
+        Returns:
+            True si todos los campos son válidos.
+        """
+        todos_validos = True
+        for error_attr, valor, validador in validaciones:
+            if not self.validar_y_asignar_error(
+                valor=valor,
+                validador=validador,
+                error_attr=error_attr,
+            ):
+                todos_validos = False
+        return todos_validos
+
     def iniciar_guardado(self):
         """Inicia estado de guardado (saving=True)"""
         self.saving = True

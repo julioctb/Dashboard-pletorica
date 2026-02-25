@@ -4,6 +4,7 @@ Muestra tabla de usuarios con filtros, CRUD y gestion de empresas.
 """
 import reflex as rx
 
+from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.pages.admin.usuarios.usuarios_state import UsuariosAdminState
 from app.presentation.pages.admin.usuarios.usuarios_modals import (
     modal_crear_usuario,
@@ -17,7 +18,9 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
-    skeleton_tabla,
+    empty_state_card,
+    table_cell_text,
+    table_shell,
     tabla_action_button,
     tabla_action_buttons,
 )
@@ -32,6 +35,9 @@ def _badge_rol(rol: str) -> rx.Component:
     return rx.match(
         rol,
         ("admin", rx.badge("Admin", color_scheme="blue", variant="soft", size="1")),
+        ("superadmin", rx.badge("Super Admin", color_scheme="blue", variant="soft", size="1")),
+        ("institucion", rx.badge("Institución", color_scheme="amber", variant="soft", size="1")),
+        ("proveedor", rx.badge("Proveedor", color_scheme="teal", variant="soft", size="1")),
         ("client", rx.badge("Cliente", color_scheme="gray", variant="soft", size="1")),
         rx.badge(rol, size="1"),
     )
@@ -53,6 +59,8 @@ def _badge_estado(activo: rx.Var[bool]) -> rx.Component:
 def _acciones_usuario(usuario: dict) -> rx.Component:
     """Botones de accion para un usuario."""
     es_activo = usuario["activo"]
+    puede_gestionar = usuario["_gestionable"]
+    puede_gestionar_empresas = usuario["_puede_gestionar_empresas"]
 
     return tabla_action_buttons([
         # Editar
@@ -61,6 +69,7 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
             tooltip="Editar",
             on_click=lambda: UsuariosAdminState.abrir_modal_editar(usuario),
             color_scheme="blue",
+            visible=puede_gestionar,
         ),
         # Gestionar empresas
         tabla_action_button(
@@ -68,6 +77,7 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
             tooltip="Gestionar empresas",
             on_click=lambda: UsuariosAdminState.abrir_modal_empresas(usuario),
             color_scheme="teal",
+            visible=puede_gestionar & puede_gestionar_empresas,
         ),
         # Desactivar (si activo)
         tabla_action_button(
@@ -75,7 +85,7 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
             tooltip="Desactivar",
             on_click=lambda: UsuariosAdminState.confirmar_desactivar(usuario),
             color_scheme="red",
-            visible=es_activo,
+            visible=es_activo & puede_gestionar,
         ),
         # Activar (si inactivo)
         tabla_action_button(
@@ -83,7 +93,7 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
             tooltip="Activar",
             on_click=lambda: UsuariosAdminState.activar_usuario_accion(usuario["id"].to(str)),
             color_scheme="green",
-            visible=~es_activo,
+            visible=(~es_activo) & puede_gestionar,
         ),
     ])
 
@@ -101,7 +111,9 @@ def _filtros() -> rx.Component:
             rx.select.content(
                 rx.select.item("Todos", value="all"),
                 rx.select.item("Administradores", value="admin"),
-                rx.select.item("Clientes", value="client"),
+                rx.select.item("Instituciones", value="institucion"),
+                rx.select.item("Proveedores", value="proveedor"),
+                rx.select.item("Clientes (legacy)", value="client"),
             ),
             value=UsuariosAdminState.filtro_rol_select,
             on_change=UsuariosAdminState.set_filtro_rol_select,
@@ -139,17 +151,9 @@ def _fila_usuario(usuario: dict) -> rx.Component:
     """Fila de la tabla para un usuario."""
     return rx.table.row(
         # Nombre
-        rx.table.cell(
-            rx.text(usuario["nombre_completo"], weight="medium", size="2"),
-        ),
+        table_cell_text(usuario["nombre_completo"], weight="500", size="0.875rem"),
         # Email
-        rx.table.cell(
-            rx.cond(
-                usuario["email"],
-                rx.text(usuario["email"], size="2", color="gray"),
-                rx.text("-", size="2", color="gray"),
-            ),
-        ),
+        table_cell_text(usuario["email"], fallback="-", tone="secondary", size="0.875rem"),
         # Rol
         rx.table.cell(
             _badge_rol(usuario["rol"]),
@@ -176,13 +180,7 @@ def _fila_usuario(usuario: dict) -> rx.Component:
             ),
         ),
         # Ultimo acceso
-        rx.table.cell(
-            rx.cond(
-                usuario["ultimo_acceso"],
-                rx.text(usuario["ultimo_acceso"], size="1", color="gray"),
-                rx.text("Nunca", size="1", color="gray"),
-            ),
-        ),
+        table_cell_text(usuario["ultimo_acceso"], fallback="Nunca", tone="secondary", size="0.75rem"),
         # Acciones
         rx.table.cell(
             _acciones_usuario(usuario),
@@ -203,60 +201,26 @@ ENCABEZADOS_USUARIOS = [
 
 def _tabla_usuarios() -> rx.Component:
     """Tabla principal de usuarios."""
-    return rx.cond(
-        UsuariosAdminState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_USUARIOS, filas=5),
-        rx.cond(
-            UsuariosAdminState.total_usuarios > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_USUARIOS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            UsuariosAdminState.usuarios,
-                            _fila_usuario,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                # Contador
-                rx.text(
-                    "Mostrando ", UsuariosAdminState.total_usuarios, " usuario(s)",
-                    size="2",
-                    color="gray",
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            # Estado vacio
-            rx.center(
-                rx.vstack(
-                    rx.icon("users", size=48, color="var(--gray-6)"),
-                    rx.text("No hay usuarios registrados", color="gray", size="3"),
-                    rx.button(
-                        rx.icon("user-plus", size=16),
-                        "Crear primer usuario",
-                        on_click=UsuariosAdminState.abrir_modal_crear,
-                        color_scheme="blue",
-                        variant="soft",
-                    ),
-                    spacing="3",
-                    align="center",
-                ),
-                padding="12",
+    return table_shell(
+        loading=UsuariosAdminState.loading,
+        headers=ENCABEZADOS_USUARIOS,
+        rows=UsuariosAdminState.usuarios,
+        row_renderer=_fila_usuario,
+        has_rows=UsuariosAdminState.total_usuarios > 0,
+        empty_component=empty_state_card(
+            title="No hay usuarios registrados",
+            description="Cree el primer usuario para iniciar la administración.",
+            icon="users",
+            action_button=rx.button(
+                rx.icon("user-plus", size=16),
+                "Crear primer usuario",
+                on_click=UsuariosAdminState.abrir_modal_crear,
+                color_scheme="blue",
+                variant="soft",
             ),
         ),
+        total_caption="Mostrando " + UsuariosAdminState.total_usuarios.to(str) + " usuario(s)",
+        loading_rows=5,
     )
 
 
@@ -267,7 +231,7 @@ def _tabla_usuarios() -> rx.Component:
 def usuarios_admin_page() -> rx.Component:
     """Pagina de gestion de usuarios para super admins."""
     return rx.cond(
-        UsuariosAdminState.es_super_admin,
+        AuthState.es_superadmin | AuthState.es_super_admin | AuthState.es_institucion,
         _contenido_usuarios(),
         rx.center(
             rx.vstack(
@@ -283,12 +247,12 @@ def usuarios_admin_page() -> rx.Component:
 
 
 def _contenido_usuarios() -> rx.Component:
-    """Contenido de la pagina de usuarios (solo para super admins)."""
+    """Contenido de la pagina de usuarios (super admin + institucional)."""
     return rx.box(
         page_layout(
             header=page_header(
                 titulo="Gestion de Usuarios",
-                subtitulo="Administre los usuarios del sistema y sus permisos",
+                subtitulo="Administre usuarios, roles de plataforma y perfiles por empresa",
                 icono="users",
                 accion_principal=rx.button(
                     rx.icon("user-plus", size=16),
@@ -320,5 +284,5 @@ def _contenido_usuarios() -> rx.Component:
         ),
         width="100%",
         min_height="100vh",
-        on_mount=UsuariosAdminState.on_mount_admin,
+        on_mount=UsuariosAdminState.on_mount_usuarios,
     )

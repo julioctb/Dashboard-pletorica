@@ -10,6 +10,7 @@ from app.presentation.pages.entregables.entregables_state import EntregablesStat
 from app.presentation.layout import page_layout, page_header
 from app.presentation.components.ui import (
     status_badge_reactive,
+    table_shell,
     tabla_vacia,
     skeleton_tabla,
 )
@@ -276,22 +277,13 @@ ENCABEZADOS_TABLA = [
 def _tabla_entregables() -> rx.Component:
     """Tabla de entregables con nueva estructura."""
     return rx.box(
-        rx.table.root(
-            rx.table.header(
-                rx.table.row(
-                    rx.foreach(
-                        ENCABEZADOS_TABLA,
-                        lambda col: rx.table.column_header_cell(
-                            col["nombre"],
-                            width=col["ancho"],
-                        ),
-                    ),
-                ),
-            ),
-            rx.table.body(
-                rx.foreach(EntregablesState.entregables_filtrados, _fila_entregable)
-            ),
-            width="100%",
+        table_shell(
+            loading=False,
+            headers=ENCABEZADOS_TABLA,
+            rows=EntregablesState.entregables_filtrados,
+            row_renderer=_fila_entregable,
+            has_rows=True,
+            empty_component=rx.fragment(),
         ),
         background=Colors.SURFACE,
         border=f"1px solid {Colors.BORDER}",

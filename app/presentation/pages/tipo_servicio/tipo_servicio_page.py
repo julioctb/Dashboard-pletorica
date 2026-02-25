@@ -10,9 +10,12 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
+    table_cell_actions,
+    table_cell_badge,
+    table_shell,
+    table_text_sm,
     status_badge_reactive,
     tabla_vacia,
-    skeleton_tabla,
     switch_inactivos,
     tabla_action_button,
     tabla_action_buttons,
@@ -104,24 +107,12 @@ def fila_tipo(tipo: dict) -> rx.Component:
         ),
         # Descripcion
         rx.table.cell(
-            rx.cond(
-                tipo["descripcion"],
-                rx.text(
-                    tipo["descripcion"],
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
-            ),
+            table_text_sm(tipo["descripcion"], fallback="-", tone="muted"),
         ),
         # Estatus
-        rx.table.cell(
-            status_badge_reactive(tipo["estatus"], show_icon=True),
-        ),
+        table_cell_badge(status_badge_reactive(tipo["estatus"], show_icon=True)),
         # Acciones
-        rx.table.cell(
-            acciones_tipo(tipo),
-        ),
+        table_cell_actions(acciones_tipo(tipo)),
     )
 
 
@@ -136,44 +127,15 @@ ENCABEZADOS_TIPOS = [
 
 def tabla_tipos() -> rx.Component:
     """Vista de tabla de tipos"""
-    return rx.cond(
-        TipoServicioState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_TIPOS, filas=5),
-        rx.cond(
-            TipoServicioState.total_tipos > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_TIPOS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            TipoServicioState.tipos,
-                            fila_tipo,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                # Contador
-                rx.text(
-                    "Mostrando ", TipoServicioState.total_tipos, " tipo(s)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(onclick=TipoServicioState.abrir_modal_crear),
-        ),
+    return table_shell(
+        loading=TipoServicioState.loading,
+        headers=ENCABEZADOS_TIPOS,
+        rows=TipoServicioState.tipos,
+        row_renderer=fila_tipo,
+        has_rows=TipoServicioState.total_tipos > 0,
+        empty_component=tabla_vacia(onclick=TipoServicioState.abrir_modal_crear),
+        total_caption="Mostrando " + TipoServicioState.total_tipos.to(str) + " tipo(s)",
+        loading_rows=5,
     )
 
 

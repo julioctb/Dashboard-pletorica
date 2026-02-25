@@ -101,30 +101,52 @@ class ContratoCategoriaState(BaseState):
     # VALIDACIÓN EN TIEMPO REAL
     # ========================
     def validar_categoria_puesto_id_campo(self):
-        self.error_categoria_puesto_id = validar_categoria_puesto_id(self.form_categoria_puesto_id)
+        self.validar_y_asignar_error(
+            valor=self.form_categoria_puesto_id,
+            validador=validar_categoria_puesto_id,
+            error_attr="error_categoria_puesto_id",
+        )
 
     def validar_cantidad_minima_campo(self):
-        self.error_cantidad_minima = validar_cantidad_minima(self.form_cantidad_minima)
+        self.validar_y_asignar_error(
+            valor=self.form_cantidad_minima,
+            validador=validar_cantidad_minima,
+            error_attr="error_cantidad_minima",
+        )
 
     def validar_cantidad_maxima_campo(self):
-        self.error_cantidad_maxima = validar_cantidad_maxima(
-            self.form_cantidad_maxima,
-            self.form_cantidad_minima
+        self.validar_y_asignar_error(
+            valor=self.form_cantidad_maxima,
+            validador=lambda v: validar_cantidad_maxima(
+                v,
+                self.form_cantidad_minima
+            ),
+            error_attr="error_cantidad_maxima",
         )
 
     def validar_costo_unitario_campo(self):
-        self.error_costo_unitario = validar_costo_unitario(self.form_costo_unitario)
+        self.validar_y_asignar_error(
+            valor=self.form_costo_unitario,
+            validador=validar_costo_unitario,
+            error_attr="error_costo_unitario",
+        )
 
     def validar_notas_campo(self):
-        self.error_notas = validar_notas(self.form_notas)
+        self.validar_y_asignar_error(
+            valor=self.form_notas,
+            validador=validar_notas,
+            error_attr="error_notas",
+        )
 
     def _validar_todos_los_campos(self):
         """Valida todos los campos del formulario"""
-        self.validar_categoria_puesto_id_campo()
-        self.validar_cantidad_minima_campo()
-        self.validar_cantidad_maxima_campo()
-        self.validar_costo_unitario_campo()
-        self.validar_notas_campo()
+        self.validar_lote_campos([
+            ("error_categoria_puesto_id", self.form_categoria_puesto_id, validar_categoria_puesto_id),
+            ("error_cantidad_minima", self.form_cantidad_minima, validar_cantidad_minima),
+            ("error_cantidad_maxima", self.form_cantidad_maxima, lambda v: validar_cantidad_maxima(v, self.form_cantidad_minima)),
+            ("error_costo_unitario", self.form_costo_unitario, validar_costo_unitario),
+            ("error_notas", self.form_notas, validar_notas),
+        ])
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
@@ -361,11 +383,13 @@ class ContratoCategoriaState(BaseState):
 
     def _limpiar_errores(self):
         """Limpia los errores de validación"""
-        self.error_categoria_puesto_id = ""
-        self.error_cantidad_minima = ""
-        self.error_cantidad_maxima = ""
-        self.error_costo_unitario = ""
-        self.error_notas = ""
+        self.limpiar_errores_campos([
+            "categoria_puesto_id",
+            "cantidad_minima",
+            "cantidad_maxima",
+            "costo_unitario",
+            "notas",
+        ])
 
     def _cargar_categoria_en_formulario(self, categoria: dict):
         """Carga datos de una categoría en el formulario"""

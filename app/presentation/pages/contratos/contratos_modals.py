@@ -3,7 +3,7 @@ Modales para el módulo de Contratos.
 """
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea, form_date
-from app.presentation.components.ui import status_badge_reactive, boton_guardar, boton_cancelar, boton_eliminar
+from app.presentation.components.ui import status_badge_reactive, boton_guardar, boton_cancelar, boton_eliminar, table_shell
 from app.presentation.pages.contratos.contratos_state import ContratosState
 from app.presentation.theme import Colors
 
@@ -779,20 +779,18 @@ def _tab_entregables_contrato() -> rx.Component:
             rx.cond(
                 ContratosState.tiene_entregables_contrato,
                 rx.box(
-                    rx.table.root(
-                        rx.table.header(
-                            rx.table.row(
-                                rx.table.column_header_cell("Período"),
-                                rx.table.column_header_cell("Fechas"),
-                                rx.table.column_header_cell("Estado"),
-                                rx.table.column_header_cell("Monto"),
-                                rx.table.column_header_cell(""),
-                            ),
-                        ),
-                        rx.table.body(
-                            rx.foreach(ContratosState.entregables_contrato, _fila_entregable),
-                        ),
-                        width="100%",
+                    table_shell(
+                        loading=False,
+                        has_rows=True,
+                        empty_component=rx.fragment(),
+                        header_cells=[
+                            rx.table.column_header_cell("Período"),
+                            rx.table.column_header_cell("Fechas"),
+                            rx.table.column_header_cell("Estado"),
+                            rx.table.column_header_cell("Monto"),
+                            rx.table.column_header_cell(""),
+                        ],
+                        body_component=rx.foreach(ContratosState.entregables_contrato, _fila_entregable),
                     ),
                     overflow_x="auto",
                 ),

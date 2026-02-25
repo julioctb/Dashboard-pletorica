@@ -2,7 +2,7 @@
 import reflex as rx
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 from app.presentation.components.requisiciones.requisicion_estado_badge import estado_requisicion_badge
-from app.presentation.components.ui import tabla_vacia, skeleton_tabla
+from app.presentation.components.ui import tabla_vacia, table_shell
 from app.presentation.components.ui.action_buttons import (
     tabla_action_button,
     tabla_action_buttons,
@@ -195,44 +195,21 @@ ENCABEZADOS_REQUISICIONES = [
 
 def requisicion_tabla() -> rx.Component:
     """Tabla de requisiciones con skeleton de carga."""
-    return rx.cond(
-        RequisicionesState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_REQUISICIONES, filas=5),
-        rx.cond(
-            RequisicionesState.total_filtrado > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_REQUISICIONES,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                    text_align=rx.cond(col["centrar"] == "1", "center", "start"),
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            RequisicionesState.requisiciones_filtradas,
-                            _fila_requisicion,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                rx.text(
-                    "Mostrando ",
-                    RequisicionesState.total_filtrado,
-                    " requisicion(es)",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(onclick=RequisicionesState.abrir_modal_crear),
-        ),
+    return table_shell(
+        loading=RequisicionesState.loading,
+        headers=ENCABEZADOS_REQUISICIONES,
+        rows=RequisicionesState.requisiciones_filtradas,
+        row_renderer=_fila_requisicion,
+        has_rows=RequisicionesState.total_filtrado > 0,
+        empty_component=tabla_vacia(onclick=RequisicionesState.abrir_modal_crear),
+        total_caption="Mostrando " + RequisicionesState.total_filtrado.to(str) + " requisicion(es)",
+        loading_rows=5,
+        header_cells=[
+            rx.table.column_header_cell(
+                col["nombre"],
+                width=col["ancho"],
+                text_align=rx.cond(col["centrar"] == "1", "center", "start"),
+            )
+            for col in ENCABEZADOS_REQUISICIONES
+        ],
     )

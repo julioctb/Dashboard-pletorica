@@ -12,8 +12,8 @@ from app.presentation.layout import (
 )
 from app.presentation.components.ui import (
     status_badge_reactive,
+    table_shell,
     tabla_vacia,
-    skeleton_tabla,
     switch_inactivos,
     tabla_action_button,
     tabla_action_buttons,
@@ -197,44 +197,15 @@ ENCABEZADOS_CONTRATOS = [
 
 def tabla_contratos() -> rx.Component:
     """Vista de tabla de contratos"""
-    return rx.cond(
-        ContratosState.loading,
-        skeleton_tabla(columnas=ENCABEZADOS_CONTRATOS, filas=5),
-        rx.cond(
-            ContratosState.total_contratos > 0,
-            rx.vstack(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.foreach(
-                                ENCABEZADOS_CONTRATOS,
-                                lambda col: rx.table.column_header_cell(
-                                    col["nombre"],
-                                    width=col["ancho"],
-                                ),
-                            ),
-                        ),
-                    ),
-                    rx.table.body(
-                        rx.foreach(
-                            ContratosState.contratos,
-                            fila_contrato,
-                        ),
-                    ),
-                    width="100%",
-                    variant="surface",
-                ),
-                # Contador
-                rx.text(
-                    "Mostrando ", ContratosState.total_contratos, " contrato(s)",
-                    size="2",
-                    color=Colors.TEXT_MUTED,
-                ),
-                width="100%",
-                spacing="3",
-            ),
-            tabla_vacia(onclick=ContratosState.abrir_modal_crear),
-        ),
+    return table_shell(
+        loading=ContratosState.loading,
+        headers=ENCABEZADOS_CONTRATOS,
+        rows=ContratosState.contratos,
+        row_renderer=fila_contrato,
+        has_rows=ContratosState.total_contratos > 0,
+        empty_component=tabla_vacia(onclick=ContratosState.abrir_modal_crear),
+        total_caption="Mostrando " + ContratosState.total_contratos.to(str) + " contrato(s)",
+        loading_rows=5,
     )
 
 

@@ -2,7 +2,6 @@
 State para la pagina Mis Empleados del portal.
 """
 import reflex as rx
-from datetime import date
 from typing import List
 
 from app.presentation.portal.state.portal_state import PortalState
@@ -10,107 +9,22 @@ from app.services import empleado_service
 from app.entities import EmpleadoCreate, EmpleadoUpdate
 from app.core.exceptions import DatabaseError, DuplicateError, BusinessRuleError, NotFoundError
 from app.core.validation import (
-    validar_texto_requerido,
-    validar_texto_opcional,
-    validar_select_requerido,
-    validar_fecha_no_futura,
-    NOMBRE_EMPLEADO_MIN,
-    NOMBRE_EMPLEADO_MAX,
-    APELLIDO_MIN,
-    APELLIDO_MAX,
-    NOMBRE_CONTACTO_MAX,
-    TELEFONO_DIGITOS,
-    TELEFONO_PATTERN,
+    validar_rfc_empleado_requerido,
+    validar_nss_empleado_requerido,
+    validar_telefono_empleado_requerido,
+    validar_apellido_materno_empleado,
+    validar_genero_empleado_requerido,
+    validar_fecha_nacimiento_empleado,
+    validar_contacto_emergencia_nombre,
+    validar_contacto_emergencia_telefono,
 )
 
-# Reutilizar validadores existentes de empleados
 from app.presentation.pages.empleados.empleados_validators import (
     validar_curp,
-    validar_rfc,
-    validar_nss,
     validar_nombre,
     validar_apellido_paterno,
     validar_email,
-    validar_telefono,
 )
-import re
-
-
-# =============================================================================
-# VALIDADORES ESPECIFICOS DEL PORTAL
-# (campos que en admin son opcionales, en portal son obligatorios)
-# =============================================================================
-
-def _validar_rfc_requerido(rfc: str) -> str:
-    """Valida RFC (obligatorio en portal)."""
-    if not rfc:
-        return "RFC es obligatorio"
-    return validar_rfc(rfc)
-
-
-def _validar_nss_requerido(nss: str) -> str:
-    """Valida NSS (obligatorio en portal)."""
-    if not nss:
-        return "NSS es obligatorio"
-    return validar_nss(nss)
-
-
-def _validar_telefono_requerido(telefono: str) -> str:
-    """Valida telefono (obligatorio en portal)."""
-    if not telefono:
-        return "Telefono es obligatorio"
-    return validar_telefono(telefono)
-
-
-def _validar_apellido_materno(apellido: str) -> str:
-    """Valida apellido materno (obligatorio en portal)."""
-    if not apellido:
-        return "Apellido materno es obligatorio"
-    apellido_limpio = apellido.strip()
-    if len(apellido_limpio) < APELLIDO_MIN:
-        return f"Apellido materno debe tener al menos {APELLIDO_MIN} caracteres"
-    if len(apellido_limpio) > APELLIDO_MAX:
-        return f"Apellido materno no puede exceder {APELLIDO_MAX} caracteres"
-    return ""
-
-
-def _validar_genero(genero: str) -> str:
-    """Valida genero (obligatorio)."""
-    return validar_select_requerido(genero, "genero")
-
-
-def _validar_fecha_nacimiento(fecha: str) -> str:
-    """Valida fecha de nacimiento (obligatoria, 18+ anios)."""
-    if not fecha:
-        return "Fecha de nacimiento es obligatoria"
-    error = validar_fecha_no_futura(fecha, "fecha de nacimiento")
-    if error:
-        return error
-    fecha_obj = date.fromisoformat(fecha)
-    hoy = date.today()
-    edad = hoy.year - fecha_obj.year
-    if (hoy.month, hoy.day) < (fecha_obj.month, fecha_obj.day):
-        edad -= 1
-    if edad < 18:
-        return "El empleado debe tener al menos 18 anios"
-    if edad > 100:
-        return "Fecha de nacimiento no parece valida"
-    return ""
-
-
-def _validar_contacto_nombre(nombre: str) -> str:
-    """Valida nombre del contacto de emergencia (opcional)."""
-    return validar_texto_opcional(nombre, "nombre del contacto", max_length=NOMBRE_CONTACTO_MAX)
-
-
-def _validar_contacto_telefono(telefono: str) -> str:
-    """Valida telefono del contacto de emergencia (opcional)."""
-    if not telefono:
-        return ""
-    telefono_limpio = re.sub(r'[^0-9]', '', telefono)
-    if not re.match(TELEFONO_PATTERN, telefono_limpio):
-        return f"Telefono debe tener {TELEFONO_DIGITOS} digitos (tiene {len(telefono_limpio)})"
-    return ""
 
 
 # =============================================================================
@@ -229,40 +143,88 @@ class MisEmpleadosState(PortalState):
     # VALIDADORES ON_BLUR
     # ========================
     def validar_curp_blur(self):
-        self.error_curp = validar_curp(self.form_curp)
+        self.validar_y_asignar_error(
+            valor=self.form_curp,
+            validador=validar_curp,
+            error_attr="error_curp",
+        )
 
     def validar_nombre_blur(self):
-        self.error_nombre = validar_nombre(self.form_nombre)
+        self.validar_y_asignar_error(
+            valor=self.form_nombre,
+            validador=validar_nombre,
+            error_attr="error_nombre",
+        )
 
     def validar_apellido_paterno_blur(self):
-        self.error_apellido_paterno = validar_apellido_paterno(self.form_apellido_paterno)
+        self.validar_y_asignar_error(
+            valor=self.form_apellido_paterno,
+            validador=validar_apellido_paterno,
+            error_attr="error_apellido_paterno",
+        )
 
     def validar_apellido_materno_blur(self):
-        self.error_apellido_materno = _validar_apellido_materno(self.form_apellido_materno)
+        self.validar_y_asignar_error(
+            valor=self.form_apellido_materno,
+            validador=validar_apellido_materno_empleado,
+            error_attr="error_apellido_materno",
+        )
 
     def validar_rfc_blur(self):
-        self.error_rfc = _validar_rfc_requerido(self.form_rfc)
+        self.validar_y_asignar_error(
+            valor=self.form_rfc,
+            validador=validar_rfc_empleado_requerido,
+            error_attr="error_rfc",
+        )
 
     def validar_nss_blur(self):
-        self.error_nss = _validar_nss_requerido(self.form_nss)
+        self.validar_y_asignar_error(
+            valor=self.form_nss,
+            validador=validar_nss_empleado_requerido,
+            error_attr="error_nss",
+        )
 
     def validar_fecha_nacimiento_blur(self):
-        self.error_fecha_nacimiento = _validar_fecha_nacimiento(self.form_fecha_nacimiento)
+        self.validar_y_asignar_error(
+            valor=self.form_fecha_nacimiento,
+            validador=lambda v: validar_fecha_nacimiento_empleado(v, requerida=True, edad_min=18),
+            error_attr="error_fecha_nacimiento",
+        )
 
     def validar_genero_blur(self):
-        self.error_genero = _validar_genero(self.form_genero)
+        self.validar_y_asignar_error(
+            valor=self.form_genero,
+            validador=validar_genero_empleado_requerido,
+            error_attr="error_genero",
+        )
 
     def validar_email_blur(self):
-        self.error_email = validar_email(self.form_email)
+        self.validar_y_asignar_error(
+            valor=self.form_email,
+            validador=validar_email,
+            error_attr="error_email",
+        )
 
     def validar_telefono_blur(self):
-        self.error_telefono = _validar_telefono_requerido(self.form_telefono)
+        self.validar_y_asignar_error(
+            valor=self.form_telefono,
+            validador=validar_telefono_empleado_requerido,
+            error_attr="error_telefono",
+        )
 
     def validar_contacto_nombre_blur(self):
-        self.error_contacto_nombre = _validar_contacto_nombre(self.form_contacto_nombre)
+        self.validar_y_asignar_error(
+            valor=self.form_contacto_nombre,
+            validador=validar_contacto_emergencia_nombre,
+            error_attr="error_contacto_nombre",
+        )
 
     def validar_contacto_telefono_blur(self):
-        self.error_contacto_telefono = _validar_contacto_telefono(self.form_contacto_telefono)
+        self.validar_y_asignar_error(
+            valor=self.form_contacto_telefono,
+            validador=validar_contacto_emergencia_telefono,
+            error_attr="error_contacto_telefono",
+        )
 
     def validar_contacto_parentesco_blur(self):
         # Parentesco es opcional y viene de un select
@@ -308,7 +270,15 @@ class MisEmpleadosState(PortalState):
     # MONTAJE
     # ========================
     async def on_mount_empleados(self):
-        async for _ in self._montar_pagina_portal(self._fetch_empleados):
+        resultado = await self.on_mount_portal()
+        if resultado:
+            self.loading = False
+            yield resultado
+            return
+        if not self.puede_gestionar_personal:
+            yield rx.redirect("/portal")
+            return
+        async for _ in self._montar_pagina(self._fetch_empleados):
             yield
 
     # ========================
@@ -528,19 +498,21 @@ class MisEmpleadosState(PortalState):
 
     def _limpiar_errores(self):
         """Limpia los errores de validacion."""
-        self.error_curp = ""
-        self.error_nombre = ""
-        self.error_apellido_paterno = ""
-        self.error_apellido_materno = ""
-        self.error_rfc = ""
-        self.error_nss = ""
-        self.error_genero = ""
-        self.error_fecha_nacimiento = ""
-        self.error_email = ""
-        self.error_telefono = ""
-        self.error_contacto_nombre = ""
-        self.error_contacto_telefono = ""
-        self.error_contacto_parentesco = ""
+        self.limpiar_errores_campos([
+            "curp",
+            "nombre",
+            "apellido_paterno",
+            "apellido_materno",
+            "rfc",
+            "nss",
+            "genero",
+            "fecha_nacimiento",
+            "email",
+            "telefono",
+            "contacto_nombre",
+            "contacto_telefono",
+            "contacto_parentesco",
+        ])
 
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es valido."""
@@ -549,77 +521,49 @@ class MisEmpleadosState(PortalState):
 
         # CURP obligatorio (solo en creacion, inmutable en edicion)
         if not self.es_edicion:
-            error = validar_curp(self.form_curp)
-            if error:
-                self.error_curp = error
+            if not self.validar_y_asignar_error(
+                valor=self.form_curp,
+                validador=validar_curp,
+                error_attr="error_curp",
+            ):
                 es_valido = False
 
-        # Nombre obligatorio
-        error = validar_nombre(self.form_nombre)
-        if error:
-            self.error_nombre = error
-            es_valido = False
-
-        # Apellido paterno obligatorio
-        error = validar_apellido_paterno(self.form_apellido_paterno)
-        if error:
-            self.error_apellido_paterno = error
-            es_valido = False
-
-        # Apellido materno obligatorio
-        error = _validar_apellido_materno(self.form_apellido_materno)
-        if error:
-            self.error_apellido_materno = error
-            es_valido = False
-
-        # RFC obligatorio
-        error = _validar_rfc_requerido(self.form_rfc)
-        if error:
-            self.error_rfc = error
-            es_valido = False
-
-        # NSS obligatorio
-        error = _validar_nss_requerido(self.form_nss)
-        if error:
-            self.error_nss = error
-            es_valido = False
-
-        # Genero obligatorio
-        error = _validar_genero(self.form_genero)
-        if error:
-            self.error_genero = error
-            es_valido = False
-
-        # Fecha de nacimiento obligatoria (18+ anios)
-        error = _validar_fecha_nacimiento(self.form_fecha_nacimiento)
-        if error:
-            self.error_fecha_nacimiento = error
-            es_valido = False
-
-        # Telefono obligatorio
-        error = _validar_telefono_requerido(self.form_telefono)
-        if error:
-            self.error_telefono = error
+        if not self.validar_lote_campos([
+            ("error_nombre", self.form_nombre, validar_nombre),
+            ("error_apellido_paterno", self.form_apellido_paterno, validar_apellido_paterno),
+            ("error_apellido_materno", self.form_apellido_materno, validar_apellido_materno_empleado),
+            ("error_rfc", self.form_rfc, validar_rfc_empleado_requerido),
+            ("error_nss", self.form_nss, validar_nss_empleado_requerido),
+            ("error_genero", self.form_genero, validar_genero_empleado_requerido),
+            ("error_fecha_nacimiento", self.form_fecha_nacimiento, lambda v: validar_fecha_nacimiento_empleado(v, requerida=True, edad_min=18)),
+            ("error_telefono", self.form_telefono, validar_telefono_empleado_requerido),
+        ]):
             es_valido = False
 
         # Email opcional (solo si tiene valor)
         if self.form_email:
-            error = validar_email(self.form_email)
-            if error:
-                self.error_email = error
+            if not self.validar_y_asignar_error(
+                valor=self.form_email,
+                validador=validar_email,
+                error_attr="error_email",
+            ):
                 es_valido = False
 
         # Contacto de emergencia opcional (validar formato si tienen valor)
         if self.form_contacto_nombre:
-            error = _validar_contacto_nombre(self.form_contacto_nombre)
-            if error:
-                self.error_contacto_nombre = error
+            if not self.validar_y_asignar_error(
+                valor=self.form_contacto_nombre,
+                validador=validar_contacto_emergencia_nombre,
+                error_attr="error_contacto_nombre",
+            ):
                 es_valido = False
 
         if self.form_contacto_telefono:
-            error = _validar_contacto_telefono(self.form_contacto_telefono)
-            if error:
-                self.error_contacto_telefono = error
+            if not self.validar_y_asignar_error(
+                valor=self.form_contacto_telefono,
+                validador=validar_contacto_emergencia_telefono,
+                error_attr="error_contacto_telefono",
+            ):
                 es_valido = False
 
         return es_valido

@@ -60,7 +60,15 @@ class ConfiguracionEmpresaState(PortalState):
     # MONTAJE
     # ========================
     async def on_mount_configuracion_empresa(self):
-        async for _ in self._montar_pagina_portal(self._fetch_configuracion):
+        resultado = await self.on_mount_portal()
+        if resultado:
+            self.loading = False
+            yield resultado
+            return
+        if not self.puede_configurar_empresa:
+            yield rx.redirect("/portal")
+            return
+        async for _ in self._montar_pagina(self._fetch_configuracion):
             yield
 
     # ========================

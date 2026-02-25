@@ -2,6 +2,7 @@ import reflex as rx
 from app.presentation.pages.simulador.simulador_state import SimuladorState
 from app.presentation.components.ui.headers import page_header
 from app.presentation.components.ui.form_input import form_input, form_select
+from app.presentation.components.ui import table_shell
 from app.core.ui_options import ESTADOS_DISPLAY, TIPO_SALARIO_CALCULO
 
 
@@ -226,14 +227,15 @@ def desglose_detallado() -> rx.Component:
     """Muestra el desglose de los calculos"""
     return rx.vstack(
         # Tabla de detalle de conceptos
-        rx.table.root(
-            rx.table.header(
-                rx.table.row(
+        rx.box(
+            table_shell(
+                loading=False,
+                has_rows=True,
+                header_cells=[
                     rx.table.column_header_cell('Concepto'),
-                    rx.table.column_header_cell('Importe')
-                ),
-            ),
-            rx.table.body(
+                    rx.table.column_header_cell('Importe'),
+                ],
+                body_component=rx.fragment(
                 # Salarios
                 rx.table.row(
                     rx.table.row_header_cell('Salarios', font_weight='bold', col_span=2),
@@ -290,15 +292,17 @@ def desglose_detallado() -> rx.Component:
                 fila_tabla_simulador('IMSS Obrero:', SimuladorState.resultado['total_imss_obrero']),
                 fila_tabla_simulador('ISR a retener:', SimuladorState.resultado["isr_a_retener"]),
                 fila_tabla_simulador('Total Descuentos:', SimuladorState.resultado['total_descuentos_trabajador'], font_weight='bold', color='blue')
+                ),
+                empty_component=rx.fragment(),
+                table_variant='surface',
+                table_size='1',
             ),
-            variant='surface',
             width='300px',
-            size='1',
             style={
                 "& tbody tr:nth-child(even)": {
                     "background_color": "var(--gray-2)"
                 }
-            }
+            },
         )
     )
 
