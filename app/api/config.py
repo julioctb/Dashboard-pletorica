@@ -26,4 +26,4 @@ class APIConfig:
     # Metadata de la API
     TITLE: str = "API SaaS Nomina BUAP"
     DESCRIPTION: str = "API REST para integracion con aplicaciones moviles"
-    VERSION: str = "1.0.0"
+    VERSION: str = os.getenv("API_VERSION", os.getenv("APP_VERSION", "0.6.0"))

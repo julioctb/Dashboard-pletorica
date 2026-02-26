@@ -18,6 +18,7 @@ from app.presentation.components.ui import (
     action_buttons_reactive,
     switch_inactivos,
     tabla_action_button,
+    indicador_filtros,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.empresas.empresa_modals import (
@@ -238,19 +239,26 @@ def grid_empresas() -> rx.Component:
 
 def filtros_empresas() -> rx.Component:
     """Filtros para empresas."""
-    return rx.hstack(
+    return rx.flex(
         # Filtro por tipo
-        rx.select.root(
-            rx.select.trigger(placeholder="Tipo empresa", width="180px"),
-            rx.select.content(
-                rx.select.item("Todos", value="TODOS"),
-                rx.foreach(
-                    [e.value for e in TipoEmpresa],
-                    lambda v: rx.select.item(v, value=v)
-                )
+        rx.box(
+            rx.select.root(
+                rx.select.trigger(placeholder="Tipo empresa", width="100%"),
+                rx.select.content(
+                    rx.select.item("Todos", value="TODOS"),
+                    rx.foreach(
+                        [e.value for e in TipoEmpresa],
+                        lambda v: rx.select.item(v, value=v)
+                    )
+                ),
+                value=EmpresasState.filtro_tipo,
+                on_change=EmpresasState.set_filtro_tipo,
+                size="2",
             ),
-            value=EmpresasState.filtro_tipo,
-            on_change=EmpresasState.set_filtro_tipo,
+            width="100%",
+            min_width="180px",
+            max_width="220px",
+            flex="1 1 180px",
         ),
         # Switch mostrar inactivas (usando componente reutilizable)
         switch_inactivos(
@@ -258,7 +266,9 @@ def filtros_empresas() -> rx.Component:
             on_change=lambda v: EmpresasState.set_solo_activas(~v),
             label="Mostrar inactivas",
         ),
-        spacing="3",
+        wrap="wrap",
+        column_gap=Spacing.SM,
+        row_gap=Spacing.SM,
         align="center",
     )
 
@@ -292,6 +302,10 @@ def empresas_page() -> rx.Component:
                 on_search_change=EmpresasState.set_filtro_busqueda,
                 on_search_clear=lambda: EmpresasState.set_filtro_busqueda(""),
                 filters=filtros_empresas(),
+                extra_right=indicador_filtros(
+                    tiene_filtros=EmpresasState.tiene_filtros_activos,
+                    on_limpiar=EmpresasState.limpiar_filtros,
+                ),
                 show_view_toggle=True,
                 current_view=EmpresasState.view_mode,
                 on_view_table=EmpresasState.set_view_table,

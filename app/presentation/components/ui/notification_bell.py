@@ -153,11 +153,48 @@ class NotificationBellState(rx.State):
         """Marca una notificacion como leida."""
         try:
             from app.services import notificacion_service
-            await notificacion_service.marcar_leida(notificacion_id)
+            from app.presentation.components.shared.auth_state import AuthState
+
+            auth = await self.get_state(AuthState)
+            usuario_id = auth.id_usuario
+
+            empresa_id = 0
+            try:
+                from app.presentation.portal.state.portal_state import PortalState
+                portal = await self.get_state(PortalState)
+                empresa_id = portal.id_empresa_actual
+            except Exception:
+                empresa_id = 0
+
+            if empresa_id:
+                marcada = await notificacion_service.marcar_leida(
+                    notificacion_id,
+                    empresa_id=empresa_id,
+                )
+            elif usuario_id:
+                marcada = await notificacion_service.marcar_leida(
+                    notificacion_id,
+                    usuario_id=usuario_id,
+                    permitir_global_admin=True,
+                )
+            else:
+                logger.warning(
+                    "No se puede marcar notificación %s: sin contexto de usuario/empresa",
+                    notificacion_id,
+                )
+                return
+
+            if not marcada:
+                return
+
+            cambio_local = False
             for n in self.notificaciones:
-                if n.get("id") == notificacion_id:
+                if n.get("id") == notificacion_id and not n.get("leida", False):
                     n["leida"] = True
-            self.total_no_leidas = max(0, self.total_no_leidas - 1)
+                    cambio_local = True
+                    break
+            if cambio_local:
+                self.total_no_leidas = max(0, self.total_no_leidas - 1)
         except Exception as e:
             logger.warning("Error marcando notificación %s como leída: %s", notificacion_id, e)
 
@@ -221,6 +258,16 @@ class NotificationBellState(rx.State):
         }
         return rx.redirect(rutas.get(entidad_tipo, "/portal"))
 
+    async def abrir_notificacion_admin(self, notificacion_id: int, entidad_tipo: str, entidad_id: int):
+        """Marca como leída (best-effort) y navega en contexto admin."""
+        await self.marcar_leida(notificacion_id)
+        yield self.navegar_a_entidad(entidad_tipo, entidad_id)
+
+    async def abrir_notificacion_portal(self, notificacion_id: int, entidad_tipo: str, entidad_id: int):
+        """Marca como leída (best-effort) y navega en contexto portal."""
+        await self.marcar_leida(notificacion_id)
+        yield self.navegar_a_entidad_portal(entidad_tipo, entidad_id)
+
 
 # =============================================================================
 # COMPONENTES UI
@@ -274,6 +321,7 @@ def _notificacion_item(
         width="100%",
         cursor="pointer",
         on_click=lambda: on_click_handler(
+            notificacion["id"],
             notificacion["entidad_tipo"],
             notificacion["entidad_id"],
         ),
@@ -409,7 +457,7 @@ def notification_bell() -> rx.Component:
         _popover_content(
             on_marcar_todas=NotificationBellState.marcar_todas_leidas,
             item_renderer=lambda n: _notificacion_item(
-                n, NotificationBellState.navegar_a_entidad
+                n, NotificationBellState.abrir_notificacion_admin
             ),
         ),
         on_open_change=lambda _: NotificationBellState.cargar_notificaciones(),
@@ -426,7 +474,7 @@ def notification_bell_portal() -> rx.Component:
         _popover_content(
             on_marcar_todas=NotificationBellState.marcar_todas_leidas_empresa,
             item_renderer=lambda n: _notificacion_item(
-                n, NotificationBellState.navegar_a_entidad_portal
+                n, NotificationBellState.abrir_notificacion_portal
             ),
         ),
         on_open_change=lambda _: NotificationBellState.cargar_notificaciones_portal(),

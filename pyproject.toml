@@ -1,6 +1,6 @@
 [project]
 name = "dashboard"
-version = "0.5.0"
+version = "0.6.0"
 description = "proyecto de dashboard para manejo de contratos de dependencias"
 authors = [
     {name = "Julio C Tello",email = "julioc.tello@me.com"}

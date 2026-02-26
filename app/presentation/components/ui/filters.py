@@ -1,6 +1,7 @@
 """Componentes reutilizables para filtros y búsqueda."""
 import reflex as rx
 from typing import Callable, Optional
+from app.presentation.theme import Colors, Spacing, Radius, Transitions
 
 
 def input_busqueda(
@@ -10,6 +11,7 @@ def input_busqueda(
     on_key_down: Callable = None,
     placeholder: str = "Buscar por clave o nombre...",
     width: str = "320px",
+    toolbar_style: bool = False,
 ) -> rx.Component:
     """
     Input de búsqueda con icono integrado y botón limpiar.
@@ -22,13 +24,48 @@ def input_busqueda(
         placeholder: Texto placeholder
         width: Ancho del input
     """
+    wrapper_props = {
+        "position": "relative",
+        "width": width,
+        "display": "inline-block",
+    }
+    input_props = {}
+
+    if toolbar_style:
+        wrapper_props.update(
+            {
+                "display": "block",
+                "background": Colors.SECONDARY_LIGHT,
+                "border_radius": Radius.LG,
+                "border": f"1px solid {Colors.BORDER}",
+                "transition": Transitions.FAST,
+                "style": {
+                    "_focus_within": {
+                        "border_color": Colors.PRIMARY,
+                        "box_shadow": f"0 0 0 3px {Colors.PRIMARY_LIGHT}",
+                    },
+                },
+            }
+        )
+        input_props = {
+            "variant": "soft",
+            "size": "2",
+            "style": {
+                "border": "none",
+                "background": "transparent",
+                "_focus": {
+                    "outline": "none",
+                },
+            },
+        }
+
     return rx.box(
         rx.icon(
             "search",
             size=16,
-            color="gray",
+            color=Colors.TEXT_MUTED if toolbar_style else "gray",
             position="absolute",
-            left="10px",
+            left=Spacing.MD if toolbar_style else "10px",
             top="50%",
             transform="translateY(-50%)",
         ),
@@ -39,26 +76,26 @@ def input_busqueda(
             on_key_down=on_key_down,
             padding_left="36px",
             padding_right="32px",
-            width=width,
+            width="100%",
+            **input_props,
         ),
         # Botón limpiar (solo visible cuando hay texto)
         rx.cond(
             value != "",
-            rx.icon_button(
-                rx.icon("x", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="gray",
-                position="absolute",
-                right="4px",
-                top="50%",
-                transform="translateY(-50%)",
-                on_click=on_clear,
-                cursor="pointer",
-            ),
+                rx.icon_button(
+                    rx.icon("x", size=14),
+                    size="1",
+                    variant="ghost",
+                    color_scheme="gray",
+                    position="absolute",
+                    right=Spacing.XS if toolbar_style else "4px",
+                    top="50%",
+                    transform="translateY(-50%)",
+                    on_click=on_clear,
+                    cursor="pointer",
+                ),
         ),
-        position="relative",
-        display="inline-block",
+        **wrapper_props,
     )
 
 
@@ -150,11 +187,20 @@ def switch_inactivos(
         rx.switch(
             checked=checked,
             on_change=on_change,
-            size="1",
+            size="2",
         ),
-        rx.text(label, size="2", color="gray"),
-        spacing="2",
+        rx.text(
+            label,
+            size="2",
+            color=Colors.TEXT_SECONDARY,
+            cursor="pointer",
+            on_click=on_change(~checked),
+        ),
+        gap=Spacing.SM,
         align="center",
+        padding_x=Spacing.SM,
+        padding_y=Spacing.XS,
+        border_radius=Radius.MD,
     )
 
 

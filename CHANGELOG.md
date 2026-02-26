@@ -5,6 +5,39 @@ Todas las versiones notables del proyecto se documentan en este archivo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 versionamiento basado en [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.6.0] - 2026-02-25
+
+### Added
+- Pivot SaaS de roles y modelo institucional (roles de plataforma/empresa, instituciones e instituciones_empresas)
+- Panel Super Admin con dashboard y dispatcher de ruta raiz por rol/contexto
+- Modulo de Instituciones (CRUD y gestion de empresas vinculadas)
+- Modulo Admin Onboarding para gestion administrativa del flujo de alta
+- Portal de onboarding (alta de empleado) y autoservicio de empleado (`mis_datos`)
+- Portal de expedientes digitales con carga/consulta de documentos de empleado
+- Configuracion operativa por empresa en portal (parametros de pago/bloqueo)
+- API v1 para onboarding y validacion CURP (RENAPO), con helpers comunes de respuestas/errores
+- Flujo de documentos de empleado con validacion, rechazo y versionamiento
+- Historial inmutable de cambios de cuenta bancaria con auditoria
+- Componentes reutilizables para formularios/listas de empleados, onboarding y documentos
+- Validadores centralizados por dominio (empresa, empleado, contrato, pagos, sedes, usuarios)
+
+### Changed
+- Sidebar del portal filtrado por `rol_empresa` del usuario
+- Guards del portal para usuarios sin empresa y header dinamico por contexto
+- Refactor de States/Repositories/Services para reducir duplicacion
+- Refactor de navegacion/layout y primitives reutilizables de tablas/UI
+- Paralelizacion de metricas de dashboard y mejoras de logging en excepciones silenciadas
+- Migraciones 034-039 para soportar pivot SaaS, onboarding extendido y configuracion operativa
+- Version visible del sidebar y metadata de API alineadas a `APP_VERSION`
+
+### Fixed
+- Crash del sidebar y manejo de `Var` booleana en secciones de formulario
+- Restauracion del panel super admin tras perdida por force push
+- Compatibilidad legacy en `ui_helpers` (`es_filtro_activo` y constantes relacionadas)
+
+### Tests
+- Pruebas para helpers comunes de API y `query_helpers`
+
 ## [0.5.0] - 2026-02-10
 
 ### Added

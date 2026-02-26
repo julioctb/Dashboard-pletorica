@@ -121,14 +121,14 @@ def sidebar_header() -> rx.Component:
             rx.hstack(
                 rx.vstack(
                     rx.text(
-                        "BUAP",
+                        SidebarState.sidebar_brand_title,
                         font_size=Typography.SIZE_LG,
                         font_weight=Typography.WEIGHT_BOLD,
                         color=Colors.TEXT_PRIMARY,
                         line_height="1.2",
                     ),
                     rx.text(
-                        "Sistema de Gestion",
+                        SidebarState.sidebar_brand_subtitle,
                         font_size=Typography.SIZE_XS,
                         color=Colors.TEXT_SECONDARY,
                         line_height="1.2",
@@ -614,7 +614,7 @@ def sidebar_footer() -> rx.Component:
                 ~SidebarState.is_collapsed,
                 rx.hstack(
                     rx.text(
-                        "v1.0.0",
+                        f"v{Config.APP_VERSION}",
                         font_size=Typography.SIZE_XS,
                         color=Colors.TEXT_MUTED,
                     ),

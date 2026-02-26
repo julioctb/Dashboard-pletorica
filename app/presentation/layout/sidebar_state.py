@@ -92,3 +92,17 @@ class SidebarState(AuthState):
             return str(self.institucion_actual.get("nombre", "Institución"))
 
         return self.nombre_empresa_actual
+
+    @rx.var
+    def sidebar_brand_title(self) -> str:
+        """Titulo del header del sidebar segun el contexto del usuario."""
+        if self.es_superadmin or self.es_super_admin:
+            return "Pletorica"
+        return "BUAP"
+
+    @rx.var
+    def sidebar_brand_subtitle(self) -> str:
+        """Subtitulo del header del sidebar segun el rol/plataforma."""
+        if self.es_superadmin or self.es_super_admin:
+            return "Panel Super Admin"
+        return "Sistema de Gestion"

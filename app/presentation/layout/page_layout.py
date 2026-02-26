@@ -25,11 +25,12 @@ Uso:
 import reflex as rx
 from app.presentation.components.ui.headers import page_header as ui_page_header
 from app.presentation.components.ui.view_toggle import view_toggle as ui_view_toggle
+from app.presentation.components.ui.filters import input_busqueda
 from app.presentation.theme import (
     Colors,
     Spacing,
+    Radius,
     Typography,
-    Transitions,
 )
 
 
@@ -130,64 +131,32 @@ def page_toolbar(
             on_view_cards=State.set_view_cards,
         )
     """
-    return rx.hstack(
-        # Búsqueda
+    left_group = rx.flex(
         rx.box(
-            rx.hstack(
-                rx.icon("search", size=18, color=Colors.TEXT_MUTED),
-                rx.input(
-                    placeholder=search_placeholder,
-                    value=search_value,
-                    on_change=on_search_change,
-                    variant="soft",
-                    size="2",
-                    width="100%",
-                    style={
-                        "border": "none",
-                        "background": "transparent",
-                        "_focus": {
-                            "outline": "none",
-                        },
-                    },
-                ),
-                rx.cond(
-                    search_value != "",
-                    rx.icon_button(
-                        rx.icon("x", size=14),
-                        size="1",
-                        variant="ghost",
-                        color_scheme="gray",
-                        on_click=on_search_clear,
-                        cursor="pointer",
-                    ),
-                ),
-                padding_x=Spacing.SM,
-                align="center",
+            input_busqueda(
+                value=search_value,
+                on_change=on_search_change,
+                on_clear=on_search_clear,
+                placeholder=search_placeholder,
                 width="100%",
+                toolbar_style=True,
             ),
-            min_width="280px",
+            width="100%",
+            min_width="260px",
             max_width="400px",
-            background=Colors.SECONDARY_LIGHT,
-            border_radius="8px",
-            border=f"1px solid {Colors.BORDER}",
-            transition=Transitions.FAST,
-            style={
-                "_focus_within": {
-                    "border_color": Colors.PRIMARY,
-                    "box_shadow": f"0 0 0 3px {Colors.PRIMARY_LIGHT}",
-                },
-            },
+            flex="1 1 300px",
         ),
-        
-        # Filtros (opcional)
         filters if filters else rx.fragment(),
-        
-        rx.spacer(),
-        
-        # Elementos adicionales (opcional)
+        wrap="wrap",
+        align="center",
+        column_gap=Spacing.MD,
+        row_gap=Spacing.SM,
+        flex="1 1 420px",
+        width="100%",
+    )
+
+    right_group = rx.flex(
         extra_right if extra_right else rx.fragment(),
-        
-        # Toggle de vista (opcional)
         rx.cond(
             show_view_toggle,
             view_toggle(
@@ -195,16 +164,29 @@ def page_toolbar(
                 on_change_table=on_view_table,
                 on_change_cards=on_view_cards,
             ),
-        ) if show_view_toggle else rx.fragment(),
-        
+            rx.fragment(),
+        ),
+        wrap="wrap",
+        align="center",
+        justify="end",
+        column_gap=Spacing.SM,
+        row_gap=Spacing.SM,
+    )
+
+    return rx.flex(
+        left_group,
+        right_group,
+        wrap="wrap",
+        align="center",
+        justify="between",
         width="100%",
         padding=Spacing.MD,
         background=Colors.SURFACE,
-        border_radius="8px",
+        border_radius=Radius.LG,
         border=f"1px solid {Colors.BORDER}",
         margin_bottom=Spacing.MD,
-        align="center",
-        gap=Spacing.MD,
+        column_gap=Spacing.MD,
+        row_gap=Spacing.SM,
     )
 
 

@@ -23,6 +23,27 @@ class NotificacionService:
         self.supabase = db_manager.get_client()
         self.tabla = 'notificaciones'
 
+    def _puede_marcar_leida(
+        self,
+        notificacion: Notificacion,
+        *,
+        usuario_id: Optional[str] = None,
+        empresa_id: Optional[int] = None,
+        permitir_global_admin: bool = False,
+    ) -> bool:
+        """Valida si el contexto puede marcar la notificación como leída."""
+        if usuario_id and notificacion.usuario_id == usuario_id:
+            return True
+        if empresa_id is not None and notificacion.empresa_id == empresa_id:
+            return True
+        if (
+            permitir_global_admin
+            and notificacion.usuario_id is None
+            and notificacion.empresa_id is None
+        ):
+            return True
+        return False
+
     async def crear(self, notificacion: NotificacionCreate) -> Notificacion:
         """
         Crea una nueva notificacion.
@@ -93,14 +114,58 @@ class NotificacionService:
             logger.error(f"Error obteniendo notificaciones de empresa {empresa_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
-    async def marcar_leida(self, notificacion_id: int) -> None:
-        """Marca una notificacion como leida."""
+    async def marcar_leida(
+        self,
+        notificacion_id: int,
+        *,
+        usuario_id: Optional[str] = None,
+        empresa_id: Optional[int] = None,
+        permitir_global_admin: bool = False,
+    ) -> bool:
+        """Marca una notificacion como leida validando destinatario."""
         try:
-            self.supabase.table(self.tabla)\
-                .update({'leida': True})\
+            if not usuario_id and empresa_id is None and not permitir_global_admin:
+                raise ValueError(
+                    "Se requiere contexto de autorizacion: usuario_id, empresa_id o permitir_global_admin=True"
+                )
+
+            result_select = self.supabase.table(self.tabla)\
+                .select('*')\
                 .eq('id', notificacion_id)\
+                .limit(1)\
                 .execute()
 
+            data = result_select.data or []
+            if not data:
+                return False
+
+            notificacion = Notificacion(**data[0])
+            if not self._puede_marcar_leida(
+                notificacion,
+                usuario_id=usuario_id,
+                empresa_id=empresa_id,
+                permitir_global_admin=permitir_global_admin,
+            ):
+                logger.warning(
+                    "Intento no autorizado de marcar notificacion como leida. "
+                    "notificacion_id=%s usuario_id_present=%s empresa_id=%s permitir_global_admin=%s",
+                    notificacion_id,
+                    bool(usuario_id),
+                    empresa_id,
+                    permitir_global_admin,
+                )
+                return False
+
+            result_update = self.supabase.table(self.tabla)\
+                .update({'leida': True})\
+                .eq('id', notificacion_id)\
+                .eq('leida', False)\
+                .execute()
+
+            return bool(result_update.data)
+
+        except ValueError:
+            raise
         except Exception as e:
             logger.error(f"Error marcando notificacion {notificacion_id} como leida: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
