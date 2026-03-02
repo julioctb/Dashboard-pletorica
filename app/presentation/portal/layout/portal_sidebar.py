@@ -54,17 +54,49 @@ def _cond_group(condition, label: str, *items) -> rx.Component:
 # =============================================================================
 
 def _portal_header() -> rx.Component:
-    """Header del sidebar con nombre/selector de empresa y campana de notificaciones."""
-    return rx.hstack(
-        rx.center(
-            rx.icon("building-2", size=20, color=Colors.PORTAL_PRIMARY),
-            width="36px",
-            height="36px",
-            border_radius=Radius.LG,
-            background=Colors.PORTAL_PRIMARY_LIGHT,
-            flex_shrink="0",
+    """Header del sidebar con nombre y selector de empresa."""
+    return rx.vstack(
+        rx.hstack(
+            rx.center(
+                rx.icon("building-2", size=20, color=Colors.PORTAL_PRIMARY),
+                width="36px",
+                height="36px",
+                border_radius=Radius.LG,
+                background=Colors.PORTAL_PRIMARY_LIGHT,
+                flex_shrink="0",
+            ),
+            rx.vstack(
+                rx.text(
+                    PortalState.nombre_empresa_actual,
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_BOLD,
+                    color=Colors.TEXT_PRIMARY,
+                    line_height=Typography.LINE_HEIGHT_TIGHT,
+                    white_space="nowrap",
+                    overflow="hidden",
+                    text_overflow="ellipsis",
+                    width="100%",
+                ),
+                rx.text(
+                    rx.cond(
+                        AuthState.es_empleado_portal,
+                        "Portal Empleado",
+                        "Portal Cliente",
+                    ),
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.TEXT_MUTED,
+                    line_height=Typography.LINE_HEIGHT_TIGHT,
+                ),
+                spacing="0",
+                align_items="start",
+                flex="1",
+                min_width="0",
+            ),
+            align="center",
+            width="100%",
+            gap=Spacing.SM,
         ),
-        rx.vstack(
+        rx.hstack(
             rx.cond(
                 AuthState.tiene_multiples_empresas,
                 rx.select.root(
@@ -85,40 +117,14 @@ def _portal_header() -> rx.Component:
                     on_change=PortalState.cambiar_empresa_portal,
                     size="1",
                 ),
-                rx.text(
-                    PortalState.nombre_empresa_actual,
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_BOLD,
-                    color=Colors.TEXT_PRIMARY,
-                    line_height=Typography.LINE_HEIGHT_TIGHT,
-                    white_space="nowrap",
-                    overflow="hidden",
-                    text_overflow="ellipsis",
-                    max_width="130px",
-                ),
+                rx.fragment(),
             ),
-            rx.text(
-                rx.cond(
-                    AuthState.es_empleado_portal,
-                    "Portal Empleado",
-                    "Portal Cliente",
-                ),
-                font_size=Typography.SIZE_XS,
-                color=Colors.TEXT_MUTED,
-                line_height=Typography.LINE_HEIGHT_TIGHT,
-            ),
-            spacing="0",
-            align_items="start",
-            flex="1",
-            min_width="0",
+            width="100%",
         ),
-        rx.spacer(),
-        notification_bell_portal(),
         padding_x=Spacing.MD,
         padding_y=Spacing.LG,
-        align="center",
         width="100%",
-        gap=Spacing.SM,
+        spacing="2",
     )
 
 
@@ -255,6 +261,18 @@ def _portal_user_section() -> rx.Component:
     )
 
 
+def _portal_notification_section() -> rx.Component:
+    """Campana del portal ubicada sobre el bloque de usuario."""
+    return rx.hstack(
+        rx.spacer(),
+        notification_bell_portal(),
+        width="100%",
+        align="center",
+        padding_x=Spacing.MD,
+        padding_y=Spacing.SM,
+    )
+
+
 # =============================================================================
 # DEV SIMULATION BANNER
 # =============================================================================
@@ -328,6 +346,7 @@ def portal_sidebar() -> rx.Component:
             _dev_simulation_banner(),
             _portal_header(),
             _portal_navigation(),
+            _portal_notification_section(),
             _portal_user_section(),
             height="100vh",
             width="100%",
