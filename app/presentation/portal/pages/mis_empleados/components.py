@@ -5,6 +5,7 @@ Tabla, filtros y badges.
 """
 import reflex as rx
 
+from app.presentation.constants import FILTRO_TODOS
 from app.presentation.components.ui import (
     tabla_action_button,
     empty_state_card,
@@ -110,7 +111,7 @@ def filtros_empleados() -> rx.Component:
             rx.select.trigger(placeholder="Estatus"),
             rx.select.content(
                 rx.select.item("Activos", value="ACTIVO"),
-                rx.select.item("Todos", value="TODOS"),
+                rx.select.item("Todos", value=FILTRO_TODOS),
             ),
             value=MisEmpleadosState.filtro_estatus_emp,
             on_change=MisEmpleadosState.set_filtro_estatus_emp,

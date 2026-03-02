@@ -6,6 +6,7 @@ Vista lista de empleados en onboarding + vista detalle de expediente.
 import reflex as rx
 from typing import List, Optional
 
+from app.presentation.constants import FILTRO_TODOS
 from app.presentation.portal.state.portal_state import PortalState
 from app.services.archivo_service import archivo_service
 from app.services.onboarding_service import onboarding_service
@@ -27,7 +28,7 @@ class ExpedientesState(PortalState):
     # ========================
     empleados_expedientes: List[dict] = []
     total_expedientes: int = 0
-    filtro_estatus_expediente: str = "TODOS"
+    filtro_estatus_expediente: str = FILTRO_TODOS
 
     # ========================
     # DETALLE EXPEDIENTE
@@ -69,7 +70,7 @@ class ExpedientesState(PortalState):
     @rx.var
     def empleados_expedientes_filtrados(self) -> List[dict]:
         """Filtra empleados por estatus de onboarding."""
-        if not self.filtro_estatus_expediente or self.filtro_estatus_expediente == "TODOS":
+        if not self.filtro_estatus_expediente or self.filtro_estatus_expediente == FILTRO_TODOS:
             return self.empleados_expedientes
         return [
             e for e in self.empleados_expedientes
@@ -180,7 +181,7 @@ class ExpedientesState(PortalState):
                 empresa_id=self.id_empresa_actual,
                 estatus_filtro=(
                     self.filtro_estatus_expediente
-                    if self.filtro_estatus_expediente != "TODOS"
+                    if self.filtro_estatus_expediente != FILTRO_TODOS
                     else None
                 ),
             )

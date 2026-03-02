@@ -142,13 +142,17 @@ class BajasState(PortalState):
         async for _ in self._recargar_datos(self._cargar_bajas, self._cargar_alertas):
             yield
 
+    async def _recargar_resumen(self):
+        """Sincroniza lista y alertas tras una mutación."""
+        await self._cargar_bajas()
+        await self._cargar_alertas()
+
     async def comunicar_baja(self, baja: dict):
         """Marca baja como comunicada a BUAP."""
         self.saving = True
         try:
             await baja_service.comunicar_a_buap(baja["id"])
-            await self._cargar_bajas()
-            await self._cargar_alertas()
+            await self._recargar_resumen()
             return rx.toast.success("Baja marcada como comunicada a BUAP")
         except (BusinessRuleError, ValueError) as e:
             return rx.toast.error(str(e))
@@ -162,8 +166,7 @@ class BajasState(PortalState):
         self.saving = True
         try:
             await baja_service.registrar_liquidacion(baja["id"])
-            await self._cargar_bajas()
-            await self._cargar_alertas()
+            await self._recargar_resumen()
             return rx.toast.success("Liquidacion registrada como entregada")
         except (BusinessRuleError, ValueError) as e:
             return rx.toast.error(str(e))
@@ -177,8 +180,7 @@ class BajasState(PortalState):
         self.saving = True
         try:
             await baja_service.cerrar_baja(baja["id"])
-            await self._cargar_bajas()
-            await self._cargar_alertas()
+            await self._recargar_resumen()
             return rx.toast.success("Proceso de baja cerrado")
         except (BusinessRuleError, ValueError) as e:
             return rx.toast.error(str(e))
@@ -199,8 +201,7 @@ class BajasState(PortalState):
                 notas=self.form_notas_cancelacion,
             )
             self.cerrar_modal_accion()
-            await self._cargar_bajas()
-            await self._cargar_alertas()
+            await self._recargar_resumen()
             return rx.toast.success("Baja cancelada. Empleado reactivado.")
         except (BusinessRuleError, ValueError) as e:
             return rx.toast.error(str(e))

@@ -145,7 +145,7 @@ rx.box(
 1. **No eliminar el metodo de carga original** (ej: `cargar_empresas`).
    Otros componentes pueden llamarlo directamente (ej: despues de crear/editar).
 
-2. **DEBUG mode**: Si `Config.DEBUG=True`, `verificar_y_redirigir()` no redirige.
+2. **SKIP_AUTH**: Si `Config.SKIP_AUTH=True`, `verificar_y_redirigir()` no redirige.
    Esto permite desarrollo local sin autenticacion.
 
 3. **El sidebar ya esta protegido**: `SidebarState` hereda de `AuthState`,

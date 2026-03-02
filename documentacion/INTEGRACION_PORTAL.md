@@ -77,10 +77,9 @@ PORTAL_NAVIGATION = [
     ]},
     {"label": "Operacion", "items": [
         {"text": "Contratos", "icon": "file-text", "href": "/portal/contratos"},
-        {"text": "Plazas", "icon": "briefcase", "href": "/portal/plazas"},
-        {"text": "Requisiciones", "icon": "clipboard-list", "href": "/portal/requisiciones"},
+        {"text": "Entregables", "icon": "package-check", "href": "/portal/entregables"},
     ]},
 ]
 ```
 
-Nota: Las rutas `/portal/plazas` y `/portal/requisiciones` estan en el sidebar pero aun no tienen pagina implementada. Se pueden agregar mas adelante.
+Nota: No exponer rutas en el sidebar hasta que la pagina y su `app.add_page(...)` existan en `app.py`.

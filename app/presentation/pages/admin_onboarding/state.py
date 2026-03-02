@@ -8,6 +8,7 @@ import reflex as rx
 from typing import List
 
 from app.presentation.components.shared.auth_state import AuthState
+from app.presentation.constants import FILTRO_TODOS
 from app.services.onboarding_service import onboarding_service
 from app.core.exceptions import DatabaseError
 from app.core.ui_options import OPCIONES_ESTATUS_ONBOARDING_PIPELINE
@@ -36,7 +37,7 @@ class AdminOnboardingState(AuthState):
     @rx.var
     def empleados_filtrados(self) -> List[dict]:
         """Filtra empleados por estatus seleccionado."""
-        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == "TODOS":
+        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == FILTRO_TODOS:
             return self.empleados_pipeline
         return [
             e for e in self.empleados_pipeline
@@ -45,7 +46,7 @@ class AdminOnboardingState(AuthState):
 
     @rx.var
     def total_filtrados(self) -> int:
-        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == "TODOS":
+        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == FILTRO_TODOS:
             return self.total_pipeline
         return len(self.empleados_filtrados)
 
@@ -111,6 +112,6 @@ class AdminOnboardingState(AuthState):
     def filtrar_por_estatus(self, estatus: str):
         """Filtra la tabla por estatus clickeado en pipeline card."""
         if self.filtro_estatus_onboarding == estatus:
-            self.filtro_estatus_onboarding = "TODOS"
+            self.filtro_estatus_onboarding = FILTRO_TODOS
         else:
             self.filtro_estatus_onboarding = estatus

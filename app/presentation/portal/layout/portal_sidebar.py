@@ -14,6 +14,7 @@ from app.presentation.components.ui.notification_bell import notification_bell_p
 from app.presentation.layout.primitives import nav_group, nav_item
 from app.presentation.theme import (
     Colors,
+    Radius,
     Spacing,
     Transitions,
     Typography,
@@ -53,36 +54,63 @@ def _cond_group(condition, label: str, *items) -> rx.Component:
 # =============================================================================
 
 def _portal_header() -> rx.Component:
-    """Header del sidebar con nombre de la empresa y campana de notificaciones."""
+    """Header del sidebar con nombre/selector de empresa y campana de notificaciones."""
     return rx.hstack(
         rx.center(
             rx.icon("building-2", size=20, color=Colors.PORTAL_PRIMARY),
             width="36px",
             height="36px",
-            border_radius="8px",
+            border_radius=Radius.LG,
             background=Colors.PORTAL_PRIMARY_LIGHT,
             flex_shrink="0",
         ),
         rx.vstack(
-            rx.text(
-                PortalState.nombre_empresa_actual,
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_BOLD,
-                color=Colors.TEXT_PRIMARY,
-                line_height="1.2",
-                white_space="nowrap",
-                overflow="hidden",
-                text_overflow="ellipsis",
-                max_width="130px",
+            rx.cond(
+                AuthState.tiene_multiples_empresas,
+                rx.select.root(
+                    rx.select.trigger(
+                        placeholder="Seleccionar empresa...",
+                        width="100%",
+                    ),
+                    rx.select.content(
+                        rx.foreach(
+                            AuthState.empresas_disponibles,
+                            lambda emp: rx.select.item(
+                                emp["empresa_nombre"],
+                                value=emp["empresa_id"].to(str),
+                            ),
+                        ),
+                    ),
+                    value=AuthState.id_empresa_actual.to(str),
+                    on_change=PortalState.cambiar_empresa_portal,
+                    size="1",
+                ),
+                rx.text(
+                    PortalState.nombre_empresa_actual,
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_BOLD,
+                    color=Colors.TEXT_PRIMARY,
+                    line_height=Typography.LINE_HEIGHT_TIGHT,
+                    white_space="nowrap",
+                    overflow="hidden",
+                    text_overflow="ellipsis",
+                    max_width="130px",
+                ),
             ),
             rx.text(
-                rx.cond(AuthState.es_empleado_portal, "Portal Empleado", "Portal Cliente"),
+                rx.cond(
+                    AuthState.es_empleado_portal,
+                    "Portal Empleado",
+                    "Portal Cliente",
+                ),
                 font_size=Typography.SIZE_XS,
                 color=Colors.TEXT_MUTED,
-                line_height="1.2",
+                line_height=Typography.LINE_HEIGHT_TIGHT,
             ),
             spacing="0",
             align_items="start",
+            flex="1",
+            min_width="0",
         ),
         rx.spacer(),
         notification_bell_portal(),
@@ -127,8 +155,6 @@ def _portal_navigation() -> rx.Component:
             "Operacion",
             _cond_item(AuthState.es_operaciones, "Contratos", "file-text", "/portal/contratos"),
             _cond_item(AuthState.es_operaciones | AuthState.es_contabilidad, "Entregables", "package-check", "/portal/entregables"),
-            _cond_item(AuthState.es_rrhh, "Plazas", "briefcase", "/portal/plazas"),
-            _cond_item(AuthState.rol_empresa_actual == "operaciones", "Requisiciones", "clipboard-list", "/portal/requisiciones"),
         ),
         spacing="0",
         width="100%",

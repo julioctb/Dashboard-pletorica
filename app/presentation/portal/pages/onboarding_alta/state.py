@@ -4,6 +4,7 @@ State para la pagina Alta de Empleados (Onboarding) del portal.
 import reflex as rx
 from typing import List, Optional
 
+from app.presentation.constants import FILTRO_TODOS
 from app.presentation.portal.state.portal_state import PortalState
 from app.services.onboarding_service import onboarding_service
 from app.services.curp_service import curp_service
@@ -154,7 +155,7 @@ class OnboardingAltaState(PortalState):
     @rx.var
     def empleados_onboarding_filtrados(self) -> List[dict]:
         """Filtra por estatus de onboarding."""
-        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == "TODOS":
+        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == FILTRO_TODOS:
             return self.empleados_onboarding
         return [
             e for e in self.empleados_onboarding

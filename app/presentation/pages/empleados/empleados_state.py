@@ -13,6 +13,7 @@ from datetime import date
 
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.components.shared.crud_state_mixin import CRUDStateMixin
+from app.presentation.components.shared.employee_form_state_mixin import EmployeeFormStateMixin
 from app.core.ui_helpers import (
     FILTRO_TODOS,
     FILTRO_TODAS,
@@ -45,7 +46,7 @@ from .empleados_validators import (
 )
 
 
-class EmpleadosState(AuthState, CRUDStateMixin):
+class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     """Estado para el módulo de Empleados"""
 
     # ========================
@@ -205,64 +206,64 @@ class EmpleadosState(AuthState, CRUDStateMixin):
         self.error_empresa_id = ""
 
     def set_form_curp(self, value: str):
-        self.form_curp = value.upper() if value else ""
+        self._set_form_upper_field("form_curp", value)
 
     def set_form_rfc(self, value: str):
-        self.form_rfc = value.upper() if value else ""
+        self._set_form_upper_field("form_rfc", value)
 
     def set_form_nss(self, value: str):
-        self.form_nss = value if value else ""
+        self._set_form_plain_field("form_nss", value)
 
     def set_form_nombre(self, value: str):
-        self.form_nombre = value.upper() if value else ""
+        self._set_form_upper_field("form_nombre", value)
 
     def set_form_apellido_paterno(self, value: str):
-        self.form_apellido_paterno = value.upper() if value else ""
+        self._set_form_upper_field("form_apellido_paterno", value)
 
     def set_form_apellido_materno(self, value: str):
-        self.form_apellido_materno = value.upper() if value else ""
+        self._set_form_upper_field("form_apellido_materno", value)
 
     def set_form_fecha_nacimiento(self, value: str):
-        self.form_fecha_nacimiento = value if value else ""
+        self._set_form_plain_field("form_fecha_nacimiento", value)
 
     def set_form_genero(self, value: str):
-        self.form_genero = value if value else ""
+        self._set_form_plain_field("form_genero", value)
 
     def set_form_telefono(self, value: str):
-        self.form_telefono = value if value else ""
+        self._set_form_plain_field("form_telefono", value)
 
     def set_form_email(self, value: str):
-        self.form_email = value.lower() if value else ""
+        self._set_form_lower_field("form_email", value)
 
     def set_form_direccion(self, value: str):
-        self.form_direccion = value if value else ""
+        self._set_form_plain_field("form_direccion", value)
 
     def set_form_contacto_emergencia(self, value: str):
-        self.form_contacto_emergencia = value if value else ""
+        self._set_form_plain_field("form_contacto_emergencia", value)
 
     def set_form_notas(self, value: str):
-        self.form_notas = value if value else ""
+        self._set_form_plain_field("form_notas", value)
 
     def set_form_motivo_baja(self, value: str):
-        self.form_motivo_baja = value if value else ""
+        self._set_form_plain_field("form_motivo_baja", value)
 
     def set_form_fecha_efectiva(self, value: str):
-        self.form_fecha_efectiva = value if value else ""
+        self._set_form_plain_field("form_fecha_efectiva", value)
 
     def set_form_notas_baja(self, value: str):
-        self.form_notas_baja = value if value else ""
+        self._set_form_plain_field("form_notas_baja", value)
 
     def set_form_motivo_restriccion(self, value: str):
-        self.form_motivo_restriccion = value
+        self._set_form_plain_field("form_motivo_restriccion", value)
 
     def set_form_notas_restriccion(self, value: str):
-        self.form_notas_restriccion = value
+        self._set_form_plain_field("form_notas_restriccion", value)
 
     def set_form_motivo_liberacion(self, value: str):
-        self.form_motivo_liberacion = value
+        self._set_form_plain_field("form_motivo_liberacion", value)
 
     def set_form_notas_liberacion(self, value: str):
-        self.form_notas_liberacion = value
+        self._set_form_plain_field("form_notas_liberacion", value)
 
     def set_pestaña_activa(self, value: str):
         self.pestaña_activa = value if value else "datos"
@@ -627,21 +628,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
 
     def _llenar_formulario_desde_empleado(self, empleado: dict):
         """Llena el formulario con datos del empleado"""
-        empresa_id = empleado.get("empresa_id")
-        self.form_empresa_id = str(empresa_id) if empresa_id else ""
-        self.form_curp = empleado.get("curp", "")
-        self.form_rfc = empleado.get("rfc", "")
-        self.form_nss = empleado.get("nss", "")
-        self.form_nombre = empleado.get("nombre", "")
-        self.form_apellido_paterno = empleado.get("apellido_paterno", "")
-        self.form_apellido_materno = empleado.get("apellido_materno", "")
-        self.form_fecha_nacimiento = empleado.get("fecha_nacimiento_iso", "") or empleado.get("fecha_nacimiento", "")
-        self.form_genero = empleado.get("genero", "")
-        self.form_telefono = empleado.get("telefono", "")
-        self.form_email = empleado.get("email", "")
-        self.form_direccion = empleado.get("direccion", "")
-        self.form_contacto_emergencia = empleado.get("contacto_emergencia", "")
-        self.form_notas = empleado.get("notas", "")
+        self._llenar_formulario_empleado_compartido(empleado)
 
     def abrir_modal_detalle(self, empleado: dict):
         """Abre el modal de detalle de un empleado"""
@@ -859,18 +846,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
                 # Actualizar empleado existente
                 empleado_update = EmpleadoUpdate(
                     empresa_id=self.parse_id(self.form_empresa_id),
-                    rfc=self.form_rfc or None,
-                    nss=self.form_nss or None,
-                    nombre=self.form_nombre or None,
-                    apellido_paterno=self.form_apellido_paterno or None,
-                    apellido_materno=self.form_apellido_materno or None,
-                    fecha_nacimiento=date.fromisoformat(self.form_fecha_nacimiento) if self.form_fecha_nacimiento else None,
-                    genero=self.form_genero or None,
-                    telefono=self.form_telefono or None,
-                    email=self.form_email or None,
-                    direccion=self.form_direccion or None,
-                    contacto_emergencia=self.form_contacto_emergencia or None,
-                    notas=self.form_notas or None,
+                    **self._payload_base_empleado(),
                 )
 
                 await empleado_service.actualizar(
@@ -887,18 +863,7 @@ class EmpleadosState(AuthState, CRUDStateMixin):
                 empleado_create = EmpleadoCreate(
                     empresa_id=self.parse_id(self.form_empresa_id),
                     curp=self.form_curp,
-                    rfc=self.form_rfc or None,
-                    nss=self.form_nss or None,
-                    nombre=self.form_nombre,
-                    apellido_paterno=self.form_apellido_paterno,
-                    apellido_materno=self.form_apellido_materno or None,
-                    fecha_nacimiento=date.fromisoformat(self.form_fecha_nacimiento) if self.form_fecha_nacimiento else None,
-                    genero=self.form_genero or None,
-                    telefono=self.form_telefono or None,
-                    email=self.form_email or None,
-                    direccion=self.form_direccion or None,
-                    contacto_emergencia=self.form_contacto_emergencia or None,
-                    notas=self.form_notas or None,
+                    **self._payload_base_empleado(),
                 )
 
                 empleado = await empleado_service.crear(empleado_create)
@@ -1184,60 +1149,20 @@ class EmpleadosState(AuthState, CRUDStateMixin):
 
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es válido."""
-        self._limpiar_errores()
-        es_valido = True
-
-        # Empresa es opcional - no se valida
-
-        # CURP obligatorio (solo en creación)
-        if not self.es_edicion:
-            if not self.validar_y_asignar_error(
-                valor=self.form_curp,
-                validador=validar_curp,
-                error_attr="error_curp",
-            ):
-                es_valido = False
-
-        if not self.validar_lote_campos([
-            ("error_nombre", self.form_nombre, validar_nombre),
-            ("error_apellido_paterno", self.form_apellido_paterno, validar_apellido_paterno),
-        ]):
-            es_valido = False
-
-        # Validaciones opcionales (solo si tienen valor)
-        if self.form_rfc:
-            if not self.validar_y_asignar_error(
-                valor=self.form_rfc,
-                validador=validar_rfc,
-                error_attr="error_rfc",
-            ):
-                es_valido = False
-
-        if self.form_nss:
-            if not self.validar_y_asignar_error(
-                valor=self.form_nss,
-                validador=validar_nss,
-                error_attr="error_nss",
-            ):
-                es_valido = False
-
-        if self.form_email:
-            if not self.validar_y_asignar_error(
-                valor=self.form_email,
-                validador=validar_email,
-                error_attr="error_email",
-            ):
-                es_valido = False
-
-        if self.form_telefono:
-            if not self.validar_y_asignar_error(
-                valor=self.form_telefono,
-                validador=validar_telefono,
-                error_attr="error_telefono",
-            ):
-                es_valido = False
-
-        return es_valido
+        return self._validar_formulario_empleado_compartido(
+            error_fields=self._campos_error,
+            curp_validator=validar_curp,
+            required_validations=[
+                ("error_nombre", self.form_nombre, validar_nombre),
+                ("error_apellido_paterno", self.form_apellido_paterno, validar_apellido_paterno),
+            ],
+            optional_validations=[
+                ("error_rfc", self.form_rfc, validar_rfc),
+                ("error_nss", self.form_nss, validar_nss),
+                ("error_email", self.form_email, validar_email),
+                ("error_telefono", self.form_telefono, validar_telefono),
+            ],
+        )
 
     # ========================
     # EVENTO ON_MOUNT

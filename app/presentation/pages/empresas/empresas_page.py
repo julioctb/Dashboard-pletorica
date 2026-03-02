@@ -3,6 +3,7 @@ Pagina principal de Empresas.
 Muestra una tabla o cards con las empresas y acciones CRUD.
 """
 import reflex as rx
+from app.presentation.constants import FILTRO_TODOS
 from app.presentation.pages.empresas.empresas_state import EmpresasState
 from app.core.enums import TipoEmpresa
 from app.presentation.layout import (
@@ -245,7 +246,7 @@ def filtros_empresas() -> rx.Component:
             rx.select.root(
                 rx.select.trigger(placeholder="Tipo empresa", width="100%"),
                 rx.select.content(
-                    rx.select.item("Todos", value="TODOS"),
+                    rx.select.item("Todos", value=FILTRO_TODOS),
                     rx.foreach(
                         [e.value for e in TipoEmpresa],
                         lambda v: rx.select.item(v, value=v)

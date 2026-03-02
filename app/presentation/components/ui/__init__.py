@@ -4,7 +4,7 @@ from .headers import page_header
 from .form_input import form_input, form_select, form_textarea, form_date, form_row
 from .badges import estatus_badge, badge_onboarding
 from .badges_domain import employee_status_badge, document_status_badge
-from .tables import tabla_vacia, tabla
+from .tables import tabla_vacia
 from .table_primitives import (
     table_cell_text,
     table_cell_text_sm,
@@ -52,9 +52,6 @@ from .action_buttons import (
     ACTION_ICON_SIZE,
     ACTION_BUTTON_VARIANT,
     ACTION_BUTTONS_SPACING,
-    # Legacy (compatibilidad)
-    action_buttons,
-    action_button_config,
     action_buttons_reactive,
 )
 
@@ -94,7 +91,6 @@ __all__ = [
     'badge_onboarding',
     # tablas
     'tabla_vacia',
-    'tabla',
     'table_header_cells',
     'table_shell',
     'table_cell_text',
@@ -130,9 +126,6 @@ __all__ = [
     "ACTION_ICON_SIZE",
     "ACTION_BUTTON_VARIANT",
     "ACTION_BUTTONS_SPACING",
-    # Action buttons (legacy)
-    "action_buttons",
-    "action_button_config",
     "action_buttons_reactive",
     # Entity cards
     "entity_card",

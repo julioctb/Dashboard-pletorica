@@ -7,6 +7,7 @@ Permite busqueda y filtro por estatus. Incluye detalle expandible.
 import reflex as rx
 from typing import List
 
+from app.presentation.constants import FILTRO_TODOS
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.layout import page_layout, page_header, page_toolbar
 from app.presentation.components.ui import entity_card, entity_grid
@@ -187,7 +188,7 @@ def _filtros_contratos() -> rx.Component:
             rx.select.trigger(placeholder="Estatus"),
             rx.select.content(
                 rx.select.item("Activos", value="ACTIVO"),
-                rx.select.item("Todos", value="TODOS"),
+                rx.select.item("Todos", value=FILTRO_TODOS),
             ),
             value=MisContratosState.filtro_estatus_cto,
             on_change=MisContratosState.set_filtro_estatus_cto,

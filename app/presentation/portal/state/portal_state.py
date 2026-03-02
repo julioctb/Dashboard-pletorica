@@ -7,6 +7,7 @@ acceso a la empresa activa, y carga de metricas del dashboard.
 import reflex as rx
 import logging
 from typing import List, Optional
+from uuid import UUID
 
 from app.presentation.components.shared.auth_state import AuthState
 from app.services import empresa_service, empleado_service, contrato_service
@@ -62,6 +63,45 @@ class PortalState(AuthState):
                 "No tienes una empresa asignada. Contacta al administrador.",
                 position="top-center",
             )
+
+    async def cambiar_empresa_portal(self, empresa_id_str: str):
+        """
+        Cambia la empresa activa desde el selector del sidebar.
+
+        El select entrega string; se convierte a int y luego delega al
+        metodo heredado de AuthState. Al final redirige a la ruta actual
+        para re-ejecutar on_mount y recargar datos de la nueva empresa.
+        """
+        if not empresa_id_str:
+            return
+
+        try:
+            empresa_id = int(empresa_id_str)
+        except (TypeError, ValueError):
+            return rx.toast.error("ID de empresa invalido")
+
+        if empresa_id == self.id_empresa_actual:
+            return
+
+        resultado = await self.cambiar_empresa(empresa_id)
+
+        # Si el cambio no ocurrio, propagar el resultado actual (ej. acceso denegado).
+        if self.id_empresa_actual != empresa_id:
+            return resultado
+
+        try:
+            from app.services import user_service
+
+            if self.usuario_actual and self.usuario_actual.get("id"):
+                user_id = UUID(str(self.usuario_actual.get("id")))
+                await user_service.cambiar_empresa_principal(user_id, empresa_id)
+        except Exception as e:
+            logger.warning(f"No se pudo persistir cambio de empresa: {e}")
+
+        ruta_actual = self.router.route_id or "/portal"
+        if resultado:
+            return [resultado, rx.redirect(ruta_actual)]
+        return rx.redirect(ruta_actual)
 
     async def _montar_pagina_portal(self, *operaciones):
         """
