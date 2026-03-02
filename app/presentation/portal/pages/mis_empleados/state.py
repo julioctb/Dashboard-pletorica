@@ -1,8 +1,11 @@
 """
 State para la pagina Mis Empleados del portal.
 """
-import reflex as rx
+from datetime import date
 from typing import List
+from uuid import UUID
+
+import reflex as rx
 
 from app.presentation.portal.state.portal_state import PortalState
 from app.services import empleado_service
@@ -64,6 +67,15 @@ class MisEmpleadosState(PortalState):
     form_contacto_nombre: str = ""
     form_contacto_telefono: str = ""
     form_contacto_parentesco: str = ""
+
+    # ========================
+    # BAJA DE EMPLEADO
+    # ========================
+    mostrar_modal_baja: bool = False
+    empleado_baja_seleccionado: dict = {}
+    form_motivo_baja: str = ""
+    form_fecha_efectiva_baja: str = ""
+    form_notas_baja: str = ""
 
     # ========================
     # ERRORES DE VALIDACION
@@ -138,6 +150,15 @@ class MisEmpleadosState(PortalState):
 
     def set_form_contacto_parentesco(self, value: str):
         self.form_contacto_parentesco = value if value else ""
+
+    def set_form_motivo_baja(self, value: str):
+        self.form_motivo_baja = value if value else ""
+
+    def set_form_fecha_efectiva_baja(self, value: str):
+        self.form_fecha_efectiva_baja = value if value else ""
+
+    def set_form_notas_baja(self, value: str):
+        self.form_notas_baja = value if value else ""
 
     # ========================
     # VALIDADORES ON_BLUR
@@ -266,6 +287,22 @@ class MisEmpleadosState(PortalState):
             or termino in (e.get("curp") or "").lower()
         ]
 
+    @rx.var
+    def nombre_empleado_baja(self) -> str:
+        """Nombre del empleado seleccionado para baja."""
+        emp = self.empleado_baja_seleccionado
+        if not emp:
+            return ""
+        return str(emp.get("nombre_completo", "") or "")
+
+    @rx.var
+    def clave_empleado_baja(self) -> str:
+        """Clave del empleado seleccionado para baja."""
+        emp = self.empleado_baja_seleccionado
+        if not emp:
+            return ""
+        return str(emp.get("clave", "") or "")
+
     # ========================
     # MONTAJE
     # ========================
@@ -328,6 +365,24 @@ class MisEmpleadosState(PortalState):
         """Cierra el modal de empleado."""
         self.mostrar_modal_empleado = False
         self._limpiar_formulario()
+
+    def abrir_modal_baja(self, empleado: dict):
+        """Abre modal de baja para un empleado especifico."""
+        if not empleado or not isinstance(empleado, dict):
+            return
+        self.empleado_baja_seleccionado = empleado
+        self.form_motivo_baja = ""
+        self.form_fecha_efectiva_baja = ""
+        self.form_notas_baja = ""
+        self.mostrar_modal_baja = True
+
+    def cerrar_modal_baja(self):
+        """Cierra modal de baja y limpia estado asociado."""
+        self.mostrar_modal_baja = False
+        self.empleado_baja_seleccionado = {}
+        self.form_motivo_baja = ""
+        self.form_fecha_efectiva_baja = ""
+        self.form_notas_baja = ""
 
     # ========================
     # CREAR EMPLEADO
@@ -460,6 +515,67 @@ class MisEmpleadosState(PortalState):
         if self.es_edicion:
             return await self.actualizar_empleado()
         return await self.crear_empleado()
+
+    async def confirmar_baja(self):
+        """Ejecuta la baja usando BajaService."""
+        emp = self.empleado_baja_seleccionado
+        if not emp:
+            yield rx.toast.error("No hay empleado seleccionado")
+            return
+
+        empleado_id = emp.get("id")
+        if not empleado_id:
+            yield rx.toast.error("Error: no se pudo obtener el ID del empleado")
+            return
+
+        if not self.form_motivo_baja:
+            yield rx.toast.error("Debe seleccionar un motivo de baja")
+            return
+
+        from app.services.baja_service import baja_service
+        from app.entities.baja_empleado import BajaEmpleadoCreate
+        from app.core.enums import MotivoBaja
+
+        fecha_efectiva = date.today()
+        if self.form_fecha_efectiva_baja:
+            try:
+                fecha_efectiva = date.fromisoformat(self.form_fecha_efectiva_baja)
+            except ValueError:
+                yield rx.toast.error("Fecha efectiva invalida")
+                return
+
+        registrado_por = None
+        if self.id_usuario:
+            try:
+                registrado_por = UUID(self.id_usuario)
+            except ValueError:
+                registrado_por = None
+
+        self.saving = True
+        try:
+            await baja_service.registrar_baja(
+                BajaEmpleadoCreate(
+                    empleado_id=empleado_id,
+                    empresa_id=emp.get("empresa_id") or self.id_empresa_actual,
+                    motivo=MotivoBaja(self.form_motivo_baja),
+                    fecha_efectiva=fecha_efectiva,
+                    notas=self.form_notas_baja or None,
+                    registrado_por=registrado_por,
+                )
+            )
+
+            self.cerrar_modal_baja()
+            await self._fetch_empleados()
+
+            yield rx.toast.success(
+                "Baja registrada. Se genero alerta de liquidacion (15 dias habiles). Gestionar en Bajas."
+            )
+        except (BusinessRuleError, ValueError) as e:
+            yield rx.toast.error(str(e))
+        except Exception as e:
+            yield self.manejar_error_con_toast(e, "registrando baja")
+        finally:
+            self.saving = False
 
     # ========================
     # METODOS PRIVADOS

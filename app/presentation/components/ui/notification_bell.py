@@ -246,6 +246,7 @@ class NotificationBellState(rx.State):
         rutas = {
             "ENTREGABLE": f"/entregables/{entidad_id}" if entidad_id else "/entregables",
             "REQUISICION": "/wip/requisiciones",
+            "BAJA_EMPLEADO": "/empleados",
         }
         return rx.redirect(rutas.get(entidad_tipo, "/"))
 
@@ -255,6 +256,7 @@ class NotificationBellState(rx.State):
         rutas = {
             "ENTREGABLE": "/portal/entregables",
             "REQUISICION": "/portal",  # Portal no tiene requisiciones
+            "BAJA_EMPLEADO": "/portal/bajas",
         }
         return rx.redirect(rutas.get(entidad_tipo, "/portal"))
 

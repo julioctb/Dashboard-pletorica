@@ -41,6 +41,7 @@ class EmpleadoDocumentoService:
         contenido: bytes,
         nombre_archivo: str,
         tipo_mime: str,
+        auto_aprobar: bool = False,
     ) -> EmpleadoDocumento:
         """
         Sube un documento al expediente del empleado.
@@ -97,16 +98,25 @@ class EmpleadoDocumentoService:
                 nueva_version = version_result.data[0]['version'] + 1
 
             # 4. Insertar nuevo documento
+            estatus_inicial = (
+                EstatusDocumento.APROBADO.value if auto_aprobar
+                else EstatusDocumento.PENDIENTE_REVISION.value
+            )
             payload = {
                 'empleado_id': datos.empleado_id,
                 'tipo_documento': datos.tipo_documento,
-                'archivo_id': archivo_resp.archivo_id,
+                'archivo_id': archivo_resp.archivo.id,
                 'nombre_archivo': nombre_archivo,
-                'estatus': EstatusDocumento.PENDIENTE_REVISION.value,
+                'estatus': estatus_inicial,
                 'version': nueva_version,
                 'es_vigente': True,
                 'subido_por': str(datos.subido_por) if datos.subido_por else None,
             }
+
+            if auto_aprobar and datos.subido_por:
+                payload['revisado_por'] = str(datos.subido_por)
+                payload['fecha_revision'] = datetime.now().isoformat()
+
             result = self.supabase.table(self.tabla).insert(payload).execute()
 
             if not result.data:

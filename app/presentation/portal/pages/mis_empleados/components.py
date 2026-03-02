@@ -25,6 +25,7 @@ def fila_empleado(emp: dict) -> rx.Component:
     """Fila de la tabla de empleados."""
     # Editable: ACTIVO y no restringido
     puede_editar = (emp["estatus"] == "ACTIVO") & (~emp["is_restricted"])
+    puede_dar_baja = emp["estatus"] == "ACTIVO"
     return rx.table.row(
         rx.table.cell(
             rx.text(
@@ -52,12 +53,22 @@ def fila_empleado(emp: dict) -> rx.Component:
             badge_estatus(emp["estatus"]),
         ),
         rx.table.cell(
-            tabla_action_button(
-                icon="pencil",
-                tooltip="Editar",
-                on_click=MisEmpleadosState.abrir_modal_editar(emp),
-                color_scheme="teal",
-                visible=puede_editar,
+            rx.hstack(
+                tabla_action_button(
+                    icon="pencil",
+                    tooltip="Editar",
+                    on_click=MisEmpleadosState.abrir_modal_editar(emp),
+                    color_scheme="teal",
+                    visible=puede_editar,
+                ),
+                tabla_action_button(
+                    icon="user-minus",
+                    tooltip="Dar de baja",
+                    on_click=MisEmpleadosState.abrir_modal_baja(emp),
+                    color_scheme="red",
+                    visible=puede_dar_baja,
+                ),
+                spacing="1",
             ),
         ),
     )
@@ -68,7 +79,7 @@ ENCABEZADOS_EMPLEADOS = [
     {"nombre": "Nombre", "ancho": "auto"},
     {"nombre": "CURP", "ancho": "200px"},
     {"nombre": "Estatus", "ancho": "100px"},
-    {"nombre": "Acciones", "ancho": "80px"},
+    {"nombre": "Acciones", "ancho": "120px"},
 ]
 
 

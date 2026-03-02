@@ -138,6 +138,8 @@ class EmpleadosState(AuthState, CRUDStateMixin):
     form_contacto_emergencia: str = ""
     form_notas: str = ""
     form_motivo_baja: str = ""
+    form_fecha_efectiva: str = ""
+    form_notas_baja: str = ""
 
     # Restricciones
     form_motivo_restriccion: str = ""
@@ -243,6 +245,12 @@ class EmpleadosState(AuthState, CRUDStateMixin):
 
     def set_form_motivo_baja(self, value: str):
         self.form_motivo_baja = value if value else ""
+
+    def set_form_fecha_efectiva(self, value: str):
+        self.form_fecha_efectiva = value if value else ""
+
+    def set_form_notas_baja(self, value: str):
+        self.form_notas_baja = value if value else ""
 
     def set_form_motivo_restriccion(self, value: str):
         self.form_motivo_restriccion = value
@@ -646,6 +654,8 @@ class EmpleadosState(AuthState, CRUDStateMixin):
     def abrir_modal_baja(self):
         """Abre el modal para dar de baja"""
         self.form_motivo_baja = ""
+        self.form_fecha_efectiva = ""
+        self.form_notas_baja = ""
         self.mostrar_modal_baja = True
 
     def cerrar_modal_empleado(self):
@@ -662,6 +672,8 @@ class EmpleadosState(AuthState, CRUDStateMixin):
         """Cierra el modal de baja"""
         self.mostrar_modal_baja = False
         self.form_motivo_baja = ""
+        self.form_fecha_efectiva = ""
+        self.form_notas_baja = ""
 
     # ========================
     # ACCIONES DE MODAL - RESTRICCIONES
@@ -907,31 +919,77 @@ class EmpleadosState(AuthState, CRUDStateMixin):
             self.saving = False
 
     async def dar_de_baja(self):
-        """Da de baja al empleado seleccionado"""
+        """Da de baja al empleado usando el flujo completo de BajaService."""
         if not self.empleado_seleccionado:
-            return rx.toast.error("No hay empleado seleccionado")
+            yield rx.toast.error("No hay empleado seleccionado")
+            return
 
-        empleado_id = self.empleado_seleccionado.get("id") if isinstance(self.empleado_seleccionado, dict) else None
+        empleado_id = (
+            self.empleado_seleccionado.get("id")
+            if isinstance(self.empleado_seleccionado, dict) else None
+        )
         if not empleado_id:
-            return rx.toast.error("Error: No se pudo obtener el ID del empleado")
+            yield rx.toast.error("Error: No se pudo obtener el ID del empleado")
+            return
 
         if not self.form_motivo_baja:
-            return rx.toast.error("Debe seleccionar un motivo de baja")
+            yield rx.toast.error("Debe seleccionar un motivo de baja")
+            return
 
-        motivo = MotivoBaja(self.form_motivo_baja)
+        fecha_efectiva = date.today()
+        if self.form_fecha_efectiva:
+            try:
+                fecha_efectiva = date.fromisoformat(self.form_fecha_efectiva)
+            except ValueError:
+                yield rx.toast.error("Fecha efectiva invalida")
+                return
 
-        async def _on_exito():
+        from uuid import UUID
+        from app.services.baja_service import baja_service
+        from app.entities.baja_empleado import BajaEmpleadoCreate
+
+        registrado_por = None
+        if self.usuario_actual:
+            uid = self.usuario_actual.get("id")
+            if uid:
+                registrado_por = UUID(str(uid))
+
+        empresa_id = (
+            self.empleado_seleccionado.get("empresa_id")
+            or self.id_empresa_actual
+        )
+
+        self.saving = True
+        try:
+            await baja_service.registrar_baja(
+                BajaEmpleadoCreate(
+                    empleado_id=empleado_id,
+                    empresa_id=empresa_id,
+                    motivo=MotivoBaja(self.form_motivo_baja),
+                    fecha_efectiva=fecha_efectiva,
+                    notas=self.form_notas_baja or None,
+                    registrado_por=registrado_por,
+                )
+            )
+
             self.cerrar_modal_baja()
             self.cerrar_modal_detalle()
-            await self._fetch_empleados()
+            self.form_motivo_baja = ""
+            self.form_fecha_efectiva = ""
+            self.form_notas_baja = ""
 
-        return await self.ejecutar_guardado(
-            operacion=lambda: empleado_service.dar_de_baja(
-                empleado_id=empleado_id, motivo=motivo,
-            ),
-            mensaje_exito="Empleado dado de baja correctamente",
-            on_exito=_on_exito,
-        )
+            async for _ in self._recargar_datos(self._fetch_empleados):
+                yield
+
+            yield rx.toast.success(
+                "Baja registrada. Se genero alerta de liquidacion (15 dias habiles)."
+            )
+        except (BusinessRuleError, ValueError) as e:
+            yield rx.toast.error(str(e))
+        except Exception as e:
+            yield self.manejar_error_con_toast(e, "registrando baja")
+        finally:
+            self.saving = False
 
     async def reactivar_empleado(self):
         """Reactiva al empleado seleccionado"""

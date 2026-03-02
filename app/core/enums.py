@@ -227,6 +227,52 @@ class TipoMovimiento(str, Enum):
 
 
 # =============================================================================
+# ENUMS DE BAJA DE EMPLEADO
+# =============================================================================
+
+class EstatusBaja(str, Enum):
+    """Estados del proceso de baja de un empleado."""
+    INICIADA = 'INICIADA'
+    COMUNICADA = 'COMUNICADA'
+    LIQUIDADA = 'LIQUIDADA'
+    CERRADA = 'CERRADA'
+    CANCELADA = 'CANCELADA'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'INICIADA': 'Baja registrada',
+            'COMUNICADA': 'Comunicada a BUAP',
+            'LIQUIDADA': 'Liquidacion entregada',
+            'CERRADA': 'Proceso cerrado',
+            'CANCELADA': 'Baja cancelada',
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def es_proceso_activo(self) -> bool:
+        return self in (EstatusBaja.INICIADA, EstatusBaja.COMUNICADA)
+
+
+class EstatusLiquidacion(str, Enum):
+    """Estados de la liquidacion/finiquito."""
+    NO_APLICA = 'NO_APLICA'
+    PENDIENTE = 'PENDIENTE'
+    EN_PROCESO = 'EN_PROCESO'
+    ENTREGADA = 'ENTREGADA'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'NO_APLICA': 'No aplica',
+            'PENDIENTE': 'Pendiente',
+            'EN_PROCESO': 'En proceso',
+            'ENTREGADA': 'Entregada',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+# =============================================================================
 # ENUMS DE REQUISICIÓN
 # =============================================================================
 
@@ -721,7 +767,7 @@ class TipoDocumentoEmpleado(str, Enum):
             'CARATULA_BANCARIA': 'Carátula bancaria',
             'CURP_DOCUMENTO': 'Documento CURP',
             'RFC_DOCUMENTO': 'Constancia de RFC',
-            'NSS_DOCUMENTO': 'Documento NSS (IMSS)',
+            'NSS_DOCUMENTO': 'Documento IMSS',
             'ACTA_NACIMIENTO': 'Acta de nacimiento',
             'COMPROBANTE_ESTUDIOS': 'Comprobante de estudios',
             'FOTOGRAFIA': 'Fotografía',
@@ -738,9 +784,6 @@ class TipoDocumentoEmpleado(str, Enum):
             TipoDocumentoEmpleado.CARATULA_BANCARIA,
             TipoDocumentoEmpleado.CURP_DOCUMENTO,
             TipoDocumentoEmpleado.RFC_DOCUMENTO,
-            TipoDocumentoEmpleado.NSS_DOCUMENTO,
-            TipoDocumentoEmpleado.ACTA_NACIMIENTO,
-            TipoDocumentoEmpleado.FOTOGRAFIA,
         )
 
 

@@ -114,6 +114,7 @@ def _portal_navigation() -> rx.Component:
             "RRHH",
             _cond_item(AuthState.puede_registrar_personal, "Alta Empleados", "user-plus", "/portal/onboarding"),
             _cond_item(AuthState.es_rrhh, "Expedientes", "folder-check", "/portal/expedientes"),
+            _cond_item(AuthState.es_rrhh, "Bajas", "user-minus", "/portal/bajas"),
         ),
         # --- Autoservicio (siempre visible) ---
         nav_group(
@@ -127,7 +128,7 @@ def _portal_navigation() -> rx.Component:
             _cond_item(AuthState.es_operaciones, "Contratos", "file-text", "/portal/contratos"),
             _cond_item(AuthState.es_operaciones | AuthState.es_contabilidad, "Entregables", "package-check", "/portal/entregables"),
             _cond_item(AuthState.es_rrhh, "Plazas", "briefcase", "/portal/plazas"),
-            _cond_item(AuthState.es_operaciones, "Requisiciones", "clipboard-list", "/portal/requisiciones"),
+            _cond_item(AuthState.rol_empresa_actual == "operaciones", "Requisiciones", "clipboard-list", "/portal/requisiciones"),
         ),
         spacing="0",
         width="100%",

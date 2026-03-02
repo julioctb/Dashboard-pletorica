@@ -178,23 +178,35 @@ def _accesos_rapidos() -> rx.Component:
                 "/portal/empleados",
                 "Lista completa de empleados",
             ),
-            _quick_link(
-                "Mis contratos",
-                "file-text",
-                "/portal/contratos",
-                "Contratos y categorias",
+            rx.cond(
+                PortalState.es_operaciones,
+                _quick_link(
+                    "Mis contratos",
+                    "file-text",
+                    "/portal/contratos",
+                    "Contratos y categorias",
+                ),
+                rx.fragment(),
             ),
-            _quick_link(
-                "Datos de empresa",
-                "building-2",
-                "/portal/mi-empresa",
-                "RFC, contacto y datos generales",
+            rx.cond(
+                PortalState.es_admin_empresa,
+                _quick_link(
+                    "Datos de empresa",
+                    "building-2",
+                    "/portal/mi-empresa",
+                    "RFC, contacto y datos generales",
+                ),
+                rx.fragment(),
             ),
-            _quick_link(
-                "Requisiciones",
-                "clipboard-list",
-                "/portal/requisiciones",
-                "Requisiciones de la empresa",
+            rx.cond(
+                PortalState.rol_empresa_actual == "operaciones",
+                _quick_link(
+                    "Requisiciones",
+                    "clipboard-list",
+                    "/portal/requisiciones",
+                    "Requisiciones de la empresa",
+                ),
+                rx.fragment(),
             ),
             columns=rx.breakpoints(initial="1", sm="2"),
             spacing="3",

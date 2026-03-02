@@ -552,7 +552,7 @@ class UsuariosAdminState(AuthState):
         if self.form_rol == "institucion":
             tiene_datos = tiene_datos and bool(self.form_institucion_id)
         if self._rol_es_proveedor(self.form_rol):
-            tiene_datos = tiene_datos and self.form_asignaciones_empresas.length() > 0
+            tiene_datos = tiene_datos and len(self.form_asignaciones_empresas) > 0
         sin_errores = not bool(
             self.error_email
             or self.error_password

@@ -70,6 +70,7 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
             on_click=lambda: UsuariosAdminState.abrir_modal_editar(usuario),
             color_scheme="blue",
             visible=puede_gestionar,
+            disabled=UsuariosAdminState.saving,
         ),
         # Gestionar empresas
         tabla_action_button(
@@ -78,6 +79,7 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
             on_click=lambda: UsuariosAdminState.abrir_modal_empresas(usuario),
             color_scheme="teal",
             visible=puede_gestionar & puede_gestionar_empresas,
+            disabled=UsuariosAdminState.saving,
         ),
         # Desactivar (si activo)
         tabla_action_button(
@@ -86,6 +88,7 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
             on_click=lambda: UsuariosAdminState.confirmar_desactivar(usuario),
             color_scheme="red",
             visible=es_activo & puede_gestionar,
+            disabled=UsuariosAdminState.saving,
         ),
         # Activar (si inactivo)
         tabla_action_button(
@@ -94,6 +97,7 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
             on_click=lambda: UsuariosAdminState.activar_usuario_accion(usuario["id"].to(str)),
             color_scheme="green",
             visible=(~es_activo) & puede_gestionar,
+            disabled=UsuariosAdminState.saving,
         ),
     ])
 

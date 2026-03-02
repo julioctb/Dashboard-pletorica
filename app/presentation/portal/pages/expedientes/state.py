@@ -7,6 +7,7 @@ import reflex as rx
 from typing import List, Optional
 
 from app.presentation.portal.state.portal_state import PortalState
+from app.services.archivo_service import archivo_service
 from app.services.onboarding_service import onboarding_service
 from app.services.empleado_documento_service import empleado_documento_service
 from app.core.exceptions import (
@@ -26,7 +27,7 @@ class ExpedientesState(PortalState):
     # ========================
     empleados_expedientes: List[dict] = []
     total_expedientes: int = 0
-    filtro_estatus_expediente: str = ""
+    filtro_estatus_expediente: str = "TODOS"
 
     # ========================
     # DETALLE EXPEDIENTE
@@ -35,6 +36,12 @@ class ExpedientesState(PortalState):
     empleado_seleccionado: dict = {}
     documentos_empleado: List[dict] = []
     expediente_status: dict = {}
+    tipo_documento_subiendo: str = ""
+    subiendo_archivo: bool = False
+    mostrar_modal_preview: bool = False
+    preview_url: str = ""
+    preview_tipo_mime: str = ""
+    preview_nombre_archivo: str = ""
 
     # ========================
     # MODAL RECHAZO
@@ -52,6 +59,9 @@ class ExpedientesState(PortalState):
 
     def set_form_observacion_rechazo(self, value: str):
         self.form_observacion_rechazo = value
+
+    def set_tipo_documento_subiendo(self, value: str):
+        self.tipo_documento_subiendo = value
 
     # ========================
     # COMPUTED VARS
@@ -72,6 +82,38 @@ class ExpedientesState(PortalState):
         return OPCIONES_ESTATUS_ONBOARDING_EXPEDIENTES
 
     @rx.var
+    def tipos_documento_disponibles(self) -> list[dict]:
+        """Lista de tipos de documento para el selector."""
+        from app.core.enums import TipoDocumentoEmpleado
+
+        return [
+            {"value": t.value, "label": t.descripcion}
+            for t in TipoDocumentoEmpleado
+        ]
+
+    @rx.var
+    def documentos_expediente_lista(self) -> List[dict]:
+        """Lista completa de documentos para mostrar faltantes y cargados."""
+        from app.core.enums import TipoDocumentoEmpleado
+
+        docs_por_tipo = {
+            doc.get("tipo_documento"): doc for doc in self.documentos_empleado
+        }
+
+        lista = []
+        for tipo in TipoDocumentoEmpleado:
+            doc_existente = docs_por_tipo.get(tipo.value, {})
+            lista.append({
+                **doc_existente,
+                "tipo_documento": tipo.value,
+                "tipo_documento_label": tipo.descripcion,
+                "obligatorio": tipo.es_obligatorio,
+                "subido": bool(doc_existente),
+            })
+
+        return lista
+
+    @rx.var
     def nombre_empleado_seleccionado(self) -> str:
         """Nombre del empleado seleccionado."""
         return self.empleado_seleccionado.get("nombre_completo", "")
@@ -80,6 +122,14 @@ class ExpedientesState(PortalState):
     def clave_empleado_seleccionado(self) -> str:
         """Clave del empleado seleccionado."""
         return self.empleado_seleccionado.get("clave", "")
+
+    @rx.var
+    def preview_es_imagen(self) -> bool:
+        return self.preview_tipo_mime.startswith("image/")
+
+    @rx.var
+    def preview_es_pdf(self) -> bool:
+        return self.preview_tipo_mime == "application/pdf"
 
     @rx.var
     def porcentaje_expediente(self) -> int:
@@ -121,13 +171,18 @@ class ExpedientesState(PortalState):
     # CARGA DE DATOS
     # ========================
     async def _fetch_empleados_expedientes(self):
-        """Carga empleados con estatus de onboarding."""
+        """Carga empleados para gestion de expedientes."""
         if not self.id_empresa_actual:
             return
 
         try:
-            empleados = await onboarding_service.obtener_empleados_onboarding(
+            empleados = await onboarding_service.obtener_empleados_para_expedientes(
                 empresa_id=self.id_empresa_actual,
+                estatus_filtro=(
+                    self.filtro_estatus_expediente
+                    if self.filtro_estatus_expediente != "TODOS"
+                    else None
+                ),
             )
             self.empleados_expedientes = empleados
             self.total_expedientes = len(empleados)
@@ -178,6 +233,101 @@ class ExpedientesState(PortalState):
         self.empleado_seleccionado = {}
         self.documentos_empleado = []
         self.expediente_status = {}
+        self.tipo_documento_subiendo = ""
+        self.subiendo_archivo = False
+        self.cerrar_modal_preview()
+
+    async def ver_documento(self, doc: dict):
+        """Obtiene URL temporal del archivo y abre modal de vista previa."""
+        archivo_id = doc.get("archivo_id")
+        if not archivo_id:
+            return rx.toast.error("Este documento no tiene archivo asociado")
+
+        try:
+            archivo = await archivo_service.obtener_archivo(int(archivo_id))
+            url = await archivo_service.obtener_url_temporal(int(archivo_id))
+            if not url:
+                return rx.toast.error("No se pudo obtener el archivo")
+
+            self.preview_url = url
+            self.preview_tipo_mime = archivo.tipo_mime if archivo else ""
+            self.preview_nombre_archivo = (
+                doc.get("nombre_archivo")
+                or (archivo.nombre_original if archivo else "")
+                or "Documento"
+            )
+            self.mostrar_modal_preview = True
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "abriendo documento")
+
+    def cerrar_modal_preview(self):
+        """Cierra el modal de vista previa."""
+        self.mostrar_modal_preview = False
+        self.preview_url = ""
+        self.preview_tipo_mime = ""
+        self.preview_nombre_archivo = ""
+
+    # ========================
+    # SUBIR DOCUMENTO
+    # ========================
+    async def handle_upload_documento(self, files: list[rx.UploadFile]):
+        """
+        Sube un documento al expediente del empleado seleccionado.
+
+        Auto-aprueba porque quien sube es RRHH y registra trazabilidad
+        en revisado_por y fecha_revision.
+        """
+        if not files or not self.tipo_documento_subiendo:
+            return
+
+        if not self.empleado_seleccionado:
+            return rx.toast.error("No hay empleado seleccionado")
+
+        empleado_id = self.empleado_seleccionado.get("id")
+        if not empleado_id:
+            return rx.toast.error("Error: No se pudo obtener el ID del empleado")
+
+        self.subiendo_archivo = True
+        try:
+            from uuid import UUID
+            from app.entities.empleado_documento import EmpleadoDocumentoCreate
+
+            subido_por = None
+            if self.usuario_actual:
+                uid = self.usuario_actual.get("id")
+                if uid:
+                    subido_por = UUID(str(uid))
+
+            for file in files:
+                upload_data = await file.read()
+                nombre = file.filename or "documento"
+                tipo_mime = file.content_type or "application/octet-stream"
+
+                datos = EmpleadoDocumentoCreate(
+                    empleado_id=empleado_id,
+                    tipo_documento=self.tipo_documento_subiendo,
+                    subido_por=subido_por,
+                )
+
+                await empleado_documento_service.subir_documento(
+                    datos=datos,
+                    contenido=upload_data,
+                    nombre_archivo=nombre,
+                    tipo_mime=tipo_mime,
+                    auto_aprobar=True,
+                )
+
+            await self.ver_expediente(self.empleado_seleccionado)
+            self.tipo_documento_subiendo = ""
+
+            return rx.toast.success("Documento subido y aprobado")
+
+        except (BusinessRuleError, ValidationError) as e:
+            return rx.toast.error(str(e))
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "subiendo documento")
+        finally:
+            self.subiendo_archivo = False
 
     # ========================
     # APROBAR DOCUMENTO

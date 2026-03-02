@@ -16,10 +16,17 @@ from app.presentation.components.ui import (
     empty_state_card,
     document_status_badge,
 )
-from app.presentation.components.reusable import document_table_shell, documento_observacion
+from app.presentation.components.reusable import (
+    document_table_shell,
+    documento_observacion,
+    documento_requerido_badge,
+    documento_subido_icon,
+)
 from app.presentation.theme import Colors, Typography, Spacing, Radius
 
 from .state import ExpedientesState
+
+UPLOAD_ID_EXPEDIENTE = "upload_doc_expediente_rrhh"
 
 
 # =============================================================================
@@ -121,24 +128,56 @@ def fila_documento(doc: dict) -> rx.Component:
 
     return rx.table.row(
         rx.table.cell(
-            rx.text(
-                doc.get("tipo_documento", ""),
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
+            rx.hstack(
+                documento_subido_icon(doc.get("subido", False)),
+                rx.vstack(
+                    rx.text(
+                        doc.get("tipo_documento_label", doc.get("tipo_documento", "")),
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
+                    documento_requerido_badge(doc.get("obligatorio", False)),
+                    spacing="1",
+                    align="start",
+                ),
+                spacing="2",
+                align="center",
             ),
         ),
         rx.table.cell(
-            rx.text(
-                doc.get("nombre_archivo", "-"),
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
+            rx.cond(
+                doc.get("subido", False),
+                rx.button(
+                    doc.get("nombre_archivo", "-"),
+                    on_click=ExpedientesState.ver_documento(doc),
+                    variant="ghost",
+                    size="1",
+                    color_scheme="blue",
+                    justify="start",
+                    padding="0",
+                    height="auto",
+                    text_align="left",
+                ),
+                rx.text(
+                    "-",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
             ),
         ),
         rx.table.cell(
-            rx.text(
-                f"v{doc.get('version', 1)}",
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
+            rx.cond(
+                doc.get("subido", False),
+                rx.text(
+                    f"v{doc.get('version', 1)}",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                rx.text(
+                    "-",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
             ),
         ),
         rx.table.cell(
@@ -149,19 +188,27 @@ def fila_documento(doc: dict) -> rx.Component:
         ),
         rx.table.cell(
             rx.cond(
-                es_pendiente,
+                doc.get("subido", False),
                 rx.hstack(
+                    tabla_action_button(
+                        icon="eye",
+                        tooltip="Ver archivo",
+                        on_click=ExpedientesState.ver_documento(doc),
+                        color_scheme="blue",
+                    ),
                     tabla_action_button(
                         icon="check",
                         tooltip="Aprobar",
                         on_click=ExpedientesState.aprobar_documento(doc),
                         color_scheme="green",
+                        visible=es_pendiente,
                     ),
                     tabla_action_button(
                         icon="x",
                         tooltip="Rechazar",
                         on_click=ExpedientesState.abrir_modal_rechazo(doc),
                         color_scheme="red",
+                        visible=es_pendiente,
                     ),
                     spacing="1",
                 ),
@@ -172,13 +219,118 @@ def fila_documento(doc: dict) -> rx.Component:
 
 
 ENCABEZADOS_DOCUMENTOS = [
-    {"nombre": "Tipo", "ancho": "180px"},
+    {"nombre": "Documento", "ancho": "240px"},
     {"nombre": "Archivo", "ancho": "auto"},
     {"nombre": "Version", "ancho": "80px"},
     {"nombre": "Estatus", "ancho": "120px"},
     {"nombre": "Obs.", "ancho": "60px"},
     {"nombre": "Acciones", "ancho": "100px"},
 ]
+
+
+def area_subida_rrhh() -> rx.Component:
+    """Area de subida de documentos para RRHH."""
+    return rx.cond(
+        ExpedientesState.mostrando_detalle,
+        rx.vstack(
+            rx.cond(
+                ExpedientesState.tipo_documento_subiendo == "",
+                rx.button(
+                    rx.icon("upload", size=16),
+                    "Subir documento",
+                    on_click=ExpedientesState.set_tipo_documento_subiendo("_seleccionar"),
+                    variant="outline",
+                    size="2",
+                    color_scheme="blue",
+                ),
+                rx.vstack(
+                    rx.hstack(
+                        rx.select.root(
+                            rx.select.trigger(
+                                placeholder="Seleccionar tipo de documento...",
+                                width="300px",
+                            ),
+                            rx.select.content(
+                                rx.foreach(
+                                    ExpedientesState.tipos_documento_disponibles,
+                                    lambda opt: rx.select.item(
+                                        opt["label"], value=opt["value"]
+                                    ),
+                                ),
+                            ),
+                            value=rx.cond(
+                                ExpedientesState.tipo_documento_subiendo == "_seleccionar",
+                                "",
+                                ExpedientesState.tipo_documento_subiendo,
+                            ),
+                            on_change=ExpedientesState.set_tipo_documento_subiendo,
+                        ),
+                        rx.icon_button(
+                            rx.icon("x", size=14),
+                            size="1",
+                            variant="ghost",
+                            color_scheme="gray",
+                            on_click=ExpedientesState.set_tipo_documento_subiendo(""),
+                        ),
+                        align="center",
+                    ),
+                    rx.cond(
+                        (ExpedientesState.tipo_documento_subiendo != "")
+                        & (ExpedientesState.tipo_documento_subiendo != "_seleccionar"),
+                        rx.upload(
+                            rx.vstack(
+                                rx.cond(
+                                    ExpedientesState.subiendo_archivo,
+                                    rx.spinner(size="2"),
+                                    rx.icon(
+                                        "cloud-upload",
+                                        size=32,
+                                        color="var(--gray-8)",
+                                    ),
+                                ),
+                                rx.text(
+                                    "Arrastre un archivo o haga clic para seleccionar",
+                                    font_size="13px",
+                                    color="var(--gray-9)",
+                                ),
+                                rx.text(
+                                    "PDF, PNG o JPG - se aprobara automaticamente",
+                                    font_size="12px",
+                                    color="var(--gray-8)",
+                                ),
+                                align="center",
+                                spacing="2",
+                                padding_y="24px",
+                            ),
+                            id=UPLOAD_ID_EXPEDIENTE,
+                            accept={
+                                "application/pdf": [".pdf"],
+                                "image/png": [".png"],
+                                "image/jpeg": [".jpg", ".jpeg"],
+                            },
+                            max_files=1,
+                            on_drop=ExpedientesState.handle_upload_documento(
+                                rx.upload_files(upload_id=UPLOAD_ID_EXPEDIENTE),
+                            ),
+                            border="2px dashed var(--gray-6)",
+                            border_radius="8px",
+                            width="100%",
+                            cursor="pointer",
+                            style={"_hover": {"border_color": "var(--blue-7)"}},
+                        ),
+                    ),
+                    width="100%",
+                    spacing="2",
+                    padding="16px",
+                    background="var(--blue-2)",
+                    border="1px solid var(--blue-6)",
+                    border_radius="8px",
+                ),
+            ),
+            width="100%",
+        ),
+        rx.fragment(),
+    )
 
 
 def detalle_expediente() -> rx.Component:
@@ -231,6 +383,8 @@ def detalle_expediente() -> rx.Component:
             border_radius=Radius.MD,
         ),
 
+        area_subida_rrhh(),
+
         # Barra de progreso
         rx.vstack(
             rx.hstack(
@@ -261,11 +415,11 @@ def detalle_expediente() -> rx.Component:
         # Tabla de documentos
         document_table_shell(
             headers=ENCABEZADOS_DOCUMENTOS,
-            items=ExpedientesState.documentos_empleado,
+            items=ExpedientesState.documentos_expediente_lista,
             row_renderer=fila_documento,
-            has_items=ExpedientesState.documentos_empleado.length() > 0,
-            empty_title="No hay documentos subidos aun",
-            empty_description="El empleado aun no carga documentos para este expediente.",
+            has_items=ExpedientesState.documentos_expediente_lista.length() > 0,
+            empty_title="No hay tipos de documento configurados",
+            empty_description="No se encontro el catalogo de documentos del expediente.",
             empty_icon="file-x",
         ),
 
@@ -356,5 +510,102 @@ def modal_rechazo() -> rx.Component:
             max_width="500px",
         ),
         open=ExpedientesState.mostrar_modal_rechazo,
+        on_open_change=rx.noop,
+    )
+
+
+def modal_preview_documento() -> rx.Component:
+    """Modal para vista previa de documentos del expediente."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.vstack(
+                rx.hstack(
+                    rx.vstack(
+                        rx.text("Vista previa", size="4", weight="bold"),
+                        rx.text(
+                            ExpedientesState.preview_nombre_archivo,
+                            font_size=Typography.SIZE_SM,
+                            color=Colors.TEXT_SECONDARY,
+                        ),
+                        spacing="0",
+                        align="start",
+                    ),
+                    rx.spacer(),
+                    rx.icon_button(
+                        rx.icon("x", size=20),
+                        variant="ghost",
+                        on_click=ExpedientesState.cerrar_modal_preview,
+                    ),
+                    width="100%",
+                    align="center",
+                ),
+                rx.cond(
+                    ExpedientesState.preview_es_imagen,
+                    rx.center(
+                        rx.image(
+                            src=ExpedientesState.preview_url,
+                            max_width="100%",
+                            max_height="70vh",
+                            object_fit="contain",
+                            border_radius=Radius.MD,
+                        ),
+                        width="100%",
+                        padding=Spacing.MD,
+                    ),
+                    rx.cond(
+                        ExpedientesState.preview_es_pdf,
+                        rx.el.iframe(
+                            src=ExpedientesState.preview_url,
+                            width="100%",
+                            height="70vh",
+                            style={
+                                "border": "1px solid var(--gray-6)",
+                                "borderRadius": "8px",
+                                "background": "white",
+                            },
+                        ),
+                        rx.center(
+                            rx.vstack(
+                                rx.icon("file-text", size=40, color="var(--gray-8)"),
+                                rx.text(
+                                    "No hay vista previa embebida para este archivo.",
+                                    font_size=Typography.SIZE_SM,
+                                    color=Colors.TEXT_SECONDARY,
+                                ),
+                                spacing="2",
+                                padding=Spacing.XL,
+                            ),
+                            width="100%",
+                        ),
+                    ),
+                ),
+                rx.hstack(
+                    rx.link(
+                        rx.button(
+                            rx.icon("external-link", size=14),
+                            "Abrir en nueva pestaña",
+                            variant="soft",
+                            size="2",
+                        ),
+                        href=ExpedientesState.preview_url,
+                        is_external=True,
+                    ),
+                    rx.button(
+                        "Cerrar",
+                        variant="outline",
+                        size="2",
+                        on_click=ExpedientesState.cerrar_modal_preview,
+                    ),
+                    spacing="3",
+                    justify="end",
+                    width="100%",
+                ),
+                width="100%",
+                spacing="4",
+            ),
+            max_width="900px",
+            width="90vw",
+        ),
+        open=ExpedientesState.mostrar_modal_preview,
         on_open_change=rx.noop,
     )

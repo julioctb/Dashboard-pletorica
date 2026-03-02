@@ -79,6 +79,7 @@ class EmpleadoDocumentoResumen(BaseModel):
     id: int
     empleado_id: int
     tipo_documento: str
+    archivo_id: Optional[int] = None
     nombre_archivo: Optional[str] = None
     estatus: str
     observacion_rechazo: Optional[str] = None

@@ -28,6 +28,9 @@ from app.core.enums import (
     AccionRestriccion,
     # Enums de Historial Laboral
     TipoMovimiento,
+    # Enums de Baja
+    EstatusBaja,
+    EstatusLiquidacion,
     # Enums de Requisicion
     EstadoRequisicion,
     TipoContratacion,
@@ -140,6 +143,13 @@ from app.entities.historial_laboral import (
     HistorialLaboral,
     HistorialLaboralInterno,
     HistorialLaboralResumen,
+)
+
+# Baja Empleado
+from app.entities.baja_empleado import (
+    BajaEmpleado,
+    BajaEmpleadoCreate,
+    BajaEmpleadoResumen,
 )
 
 # Archivo
@@ -356,6 +366,12 @@ __all__ = [
     "HistorialLaboral",
     "HistorialLaboralInterno",
     "HistorialLaboralResumen",
+    # Baja Empleado
+    "EstatusBaja",
+    "EstatusLiquidacion",
+    "BajaEmpleado",
+    "BajaEmpleadoCreate",
+    "BajaEmpleadoResumen",
     # Archivo
     "EntidadArchivo",
     "TipoArchivo",

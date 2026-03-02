@@ -162,6 +162,12 @@ from app.services.empleado_documento_service import (
     empleado_documento_service,
 )
 
+# Baja Empleado
+from app.services.baja_service import (
+    BajaService,
+    baja_service,
+)
+
 # Onboarding
 from app.services.onboarding_service import (
     OnboardingService,
@@ -247,6 +253,9 @@ __all__ = [
     # Empleado Documento
     "EmpleadoDocumentoService",
     "empleado_documento_service",
+    # Baja Empleado
+    "BajaService",
+    "baja_service",
     # Onboarding
     "OnboardingService",
     "onboarding_service",

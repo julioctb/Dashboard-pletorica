@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reflex Python Systems"
+  short_description: "Reflex, Supabase, RLS y dominio laboral"
+  default_prompt: "Use $reflex-python-systems-expert to diseñar o corregir features de Reflex en este dashboard con criterio de Supabase, RLS y dominio laboral."

@@ -6,7 +6,7 @@ Modal crear/editar, detalle, baja, restriccion, liberacion e historial.
 import reflex as rx
 
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Typography, Spacing
 from app.presentation.components.reusable import (
     employee_form_body,
     employee_form_modal,
@@ -440,21 +440,21 @@ def modal_detalle_empleado() -> rx.Component:
 # =============================================================================
 
 def modal_baja() -> rx.Component:
-    """Modal para dar de baja a un empleado"""
+    """Modal para dar de baja a un empleado - version mejorada."""
     return rx.dialog.root(
         rx.dialog.content(
             rx.dialog.title("Dar de Baja"),
             rx.dialog.description(
-                rx.text(
-                    "¿Está seguro que desea dar de baja a ",
-                    rx.text(EmpleadosState.nombre_completo_seleccionado, weight="bold"),
-                    "?",
-                ),
+                "Se registrara un proceso de baja con seguimiento de liquidacion.",
             ),
 
             rx.vstack(
                 rx.vstack(
-                    rx.text("Motivo de baja *", size="2", weight="medium"),
+                    rx.text(
+                        "Motivo de baja *",
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
                     rx.select.root(
                         rx.select.trigger(
                             placeholder="Seleccionar motivo...",
@@ -472,9 +472,56 @@ def modal_baja() -> rx.Component:
                     width="100%",
                     spacing="1",
                 ),
+                rx.vstack(
+                    rx.text(
+                        "Fecha efectiva *",
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
+                    rx.input(
+                        type="date",
+                        value=EmpleadosState.form_fecha_efectiva,
+                        on_change=EmpleadosState.set_form_fecha_efectiva,
+                        width="100%",
+                    ),
+                    rx.text(
+                        "Fecha en que el empleado deja de trabajar. Si es hoy, dejar vacio.",
+                        font_size=Typography.SIZE_BASE,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    width="100%",
+                    spacing="1",
+                ),
+                rx.vstack(
+                    rx.text(
+                        "Observaciones",
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
+                    rx.text_area(
+                        placeholder="Detalles adicionales sobre la baja...",
+                        value=EmpleadosState.form_notas_baja,
+                        on_change=EmpleadosState.set_form_notas_baja,
+                        rows="3",
+                        width="100%",
+                    ),
+                    width="100%",
+                    spacing="1",
+                ),
+                rx.callout(
+                    rx.text(
+                        "Se generara alerta automatica para entregar "
+                        "liquidacion/finiquito dentro de 15 dias habiles.",
+                        font_size=Typography.SIZE_BASE,
+                    ),
+                    icon="info",
+                    color_scheme="blue",
+                    size="1",
+                    width="100%",
+                ),
                 spacing="4",
                 width="100%",
-                padding_y="4",
+                padding_y=Spacing.SM,
             ),
 
             rx.hstack(
@@ -491,10 +538,9 @@ def modal_baja() -> rx.Component:
                 width="100%",
             ),
 
-            max_width="400px",
+            max_width="480px",
         ),
         open=EmpleadosState.mostrar_modal_baja,
-        # No cerrar al hacer click fuera - solo con botones
         on_open_change=rx.noop,
     )
 

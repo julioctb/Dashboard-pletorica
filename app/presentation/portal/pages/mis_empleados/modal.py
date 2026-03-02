@@ -4,6 +4,7 @@ Modal para crear/editar empleados en el portal.
 import reflex as rx
 
 from app.presentation.theme import Colors, Typography, Spacing
+from app.presentation.components.ui import boton_cancelar, boton_guardar
 from app.presentation.components.reusable import (
     employee_form_body,
     employee_form_modal,
@@ -79,6 +80,130 @@ def modal_empleado() -> rx.Component:
         save_loading_text="Guardando...",
         save_color_scheme="teal",
         max_width="600px",
+    )
+
+
+def modal_baja() -> rx.Component:
+    """Modal para dar de baja a un empleado desde el portal."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Dar de Baja"),
+            rx.dialog.description(
+                rx.vstack(
+                    rx.text("Se registrara la baja del empleado seleccionado."),
+                    rx.hstack(
+                        rx.text(
+                            MisEmpleadosState.nombre_empleado_baja,
+                            font_weight=Typography.WEIGHT_BOLD,
+                        ),
+                        rx.cond(
+                            MisEmpleadosState.clave_empleado_baja != "",
+                            rx.text(
+                                "(" + MisEmpleadosState.clave_empleado_baja + ")",
+                                color=Colors.TEXT_SECONDARY,
+                            ),
+                            rx.fragment(),
+                        ),
+                        spacing="2",
+                        align="center",
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+            ),
+            rx.vstack(
+                rx.vstack(
+                    rx.text(
+                        "Motivo de baja *",
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
+                    rx.select.root(
+                        rx.select.trigger(
+                            placeholder="Seleccionar motivo...",
+                            width="100%",
+                        ),
+                        rx.select.content(
+                            rx.select.item("Renuncia voluntaria", value="RENUNCIA"),
+                            rx.select.item("Despido", value="DESPIDO"),
+                            rx.select.item("Fin de contrato", value="FIN_CONTRATO"),
+                            rx.select.item("Jubilacion", value="JUBILACION"),
+                            rx.select.item("Fallecimiento", value="FALLECIMIENTO"),
+                            rx.select.item("Otro", value="OTRO"),
+                        ),
+                        value=MisEmpleadosState.form_motivo_baja,
+                        on_change=MisEmpleadosState.set_form_motivo_baja,
+                    ),
+                    width="100%",
+                    spacing="1",
+                ),
+                rx.vstack(
+                    rx.text(
+                        "Fecha efectiva",
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
+                    rx.input(
+                        type="date",
+                        value=MisEmpleadosState.form_fecha_efectiva_baja,
+                        on_change=MisEmpleadosState.set_form_fecha_efectiva_baja,
+                        width="100%",
+                    ),
+                    rx.text(
+                        "Ultimo dia de trabajo. Si es hoy, dejar vacio.",
+                        font_size=Typography.SIZE_BASE,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    width="100%",
+                    spacing="1",
+                ),
+                rx.vstack(
+                    rx.text(
+                        "Observaciones",
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
+                    rx.text_area(
+                        placeholder="Detalles adicionales sobre la baja...",
+                        value=MisEmpleadosState.form_notas_baja,
+                        on_change=MisEmpleadosState.set_form_notas_baja,
+                        rows="3",
+                        width="100%",
+                    ),
+                    width="100%",
+                    spacing="1",
+                ),
+                rx.callout(
+                    rx.text(
+                        "Se generara alerta automatica para entregar liquidacion/finiquito dentro de 15 dias habiles.",
+                        font_size=Typography.SIZE_BASE,
+                    ),
+                    icon="info",
+                    color_scheme="blue",
+                    size="1",
+                    width="100%",
+                ),
+                spacing="4",
+                width="100%",
+                padding_y=Spacing.SM,
+            ),
+            rx.hstack(
+                boton_cancelar(on_click=MisEmpleadosState.cerrar_modal_baja),
+                boton_guardar(
+                    texto="Confirmar Baja",
+                    texto_guardando="Procesando...",
+                    on_click=MisEmpleadosState.confirmar_baja,
+                    saving=MisEmpleadosState.saving,
+                    color_scheme="red",
+                ),
+                spacing="3",
+                justify="end",
+                width="100%",
+            ),
+            max_width="480px",
+        ),
+        open=MisEmpleadosState.mostrar_modal_baja,
+        on_open_change=rx.noop,
     )
 
 

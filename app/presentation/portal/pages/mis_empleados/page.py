@@ -10,7 +10,7 @@ from app.presentation.layout import page_layout, page_header, page_toolbar
 
 from .state import MisEmpleadosState
 from .components import tabla_empleados, filtros_empleados
-from .modal import modal_empleado
+from .modal import modal_empleado, modal_baja
 
 
 def mis_empleados_page() -> rx.Component:
@@ -39,6 +39,7 @@ def mis_empleados_page() -> rx.Component:
             content=rx.vstack(
                 tabla_empleados(),
                 modal_empleado(),
+                modal_baja(),
                 width="100%",
             ),
         ),

@@ -56,6 +56,7 @@ from .presentation.portal.pages.mis_empleados import mis_empleados_page
 from .presentation.portal.pages.alta_masiva import alta_masiva_page
 from .presentation.portal.pages.onboarding_alta import onboarding_alta_page
 from .presentation.portal.pages.expedientes import expedientes_page
+from .presentation.portal.pages.bajas import bajas_page
 
 # PORTAL — Operacion
 from .presentation.portal.pages.mis_contratos import mis_contratos_page
@@ -189,6 +190,7 @@ app.add_page(lambda: portal_index(mis_empleados_page()), route="/portal/empleado
 app.add_page(lambda: portal_index(alta_masiva_page()), route="/portal/alta-masiva")
 app.add_page(lambda: portal_index(onboarding_alta_page()), route="/portal/onboarding")
 app.add_page(lambda: portal_index(expedientes_page()), route="/portal/expedientes")
+app.add_page(lambda: portal_index(bajas_page()), route="/portal/bajas")
 
 # =============================================================================
 # PORTAL — Operacion (es_operaciones / es_contabilidad)

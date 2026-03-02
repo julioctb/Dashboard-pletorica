@@ -14,6 +14,7 @@ from .components import (
     filtros_expedientes,
     detalle_expediente,
     modal_rechazo,
+    modal_preview_documento,
 )
 
 
@@ -26,6 +27,7 @@ def expedientes_page() -> rx.Component:
             rx.box(
                 detalle_expediente(),
                 modal_rechazo(),
+                modal_preview_documento(),
                 width="100%",
                 min_height="100vh",
             ),

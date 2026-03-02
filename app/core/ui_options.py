@@ -105,8 +105,8 @@ OPCIONES_ESTATUS_ONBOARDING_PIPELINE = opciones_estatus_onboarding(
     include_activo_completo=True,
 )
 
-# Expedientes portal (sin REGISTRADO, sin ACTIVO_COMPLETO)
+# Expedientes portal (sin REGISTRADO, con ACTIVO_COMPLETO)
 OPCIONES_ESTATUS_ONBOARDING_EXPEDIENTES = opciones_estatus_onboarding(
     include_registrado=False,
-    include_activo_completo=False,
+    include_activo_completo=True,
 )

@@ -138,6 +138,7 @@ class MisDatosState(PortalState):
                     break
 
             tipos.append({
+                **(doc_existente or {}),
                 "tipo": tipo.value,
                 "nombre": tipo.descripcion,
                 "obligatorio": tipo.es_obligatorio,
