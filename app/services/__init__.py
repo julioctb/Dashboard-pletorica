@@ -174,6 +174,12 @@ from app.services.onboarding_service import (
     onboarding_service,
 )
 
+# Asistencia
+from app.services.asistencia_service import (
+    AsistenciaService,
+    asistencia_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -259,4 +265,7 @@ __all__ = [
     # Onboarding
     "OnboardingService",
     "onboarding_service",
+    # Asistencia
+    "AsistenciaService",
+    "asistencia_service",
 ]

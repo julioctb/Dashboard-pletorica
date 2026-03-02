@@ -82,7 +82,7 @@ def metric_card(
             rx.cond(
                 descripcion is not None,
                 rx.text(
-                    descripcion if descripcion else "",
+                    descripcion,
                     font_size=Typography.SIZE_XS,
                     color=Colors.TEXT_SECONDARY,
                     line_height=Typography.LINE_HEIGHT_TIGHT,

@@ -31,6 +31,11 @@ from app.core.enums import (
     # Enums de Baja
     EstatusBaja,
     EstatusLiquidacion,
+    # Enums de Asistencia
+    EstatusJornada,
+    TipoIncidencia,
+    OrigenIncidencia,
+    TipoRegistroAsistencia,
     # Enums de Requisicion
     EstadoRequisicion,
     TipoContratacion,
@@ -256,6 +261,18 @@ from app.entities.empleado_documento import (
 from app.entities.cuenta_bancaria_historial import (
     CuentaBancariaHistorial,
     CuentaBancariaHistorialCreate,
+)
+
+# Asistencia
+from app.entities.asistencia import (
+    Horario,
+    SupervisorSede,
+    JornadaAsistencia,
+    JornadaAsistenciaCreate,
+    IncidenciaAsistencia,
+    IncidenciaAsistenciaCreate,
+    RegistroAsistencia,
+    EmpleadoAsistenciaEsperado,
 )
 
 # Configuración Operativa Empresa

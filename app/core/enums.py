@@ -273,6 +273,120 @@ class EstatusLiquidacion(str, Enum):
 
 
 # =============================================================================
+# ENUMS DE ASISTENCIAS
+# =============================================================================
+
+class EstatusJornada(str, Enum):
+    """Estados del ciclo de una jornada de asistencia."""
+    ABIERTA = 'ABIERTA'
+    CERRADA = 'CERRADA'
+    CONSOLIDADA = 'CONSOLIDADA'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'ABIERTA': 'Jornada abierta',
+            'CERRADA': 'Jornada cerrada',
+            'CONSOLIDADA': 'Jornada consolidada',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class TipoIncidencia(str, Enum):
+    """Tipos de incidencia que impactan asistencia y nomina."""
+    FALTA = 'FALTA'
+    FALTA_JUSTIFICADA = 'FALTA_JUSTIFICADA'
+    RETARDO = 'RETARDO'
+    SALIDA_ANTICIPADA = 'SALIDA_ANTICIPADA'
+    HORA_EXTRA = 'HORA_EXTRA'
+    PERMISO_CON_GOCE = 'PERMISO_CON_GOCE'
+    PERMISO_SIN_GOCE = 'PERMISO_SIN_GOCE'
+    INCAPACIDAD_ENFERMEDAD = 'INCAPACIDAD_ENFERMEDAD'
+    INCAPACIDAD_RIESGO_TRABAJO = 'INCAPACIDAD_RIESGO_TRABAJO'
+    INCAPACIDAD_MATERNIDAD = 'INCAPACIDAD_MATERNIDAD'
+    VACACIONES = 'VACACIONES'
+    DIA_FESTIVO = 'DIA_FESTIVO'
+    COMISION = 'COMISION'
+    OTRO = 'OTRO'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'FALTA': 'Falta injustificada',
+            'FALTA_JUSTIFICADA': 'Falta justificada',
+            'RETARDO': 'Retardo',
+            'SALIDA_ANTICIPADA': 'Salida anticipada',
+            'HORA_EXTRA': 'Hora extra',
+            'PERMISO_CON_GOCE': 'Permiso con goce',
+            'PERMISO_SIN_GOCE': 'Permiso sin goce',
+            'INCAPACIDAD_ENFERMEDAD': 'Incapacidad por enfermedad',
+            'INCAPACIDAD_RIESGO_TRABAJO': 'Incapacidad por riesgo de trabajo',
+            'INCAPACIDAD_MATERNIDAD': 'Incapacidad por maternidad',
+            'VACACIONES': 'Vacaciones',
+            'DIA_FESTIVO': 'Dia festivo',
+            'COMISION': 'Comision',
+            'OTRO': 'Otro',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class OrigenIncidencia(str, Enum):
+    """Origen de la captura de una incidencia."""
+    SUPERVISOR = 'SUPERVISOR'
+    RH = 'RH'
+    AUTOREGISTRO = 'AUTOREGISTRO'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'SUPERVISOR': 'Supervisor',
+            'RH': 'Recursos Humanos',
+            'AUTOREGISTRO': 'Autoregistro',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class TipoRegistroAsistencia(str, Enum):
+    """Resultado final consolidado del dia."""
+    ASISTENCIA = 'ASISTENCIA'
+    FALTA = 'FALTA'
+    FALTA_JUSTIFICADA = 'FALTA_JUSTIFICADA'
+    RETARDO = 'RETARDO'
+    SALIDA_ANTICIPADA = 'SALIDA_ANTICIPADA'
+    HORA_EXTRA = 'HORA_EXTRA'
+    PERMISO_CON_GOCE = 'PERMISO_CON_GOCE'
+    PERMISO_SIN_GOCE = 'PERMISO_SIN_GOCE'
+    INCAPACIDAD_ENFERMEDAD = 'INCAPACIDAD_ENFERMEDAD'
+    INCAPACIDAD_RIESGO_TRABAJO = 'INCAPACIDAD_RIESGO_TRABAJO'
+    INCAPACIDAD_MATERNIDAD = 'INCAPACIDAD_MATERNIDAD'
+    VACACIONES = 'VACACIONES'
+    DIA_FESTIVO = 'DIA_FESTIVO'
+    COMISION = 'COMISION'
+    OTRO = 'OTRO'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'ASISTENCIA': 'Asistencia normal',
+            'FALTA': 'Falta injustificada',
+            'FALTA_JUSTIFICADA': 'Falta justificada',
+            'RETARDO': 'Retardo',
+            'SALIDA_ANTICIPADA': 'Salida anticipada',
+            'HORA_EXTRA': 'Hora extra',
+            'PERMISO_CON_GOCE': 'Permiso con goce',
+            'PERMISO_SIN_GOCE': 'Permiso sin goce',
+            'INCAPACIDAD_ENFERMEDAD': 'Incapacidad por enfermedad',
+            'INCAPACIDAD_RIESGO_TRABAJO': 'Incapacidad por riesgo de trabajo',
+            'INCAPACIDAD_MATERNIDAD': 'Incapacidad por maternidad',
+            'VACACIONES': 'Vacaciones',
+            'DIA_FESTIVO': 'Dia festivo',
+            'COMISION': 'Comision',
+            'OTRO': 'Otro',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+# =============================================================================
 # ENUMS DE REQUISICIÓN
 # =============================================================================
 

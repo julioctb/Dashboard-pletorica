@@ -61,6 +61,7 @@ from .presentation.portal.pages.bajas import bajas_page
 # PORTAL — Operacion
 from .presentation.portal.pages.mis_contratos import mis_contratos_page
 from .presentation.portal.pages.mis_entregables import mis_entregables_page
+from .presentation.portal.pages.asistencias import asistencias_page
 
 
 def index(content: rx.Component) -> rx.Component:
@@ -196,4 +197,5 @@ app.add_page(lambda: portal_index(bajas_page()), route="/portal/bajas")
 # PORTAL — Operacion (es_operaciones / es_contabilidad)
 # =============================================================================
 app.add_page(lambda: portal_index(mis_contratos_page()), route="/portal/contratos")
+app.add_page(lambda: portal_index(asistencias_page()), route="/portal/asistencias")
 app.add_page(lambda: portal_index(mis_entregables_page()), route="/portal/entregables")

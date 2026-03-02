@@ -363,17 +363,21 @@ def filtros_empleados() -> rx.Component:
     """Filtros para empleados"""
     return employee_filters_bar(
         # Filtro por empresa
-        rx.select.root(
-            rx.select.trigger(placeholder="Empresa", width="180px"),
-            rx.select.content(
-                rx.select.item("Todas", value="TODAS"),
-                rx.foreach(
-                    EmpleadosState.opciones_empresas,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
+        rx.cond(
+            EmpleadosState.mostrar_filtro_empresa,
+            rx.select.root(
+                rx.select.trigger(placeholder="Empresa", width="180px"),
+                rx.select.content(
+                    rx.select.item("Todas", value="TODAS"),
+                    rx.foreach(
+                        EmpleadosState.opciones_empresas,
+                        lambda opt: rx.select.item(opt["label"], value=opt["value"]),
+                    ),
                 ),
+                value=EmpleadosState.filtro_empresa_id,
+                on_change=EmpleadosState.set_filtro_empresa_id,
             ),
-            value=EmpleadosState.filtro_empresa_id,
-            on_change=EmpleadosState.set_filtro_empresa_id,
+            rx.fragment(),
         ),
         # Filtro por estatus
         rx.select.root(

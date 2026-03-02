@@ -5,6 +5,22 @@ Todas las versiones notables del proyecto se documentan en este archivo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 versionamiento basado en [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.7.0] - 2026-03-02
+
+### Added
+- Modulo de bajas de empleados en portal, con entidad, servicio, migracion 040 y pantallas dedicadas
+
+### Changed
+- Auditoria y refactor del estado compartido de empleados con `EmployeeFormStateMixin` para reducir duplicacion entre backoffice y portal
+- Reubicacion de la campana de notificaciones y ajustes de copy/navegacion en el sidebar del portal
+- Restriccion del modulo de empleados para que usuarios no admin operen solo sobre su empresa activa en filtros y formulario
+
+### Fixed
+- Error de compilacion del worker de Granian
+- Import recursivo en el router principal de la API
+- Error de compilacion de Reflex en servicios de bajas
+- Selectores y carga de empleados para perfiles no admin en backoffice
+
 ## [0.6.0] - 2026-02-25
 
 ### Added

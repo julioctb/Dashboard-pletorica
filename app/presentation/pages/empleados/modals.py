@@ -50,6 +50,7 @@ def modal_empleado() -> rx.Component:
                         ),
                         value=EmpleadosState.form_empresa_id,
                         on_change=EmpleadosState.set_form_empresa_id,
+                        disabled=~EmpleadosState.puede_cambiar_empresa_formulario,
                     ),
                     rx.cond(
                         EmpleadosState.error_empresa_id != "",

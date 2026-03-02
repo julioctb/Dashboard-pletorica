@@ -169,6 +169,9 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     # SETTERS DE FILTROS
     # ========================
     def set_filtro_empresa_id(self, value: str):
+        if not self.es_admin:
+            self.filtro_empresa_id = self._filtro_empresa_restringido()
+            return
         self.filtro_empresa_id = value if value else FILTRO_TODAS
 
     def set_filtro_estatus(self, value: str):
@@ -181,13 +184,9 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
             self.pagina = 1
             self.hay_mas = False
             try:
-                empresa_id = None
-                if self.filtro_empresa_id and self.filtro_empresa_id not in ("", FILTRO_TODAS):
-                    empresa_id = int(self.filtro_empresa_id)
-
                 empleados = await empleado_service.buscar(
                     texto=value,
-                    empresa_id=empresa_id,
+                    empresa_id=self._empresa_id_filtro_actual(),
                     limite=200
                 )
                 self.empleados = await self._convertir_a_dicts(empleados)
@@ -332,6 +331,16 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         ]
 
     @rx.var
+    def mostrar_filtro_empresa(self) -> bool:
+        """Solo admins pueden cambiar el alcance por empresa en backoffice."""
+        return self.es_admin
+
+    @rx.var
+    def puede_cambiar_empresa_formulario(self) -> bool:
+        """Los perfiles acotados operan solo sobre su empresa activa."""
+        return self.es_admin
+
+    @rx.var
     def opciones_estatus(self) -> List[dict]:
         """Opciones para el select de estatus"""
         return opciones_desde_enum(EstatusEmpleado, incluir_todos=True)
@@ -474,10 +483,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     async def _fetch_empleados(self):
         """Carga la lista de empleados con filtros (sin manejo de loading)."""
         try:
-            # Determinar empresa_id para filtro
-            empresa_id = None
-            if self.filtro_empresa_id and self.filtro_empresa_id not in ("", FILTRO_TODAS):
-                empresa_id = int(self.filtro_empresa_id)
+            empresa_id = self._empresa_id_filtro_actual()
 
             # Determinar estatus para filtro
             estatus = None
@@ -530,8 +536,12 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                     "codigo_corto": e.codigo_corto or "",
                 }
                 for e in empresas
-                if e.puede_tener_empleados()  # Solo empresas de tipo NOMINA
+                if e.puede_tener_empleados() and self._empresa_en_alcance(e.id)
             ]
+            if not self.es_admin:
+                empresa_restringida = self._filtro_empresa_restringido()
+                self.filtro_empresa_id = empresa_restringida
+                self.form_empresa_id = empresa_restringida if empresa_restringida != FILTRO_TODAS else ""
         except Exception as e:
             self.manejar_error(e, "cargando empresas")
             self.empresas = []
@@ -599,6 +609,8 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     def abrir_modal_crear(self):
         """Abre el modal para crear un nuevo empleado"""
         self._limpiar_formulario()
+        if not self.es_admin:
+            self.form_empresa_id = self._filtro_empresa_restringido_value()
         self.es_edicion = False
         self.mostrar_modal_empleado = True
 
@@ -842,10 +854,11 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
         self.saving = True
         try:
+            empresa_id_form = self._empresa_id_formulario()
             if self.es_edicion:
                 # Actualizar empleado existente
                 empleado_update = EmpleadoUpdate(
-                    empresa_id=self.parse_id(self.form_empresa_id),
+                    empresa_id=empresa_id_form,
                     **self._payload_base_empleado(),
                 )
 
@@ -861,7 +874,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
             else:
                 # Crear nuevo empleado
                 empleado_create = EmpleadoCreate(
-                    empresa_id=self.parse_id(self.form_empresa_id),
+                    empresa_id=empresa_id_form,
                     curp=self.form_curp,
                     **self._payload_base_empleado(),
                 )
@@ -1020,9 +1033,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
             self.pagina += 1
             offset = (self.pagina - 1) * self.por_pagina
 
-            empresa_id = None
-            if self.filtro_empresa_id and self.filtro_empresa_id not in ("", FILTRO_TODAS):
-                empresa_id = int(self.filtro_empresa_id)
+            empresa_id = self._empresa_id_filtro_actual()
 
             incluir_inactivos = self.filtro_estatus == FILTRO_TODOS
 
@@ -1110,7 +1121,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         self.resetear_filtros(
             {
                 "filtro_busqueda": "",
-                "filtro_empresa_id": FILTRO_TODAS,
+                "filtro_empresa_id": self._filtro_empresa_restringido(),
                 "filtro_estatus": FILTRO_TODOS,
             },
             resetear_pagina=True,
@@ -1142,6 +1153,38 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         """Limpia el formulario usando configuración del mixin"""
         self.empleado_id_edicion = 0
         self._limpiar_formulario_crud()  # Usa _campos_formulario y _campos_error
+        if not self.es_admin:
+            self.form_empresa_id = self._filtro_empresa_restringido_value()
+
+    def _empresa_en_alcance(self, empresa_id: Optional[int]) -> bool:
+        """Valida si la empresa está en el alcance del usuario actual."""
+        if empresa_id is None:
+            return False
+        return self.es_admin or self.puede_acceder_empresa(int(empresa_id))
+
+    def _filtro_empresa_restringido(self) -> str:
+        """Retorna el filtro forzado para usuarios no admin."""
+        empresa_id = self.id_empresa_actual
+        return str(empresa_id) if empresa_id else FILTRO_TODAS
+
+    def _filtro_empresa_restringido_value(self) -> str:
+        """Retorna el valor de formulario para usuarios no admin."""
+        empresa_id = self.id_empresa_actual
+        return str(empresa_id) if empresa_id else ""
+
+    def _empresa_id_filtro_actual(self) -> Optional[int]:
+        """Obtiene el empresa_id efectivo para consultas del listado."""
+        if not self.es_admin:
+            return self.id_empresa_actual or None
+        if self.filtro_empresa_id and self.filtro_empresa_id not in ("", FILTRO_TODAS):
+            return int(self.filtro_empresa_id)
+        return None
+
+    def _empresa_id_formulario(self) -> Optional[int]:
+        """Obtiene el empresa_id efectivo para altas/ediciones."""
+        if not self.es_admin:
+            return self.id_empresa_actual or None
+        return self.parse_id(self.form_empresa_id)
 
     def _limpiar_errores(self):
         """Compatibilidad local: limpia errores declarados del formulario."""

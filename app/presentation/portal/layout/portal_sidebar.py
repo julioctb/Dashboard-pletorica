@@ -149,6 +149,7 @@ def _portal_navigation() -> rx.Component:
             _cond_item(AuthState.puede_registrar_personal, "Alta Empleados", "user-plus", "/portal/onboarding"),
             _cond_item(AuthState.es_rrhh, "Expedientes", "folder-check", "/portal/expedientes"),
             _cond_item(AuthState.es_rrhh, "Bajas", "user-minus", "/portal/bajas"),
+            _cond_item(AuthState.es_rrhh & ~AuthState.es_operaciones, "Asistencias", "clipboard-check", "/portal/asistencias"),
         ),
         # --- Autoservicio (siempre visible) ---
         nav_group(
@@ -160,6 +161,7 @@ def _portal_navigation() -> rx.Component:
             AuthState.es_operaciones | AuthState.es_contabilidad,
             "Operacion",
             _cond_item(AuthState.es_operaciones, "Contratos", "file-text", "/portal/contratos"),
+            _cond_item(AuthState.es_operaciones, "Asistencias", "clipboard-check", "/portal/asistencias"),
             _cond_item(AuthState.es_operaciones | AuthState.es_contabilidad, "Entregables", "package-check", "/portal/entregables"),
         ),
         spacing="0",
