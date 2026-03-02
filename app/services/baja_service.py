@@ -216,7 +216,29 @@ class BajaService:
         """Registra que se comunico la baja a BUAP."""
         baja = await self._obtener_baja_por_id(baja_id)
         baja.comunicar(fecha)
-        return await self._actualizar_baja(baja)
+        baja_actualizada = await self._actualizar_baja(baja)
+
+        # Notificacion interna para admin/superadmin
+        try:
+            from app.services.notificacion_service import notificacion_service
+            from app.entities.notificacion import NotificacionCreate
+
+            await notificacion_service.crear(NotificacionCreate(
+                empresa_id=baja.empresa_id,
+                titulo="Baja comunicada a BUAP",
+                mensaje=(
+                    f"Se comunico a BUAP la baja del empleado (baja #{baja.id}). "
+                    f"Pendiente: entregar liquidacion antes del "
+                    f"{baja.fecha_limite_liquidacion.strftime('%d/%m/%Y')}."
+                ),
+                tipo="baja_comunicada",
+                entidad_tipo="BAJA_EMPLEADO",
+                entidad_id=baja.id,
+            ))
+        except Exception as e:
+            logger.warning(f"Error creando notificacion de comunicacion: {e}")
+
+        return baja_actualizada
 
     async def actualizar_sustitucion(
         self, baja_id: int, requiere: bool
