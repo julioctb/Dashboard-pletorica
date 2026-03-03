@@ -7,7 +7,7 @@ Cards de estadísticas son clickeables para filtrar.
 import reflex as rx
 
 from app.presentation.portal.pages.mis_entregables_state import MisEntregablesState
-from app.presentation.components.ui import status_badge_reactive, tabla_vacia
+from app.presentation.components.ui import status_badge_reactive, tabla_vacia, select_items_from_options
 from app.presentation.theme import Colors, Spacing, Typography, Radius, Shadows
 
 
@@ -157,12 +157,7 @@ def _barra_filtros() -> rx.Component:
         ),
         rx.select.root(
             rx.select.trigger(placeholder="Todos los contratos", width="200px"),
-            rx.select.content(
-                rx.foreach(
-                    MisEntregablesState.opciones_contratos,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
+            rx.select.content(select_items_from_options(MisEntregablesState.opciones_contratos)),
             value=MisEntregablesState.filtro_contrato_id,
             on_change=MisEntregablesState.set_filtro_contrato,
         ),

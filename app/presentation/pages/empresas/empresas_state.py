@@ -73,6 +73,8 @@ FORM_DEFAULTS = {
 class EmpresasState(AuthState):
     """Estado para la gestión de empresas (protegido con autenticación)."""
 
+    _campos_error_formulario: List[str] = list(CAMPOS_VALIDACION)
+
     # ========================
     # DATOS Y LISTAS
     # ========================
@@ -392,10 +394,7 @@ class EmpresasState(AuthState):
     @rx.var
     def tiene_errores_formulario(self) -> bool:
         """Verifica si hay errores de validación"""
-        return any(
-            getattr(self, f"error_{campo}")
-            for campo in CAMPOS_VALIDACION
-        )
+        return self.tiene_errores_en_campos(self._campos_error_formulario)
 
     @rx.var
     def empresas_filtradas(self) -> List[dict]:
@@ -455,7 +454,7 @@ class EmpresasState(AuthState):
 
     def _limpiar_errores(self):
         """Limpia todos los errores de validación"""
-        self.limpiar_errores_campos(list(CAMPOS_VALIDACION.keys()))
+        self.limpiar_errores_campos(self._campos_error_formulario)
 
     def _cargar_empresa_en_formulario(self, empresa: Empresa):
         """Carga datos de empresa en el formulario"""

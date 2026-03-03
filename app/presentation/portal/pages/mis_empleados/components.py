@@ -62,14 +62,20 @@ def fila_empleado(emp: dict) -> rx.Component:
                     color_scheme="teal",
                     visible=puede_editar,
                 ),
-                tabla_action_button(
-                    icon="user-minus",
-                    tooltip="Dar de baja",
-                    on_click=MisEmpleadosState.abrir_modal_baja(emp),
-                    color_scheme="red",
-                    visible=puede_dar_baja,
+                rx.cond(
+                    puede_dar_baja,
+                    rx.button(
+                        rx.icon("user-minus", size=14),
+                        "Dar de baja",
+                        on_click=MisEmpleadosState.abrir_modal_baja(emp),
+                        variant="soft",
+                        color_scheme="red",
+                        size="1",
+                    ),
+                    rx.fragment(),
                 ),
                 spacing="1",
+                align="center",
             ),
         ),
     )
@@ -80,7 +86,7 @@ ENCABEZADOS_EMPLEADOS = [
     {"nombre": "Nombre", "ancho": "auto"},
     {"nombre": "CURP", "ancho": "200px"},
     {"nombre": "Estatus", "ancho": "100px"},
-    {"nombre": "Acciones", "ancho": "120px"},
+    {"nombre": "Acciones", "ancho": "170px"},
 ]
 
 
@@ -91,14 +97,14 @@ def tabla_empleados() -> rx.Component:
         headers=ENCABEZADOS_EMPLEADOS,
         rows=MisEmpleadosState.empleados_filtrados,
         row_renderer=fila_empleado,
-        has_rows=MisEmpleadosState.total_empleados_lista > 0,
+        has_rows=MisEmpleadosState.total_empleados_filtrados > 0,
         empty_component=empty_state_card(
             title="No hay empleados registrados",
             description="Cree el primer empleado para esta empresa.",
             icon="users",
         ),
         total_caption="Mostrando "
-        + MisEmpleadosState.total_empleados_lista.to(str)
+        + MisEmpleadosState.total_empleados_filtrados.to(str)
         + " empleado(s)",
         loading_rows=5,
     )

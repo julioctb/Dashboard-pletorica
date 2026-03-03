@@ -87,22 +87,28 @@ def fila_categoria(categoria: dict) -> rx.Component:
         rx.table.cell(
             rx.hstack(
                 # Editar
-                rx.icon_button(
-                    rx.icon("pencil", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="blue",
-                    on_click=lambda: ContratoCategoriaState.abrir_modal_editar_categoria(categoria),
-                    title="Editar",
+                rx.cond(
+                    ContratoCategoriaState.contrato_permite_editar_categorias,
+                    rx.icon_button(
+                        rx.icon("pencil", size=14),
+                        size="1",
+                        variant="ghost",
+                        color_scheme="blue",
+                        on_click=lambda: ContratoCategoriaState.abrir_modal_editar_categoria(categoria),
+                        title="Editar",
+                    ),
                 ),
                 # Eliminar
-                rx.icon_button(
-                    rx.icon("trash-2", size=14),
-                    size="1",
-                    variant="ghost",
-                    color_scheme="red",
-                    on_click=lambda: ContratoCategoriaState.abrir_confirmar_eliminar(categoria),
-                    title="Eliminar",
+                rx.cond(
+                    ContratoCategoriaState.contrato_permite_editar_categorias,
+                    rx.icon_button(
+                        rx.icon("trash-2", size=14),
+                        size="1",
+                        variant="ghost",
+                        color_scheme="red",
+                        on_click=lambda: ContratoCategoriaState.abrir_confirmar_eliminar(categoria),
+                        title="Eliminar",
+                    ),
                 ),
                 spacing="1",
             ),
@@ -165,16 +171,24 @@ def modal_categorias() -> rx.Component:
                 # Barra de acciones
                 rx.hstack(
                     rx.cond(
-                        ContratoCategoriaState.tiene_categorias_disponibles,
-                        rx.button(
-                            rx.icon("plus", size=16),
-                            "Agregar Categoría",
-                            on_click=ContratoCategoriaState.abrir_modal_agregar_categoria,
-                            color_scheme="blue",
-                            size="2",
+                        ContratoCategoriaState.contrato_permite_editar_categorias,
+                        rx.cond(
+                            ContratoCategoriaState.tiene_categorias_disponibles,
+                            rx.button(
+                                rx.icon("plus", size=16),
+                                "Agregar Categoría",
+                                on_click=ContratoCategoriaState.abrir_modal_agregar_categoria,
+                                color_scheme="blue",
+                                size="2",
+                            ),
+                            rx.text(
+                                "Todas las categorías ya están asignadas",
+                                size="2",
+                                color="gray",
+                            ),
                         ),
                         rx.text(
-                            "Todas las categorías ya están asignadas",
+                            "El contrato no permite cambios en este estatus",
                             size="2",
                             color="gray",
                         ),

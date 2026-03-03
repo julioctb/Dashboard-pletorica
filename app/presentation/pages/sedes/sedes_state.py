@@ -33,6 +33,8 @@ FORM_DEFAULTS = {
 class SedesState(BaseState):
     """Estado para el modulo de Sedes BUAP"""
 
+    _campos_error_formulario: List[str] = ["codigo", "nombre", "nombre_corto", "tipo_sede"]
+
     # ========================
     # ESTADO DE DATOS
     # ========================
@@ -164,12 +166,7 @@ class SedesState(BaseState):
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
-        return bool(
-            self.error_codigo or
-            self.error_nombre or
-            self.error_nombre_corto or
-            self.error_tipo_sede
-        )
+        return self.tiene_errores_en_campos(self._campos_error_formulario)
 
     @rx.var
     def puede_guardar(self) -> bool:
@@ -412,13 +409,14 @@ class SedesState(BaseState):
 
         self.saving = True
         try:
+            nombre_sede = self.sede_seleccionada["nombre"]
             await sede_service.eliminar(self.sede_seleccionada["id"])
 
             self.cerrar_confirmar_eliminar()
             await self._fetch_sedes()
 
             return rx.toast.success(
-                f"Sede '{self.sede_seleccionada['nombre']}' eliminada",
+                f"Sede '{nombre_sede}' eliminada",
                 position="top-center",
                 duration=3000
             )
@@ -449,6 +447,6 @@ class SedesState(BaseState):
     def _limpiar_formulario(self):
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
-        self.limpiar_errores_campos(["codigo", "nombre", "nombre_corto", "tipo_sede"])
+        self.limpiar_errores_campos(self._campos_error_formulario)
         self.sede_seleccionada = None
         self.es_edicion = False

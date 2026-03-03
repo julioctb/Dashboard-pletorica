@@ -279,6 +279,28 @@ class BaseState(rx.State):
             if hasattr(self, attr):
                 setattr(self, attr, "")
 
+    def tiene_errores_en_campos(
+        self,
+        campos: List[str],
+        *,
+        error_prefix: str = "error_",
+    ) -> bool:
+        """
+        Indica si alguno de los atributos `error_*` listados contiene mensaje.
+
+        Args:
+            campos: Lista de nombres de campo ("email") o atributos completos ("error_email")
+            error_prefix: Prefijo usado cuando se pasa nombre de campo
+        """
+        return any(
+            getattr(
+                self,
+                campo if campo.startswith(error_prefix) else f"{error_prefix}{campo}",
+                "",
+            )
+            for campo in campos
+        )
+
     def validar_y_asignar_error(
         self,
         *,

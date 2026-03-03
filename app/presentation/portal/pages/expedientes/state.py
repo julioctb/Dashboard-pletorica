@@ -78,6 +78,11 @@ class ExpedientesState(PortalState):
         ]
 
     @rx.var
+    def total_expedientes_filtrados(self) -> int:
+        """Total visible en la tabla tras aplicar el filtro de estatus."""
+        return len(self.empleados_expedientes_filtrados)
+
+    @rx.var
     def opciones_estatus_expediente(self) -> List[dict]:
         """Opciones para filtro de estatus."""
         return OPCIONES_ESTATUS_ONBOARDING_EXPEDIENTES
@@ -290,14 +295,7 @@ class ExpedientesState(PortalState):
 
         self.subiendo_archivo = True
         try:
-            from uuid import UUID
             from app.entities.empleado_documento import EmpleadoDocumentoCreate
-
-            subido_por = None
-            if self.usuario_actual:
-                uid = self.usuario_actual.get("id")
-                if uid:
-                    subido_por = UUID(str(uid))
 
             for file in files:
                 upload_data = await file.read()
@@ -307,7 +305,7 @@ class ExpedientesState(PortalState):
                 datos = EmpleadoDocumentoCreate(
                     empleado_id=empleado_id,
                     tipo_documento=self.tipo_documento_subiendo,
-                    subido_por=subido_por,
+                    subido_por=self.obtener_uuid_usuario_actual(),
                 )
 
                 await empleado_documento_service.subir_documento(
@@ -337,12 +335,9 @@ class ExpedientesState(PortalState):
         """Aprueba un documento."""
         self.saving = True
         try:
-            from uuid import UUID
-            revisado_por = UUID('00000000-0000-0000-0000-000000000000')
-            if self.usuario_actual:
-                uid = self.usuario_actual.get('id')
-                if uid:
-                    revisado_por = UUID(str(uid))
+            revisado_por = self.obtener_uuid_usuario_actual()
+            if not revisado_por:
+                return rx.toast.error("No se pudo identificar al usuario revisor")
 
             await empleado_documento_service.aprobar_documento(
                 documento_id=doc["id"],
@@ -385,12 +380,9 @@ class ExpedientesState(PortalState):
 
         self.saving = True
         try:
-            from uuid import UUID
-            revisado_por = UUID('00000000-0000-0000-0000-000000000000')
-            if self.usuario_actual:
-                uid = self.usuario_actual.get('id')
-                if uid:
-                    revisado_por = UUID(str(uid))
+            revisado_por = self.obtener_uuid_usuario_actual()
+            if not revisado_por:
+                return rx.toast.error("No se pudo identificar al usuario revisor")
 
             await empleado_documento_service.rechazar_documento(
                 documento_id=self.documento_rechazando_id,

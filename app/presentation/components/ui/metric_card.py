@@ -21,7 +21,7 @@ Uso:
     
     metric_card(
         titulo="Empleados activos",
-        valor=DashboardState.metricas["empleados_activos"],
+        valor=State.metricas["empleados_activos"],
         icono="users",
         color_scheme="green",
         href="/empleados",

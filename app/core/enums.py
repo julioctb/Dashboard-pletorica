@@ -916,3 +916,138 @@ class EstatusDocumento(str, Enum):
             'RECHAZADO': 'Rechazado',
         }
         return descripciones.get(self.value, self.value)
+
+
+# =============================================================================
+# ENUMS DE NÓMINA
+# =============================================================================
+
+class TipoConcepto(str, Enum):
+    """Tipo de concepto de nómina según clasificación SAT."""
+    PERCEPCION = 'PERCEPCION'
+    DEDUCCION = 'DEDUCCION'
+    OTRO_PAGO = 'OTRO_PAGO'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'PERCEPCION': 'Percepción',
+            'DEDUCCION': 'Deducción',
+            'OTRO_PAGO': 'Otro pago',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class TratamientoISR(str, Enum):
+    """Tratamiento fiscal del concepto para ISR."""
+    GRAVABLE = 'GRAVABLE'
+    EXENTO = 'EXENTO'
+    PARCIALMENTE_EXENTO = 'PARCIALMENTE_EXENTO'
+    NO_APLICA = 'NO_APLICA'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'GRAVABLE': 'Gravable (100%)',
+            'EXENTO': 'Exento (100%)',
+            'PARCIALMENTE_EXENTO': 'Parcialmente exento',
+            'NO_APLICA': 'No aplica',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class OrigenCaptura(str, Enum):
+    """Quién captura el concepto en el flujo de nómina."""
+    SISTEMA = 'SISTEMA'
+    RRHH = 'RRHH'
+    CONTABILIDAD = 'CONTABILIDAD'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'SISTEMA': 'Calculado por el sistema',
+            'RRHH': 'Capturado por RRHH',
+            'CONTABILIDAD': 'Capturado por Contabilidad',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+# =============================================================================
+# Nómina — Operación
+# =============================================================================
+
+class EstatusPeriodoNomina(str, Enum):
+    """
+    Workflow del período de nómina.
+
+    BORRADOR → EN_PREPARACION_RRHH → ENVIADO_A_CONTABILIDAD
+             → EN_PROCESO_CONTABILIDAD → CALCULADO → CERRADO
+    """
+    BORRADOR = 'BORRADOR'
+    EN_PREPARACION_RRHH = 'EN_PREPARACION_RRHH'
+    ENVIADO_A_CONTABILIDAD = 'ENVIADO_A_CONTABILIDAD'
+    EN_PROCESO_CONTABILIDAD = 'EN_PROCESO_CONTABILIDAD'
+    CALCULADO = 'CALCULADO'
+    CERRADO = 'CERRADO'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'BORRADOR': 'Borrador',
+            'EN_PREPARACION_RRHH': 'En preparación (RRHH)',
+            'ENVIADO_A_CONTABILIDAD': 'Enviado a Contabilidad',
+            'EN_PROCESO_CONTABILIDAD': 'En proceso (Contabilidad)',
+            'CALCULADO': 'Calculado',
+            'CERRADO': 'Cerrado',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class PeriodicidadNomina(str, Enum):
+    """Frecuencia de pago de la nómina."""
+    SEMANAL = 'SEMANAL'
+    QUINCENAL = 'QUINCENAL'
+    MENSUAL = 'MENSUAL'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'SEMANAL': 'Semanal',
+            'QUINCENAL': 'Quincenal',
+            'MENSUAL': 'Mensual',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class OrigenMovimiento(str, Enum):
+    """Quién generó el movimiento en la nómina."""
+    SISTEMA = 'SISTEMA'
+    RRHH = 'RRHH'
+    CONTABILIDAD = 'CONTABILIDAD'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'SISTEMA': 'Calculado por el sistema',
+            'RRHH': 'Capturado por RRHH',
+            'CONTABILIDAD': 'Capturado por Contabilidad',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class EstatusNominaEmpleado(str, Enum):
+    """Estatus del recibo individual de nómina."""
+    PENDIENTE = 'PENDIENTE'
+    EN_PROCESO = 'EN_PROCESO'
+    CALCULADO = 'CALCULADO'
+    APROBADO = 'APROBADO'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'PENDIENTE': 'Pendiente',
+            'EN_PROCESO': 'En proceso',
+            'CALCULADO': 'Calculado',
+            'APROBADO': 'Aprobado',
+        }
+        return descripciones.get(self.value, self.value)

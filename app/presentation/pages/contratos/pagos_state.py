@@ -34,6 +34,15 @@ from .pagos_validators import (
 class PagosState(BaseState):
     """Estado para el módulo de Pagos"""
 
+    _campos_error_formulario: List[str] = [
+        "fecha_pago",
+        "monto",
+        "concepto",
+        "numero_factura",
+        "comprobante",
+        "notas",
+    ]
+
     # ========================
     # ESTADO DE DATOS
     # ========================
@@ -160,14 +169,7 @@ class PagosState(BaseState):
     @rx.var
     def tiene_errores_formulario(self) -> bool:
         """Verifica si hay errores de validación"""
-        return bool(
-            self.error_fecha_pago or
-            self.error_monto or
-            self.error_concepto or
-            self.error_numero_factura or
-            self.error_comprobante or
-            self.error_notas
-        )
+        return self.tiene_errores_en_campos(self._campos_error_formulario)
 
     @rx.var
     def puede_guardar_pago(self) -> bool:
@@ -177,7 +179,20 @@ class PagosState(BaseState):
             self.form_monto and
             self.form_concepto.strip()
         )
-        return tiene_requeridos and not self.tiene_errores_formulario and not self.saving
+        return (
+            tiene_requeridos and
+            self.contrato_permite_operar_pagos and
+            not self.tiene_errores_formulario and
+            not self.saving
+        )
+
+    @rx.var
+    def contrato_permite_operar_pagos(self) -> bool:
+        """Indica si el contrato permite crear/editar/eliminar pagos."""
+        return self.contrato_estatus in [
+            EstatusContrato.BORRADOR.value,
+            EstatusContrato.ACTIVO.value,
+        ]
 
     @rx.var
     def puede_cerrar_contrato(self) -> bool:
@@ -407,14 +422,7 @@ class PagosState(BaseState):
 
     def _limpiar_errores(self):
         """Limpia los errores de validación"""
-        self.limpiar_errores_campos([
-            "fecha_pago",
-            "monto",
-            "concepto",
-            "numero_factura",
-            "comprobante",
-            "notas",
-        ])
+        self.limpiar_errores_campos(self._campos_error_formulario)
 
     def _cargar_pago_en_formulario(self, pago: dict):
         """Carga datos de un pago en el formulario"""

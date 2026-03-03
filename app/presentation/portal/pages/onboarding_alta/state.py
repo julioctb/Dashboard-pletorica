@@ -2,7 +2,7 @@
 State para la pagina Alta de Empleados (Onboarding) del portal.
 """
 import reflex as rx
-from typing import List, Optional
+from typing import List
 
 from app.presentation.constants import FILTRO_TODOS
 from app.presentation.portal.state.portal_state import PortalState
@@ -26,6 +26,13 @@ from app.core.ui_options import OPCIONES_ESTATUS_ONBOARDING
 class OnboardingAltaState(PortalState):
     """State para la lista y alta de empleados en onboarding."""
 
+    _campos_error_formulario: List[str] = [
+        "curp",
+        "nombre",
+        "apellido_paterno",
+        "email",
+    ]
+
     # ========================
     # DATOS
     # ========================
@@ -33,7 +40,7 @@ class OnboardingAltaState(PortalState):
     total_onboarding: int = 0
 
     # Filtros
-    filtro_estatus_onboarding: str = ""
+    filtro_estatus_onboarding: str = FILTRO_TODOS
 
     # ========================
     # FORMULARIO ALTA
@@ -163,6 +170,13 @@ class OnboardingAltaState(PortalState):
         ]
 
     @rx.var
+    def total_onboarding_filtrados(self) -> int:
+        """Total visible según el filtro actual."""
+        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == FILTRO_TODOS:
+            return self.total_onboarding
+        return len(self.empleados_onboarding_filtrados)
+
+    @rx.var
     def opciones_estatus_onboarding(self) -> List[dict]:
         """Opciones para el filtro de estatus."""
         return OPCIONES_ESTATUS_ONBOARDING
@@ -243,15 +257,10 @@ class OnboardingAltaState(PortalState):
                 sede_id=int(self.form_sede_id) if self.form_sede_id else None,
             )
 
-            # UUID del usuario actual (o placeholder si SKIP_AUTH)
-            from uuid import UUID
-            registrado_por = UUID('00000000-0000-0000-0000-000000000000')
-            if self.usuario_actual:
-                uid = self.usuario_actual.get('id')
-                if uid:
-                    registrado_por = UUID(str(uid))
-
-            empleado = await onboarding_service.alta_empleado_buap(datos, registrado_por)
+            empleado = await onboarding_service.alta_empleado_buap(
+                datos,
+                self.obtener_uuid_usuario_actual(),
+            )
 
             self.cerrar_modal_alta()
             await self._fetch_empleados_onboarding()
@@ -288,35 +297,24 @@ class OnboardingAltaState(PortalState):
 
     def _limpiar_errores(self):
         """Limpia errores de validacion."""
-        self.error_curp = ""
-        self.error_nombre = ""
-        self.error_apellido_paterno = ""
-        self.error_email = ""
+        self.limpiar_errores_campos(self._campos_error_formulario)
 
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es valido."""
         self._limpiar_errores()
-        es_valido = True
+        es_valido = self.validar_lote_campos(
+            [
+                ("error_curp", self.form_curp, validar_curp),
+                ("error_nombre", self.form_nombre, validar_nombre),
+                ("error_apellido_paterno", self.form_apellido_paterno, validar_apellido_paterno),
+            ]
+        )
 
-        error = validar_curp(self.form_curp)
-        if error:
-            self.error_curp = error
+        if self.form_email and not self.validar_y_asignar_error(
+            valor=self.form_email,
+            validador=validar_email,
+            error_attr="error_email",
+        ):
             es_valido = False
-
-        error = validar_nombre(self.form_nombre)
-        if error:
-            self.error_nombre = error
-            es_valido = False
-
-        error = validar_apellido_paterno(self.form_apellido_paterno)
-        if error:
-            self.error_apellido_paterno = error
-            es_valido = False
-
-        if self.form_email:
-            error = validar_email(self.form_email)
-            if error:
-                self.error_email = error
-                es_valido = False
 
         return es_valido

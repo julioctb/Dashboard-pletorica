@@ -2,118 +2,23 @@
 Modales para el modulo de gestion de usuarios.
 """
 import reflex as rx
-from app.presentation.pages.admin.usuarios.usuarios_state import (
-    UsuariosAdminState,
-    MODULOS_CON_AUTORIZACION,
-)
+from app.presentation.pages.admin.usuarios.usuarios_state import UsuariosAdminState
 from app.presentation.components.ui.form_input import form_input, form_select
 from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.components.ui.modals import modal_confirmar_accion
 from app.presentation.components.shared.auth_state import AuthState
+from app.presentation.components.shared.permisos_matrix import matriz_permisos_component
 from app.presentation.theme import Spacing, Radius
-
-
-# =============================================================================
-# MATRIZ DE PERMISOS (compartida entre crear y editar)
-# =============================================================================
-
-# Definicion estática de los módulos para la matriz
-MODULOS_PERMISOS = [
-    {"modulo": "requisiciones", "label": "Requisiciones", "tiene_autorizar": True},
-    {"modulo": "entregables", "label": "Entregables", "tiene_autorizar": True},
-    {"modulo": "pagos", "label": "Pagos", "tiene_autorizar": True},
-    {"modulo": "contratos", "label": "Contratos", "tiene_autorizar": False},
-    {"modulo": "empresas", "label": "Empresas", "tiene_autorizar": False},
-    {"modulo": "empleados", "label": "Empleados", "tiene_autorizar": False},
-]
 
 
 def _matriz_permisos() -> rx.Component:
     """Matriz de permisos con checkboxes (operar/autorizar por módulo)."""
-    return rx.vstack(
-        rx.text("Permisos del usuario", size="2", weight="bold", color="var(--gray-11)"),
-        rx.box(
-            # Header
-            rx.hstack(
-                rx.text("Modulo", size="1", weight="bold", color="var(--gray-9)", width="120px"),
-                rx.text("Operar", size="1", weight="bold", color="var(--gray-9)", width="70px", text_align="center"),
-                rx.text("Autorizar", size="1", weight="bold", color="var(--gray-9)", width="70px", text_align="center"),
-                padding_bottom="8px",
-                border_bottom="1px solid var(--gray-5)",
-                width="100%",
-            ),
-            # Requisiciones
-            _fila_permiso("requisiciones", "Requisiciones", True),
-            # Entregables
-            _fila_permiso("entregables", "Entregables", True),
-            # Pagos
-            _fila_permiso("pagos", "Pagos", True),
-            # Contratos
-            _fila_permiso("contratos", "Contratos", False),
-            # Empresas
-            _fila_permiso("empresas", "Empresas", False),
-            # Empleados
-            _fila_permiso("empleados", "Empleados", False),
-            width="100%",
-        ),
-        # Checkbox super admin
-        rx.separator(),
-        rx.cond(
-            UsuariosAdminState.puede_mostrar_checkbox_superadmin,
-            rx.hstack(
-                rx.checkbox(
-                    "Puede gestionar usuarios (super admin)",
-                    checked=UsuariosAdminState.form_puede_gestionar_usuarios,
-                    on_change=UsuariosAdminState.set_form_puede_gestionar_usuarios,
-                    size="2",
-                ),
-                spacing="2",
-                align="center",
-            ),
-        ),
-        spacing="3",
-        width="100%",
-        padding="12px",
-        border="1px solid var(--gray-5)",
-        border_radius="8px",
-        background="var(--gray-2)",
-    )
-
-
-def _fila_permiso(modulo: str, label: str, tiene_autorizar: bool) -> rx.Component:
-    """Fila de la matriz de permisos para un módulo."""
-    permisos_modulo = UsuariosAdminState.form_permisos[modulo].to(dict)
-    return rx.hstack(
-        rx.text(label, size="2", width="120px"),
-        rx.box(
-            rx.checkbox(
-                checked=permisos_modulo["operar"].to(bool),
-                on_change=lambda _v: UsuariosAdminState.toggle_permiso(modulo, "operar"),
-                size="2",
-            ),
-            width="70px",
-            text_align="center",
-            display="flex",
-            justify_content="center",
-        ),
-        rx.box(
-            rx.cond(
-                tiene_autorizar,
-                rx.checkbox(
-                    checked=permisos_modulo["autorizar"].to(bool),
-                    on_change=lambda _v: UsuariosAdminState.toggle_permiso(modulo, "autorizar"),
-                    size="2",
-                ),
-                rx.text("--", size="2", color="var(--gray-7)"),
-            ),
-            width="70px",
-            text_align="center",
-            display="flex",
-            justify_content="center",
-        ),
-        padding_y="6px",
-        border_bottom="1px solid var(--gray-3)",
-        width="100%",
+    return matriz_permisos_component(
+        permisos_var=UsuariosAdminState.form_permisos,
+        toggle_fn=UsuariosAdminState.toggle_permiso,
+        superadmin_condition=UsuariosAdminState.puede_mostrar_checkbox_superadmin,
+        gestion_usuarios_var=UsuariosAdminState.form_puede_gestionar_usuarios,
+        gestion_usuarios_fn=UsuariosAdminState.set_form_puede_gestionar_usuarios,
     )
 
 

@@ -96,7 +96,7 @@ def opciones_desde_lista(
     label_field: str = 'nombre',
     incluir_vacio: bool = False,
     vacio_label: str = "Seleccione...",
-    vacio_value: str = FILTRO_SIN_SELECCION
+    vacio_value: str = FILTRO_SIN_SELECCION_LEGACY
 ) -> List[Dict[str, str]]:
     """
     Genera lista de opciones desde una lista de dicts u objetos.
@@ -116,7 +116,7 @@ def opciones_desde_lista(
         >>> empresas = [{"id": 1, "nombre": "ACME"}, {"id": 2, "nombre": "Corp"}]
         >>> opciones_desde_lista(empresas, incluir_vacio=True)
         [
-            {"value": "", "label": "Seleccione..."},
+            {"value": "0", "label": "Seleccione..."},
             {"value": "1", "label": "ACME"},
             {"value": "2", "label": "Corp"},
         ]

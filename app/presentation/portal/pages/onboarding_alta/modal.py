@@ -71,7 +71,7 @@ def _campo_curp() -> rx.Component:
                         rx.icon("circle-check", size=14, color=Colors.SUCCESS),
                         rx.text(
                             OnboardingAltaState.curp_mensaje,
-                            font_size=Typography.SIZE_XS,
+                            font_size=Typography.SIZE_SM,
                             color=Colors.SUCCESS,
                         ),
                         spacing="1",
@@ -81,7 +81,7 @@ def _campo_curp() -> rx.Component:
                         rx.icon("circle-x", size=14, color=Colors.ERROR),
                         rx.text(
                             OnboardingAltaState.curp_mensaje,
-                            font_size=Typography.SIZE_XS,
+                            font_size=Typography.SIZE_SM,
                             color=Colors.ERROR,
                         ),
                         spacing="1",

@@ -1,25 +1,8 @@
 """
-Page Layout - Estructura Estándar de Páginas
-=============================================
+Page Layout - Estructura estándar de páginas.
 
-Define la estructura visual consistente para todas las páginas:
-- Header con título, subtítulo y acción principal
-- Toolbar con búsqueda, filtros y toggle de vista
-- Área de contenido
-
-Uso:
-    from app.presentation.layout import page_layout, page_header, page_toolbar
-    
-    def mi_pagina():
-        return page_layout(
-            header=page_header(
-                titulo="Mi Página",
-                subtitulo="Descripción",
-                icono="home",
-            ),
-            toolbar=page_toolbar(...),
-            content=mi_contenido(),
-        )
+Define la estructura visual consistente para páginas con header, toolbar y
+área de contenido principal.
 """
 
 import reflex as rx
@@ -246,43 +229,6 @@ def page_layout(
         
         width="100%",
         min_height="100%",
-        spacing="0",
-        align_items="stretch",
-    )
-
-
-# =============================================================================
-# LAYOUT PRINCIPAL CON SIDEBAR
-# =============================================================================
-
-def main_layout(content: rx.Component) -> rx.Component:
-    """
-    Layout principal de la aplicación con sidebar.
-    Reemplaza la función index() en app.py.
-    
-    Uso en app.py:
-        from app.presentation.layout import main_layout
-        
-        app.add_page(lambda: main_layout(dashboard_page()), route="/")
-    """
-    from app.presentation.layout.sidebar_layout import sidebar
-    
-    return rx.hstack(
-        # Sidebar colapsable
-        sidebar(),
-        
-        # Área de contenido
-        rx.box(
-            content,
-            background=Colors.BG_APP,
-            width="100%",
-            flex="1",
-            overflow_y="auto",
-            padding=Spacing.LG,
-            min_height="100vh",
-        ),
-        
-        width="100%",
         spacing="0",
         align_items="stretch",
     )

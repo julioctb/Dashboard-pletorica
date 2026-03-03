@@ -15,7 +15,7 @@ from app.entities import (
     TipoServicioCreate,
     TipoServicioUpdate,
 )
-from app.core.enums import Estatus
+from app.core.enums import Estatus, EstatusContrato
 from app.repositories import SupabaseTipoServicioRepository
 from app.core.exceptions import BusinessRuleError
 from app.services.base_service import BaseService
@@ -183,15 +183,23 @@ class TipoServicioService(BaseService):
         Reglas:
         - No debe tener contratos activos asociados
         """
-        # TODO: Cuando exista la validacion:
-        # from app.repositories import SupabaseContratoRepository
-        # contrato_repo = SupabaseContratoRepository()
-        # contratos = await contrato_repo.contar_por_tipo(tipo.id, solo_activos=True)
-        # if contratos > 0:
-        #     raise BusinessRuleError(
-        #         f"No se puede eliminar el tipo '{tipo.nombre}' porque tiene {contratos} contrato(s) activo(s)"
-        #     )
-        pass
+        from app.services.contrato_service import contrato_service
+
+        contratos = await contrato_service.obtener_por_tipo_servicio(tipo.id)
+        contratos_activos = [
+            contrato
+            for contrato in contratos
+            if contrato.estatus in (
+                EstatusContrato.BORRADOR,
+                EstatusContrato.ACTIVO,
+                EstatusContrato.SUSPENDIDO,
+            )
+        ]
+        if contratos_activos:
+            raise BusinessRuleError(
+                f"No se puede eliminar el tipo '{tipo.nombre}' porque tiene "
+                f"{len(contratos_activos)} contrato(s) activo(s) o en operación"
+            )
 
     async def existe_clave(self, clave: str, excluir_id: Optional[int] = None) -> bool:
         """

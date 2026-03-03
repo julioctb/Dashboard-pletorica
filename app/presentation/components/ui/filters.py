@@ -1,6 +1,7 @@
 """Componentes reutilizables para filtros y búsqueda."""
 import reflex as rx
 from typing import Callable, Optional
+from app.presentation.components.ui.form_input import select_items_from_options
 from app.presentation.theme import Colors, Spacing, Radius, Transitions
 
 
@@ -224,12 +225,7 @@ def select_estatus_onboarding(
     children = [
         rx.select.root(
             rx.select.trigger(placeholder=placeholder),
-            rx.select.content(
-                rx.foreach(
-                    opciones,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
+            rx.select.content(select_items_from_options(opciones)),
             value=value,
             on_change=on_change,
             size="2",

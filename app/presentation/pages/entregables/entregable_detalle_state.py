@@ -590,9 +590,10 @@ class EntregableDetalleState(AuthState):
     # HELPERS
     # =========================================================================
     def _obtener_usuario_actual(self) -> UUID:
-        if not self.id_usuario:
+        usuario_id = self.obtener_uuid_usuario_actual()
+        if not usuario_id:
             raise BusinessRuleError("No se pudo identificar al usuario actual. Inicie sesión nuevamente.")
-        return UUID(self.id_usuario)
+        return usuario_id
 
     def volver_a_listado(self):
         """Vuelve al listado de entregables."""

@@ -19,6 +19,11 @@ from app.presentation.pages.admin.usuarios.usuarios_validators import (
     validar_nombre_completo,
     validar_telefono,
 )
+from app.core.constants.permisos import (
+    PERMISOS_DEFAULT,
+    MODULOS_CON_AUTORIZACION,
+    OPCIONES_ROLES_EMPRESA,
+)
 
 
 # Campos con sus valores por defecto para limpiar formulario
@@ -36,27 +41,6 @@ FORM_DEFAULTS_EDITAR = {
     "edit_telefono": "",
     "edit_rol": "",
 }
-
-# Permisos default (todo desactivado)
-PERMISOS_DEFAULT = {
-    "requisiciones": {"operar": False, "autorizar": False},
-    "entregables": {"operar": False, "autorizar": False},
-    "pagos": {"operar": False, "autorizar": False},
-    "contratos": {"operar": False, "autorizar": False},
-    "empresas": {"operar": False, "autorizar": False},
-    "empleados": {"operar": False, "autorizar": False},
-}
-
-# Módulos que tienen flujo de autorización
-MODULOS_CON_AUTORIZACION = {"requisiciones", "entregables", "pagos"}
-
-OPCIONES_ROLES_EMPRESA = [
-    {"label": "Administrador de Empresa", "value": "admin_empresa"},
-    {"label": "RRHH", "value": "rrhh"},
-    {"label": "Operaciones", "value": "operaciones"},
-    {"label": "Contabilidad", "value": "contabilidad"},
-    {"label": "Solo lectura", "value": "lectura"},
-]
 
 
 class UsuariosAdminState(AuthState):

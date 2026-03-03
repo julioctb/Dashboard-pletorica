@@ -79,7 +79,7 @@ def fila_pago(pago: dict) -> rx.Component:
             rx.hstack(
                 # Editar
                 rx.cond(
-                    ~PagosState.contrato_esta_cerrado,
+                    PagosState.contrato_permite_operar_pagos,
                     rx.icon_button(
                         rx.icon("pencil", size=14),
                         size="1",
@@ -91,7 +91,7 @@ def fila_pago(pago: dict) -> rx.Component:
                 ),
                 # Eliminar
                 rx.cond(
-                    ~PagosState.contrato_esta_cerrado,
+                    PagosState.contrato_permite_operar_pagos,
                     rx.icon_button(
                         rx.icon("trash-2", size=14),
                         size="1",
@@ -161,7 +161,7 @@ def modal_pagos() -> rx.Component:
                 # Barra de acciones
                 rx.hstack(
                     rx.cond(
-                        ~PagosState.contrato_esta_cerrado,
+                        PagosState.contrato_permite_operar_pagos,
                         rx.button(
                             rx.icon("plus", size=16),
                             "Registrar Pago",
@@ -192,6 +192,14 @@ def modal_pagos() -> rx.Component:
                                 spacing="1",
                             ),
                             color_scheme="green",
+                            size="2",
+                        ),
+                    ),
+                    rx.cond(
+                        (~PagosState.contrato_permite_operar_pagos) & (~PagosState.contrato_esta_cerrado),
+                        rx.badge(
+                            "Solo lectura",
+                            color_scheme="gray",
                             size="2",
                         ),
                     ),

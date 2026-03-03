@@ -16,6 +16,7 @@ from app.presentation.components.ui import (
     boton_cancelar,
     tabla_action_button,
     tabla_action_buttons,
+    select_items_from_options,
 )
 from app.presentation.components.ui.modals import modal_confirmar_eliminar
 from app.presentation.theme import Colors, Typography
@@ -110,12 +111,7 @@ def _filtros() -> rx.Component:
         # Filtro por contrato
         rx.select.root(
             rx.select.trigger(placeholder="Contrato", width="180px"),
-            rx.select.content(
-                rx.foreach(
-                    PagosPageState.contratos_opciones,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
+            rx.select.content(select_items_from_options(PagosPageState.contratos_opciones)),
             value=PagosPageState.filtro_contrato_id,
             on_change=PagosPageState.set_filtro_contrato_id,
         ),

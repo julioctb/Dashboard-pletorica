@@ -16,9 +16,16 @@ from app.entities import (
     EmpresaUpdate,
     EmpresaResumen,
     TipoEmpresa,
+    EstatusEmpresa,
+    EstatusContrato,
 )
-from app.repositories import SupabaseEmpresaRepository
-from app.core.exceptions import DatabaseError
+from app.core.enums import EstatusEmpleado
+from app.repositories import (
+    SupabaseEmpresaRepository,
+    SupabaseEmpleadoRepository,
+    SupabaseContratoRepository,
+)
+from app.core.exceptions import DatabaseError, BusinessRuleError
 from app.core.utils import generar_candidatos_codigo
 
 logger = logging.getLogger(__name__)
@@ -32,6 +39,8 @@ class EmpresaService:
 
     def __init__(self):
         self.repository = SupabaseEmpresaRepository()
+        self.empleado_repository = SupabaseEmpleadoRepository()
+        self.contrato_repository = SupabaseContratoRepository()
 
     # ==========================================
     # OPERACIONES CRUD
@@ -176,6 +185,9 @@ class EmpresaService:
             logger.warning(f"Empresa {empresa_id} ya tiene estatus {nuevo_estatus.value}")
             return True
 
+        if nuevo_estatus == EstatusEmpresa.INACTIVO:
+            await self._validar_puede_desactivar(empresa)
+
         empresa.estatus = nuevo_estatus
 
         await self.repository.actualizar(empresa)
@@ -188,7 +200,38 @@ class EmpresaService:
         Raises:
             DatabaseError: Si hay error de BD
         """
+        empresa = await self.repository.obtener_por_id(empresa_id)
+        await self._validar_puede_desactivar(empresa)
         return await self.repository.eliminar(empresa_id)
+
+    async def _validar_puede_desactivar(self, empresa: Empresa) -> None:
+        """Bloquea la desactivación si la empresa aún tiene dependencias activas."""
+        empleados_activos = await self.empleado_repository.contar(
+            empresa_id=empresa.id,
+            estatus=EstatusEmpleado.ACTIVO.value,
+        )
+        if empleados_activos > 0:
+            raise BusinessRuleError(
+                f"No se puede desactivar '{empresa.nombre_comercial}' porque tiene "
+                f"{empleados_activos} empleado(s) activo(s)"
+            )
+
+        contratos_operativos = [
+            contrato for contrato in await self.contrato_repository.obtener_por_empresa(
+                empresa.id,
+                incluir_inactivos=False,
+            )
+            if contrato.estatus in {
+                EstatusContrato.BORRADOR,
+                EstatusContrato.ACTIVO,
+                EstatusContrato.SUSPENDIDO,
+            }
+        ]
+        if contratos_operativos:
+            raise BusinessRuleError(
+                f"No se puede desactivar '{empresa.nombre_comercial}' porque tiene "
+                f"{len(contratos_operativos)} contrato(s) activo(s), suspendido(s) o en borrador"
+            )
 
 
 # Instancia global del servicio (singleton)

@@ -26,6 +26,7 @@ Uso:
 
 import reflex as rx
 from app.core.config import Config
+from app.presentation.components.ui.form_input import select_items_from_options
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.layout.sidebar_state import SidebarState
 from app.presentation.layout.primitives import collapsible_nav_item, nav_group, nav_group_label
@@ -233,6 +234,20 @@ def sidebar_group(group: dict) -> rx.Component:
         return nav_group(*items)
 
 
+def sidebar_nominas_group() -> rx.Component:
+    """
+    Grupo de Nóminas, visible solo para RRHH y Contabilidad (superadmin).
+    """
+    return rx.cond(
+        SidebarState.es_rrhh | SidebarState.es_contabilidad,
+        nav_group(
+            sidebar_item("Nóminas", "calculator", "/nominas"),
+            label="Nóminas",
+        ),
+        rx.fragment(),
+    )
+
+
 def sidebar_admin_group() -> rx.Component:
     """
     Grupo de administracion, visible para superadmins (rol/plataforma o permiso).
@@ -254,6 +269,7 @@ def sidebar_navigation() -> rx.Component:
 
     return rx.vstack(
         *groups,
+        sidebar_nominas_group(),
         sidebar_admin_group(),
         spacing="0",
         width="100%",
@@ -528,12 +544,7 @@ def _dev_view_switcher() -> rx.Component:
         AuthState.dev_modo_cliente_activo & ~SidebarState.is_collapsed,
         rx.select.root(
             rx.select.trigger(placeholder="Seleccionar empresa...", width="100%"),
-            rx.select.content(
-                rx.foreach(
-                    AuthState.opciones_empresas_simulacion,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
+            rx.select.content(select_items_from_options(AuthState.opciones_empresas_simulacion)),
             value=AuthState.valor_empresa_simulada,
             on_change=AuthState.activar_simulacion_cliente,
             size="1",

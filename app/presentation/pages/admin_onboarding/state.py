@@ -22,7 +22,7 @@ class AdminOnboardingState(AuthState):
     # ========================
     empleados_pipeline: List[dict] = []
     conteos_pipeline: dict = {}
-    filtro_estatus_onboarding: str = ""
+    filtro_estatus_onboarding: str = FILTRO_TODOS
     total_pipeline: int = 0
 
     # ========================

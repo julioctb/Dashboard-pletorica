@@ -26,6 +26,14 @@ from app.presentation.pages.categorias_puesto.categorias_puesto_validators impor
 class CategoriasPuestoState(BaseState):
     """Estado para el módulo de Categorías de Puesto"""
 
+    _campos_error_formulario: List[str] = [
+        "tipo_servicio_id",
+        "clave",
+        "nombre",
+        "descripcion",
+        "orden",
+    ]
+
     # ========================
     # ESTADO DE DATOS
     # ========================
@@ -167,13 +175,7 @@ class CategoriasPuestoState(BaseState):
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
-        return bool(
-            self.error_tipo_servicio_id or
-            self.error_clave or
-            self.error_nombre or
-            self.error_descripcion or
-            self.error_orden
-        )
+        return self.tiene_errores_en_campos(self._campos_error_formulario)
 
     @rx.var
     def puede_guardar(self) -> bool:
@@ -462,13 +464,7 @@ class CategoriasPuestoState(BaseState):
         self.form_nombre = ""
         self.form_descripcion = ""
         self.form_orden = "0"
-        self.limpiar_errores_campos([
-            "tipo_servicio_id",
-            "clave",
-            "nombre",
-            "descripcion",
-            "orden",
-        ])
+        self.limpiar_errores_campos(self._campos_error_formulario)
         self.categoria_seleccionada = None
         self.es_edicion = False
 

@@ -1248,8 +1248,242 @@ class UserService:
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
 
+    # =========================================================================
+    # GESTIÓN DE USUARIOS POR EMPRESA (portal admin_empresa)
+    # =========================================================================
+
+    def _generar_password_temporal(self) -> str:
+        """Genera una contraseña temporal segura de 16 caracteres."""
+        import secrets
+        import string
+        chars = string.ascii_letters + string.digits + "!@#$"
+        return ''.join(secrets.choice(chars) for _ in range(16))
+
+    async def listar_usuarios_empresa(self, empresa_id: int) -> list[dict]:
+        """
+        Lista todos los usuarios asignados a una empresa, aplanando los datos del perfil.
+
+        Args:
+            empresa_id: ID de la empresa
+
+        Returns:
+            Lista de dicts con campos: user_id, email, nombre_completo, telefono,
+            rol_empresa, permisos, activo, es_principal, created_at
+        """
+        try:
+            result = self.supabase_admin.table(self.tabla_companies)\
+                .select('*, user_profiles(id, email, nombre_completo, telefono, activo, permisos)')\
+                .eq('empresa_id', empresa_id)\
+                .execute()
+
+            usuarios = []
+            for row in result.data:
+                perfil = row.get('user_profiles') or {}
+                usuarios.append({
+                    'user_id': str(row.get('user_id', '')),
+                    'email': perfil.get('email', ''),
+                    'nombre_completo': perfil.get('nombre_completo', ''),
+                    'telefono': perfil.get('telefono', ''),
+                    'rol_empresa': row.get('rol_empresa', 'lectura'),
+                    'permisos': perfil.get('permisos') or {},
+                    'activo_empresa': row.get('activo', True),
+                    'activo_perfil': perfil.get('activo', True),
+                    'es_principal': row.get('es_principal', False),
+                    'created_at': str(row.get('created_at', '')),
+                })
+
+            # Ordenar por nombre
+            usuarios.sort(key=lambda u: (u.get('nombre_completo') or '').lower())
+            return usuarios
+
+        except Exception as e:
+            logger.error(f"Error listando usuarios de empresa {empresa_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def crear_o_vincular_usuario_empresa(
+        self,
+        email: str,
+        nombre_completo: str,
+        empresa_id: int,
+        rol_empresa: str,
+        permisos: dict,
+        telefono: str = "",
+        actor_user_id: Optional[UUID] = None,
+    ) -> dict:
+        """
+        Crea un usuario nuevo o vincula uno existente a la empresa.
+
+        Flujo:
+        1. Si el email no existe → crea usuario nuevo con password temporal
+        2. Si existe como proveedor/client → verifica que no tenga ya asignación en esta
+           empresa (DuplicateError si la tiene) y lo vincula
+        3. Si existe con otro rol (admin, superadmin, etc.) → BusinessRuleError genérico
+
+        Returns:
+            Dict con user_id, email, nombre_completo, rol_empresa, es_nuevo
+        """
+        from app.core.constants.permisos import PERMISOS_DEFAULT
+
+        if not self.supabase_admin:
+            raise BusinessRuleError(
+                "No se puede crear usuarios: SUPABASE_SERVICE_KEY no configurada"
+            )
+
+        # Buscar si el email ya existe en user_profiles
+        try:
+            perfil_result = self.supabase_admin.table(self.tabla_profiles)\
+                .select('id, email, rol, activo')\
+                .eq('email', email.strip().lower())\
+                .execute()
+        except Exception as e:
+            raise DatabaseError(f"Error buscando usuario: {str(e)}")
+
+        if not perfil_result.data:
+            # --- CASO 1: Usuario nuevo ---
+            password_temporal = self._generar_password_temporal()
+            perfil = await self.crear_usuario(
+                datos=UserProfileCreate(
+                    email=email.strip().lower(),
+                    password=password_temporal,
+                    nombre_completo=nombre_completo.strip(),
+                    telefono=telefono.strip() if telefono else "",
+                    rol='proveedor',
+                    permisos=permisos or dict(PERMISOS_DEFAULT),
+                ),
+                asignaciones_empresas=[
+                    UserCompanyAsignacionInicial(
+                        empresa_id=empresa_id,
+                        rol_empresa=rol_empresa,
+                        es_principal=True,
+                    )
+                ],
+            )
+            logger.info(
+                f"Usuario nuevo creado: {email} para empresa {empresa_id} "
+                f"por actor {actor_user_id}"
+            )
+            return {
+                'user_id': str(perfil.id),
+                'email': perfil.email,
+                'nombre_completo': perfil.nombre_completo,
+                'rol_empresa': rol_empresa,
+                'es_nuevo': True,
+            }
+
+        else:
+            # --- CASO 2/3: Usuario existente ---
+            perfil_data = perfil_result.data[0]
+            rol_existente = perfil_data.get('rol', '')
+            user_id = UUID(perfil_data['id'])
+
+            # Roles que NO pueden ser gestionados por admin_empresa
+            roles_no_gestionables = {'admin', 'superadmin', 'institucion', 'empleado'}
+            if rol_existente in roles_no_gestionables:
+                raise BusinessRuleError(
+                    "No se pudo agregar el usuario. "
+                    "El email ingresado no está disponible para esta operación."
+                )
+
+            # Verificar que el usuario no tenga ya asignación en esta empresa
+            try:
+                asig_result = self.supabase_admin.table(self.tabla_companies)\
+                    .select('id')\
+                    .eq('user_id', str(user_id))\
+                    .eq('empresa_id', empresa_id)\
+                    .execute()
+            except Exception as e:
+                raise DatabaseError(f"Error verificando asignación: {str(e)}")
+
+            if asig_result.data:
+                raise DuplicateError(
+                    f"El usuario {email} ya tiene acceso a esta empresa.",
+                    field="email",
+                    value=email,
+                )
+
+            # Vincular: asignar empresa + actualizar permisos
+            await self.asignar_empresa(
+                user_id=user_id,
+                empresa_id=empresa_id,
+                es_principal=False,
+                rol_empresa=rol_empresa,
+            )
+
+            # Actualizar permisos en el perfil global
+            if permisos:
+                self.supabase_admin.table(self.tabla_profiles)\
+                    .update({'permisos': permisos})\
+                    .eq('id', str(user_id))\
+                    .execute()
+
+            logger.info(
+                f"Usuario existente {email} vinculado a empresa {empresa_id} "
+                f"por actor {actor_user_id}"
+            )
+            return {
+                'user_id': str(user_id),
+                'email': email,
+                'nombre_completo': perfil_data.get('nombre_completo', nombre_completo),
+                'rol_empresa': rol_empresa,
+                'es_nuevo': False,
+            }
+
+    async def toggle_activo_en_empresa(self, user_id: UUID, empresa_id: int) -> bool:
+        """
+        Alterna el estado activo del usuario en la empresa (activo/inactivo).
+
+        Requiere que la columna `activo` exista en user_companies (migración 041).
+
+        Args:
+            user_id: UUID del usuario
+            empresa_id: ID de la empresa
+
+        Returns:
+            Nuevo estado de activo (True = activo, False = inactivo)
+
+        Raises:
+            NotFoundError: Si la relación usuario-empresa no existe
+            DatabaseError: Si hay error de BD
+        """
+        try:
+            # Leer estado actual
+            result = self.supabase_admin.table(self.tabla_companies)\
+                .select('activo')\
+                .eq('user_id', str(user_id))\
+                .eq('empresa_id', empresa_id)\
+                .execute()
+
+            if not result.data:
+                raise NotFoundError(
+                    f"El usuario {user_id} no tiene asignada la empresa {empresa_id}"
+                )
+
+            estado_actual = result.data[0].get('activo', True)
+            nuevo_estado = not estado_actual
+
+            # Actualizar
+            self.supabase_admin.table(self.tabla_companies)\
+                .update({'activo': nuevo_estado})\
+                .eq('user_id', str(user_id))\
+                .eq('empresa_id', empresa_id)\
+                .execute()
+
+            logger.info(
+                f"Usuario {user_id} en empresa {empresa_id}: "
+                f"activo={nuevo_estado}"
+            )
+            return nuevo_estado
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Error alternando activo en empresa: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+
 # =============================================================================
 # SINGLETON
 # =============================================================================
 
 user_service = UserService()
+

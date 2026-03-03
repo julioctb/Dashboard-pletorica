@@ -141,6 +141,7 @@ def _portal_navigation() -> rx.Component:
             _cond_item(AuthState.puede_gestionar_personal, "Empleados", "users", "/portal/empleados"),
             _cond_item(AuthState.puede_gestionar_personal, "Alta Masiva", "upload", "/portal/alta-masiva"),
             _cond_item(AuthState.puede_configurar_empresa, "Configuracion", "settings", "/portal/configuracion-empresa"),
+            _cond_item(AuthState.es_admin_empresa, "Usuarios", "users-round", "/portal/usuarios"),
         ),
         # --- RRHH (puede_registrar_personal) ---
         _cond_group(
@@ -150,6 +151,17 @@ def _portal_navigation() -> rx.Component:
             _cond_item(AuthState.es_rrhh, "Expedientes", "folder-check", "/portal/expedientes"),
             _cond_item(AuthState.es_rrhh, "Bajas", "user-minus", "/portal/bajas"),
             _cond_item(AuthState.es_rrhh & ~AuthState.es_operaciones, "Asistencias", "clipboard-check", "/portal/asistencias"),
+        ),
+        # --- Nomina (rrhh, contabilidad, admin_empresa) ---
+        _cond_group(
+            AuthState.puede_acceder_nomina,
+            "Nomina",
+            _cond_item(
+                AuthState.puede_acceder_nomina,
+                "Nominas",
+                "calculator",
+                "/portal/nominas",
+            ),
         ),
         # --- Autoservicio (siempre visible) ---
         nav_group(

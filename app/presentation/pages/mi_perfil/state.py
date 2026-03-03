@@ -202,7 +202,11 @@ class MiPerfilState(AuthState):
 
         self.guardando_perfil = True
         try:
-            actualizado = await user_service.actualizar_perfil(UUID(self.id_usuario), payload)
+            usuario_id = self.obtener_uuid_usuario_actual()
+            if not usuario_id:
+                return rx.toast.error("Sesión inválida", position="top-center")
+
+            actualizado = await user_service.actualizar_perfil(usuario_id, payload)
             email_actual = self.usuario_actual.get("email", self.email_actual)
             self.usuario_actual = {
                 **actualizado.model_dump(mode="json"),

@@ -18,6 +18,7 @@ from app.presentation.components.ui import (
     tabla_vacia,
     breadcrumb_dynamic,
     switch_inactivos,
+    select_items_from_options,
     tabla_action_button,
     tabla_action_buttons,
 )
@@ -161,9 +162,9 @@ def tabla_plazas() -> rx.Component:
         headers=ENCABEZADOS_PLAZAS,
         rows=PlazasState.plazas_filtradas,
         row_renderer=fila_plaza,
-        has_rows=PlazasState.total_plazas > 0,
+        has_rows=PlazasState.total_plazas_filtradas > 0,
         empty_component=tabla_vacia(onclick=PlazasState.abrir_modal_crear),
-        total_caption="Mostrando " + PlazasState.total_plazas.to(str) + " plaza(s)",
+        total_caption="Mostrando " + PlazasState.total_plazas_filtradas.to(str) + " plaza(s)",
         loading_rows=5,
     )
 
@@ -413,12 +414,7 @@ def filtro_estatus() -> rx.Component:
     """Selector de filtro por estatus"""
     return rx.select.root(
         rx.select.trigger(placeholder="Estatus", width="140px"),
-        rx.select.content(
-            rx.foreach(
-                PlazasState.opciones_estatus,
-                lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-            ),
-        ),
+        rx.select.content(select_items_from_options(PlazasState.opciones_estatus)),
         value=PlazasState.filtro_estatus,
         on_change=PlazasState.set_filtro_estatus,
     )

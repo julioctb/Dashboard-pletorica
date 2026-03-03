@@ -11,6 +11,7 @@ from uuid import UUID
 
 from app.database import db_manager
 from app.core.enums import EstatusOnboarding
+from app.core.ui_helpers import es_filtro_activo
 from app.core.exceptions import (
     BusinessRuleError,
     DatabaseError,
@@ -41,7 +42,7 @@ class OnboardingService:
     }
 
     async def alta_empleado_buap(
-        self, datos: AltaEmpleadoBuap, registrado_por: UUID
+        self, datos: AltaEmpleadoBuap, registrado_por: UUID | None = None
     ) -> Empleado:
         """
         Registra un nuevo empleado desde RRHH (BUAP/admin).
@@ -54,7 +55,7 @@ class OnboardingService:
 
         Args:
             datos: Datos minimos del alta.
-            registrado_por: UUID del usuario que registra.
+            registrado_por: UUID del usuario que registra. Reservado para auditoría.
 
         Returns:
             Empleado creado.
@@ -240,7 +241,7 @@ class OnboardingService:
                 .neq('estatus', 'INACTIVO')
             )
 
-            if estatus_filtro and estatus_filtro != "TODOS":
+            if es_filtro_activo(estatus_filtro or ""):
                 query = query.eq('estatus_onboarding', estatus_filtro)
 
             result = query.order('nombre').execute()
@@ -272,7 +273,10 @@ class OnboardingService:
 
 
     async def completar_datos(
-        self, empleado_id: int, datos: 'CompletarDatosEmpleado'
+        self,
+        empleado_id: int,
+        datos: 'CompletarDatosEmpleado',
+        cambiado_por: UUID | None = None,
     ) -> Empleado:
         """
         Empleado completa sus datos personales/bancarios.
@@ -306,16 +310,20 @@ class OnboardingService:
         ])
         if tiene_bancarios:
             try:
-                from uuid import UUID
-                cambiado_por = UUID('00000000-0000-0000-0000-000000000000')
-                historial_datos = CuentaBancariaHistorialCreate(
-                    empleado_id=empleado_id,
-                    cuenta_bancaria=datos.cuenta_bancaria,
-                    banco=datos.banco,
-                    clabe_interbancaria=datos.clabe_interbancaria,
-                    cambiado_por=cambiado_por,
-                )
-                await cuenta_bancaria_historial_service.registrar_cambio(historial_datos)
+                if cambiado_por:
+                    historial_datos = CuentaBancariaHistorialCreate(
+                        empleado_id=empleado_id,
+                        cuenta_bancaria=datos.cuenta_bancaria,
+                        banco=datos.banco,
+                        clabe_interbancaria=datos.clabe_interbancaria,
+                        cambiado_por=cambiado_por,
+                    )
+                    await cuenta_bancaria_historial_service.registrar_cambio(historial_datos)
+                else:
+                    logger.warning(
+                        "Se omitió el historial bancario del empleado %s por falta de actor",
+                        empleado_id,
+                    )
             except Exception as e:
                 logger.warning(f"No se pudo registrar historial bancario: {e}")
 

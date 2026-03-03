@@ -62,14 +62,14 @@ def tabla_onboarding() -> rx.Component:
         headers=ENCABEZADOS_ONBOARDING,
         rows=OnboardingAltaState.empleados_onboarding_filtrados,
         row_renderer=fila_onboarding,
-        total=OnboardingAltaState.total_onboarding,
-        total_condition=OnboardingAltaState.total_onboarding > 0,
+        total=OnboardingAltaState.total_onboarding_filtrados,
+        total_condition=OnboardingAltaState.total_onboarding_filtrados > 0,
         empty_title="No hay empleados en proceso de onboarding",
         empty_description="Registre un nuevo empleado para iniciar su proceso de alta",
         empty_icon="user-plus",
         loading_rows=5,
         total_caption="Mostrando "
-        + OnboardingAltaState.total_onboarding.to(str)
+        + OnboardingAltaState.total_onboarding_filtrados.to(str)
         + " empleado(s) en onboarding",
     )
 
@@ -81,4 +81,5 @@ def filtros_onboarding() -> rx.Component:
         value=OnboardingAltaState.filtro_estatus_onboarding,
         on_change=OnboardingAltaState.set_filtro_estatus_onboarding,
         on_reload=OnboardingAltaState.recargar_onboarding,
+        total_text=OnboardingAltaState.total_onboarding_filtrados.to(str) + " empleados",
     )

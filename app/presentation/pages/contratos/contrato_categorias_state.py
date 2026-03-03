@@ -13,6 +13,7 @@ from app.core.text_utils import formatear_moneda
 from app.entities import (
     ContratoCategoriaCreate,
     ContratoCategoriaUpdate,
+    EstatusContrato,
 )
 
 # Las excepciones se manejan centralizadamente en BaseState
@@ -31,6 +32,14 @@ from .contrato_categorias_validators import (
 class ContratoCategoriaState(BaseState):
     """Estado para el módulo de Categorías de Contrato"""
 
+    _campos_error_formulario: List[str] = [
+        "categoria_puesto_id",
+        "cantidad_minima",
+        "cantidad_maxima",
+        "costo_unitario",
+        "notas",
+    ]
+
     # ========================
     # ESTADO DE DATOS
     # ========================
@@ -42,6 +51,7 @@ class ContratoCategoriaState(BaseState):
     contrato_id: int = 0
     contrato_codigo: str = ""
     contrato_tiene_personal: bool = False
+    contrato_estatus: str = ""
     tipo_servicio_id: int = 0
 
     # Resumen de personal
@@ -151,13 +161,7 @@ class ContratoCategoriaState(BaseState):
     @rx.var
     def tiene_errores_formulario(self) -> bool:
         """Verifica si hay errores de validación"""
-        return bool(
-            self.error_categoria_puesto_id or
-            self.error_cantidad_minima or
-            self.error_cantidad_maxima or
-            self.error_costo_unitario or
-            self.error_notas
-        )
+        return self.tiene_errores_en_campos(self._campos_error_formulario)
 
     @rx.var
     def puede_guardar_categoria(self) -> bool:
@@ -174,7 +178,12 @@ class ContratoCategoriaState(BaseState):
                 self.form_cantidad_minima and
                 self.form_cantidad_maxima
             )
-        return tiene_requeridos and not self.tiene_errores_formulario and not self.saving
+        return (
+            tiene_requeridos and
+            self.contrato_permite_editar_categorias and
+            not self.tiene_errores_formulario and
+            not self.saving
+        )
 
     @rx.var
     def opciones_categoria(self) -> List[dict]:
@@ -189,6 +198,15 @@ class ContratoCategoriaState(BaseState):
         """Verifica si hay categorías disponibles para asignar"""
         return len(self.categorias_disponibles) > 0
 
+    @rx.var
+    def contrato_permite_editar_categorias(self) -> bool:
+        """Indica si el contrato permite cambios en categorías de personal."""
+        return self.contrato_estatus in [
+            EstatusContrato.BORRADOR.value,
+            EstatusContrato.ACTIVO.value,
+            EstatusContrato.SUSPENDIDO.value,
+        ]
+
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
@@ -197,6 +215,7 @@ class ContratoCategoriaState(BaseState):
         self.contrato_id = contrato.get("id", 0)
         self.contrato_codigo = contrato.get("codigo", "")
         self.contrato_tiene_personal = contrato.get("tiene_personal", False)
+        self.contrato_estatus = contrato.get("estatus", "")
         self.tipo_servicio_id = contrato.get("tipo_servicio_id", 0)
 
         self.mostrar_modal_categorias = True
@@ -362,6 +381,7 @@ class ContratoCategoriaState(BaseState):
         self.contrato_id = 0
         self.contrato_codigo = ""
         self.contrato_tiene_personal = False
+        self.contrato_estatus = ""
         self.tipo_servicio_id = 0
         self.total_minimo = 0
         self.total_maximo = 0
@@ -383,13 +403,7 @@ class ContratoCategoriaState(BaseState):
 
     def _limpiar_errores(self):
         """Limpia los errores de validación"""
-        self.limpiar_errores_campos([
-            "categoria_puesto_id",
-            "cantidad_minima",
-            "cantidad_maxima",
-            "costo_unitario",
-            "notas",
-        ])
+        self.limpiar_errores_campos(self._campos_error_formulario)
 
     def _cargar_categoria_en_formulario(self, categoria: dict):
         """Carga datos de una categoría en el formulario"""

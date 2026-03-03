@@ -370,8 +370,13 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         ]
 
     @rx.var
+    def total_empleados_filtrados(self) -> int:
+        """Total visible en la UI tras aplicar filtros locales."""
+        return len(self.empleados_filtrados)
+
+    @rx.var
     def tiene_empleados(self) -> bool:
-        return len(self.empleados) > 0
+        return self.total_empleados_filtrados > 0
 
     @rx.var
     def titulo_modal(self) -> str:
@@ -733,13 +738,9 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         self.loading = True
 
         try:
-            from uuid import UUID
-            raw_id = str(self.usuario_actual.get('id', '')) if self.usuario_actual else ""
-            admin_id = UUID(raw_id) if raw_id else None
-
             historial = await empleado_service.obtener_historial_restricciones(
                 empleado_id=self.empleado_seleccionado["id"],
-                admin_user_id=admin_id,
+                admin_user_id=self.obtener_uuid_usuario_actual(),
             )
 
             self.historial_restricciones = [
@@ -780,8 +781,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         if error_motivo:
             return rx.toast.error(error_motivo)
 
-        from uuid import UUID
-        admin_id = UUID(self.id_usuario) if self.id_usuario else None
+        admin_id = self.obtener_uuid_usuario_actual()
         if not admin_id:
             return rx.toast.error("No se pudo obtener el ID del usuario")
 
@@ -814,8 +814,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         if error_motivo:
             return rx.toast.error(error_motivo)
 
-        from uuid import UUID
-        admin_id = UUID(self.id_usuario) if self.id_usuario else None
+        admin_id = self.obtener_uuid_usuario_actual()
         if not admin_id:
             return rx.toast.error("No se pudo obtener el ID del usuario")
 
@@ -922,15 +921,10 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 yield rx.toast.error("Fecha efectiva invalida")
                 return
 
-        from uuid import UUID
         from app.services.baja_service import baja_service
         from app.entities.baja_empleado import BajaEmpleadoCreate
 
-        registrado_por = None
-        if self.usuario_actual:
-            uid = self.usuario_actual.get("id")
-            if uid:
-                registrado_por = UUID(str(uid))
+        registrado_por = self.obtener_uuid_usuario_actual()
 
         empresa_id = (
             self.empleado_seleccionado.get("empresa_id")

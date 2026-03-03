@@ -180,6 +180,30 @@ from app.services.asistencia_service import (
     asistencia_service,
 )
 
+# Concepto Nómina
+from app.services.concepto_nomina_service import (
+    ConceptoNominaService,
+    concepto_nomina_service,
+)
+
+# Nómina — Período
+from app.services.nomina_periodo_service import (
+    NominaPeriodoService,
+    nomina_periodo_service,
+)
+
+# Nómina — Cálculo
+from app.services.nomina_calculo_service import (
+    NominaCalculoService,
+    nomina_calculo_service,
+)
+
+# Dispersión Bancaria
+from app.services.dispersion_service import (
+    DispersionService,
+    dispersion_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -268,4 +292,16 @@ __all__ = [
     # Asistencia
     "AsistenciaService",
     "asistencia_service",
+    # Concepto Nómina
+    "ConceptoNominaService",
+    "concepto_nomina_service",
+    # Nómina — Período
+    "NominaPeriodoService",
+    "nomina_periodo_service",
+    # Nómina — Cálculo
+    "NominaCalculoService",
+    "nomina_calculo_service",
+    # Dispersión Bancaria
+    "DispersionService",
+    "dispersion_service",
 ]

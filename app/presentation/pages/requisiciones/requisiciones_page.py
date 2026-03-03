@@ -10,6 +10,7 @@ from app.presentation.components.ui import (
     skeleton_tabla,
     action_buttons_reactive,
     switch_inactivos,
+    select_items_from_options,
 )
 from app.presentation.theme import Colors, Spacing, Typography
 from app.presentation.layout import (
@@ -40,24 +41,14 @@ def _filtros_requisiciones() -> rx.Component:
         # Filtro de estado
         rx.select.root(
             rx.select.trigger(placeholder="Estado", width="160px"),
-            rx.select.content(
-                rx.foreach(
-                    RequisicionesState.opciones_estado,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
+            rx.select.content(select_items_from_options(RequisicionesState.opciones_estado)),
             value=RequisicionesState.filtro_estado,
             on_change=RequisicionesState.set_filtro_estado,
         ),
         # Filtro de tipo
         rx.select.root(
             rx.select.trigger(placeholder="Tipo", width="160px"),
-            rx.select.content(
-                rx.foreach(
-                    RequisicionesState.opciones_tipo_contratacion,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
+            rx.select.content(select_items_from_options(RequisicionesState.opciones_tipo_contratacion)),
             value=RequisicionesState.filtro_tipo,
             on_change=RequisicionesState.set_filtro_tipo,
         ),

@@ -28,6 +28,8 @@ FORM_DEFAULTS = {
 class TipoServicioState(BaseState):
     """Estado para el módulo de Tipos de Servicio"""
 
+    _campos_error_formulario: List[str] = ["clave", "nombre", "descripcion"]
+
     # ========================
     # ESTADO DE DATOS
     # ========================
@@ -139,11 +141,7 @@ class TipoServicioState(BaseState):
     @rx.var
     def tiene_errores_formulario(self) -> bool:
         """Verifica si hay errores de validación en el formulario"""
-        return bool(
-            self.error_clave or
-            self.error_nombre or
-            self.error_descripcion
-        )
+        return self.tiene_errores_en_campos(self._campos_error_formulario)
 
     @rx.var
     def puede_guardar(self) -> bool:
@@ -369,6 +367,6 @@ class TipoServicioState(BaseState):
         """Limpiar todos los campos del formulario"""
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
-        self.limpiar_errores_campos(["clave", "nombre", "descripcion"])
+        self.limpiar_errores_campos(self._campos_error_formulario)
         self.tipo_seleccionado = None
         self.es_edicion = False

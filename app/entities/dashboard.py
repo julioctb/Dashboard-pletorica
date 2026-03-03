@@ -2,7 +2,7 @@
 Entidades del Dashboard Administrativo.
 
 DTOs (Data Transfer Objects) para transportar métricas agregadas
-desde el DashboardService hacia el DashboardState.
+desde el `DashboardService` hacia los states/páginas que las consumen.
 
 No persisten en base de datos — son Value Objects de lectura.
 

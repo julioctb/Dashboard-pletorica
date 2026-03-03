@@ -35,6 +35,9 @@ from .sistema import (
     LimitesValidacion,
 )
 
+# Nómina
+from .nomina import CatalogoConceptosNomina, ConceptoNominaDef, CategoriaConcepto
+
 __all__ = [
     # Fiscal
     "CatalogoUMA",
@@ -48,4 +51,8 @@ __all__ = [
     # Sistema
     "Tolerancias",
     "LimitesValidacion",
+    # Nómina
+    "CatalogoConceptosNomina",
+    "ConceptoNominaDef",
+    "CategoriaConcepto",
 ]

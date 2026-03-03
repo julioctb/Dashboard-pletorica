@@ -6,7 +6,7 @@ y sube documentos de su expediente.
 """
 import reflex as rx
 import logging
-from typing import List, Optional
+from typing import List
 
 from app.presentation.portal.state.portal_state import PortalState
 from app.services.onboarding_service import onboarding_service
@@ -172,18 +172,13 @@ class MisDatosState(PortalState):
     # ========================
     async def _fetch_empleado(self):
         """Busca el empleado vinculado al user_id del usuario logueado."""
-        if not self.usuario_actual:
-            return
-
-        user_id_str = self.usuario_actual.get("id")
-        if not user_id_str:
+        user_id = self.obtener_uuid_usuario_actual()
+        if not user_id:
             return
 
         try:
-            from uuid import UUID
             from app.services.empleado_service import empleado_service
 
-            user_id = UUID(str(user_id_str))
             empleado = await empleado_service.obtener_por_user_id(user_id)
 
             if not empleado:
@@ -252,7 +247,11 @@ class MisDatosState(PortalState):
                 clabe_interbancaria=self.form_clabe or None,
             )
 
-            empleado = await onboarding_service.completar_datos(empleado_id, datos)
+            empleado = await onboarding_service.completar_datos(
+                empleado_id,
+                datos,
+                self.obtener_uuid_usuario_actual(),
+            )
             self.estatus_actual = empleado.estatus_onboarding or ""
             self.empleado_data = empleado.model_dump(mode='json')
 
@@ -279,17 +278,10 @@ class MisDatosState(PortalState):
         self.subiendo_archivo = True
         try:
             from app.entities.empleado_documento import EmpleadoDocumentoCreate
-            from uuid import UUID
 
             empleado_id = self.empleado_data.get("id")
             if not empleado_id:
                 return rx.toast.error("No se encontro el empleado")
-
-            subido_por = None
-            if self.usuario_actual:
-                uid = self.usuario_actual.get("id")
-                if uid:
-                    subido_por = UUID(str(uid))
 
             for file in files:
                 upload_data = await file.read()
@@ -299,7 +291,7 @@ class MisDatosState(PortalState):
                 datos = EmpleadoDocumentoCreate(
                     empleado_id=empleado_id,
                     tipo_documento=self.tipo_documento_subiendo,
-                    subido_por=subido_por,
+                    subido_por=self.obtener_uuid_usuario_actual(),
                 )
 
                 await empleado_documento_service.subir_documento(

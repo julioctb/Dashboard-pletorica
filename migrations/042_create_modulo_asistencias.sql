@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration 041: Crear modulo de asistencias
+-- Migration 042: Crear modulo de asistencias
 -- =============================================================================
 -- Fecha: 2026-03-02
 -- Descripcion: Crea la estructura base del modulo de asistencias para horarios

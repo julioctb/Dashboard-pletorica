@@ -4,6 +4,7 @@ from typing import Any
 
 import reflex as rx
 
+from app.presentation.components.ui.form_input import select_items_from_options
 from app.presentation.theme import Colors, Typography
 
 
@@ -240,12 +241,7 @@ def employee_birth_gender_row(
                     placeholder="Seleccionar...",
                     width="100%",
                 ),
-                rx.select.content(
-                    rx.foreach(
-                        opciones_genero,
-                        lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                    ),
-                ),
+                rx.select.content(select_items_from_options(opciones_genero)),
                 value=genero_value,
                 on_change=genero_on_change,
             ),
@@ -407,12 +403,7 @@ def employee_emergency_contact_section(
             ),
             rx.select.root(
                 rx.select.trigger(placeholder="Seleccionar...", width="100%"),
-                rx.select.content(
-                    rx.foreach(
-                        opciones_parentesco,
-                        lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                    ),
-                ),
+                rx.select.content(select_items_from_options(opciones_parentesco)),
                 value=parentesco_value,
                 on_change=parentesco_on_change,
             ),

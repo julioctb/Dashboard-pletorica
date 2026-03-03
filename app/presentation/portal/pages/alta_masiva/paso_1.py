@@ -3,7 +3,7 @@ Paso 1: Subir archivo CSV/Excel.
 """
 import reflex as rx
 
-from app.presentation.theme import Colors, Typography, Spacing
+from app.presentation.theme import Colors, Typography, Spacing, Radius
 
 from .state import AltaMasivaState, UPLOAD_ID
 
@@ -58,7 +58,7 @@ def paso_1_subir() -> rx.Component:
             no_click=AltaMasivaState.validando_archivo,
             no_drag=AltaMasivaState.validando_archivo,
             border=f"2px dashed {Colors.TEXT_MUTED}",
-            border_radius="8px",
+            border_radius=Radius.LG,
             cursor=rx.cond(AltaMasivaState.validando_archivo, "wait", "pointer"),
             _hover={"borderColor": Colors.PORTAL_PRIMARY_HOVER, "background": Colors.PORTAL_PRIMARY_LIGHTER},
             width="100%",

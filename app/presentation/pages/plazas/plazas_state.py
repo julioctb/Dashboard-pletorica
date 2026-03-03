@@ -257,6 +257,11 @@ class PlazasState(BaseState):
         return resultado
 
     @rx.var
+    def total_plazas_filtradas(self) -> int:
+        """Total visible en la UI tras aplicar filtros locales."""
+        return len(self.plazas_filtradas)
+
+    @rx.var
     def tiene_filtros_activos(self) -> bool:
         """Indica si hay algún filtro aplicado"""
         return self.filtro_estatus != FILTRO_TODOS or bool(self.filtro_busqueda.strip())

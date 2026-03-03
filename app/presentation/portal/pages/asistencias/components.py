@@ -17,6 +17,23 @@ from app.presentation.theme import Colors, Typography
 from .state import AsistenciasState
 
 
+def _field_label(texto: str) -> rx.Component:
+    return rx.text(
+        texto,
+        font_size=Typography.SIZE_SM,
+        font_weight=Typography.WEIGHT_MEDIUM,
+        color=Colors.TEXT_PRIMARY,
+    )
+
+
+def _field_micro_label(texto: str) -> rx.Component:
+    return rx.text(
+        texto,
+        font_size=Typography.SIZE_SM,
+        color=Colors.TEXT_SECONDARY,
+    )
+
+
 def selector_panel() -> rx.Component:
     return rx.cond(
         AsistenciasState.mostrar_selector_panel,
@@ -105,19 +122,19 @@ def _badge_resultado(resultado: str) -> rx.Component:
         resultado,
         ("ASISTENCIA", rx.badge("Asistencia", color_scheme="green", variant="soft", size="1")),
         ("SIN_NOVEDAD", rx.badge("Sin novedad", color_scheme="gray", variant="outline", size="1")),
-        ("RETARDO", rx.badge("Retardo", color_scheme="yellow", variant="soft", size="1")),
+        ("RETARDO", rx.badge("Retardo", color_scheme="amber", variant="soft", size="1")),
         ("FALTA", rx.badge("Falta", color_scheme="red", variant="solid", size="1")),
         ("FALTA_JUSTIFICADA", rx.badge("Falta just.", color_scheme="blue", variant="soft", size="1")),
-        ("HORA_EXTRA", rx.badge("Hora extra", color_scheme="violet", variant="soft", size="1")),
-        ("SALIDA_ANTICIPADA", rx.badge("Salida ant.", color_scheme="orange", variant="soft", size="1")),
+        ("HORA_EXTRA", rx.badge("Hora extra", color_scheme="amber", variant="soft", size="1")),
+        ("SALIDA_ANTICIPADA", rx.badge("Salida ant.", color_scheme="amber", variant="soft", size="1")),
         ("PERMISO_CON_GOCE", rx.badge("Permiso c/goce", color_scheme="blue", variant="soft", size="1")),
-        ("PERMISO_SIN_GOCE", rx.badge("Permiso s/goce", color_scheme="orange", variant="soft", size="1")),
-        ("INCAPACIDAD_ENFERMEDAD", rx.badge("Incapacidad", color_scheme="indigo", variant="soft", size="1")),
-        ("INCAPACIDAD_RIESGO_TRABAJO", rx.badge("Riesgo trabajo", color_scheme="indigo", variant="soft", size="1")),
-        ("INCAPACIDAD_MATERNIDAD", rx.badge("Maternidad", color_scheme="pink", variant="soft", size="1")),
-        ("VACACIONES", rx.badge("Vacaciones", color_scheme="teal", variant="soft", size="1")),
-        ("DIA_FESTIVO", rx.badge("Dia festivo", color_scheme="cyan", variant="soft", size="1")),
-        ("COMISION", rx.badge("Comision", color_scheme="purple", variant="soft", size="1")),
+        ("PERMISO_SIN_GOCE", rx.badge("Permiso s/goce", color_scheme="blue", variant="soft", size="1")),
+        ("INCAPACIDAD_ENFERMEDAD", rx.badge("Incapacidad", color_scheme="blue", variant="soft", size="1")),
+        ("INCAPACIDAD_RIESGO_TRABAJO", rx.badge("Riesgo trabajo", color_scheme="blue", variant="soft", size="1")),
+        ("INCAPACIDAD_MATERNIDAD", rx.badge("Maternidad", color_scheme="blue", variant="soft", size="1")),
+        ("VACACIONES", rx.badge("Vacaciones", color_scheme="blue", variant="soft", size="1")),
+        ("DIA_FESTIVO", rx.badge("Dia festivo", color_scheme="blue", variant="soft", size="1")),
+        ("COMISION", rx.badge("Comision", color_scheme="blue", variant="soft", size="1")),
         ("OTRO", rx.badge("Otro", color_scheme="gray", variant="soft", size="1")),
         rx.badge("Pendiente", color_scheme="gray", variant="outline", size="1"),
     )
@@ -133,12 +150,16 @@ def _badge_activo(activo) -> rx.Component:
 
 def _selector_contrato() -> rx.Component:
     return rx.select.root(
-        rx.select.trigger(placeholder="Contrato", width="260px"),
+        rx.select.trigger(placeholder="Contrato", width="320px"),
         rx.select.content(
             rx.foreach(
                 AsistenciasState.contratos_disponibles,
                 lambda contrato: rx.select.item(
-                    contrato["codigo"],
+                    rx.cond(
+                        contrato["descripcion"],
+                        contrato["codigo"].to(str) + " · " + contrato["descripcion"].to(str),
+                        contrato["codigo"].to(str),
+                    ),
                     value=contrato["id"].to(str),
                 ),
             )
@@ -320,15 +341,15 @@ def fila_empleado(empleado: dict) -> rx.Component:
         rx.table.cell(
             rx.vstack(
                 rx.text(
-                    empleado.get("clave", "-"),
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                    color=Colors.PORTAL_PRIMARY_TEXT,
-                ),
-                rx.text(
                     empleado.get("nombre_completo", "-"),
                     font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_SECONDARY,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_PRIMARY,
+                ),
+                rx.text(
+                    empleado.get("clave", "-"),
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.PORTAL_PRIMARY_TEXT,
                 ),
                 spacing="0",
                 align="start",
@@ -343,7 +364,7 @@ def fila_empleado(empleado: dict) -> rx.Component:
                 ),
                 rx.text(
                     empleado.get("categoria_nombre", ""),
-                    font_size=Typography.SIZE_XS,
+                    font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_MUTED,
                 ),
                 spacing="0",
@@ -543,7 +564,7 @@ def _tarjeta_asignacion(asignacion: dict) -> rx.Component:
                     ),
                     rx.text(
                         asignacion.get("supervisor_clave", ""),
-                        font_size=Typography.SIZE_XS,
+                        font_size=Typography.SIZE_SM,
                         color=Colors.TEXT_MUTED,
                     ),
                     spacing="0",
@@ -588,7 +609,7 @@ def _tarjeta_asignacion(asignacion: dict) -> rx.Component:
                     "Codigo sede: " + asignacion["sede_codigo"].to(str),
                     "Codigo sede: -",
                 ),
-                font_size=Typography.SIZE_XS,
+                font_size=Typography.SIZE_SM,
                 color=Colors.TEXT_MUTED,
             ),
             rx.hstack(
@@ -808,46 +829,66 @@ def modal_incidencia() -> rx.Component:
                 )
             ),
             rx.vstack(
-                rx.select.root(
-                    rx.select.trigger(placeholder="Tipo de incidencia"),
-                    rx.select.content(
-                        rx.foreach(
-                            [item.value for item in TipoIncidencia],
-                            lambda valor: rx.select.item(valor.replace("_", " "), value=valor),
-                        )
+                rx.vstack(
+                    _field_label("Tipo de incidencia"),
+                    rx.select.root(
+                        rx.select.trigger(placeholder="Tipo de incidencia"),
+                        rx.select.content(
+                            rx.foreach(
+                                [item.value for item in TipoIncidencia],
+                                lambda valor: rx.select.item(valor.replace("_", " "), value=valor),
+                            )
+                        ),
+                        value=AsistenciasState.form_tipo_incidencia,
+                        on_change=AsistenciasState.set_form_tipo_incidencia,
+                        size="2",
+                        width="100%",
                     ),
-                    value=AsistenciasState.form_tipo_incidencia,
-                    on_change=AsistenciasState.set_form_tipo_incidencia,
-                    size="2",
+                    spacing="1",
                     width="100%",
                 ),
                 rx.hstack(
-                    rx.input(
-                        type="number",
-                        min="0",
-                        step="1",
-                        value=AsistenciasState.form_minutos_retardo,
-                        on_change=AsistenciasState.set_form_minutos_retardo,
-                        placeholder="Minutos retardo",
+                    rx.vstack(
+                        _field_label("Minutos de retardo"),
+                        rx.input(
+                            type="number",
+                            min="0",
+                            step="1",
+                            value=AsistenciasState.form_minutos_retardo,
+                            on_change=AsistenciasState.set_form_minutos_retardo,
+                            placeholder="Minutos retardo",
+                            width="100%",
+                        ),
+                        spacing="1",
                         width="100%",
                     ),
-                    rx.input(
-                        type="number",
-                        min="0",
-                        step="0.5",
-                        value=AsistenciasState.form_horas_extra,
-                        on_change=AsistenciasState.set_form_horas_extra,
-                        placeholder="Horas extra",
+                    rx.vstack(
+                        _field_label("Horas extra"),
+                        rx.input(
+                            type="number",
+                            min="0",
+                            step="0.5",
+                            value=AsistenciasState.form_horas_extra,
+                            on_change=AsistenciasState.set_form_horas_extra,
+                            placeholder="Horas extra",
+                            width="100%",
+                        ),
+                        spacing="1",
                         width="100%",
                     ),
                     spacing="3",
                     width="100%",
                 ),
-                rx.text_area(
-                    value=AsistenciasState.form_motivo,
-                    on_change=AsistenciasState.set_form_motivo,
-                    placeholder="Motivo o detalle operativo",
-                    min_height="120px",
+                rx.vstack(
+                    _field_label("Motivo o detalle operativo"),
+                    rx.text_area(
+                        value=AsistenciasState.form_motivo,
+                        on_change=AsistenciasState.set_form_motivo,
+                        placeholder="Motivo o detalle operativo",
+                        min_height="120px",
+                        width="100%",
+                    ),
+                    spacing="1",
                     width="100%",
                 ),
                 rx.hstack(
@@ -885,36 +926,56 @@ def modal_horario() -> rx.Component:
                 "Configura el horario contractual base usado por la jornada y la consolidacion."
             ),
             rx.vstack(
-                rx.input(
-                    value=AsistenciasState.form_horario_nombre,
-                    on_change=AsistenciasState.set_form_horario_nombre,
-                    placeholder="Ej. Horario Jardineria 2025",
+                rx.vstack(
+                    _field_label("Nombre"),
+                    rx.input(
+                        value=AsistenciasState.form_horario_nombre,
+                        on_change=AsistenciasState.set_form_horario_nombre,
+                        placeholder="Ej. Horario Jardineria 2025",
+                        width="100%",
+                    ),
+                    spacing="1",
                     width="100%",
                 ),
-                rx.text_area(
-                    value=AsistenciasState.form_horario_descripcion,
-                    on_change=AsistenciasState.set_form_horario_descripcion,
-                    placeholder="Descripcion operativa del horario",
-                    min_height="90px",
+                rx.vstack(
+                    _field_label("Descripcion"),
+                    rx.text_area(
+                        value=AsistenciasState.form_horario_descripcion,
+                        on_change=AsistenciasState.set_form_horario_descripcion,
+                        placeholder="Descripcion operativa del horario",
+                        min_height="90px",
+                        width="100%",
+                    ),
+                    spacing="1",
                     width="100%",
                 ),
                 rx.hstack(
-                    rx.input(
-                        type="number",
-                        min="0",
-                        max="60",
-                        value=AsistenciasState.form_horario_tolerancia_entrada,
-                        on_change=AsistenciasState.set_form_horario_tolerancia_entrada,
-                        placeholder="Tolerancia entrada",
+                    rx.vstack(
+                        _field_label("Tolerancia entrada"),
+                        rx.input(
+                            type="number",
+                            min="0",
+                            max="60",
+                            value=AsistenciasState.form_horario_tolerancia_entrada,
+                            on_change=AsistenciasState.set_form_horario_tolerancia_entrada,
+                            placeholder="Tolerancia entrada",
+                            width="100%",
+                        ),
+                        spacing="1",
                         width="100%",
                     ),
-                    rx.input(
-                        type="number",
-                        min="0",
-                        max="60",
-                        value=AsistenciasState.form_horario_tolerancia_salida,
-                        on_change=AsistenciasState.set_form_horario_tolerancia_salida,
-                        placeholder="Tolerancia salida",
+                    rx.vstack(
+                        _field_label("Tolerancia salida"),
+                        rx.input(
+                            type="number",
+                            min="0",
+                            max="60",
+                            value=AsistenciasState.form_horario_tolerancia_salida,
+                            on_change=AsistenciasState.set_form_horario_tolerancia_salida,
+                            placeholder="Tolerancia salida",
+                            width="100%",
+                        ),
+                        spacing="1",
                         width="100%",
                     ),
                     spacing="3",
@@ -931,6 +992,7 @@ def modal_horario() -> rx.Component:
                     width="100%",
                 ),
                 rx.vstack(
+                    _field_label("Dias laborables"),
                     rx.foreach(
                         AsistenciasState.form_horario_dias_ui,
                         lambda dia: rx.card(
@@ -951,26 +1013,36 @@ def modal_horario() -> rx.Component:
                                     align="center",
                                     min_width="150px",
                                 ),
-                                rx.input(
-                                    type="time",
-                                    value=dia["entrada"],
-                                    on_change=lambda value: AsistenciasState.set_form_horario_dia_hora(
-                                        dia["clave"],
-                                        "entrada",
-                                        value,
+                                rx.vstack(
+                                    _field_micro_label("Entrada"),
+                                    rx.input(
+                                        type="time",
+                                        value=dia["entrada"],
+                                        on_change=lambda value: AsistenciasState.set_form_horario_dia_hora(
+                                            dia["clave"],
+                                            "entrada",
+                                            value,
+                                        ),
+                                        disabled=~dia["habilitado"],
+                                        width="100%",
                                     ),
-                                    disabled=~dia["habilitado"],
+                                    spacing="1",
                                     width="100%",
                                 ),
-                                rx.input(
-                                    type="time",
-                                    value=dia["salida"],
-                                    on_change=lambda value: AsistenciasState.set_form_horario_dia_hora(
-                                        dia["clave"],
-                                        "salida",
-                                        value,
+                                rx.vstack(
+                                    _field_micro_label("Salida"),
+                                    rx.input(
+                                        type="time",
+                                        value=dia["salida"],
+                                        on_change=lambda value: AsistenciasState.set_form_horario_dia_hora(
+                                            dia["clave"],
+                                            "salida",
+                                            value,
+                                        ),
+                                        disabled=~dia["habilitado"],
+                                        width="100%",
                                     ),
-                                    disabled=~dia["habilitado"],
+                                    spacing="1",
                                     width="100%",
                                 ),
                                 spacing="3",
@@ -1015,47 +1087,67 @@ def modal_supervision() -> rx.Component:
                 "Relaciona supervisores operativos con las sedes que deben cubrir."
             ),
             rx.vstack(
-                rx.select.root(
-                    rx.select.trigger(placeholder="Supervisor", width="100%"),
-                    rx.select.content(
-                        rx.foreach(
-                            AsistenciasState.supervisores_disponibles,
-                            lambda supervisor: rx.select.item(
-                                supervisor["nombre"].to(str) + " · " + supervisor["clave"].to(str),
-                                value=supervisor["id"].to(str),
-                            ),
-                        )
+                rx.vstack(
+                    _field_label("Supervisor"),
+                    rx.select.root(
+                        rx.select.trigger(placeholder="Supervisor", width="100%"),
+                        rx.select.content(
+                            rx.foreach(
+                                AsistenciasState.supervisores_disponibles,
+                                lambda supervisor: rx.select.item(
+                                    supervisor["nombre"].to(str) + " · " + supervisor["clave"].to(str),
+                                    value=supervisor["id"].to(str),
+                                ),
+                            )
+                        ),
+                        value=AsistenciasState.form_supervision_supervisor_id,
+                        on_change=AsistenciasState.set_form_supervision_supervisor_id,
+                        size="2",
                     ),
-                    value=AsistenciasState.form_supervision_supervisor_id,
-                    on_change=AsistenciasState.set_form_supervision_supervisor_id,
-                    size="2",
+                    spacing="1",
+                    width="100%",
                 ),
-                rx.select.root(
-                    rx.select.trigger(placeholder="Sede", width="100%"),
-                    rx.select.content(
-                        rx.foreach(
-                            AsistenciasState.sedes_catalogo,
-                            lambda sede: rx.select.item(
-                                sede["nombre"].to(str) + " · " + sede["codigo"].to(str),
-                                value=sede["id"].to(str),
-                            ),
-                        )
+                rx.vstack(
+                    _field_label("Sede"),
+                    rx.select.root(
+                        rx.select.trigger(placeholder="Sede", width="100%"),
+                        rx.select.content(
+                            rx.foreach(
+                                AsistenciasState.sedes_catalogo,
+                                lambda sede: rx.select.item(
+                                    sede["nombre"].to(str) + " · " + sede["codigo"].to(str),
+                                    value=sede["id"].to(str),
+                                ),
+                            )
+                        ),
+                        value=AsistenciasState.form_supervision_sede_id,
+                        on_change=AsistenciasState.set_form_supervision_sede_id,
+                        size="2",
                     ),
-                    value=AsistenciasState.form_supervision_sede_id,
-                    on_change=AsistenciasState.set_form_supervision_sede_id,
-                    size="2",
+                    spacing="1",
+                    width="100%",
                 ),
                 rx.hstack(
-                    rx.input(
-                        type="date",
-                        value=AsistenciasState.form_supervision_fecha_inicio,
-                        on_change=AsistenciasState.set_form_supervision_fecha_inicio,
+                    rx.vstack(
+                        _field_label("Fecha inicio"),
+                        rx.input(
+                            type="date",
+                            value=AsistenciasState.form_supervision_fecha_inicio,
+                            on_change=AsistenciasState.set_form_supervision_fecha_inicio,
+                            width="100%",
+                        ),
+                        spacing="1",
                         width="100%",
                     ),
-                    rx.input(
-                        type="date",
-                        value=AsistenciasState.form_supervision_fecha_fin,
-                        on_change=AsistenciasState.set_form_supervision_fecha_fin,
+                    rx.vstack(
+                        _field_label("Fecha fin"),
+                        rx.input(
+                            type="date",
+                            value=AsistenciasState.form_supervision_fecha_fin,
+                            on_change=AsistenciasState.set_form_supervision_fecha_fin,
+                            width="100%",
+                        ),
+                        spacing="1",
                         width="100%",
                     ),
                     spacing="3",
@@ -1071,11 +1163,16 @@ def modal_supervision() -> rx.Component:
                     align="center",
                     width="100%",
                 ),
-                rx.text_area(
-                    value=AsistenciasState.form_supervision_notas,
-                    on_change=AsistenciasState.set_form_supervision_notas,
-                    placeholder="Notas de cobertura, excepciones o contexto",
-                    min_height="100px",
+                rx.vstack(
+                    _field_label("Notas"),
+                    rx.text_area(
+                        value=AsistenciasState.form_supervision_notas,
+                        on_change=AsistenciasState.set_form_supervision_notas,
+                        placeholder="Notas de cobertura, excepciones o contexto",
+                        min_height="100px",
+                        width="100%",
+                    ),
+                    spacing="1",
                     width="100%",
                 ),
                 rx.hstack(

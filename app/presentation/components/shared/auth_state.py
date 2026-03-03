@@ -165,6 +165,15 @@ class AuthState(BaseState):
             return ""
         return str(self.usuario_actual.get('id', ''))
 
+    def obtener_uuid_usuario_actual(self) -> Optional[UUID]:
+        """Retorna el UUID del usuario actual cuando está disponible."""
+        if not self.id_usuario:
+            return None
+        try:
+            return UUID(self.id_usuario)
+        except (TypeError, ValueError):
+            return None
+
     @rx.var
     def nombre_empresa_actual(self) -> str:
         """Nombre de la empresa actualmente seleccionada."""
@@ -377,6 +386,12 @@ class AuthState(BaseState):
         """¿Puede cambiar configuración de la empresa?
         Acceso: admin_empresa, superadmin."""
         return self.es_admin_empresa
+
+    @rx.var
+    def puede_acceder_nomina(self) -> bool:
+        """¿Puede acceder al módulo de nómina?
+        Acceso: rrhh, contabilidad, admin_empresa, superadmin."""
+        return self.es_rrhh or self.es_contabilidad
 
     # =========================================================================
     # MÉTODOS DE AUTENTICACIÓN
@@ -723,7 +738,11 @@ class AuthState(BaseState):
         try:
             from app.services import user_service
 
-            user_id = UUID(str(self.usuario_actual.get('id')))
+            user_id = self.obtener_uuid_usuario_actual()
+            if not user_id:
+                self.empresas_disponibles = []
+                logger.warning("No se pudo resolver el UUID del usuario autenticado")
+                return
             empresas = await user_service.obtener_empresas_usuario(user_id)
 
             # Convertir a dict para Reflex

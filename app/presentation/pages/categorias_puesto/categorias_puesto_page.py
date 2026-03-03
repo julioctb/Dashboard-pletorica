@@ -16,6 +16,7 @@ from app.presentation.components.ui import (
     switch_inactivos,
     tabla_action_button,
     tabla_action_buttons,
+    select_items_from_options,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.categorias_puesto.categorias_puesto_modals import (
@@ -240,10 +241,7 @@ def filtros_categorias() -> rx.Component:
             rx.select.trigger(placeholder="Tipo de servicio", width="200px"),
             rx.select.content(
                 rx.select.item("Todos los tipos", value="0"),
-                rx.foreach(
-                    CategoriasPuestoState.opciones_tipo_servicio,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
+                select_items_from_options(CategoriasPuestoState.opciones_tipo_servicio),
             ),
             value=CategoriasPuestoState.filtro_tipo_servicio_id,
             on_change=CategoriasPuestoState.set_filtro_tipo_servicio_id,

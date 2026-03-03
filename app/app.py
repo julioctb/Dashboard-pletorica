@@ -28,6 +28,16 @@ from .presentation.pages.simulador.simulador_page import simulador_page
 from .presentation.pages.configuracion.configuracion_page import configuracion_page
 from .presentation.pages.mi_perfil import mi_perfil_page
 
+# BACKOFFICE — Nóminas
+from .presentation.pages.nominas import (
+    periodos_nomina_page,
+    preparacion_nomina_page,
+    calculo_nomina_page,
+    detalle_empleado_page,
+    dashboard_nomina_page,
+    conciliacion_nomina_page,
+)
+
 # BACKOFFICE — Administracion
 from .presentation.pages.admin.usuarios.usuarios_page import usuarios_admin_page
 from .presentation.pages.admin_onboarding import admin_onboarding_page
@@ -62,6 +72,9 @@ from .presentation.portal.pages.bajas import bajas_page
 from .presentation.portal.pages.mis_contratos import mis_contratos_page
 from .presentation.portal.pages.mis_entregables import mis_entregables_page
 from .presentation.portal.pages.asistencias import asistencias_page
+
+# PORTAL — Administracion de empresa
+from .presentation.portal.pages.usuarios_empresa import usuarios_empresa_page
 
 
 def index(content: rx.Component) -> rx.Component:
@@ -160,6 +173,16 @@ app.add_page(lambda: index(configuracion_page()), route="/configuracion")
 app.add_page(lambda: index(mi_perfil_page()), route="/mi-perfil")
 
 # =============================================================================
+# BACKOFFICE — Nóminas
+# =============================================================================
+app.add_page(lambda: index(periodos_nomina_page()),      route="/nominas")
+app.add_page(lambda: index(preparacion_nomina_page()),   route="/nominas/preparacion")
+app.add_page(lambda: index(calculo_nomina_page()),       route="/nominas/calculo")
+app.add_page(lambda: index(detalle_empleado_page()),     route="/nominas/empleado-detalle")
+app.add_page(lambda: index(dashboard_nomina_page()),     route="/nominas/dashboard")
+app.add_page(lambda: index(conciliacion_nomina_page()),  route="/nominas/conciliacion")
+
+# =============================================================================
 # BACKOFFICE — Administracion
 # =============================================================================
 app.add_page(lambda: index(usuarios_admin_page()), route="/admin/usuarios")
@@ -183,6 +206,7 @@ app.add_page(lambda: portal_index(mi_perfil_page()), route="/portal/mi-perfil")
 # =============================================================================
 app.add_page(lambda: portal_index(mi_empresa_page()), route="/portal/mi-empresa")
 app.add_page(lambda: portal_index(configuracion_empresa_page()), route="/portal/configuracion-empresa")
+app.add_page(lambda: portal_index(usuarios_empresa_page()), route="/portal/usuarios")
 
 # =============================================================================
 # PORTAL — RRHH (puede_gestionar_personal / puede_registrar_personal / es_rrhh)
@@ -192,6 +216,12 @@ app.add_page(lambda: portal_index(alta_masiva_page()), route="/portal/alta-masiv
 app.add_page(lambda: portal_index(onboarding_alta_page()), route="/portal/onboarding")
 app.add_page(lambda: portal_index(expedientes_page()), route="/portal/expedientes")
 app.add_page(lambda: portal_index(bajas_page()), route="/portal/bajas")
+app.add_page(lambda: portal_index(periodos_nomina_page()), route="/portal/nominas")
+app.add_page(lambda: portal_index(preparacion_nomina_page()), route="/portal/nominas/preparacion")
+app.add_page(lambda: portal_index(calculo_nomina_page()), route="/portal/nominas/calculo")
+app.add_page(lambda: portal_index(detalle_empleado_page()), route="/portal/nominas/empleado-detalle")
+app.add_page(lambda: portal_index(dashboard_nomina_page()), route="/portal/nominas/dashboard")
+app.add_page(lambda: portal_index(conciliacion_nomina_page()), route="/portal/nominas/conciliacion")
 
 # =============================================================================
 # PORTAL — Operacion (es_operaciones / es_contabilidad)

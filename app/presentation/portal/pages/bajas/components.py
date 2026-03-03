@@ -3,6 +3,7 @@ Componentes UI para la pagina Bajas de Personal del portal.
 """
 import reflex as rx
 
+from app.presentation.constants import FILTRO_TODAS
 from app.presentation.components.ui import (
     table_shell,
     tabla_action_button,
@@ -112,15 +113,15 @@ def fila_baja(baja: dict) -> rx.Component:
         rx.table.cell(
             rx.vstack(
                 rx.text(
-                    baja.get("empleado_clave", "-"),
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                    color=Colors.PORTAL_PRIMARY_TEXT,
-                ),
-                rx.text(
                     baja.get("empleado_nombre", "-"),
                     font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_SECONDARY,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_PRIMARY,
+                ),
+                rx.text(
+                    baja.get("empleado_clave", "-"),
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
                 ),
                 spacing="0",
                 align="start",
@@ -215,7 +216,7 @@ def filtros_bajas() -> rx.Component:
             rx.select.content(
                 rx.select.item("Activas", value="ACTIVAS"),
                 rx.select.item("Cerradas", value="CERRADAS"),
-                rx.select.item("Todas", value="TODAS"),
+                rx.select.item("Todas", value=FILTRO_TODAS),
             ),
             value=BajasState.filtro_estatus,
             on_change=BajasState.cambiar_filtro,

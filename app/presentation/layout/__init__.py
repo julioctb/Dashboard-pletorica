@@ -1,22 +1,4 @@
-"""
-Layout - Componentes de Layout del Sistema
-==========================================
-
-Exporta todos los componentes de layout:
-- Sidebar colapsable
-- Page layout estándar
-- Header y toolbar de página
-
-Uso:
-    from app.presentation.layout import (
-        sidebar,
-        main_layout,
-        page_layout,
-        page_header,
-        page_toolbar,
-        SidebarState,
-    )
-"""
+"""Exports de layout reutilizable."""
 
 from .sidebar_state import SidebarState
 
@@ -32,7 +14,6 @@ from .page_layout import (
     page_toolbar,
     page_layout,
     page_content_area,
-    main_layout,
     view_toggle,
 )
 
@@ -52,6 +33,5 @@ __all__ = [
     "page_toolbar",
     "page_layout",
     "page_content_area",
-    "main_layout",
     "view_toggle",
 ]

@@ -7,7 +7,6 @@ acceso a la empresa activa, y carga de metricas del dashboard.
 import reflex as rx
 import logging
 from typing import List, Optional
-from uuid import UUID
 
 from app.presentation.components.shared.auth_state import AuthState
 from app.services import empresa_service, empleado_service, contrato_service
@@ -92,8 +91,8 @@ class PortalState(AuthState):
         try:
             from app.services import user_service
 
-            if self.usuario_actual and self.usuario_actual.get("id"):
-                user_id = UUID(str(self.usuario_actual.get("id")))
+            user_id = self.obtener_uuid_usuario_actual()
+            if user_id:
                 await user_service.cambiar_empresa_principal(user_id, empresa_id)
         except Exception as e:
             logger.warning(f"No se pudo persistir cambio de empresa: {e}")

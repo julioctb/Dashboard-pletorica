@@ -190,6 +190,7 @@ class ContratoCategoriaService:
             DatabaseError: Si hay error de BD
         """
         asignacion_actual = await self.repository.obtener_por_id(id)
+        await self._validar_contrato_permite_personal(asignacion_actual.contrato_id)
 
         datos_actualizados = contrato_categoria_update.model_dump(exclude_unset=True)
 
@@ -219,6 +220,7 @@ class ContratoCategoriaService:
             DatabaseError: Si hay error de BD
         """
         asignacion = await self.repository.obtener_por_id(id)
+        await self._validar_contrato_permite_personal(asignacion.contrato_id)
 
         logger.info(
             f"Eliminando asignacion: contrato={asignacion.contrato_id}, "
@@ -276,6 +278,7 @@ class ContratoCategoriaService:
         Returns:
             Cantidad de registros eliminados
         """
+        await self._validar_contrato_permite_personal(contrato_id)
         cantidad = await self.repository.eliminar_por_contrato(contrato_id)
 
         logger.info(f"Eliminadas {cantidad} asignaciones del contrato {contrato_id}")
@@ -321,6 +324,12 @@ class ContratoCategoriaService:
             contrato = await contrato_service.obtener_por_id(contrato_id)
         except NotFoundError:
             raise BusinessRuleError(f"El contrato con ID {contrato_id} no existe")
+
+        if not contrato.puede_modificarse():
+            raise BusinessRuleError(
+                f"El contrato '{contrato.codigo}' no permite modificar personal "
+                f"en estatus {contrato.estatus}"
+            )
 
         if not contrato.tiene_personal:
             raise BusinessRuleError(

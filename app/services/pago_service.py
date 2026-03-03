@@ -116,10 +116,10 @@ class PagoService:
         """
         contrato = await self.contrato_repository.obtener_por_id(pago_create.contrato_id)
 
-        if contrato.estatus not in [EstatusContrato.ACTIVO, EstatusContrato.BORRADOR]:
-            raise BusinessRuleError(
-                f"No se pueden registrar pagos en un contrato con estatus {contrato.estatus}"
-            )
+        self._validar_contrato_permite_operar_pagos(
+            contrato,
+            accion="registrar pagos en",
+        )
 
         pago = Pago(**pago_create.model_dump())
         return await self.repository.crear(pago)
@@ -133,6 +133,11 @@ class PagoService:
             DatabaseError: Si hay error de BD
         """
         pago_actual = await self.repository.obtener_por_id(pago_id)
+        contrato = await self.contrato_repository.obtener_por_id(pago_actual.contrato_id)
+        self._validar_contrato_permite_operar_pagos(
+            contrato,
+            accion="modificar pagos de",
+        )
 
         datos_actualizados = pago_actual.model_dump()
         for campo, valor in pago_update.model_dump(exclude_unset=True).items():
@@ -150,7 +155,12 @@ class PagoService:
             NotFoundError: Si el pago no existe
             DatabaseError: Si hay error de BD
         """
-        await self.repository.obtener_por_id(pago_id)
+        pago = await self.repository.obtener_por_id(pago_id)
+        contrato = await self.contrato_repository.obtener_por_id(pago.contrato_id)
+        self._validar_contrato_permite_operar_pagos(
+            contrato,
+            accion="eliminar pagos de",
+        )
         return await self.repository.eliminar(pago_id)
 
     # ==========================================
@@ -257,6 +267,13 @@ class PagoService:
 
         await self.contrato_repository.cambiar_estatus(contrato_id, EstatusContrato.CERRADO)
         return True
+
+    def _validar_contrato_permite_operar_pagos(self, contrato, *, accion: str) -> None:
+        """Valida si un contrato permite altas/ediciones/bajas de pagos."""
+        if contrato.estatus not in [EstatusContrato.ACTIVO, EstatusContrato.BORRADOR]:
+            raise BusinessRuleError(
+                f"No se pueden {accion} contratos con estatus {contrato.estatus}"
+            )
 
 
 # Instancia global del servicio (singleton)

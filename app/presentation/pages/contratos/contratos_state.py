@@ -103,6 +103,8 @@ FORM_DEFAULTS = {
     "numero_requisicion": "",
 }
 
+CLAVE_SERVICIO_ADQUISICION = "ADQ"
+
 
 class ContratosState(BaseState, CRUDStateMixin):
     """Estado para el módulo de Contratos"""
@@ -118,6 +120,18 @@ class ContratosState(BaseState, CRUDStateMixin):
         "fecha_inicio", "fecha_fin", "descripcion_objeto",
         "monto_minimo", "monto_maximo", "origen_recurso",
         "segmento_asignacion", "sede_campus", "poliza_detalle"
+    ]
+    _campos_error_basicos: List[str] = [
+        "empresa_id",
+        "tipo_contrato",
+        "modalidad_adjudicacion",
+        "fecha_inicio",
+        "descripcion_objeto",
+    ]
+    _campos_error_servicios: List[str] = [
+        "tipo_servicio_id",
+        "tipo_duracion",
+        "fecha_fin",
     ]
 
     # ========================
@@ -547,29 +561,18 @@ class ContratosState(BaseState, CRUDStateMixin):
     def tiene_errores_formulario(self) -> bool:
         """Verifica si hay errores de validación (considera condicionales)"""
         # Errores de campos del diccionario
-        errores_campos = any(
-            getattr(self, f"error_{campo}", "")
-            for campo in CAMPOS_VALIDACION
+        errores_campos = self.tiene_errores_en_campos(
+            ["codigo"] + list(CAMPOS_VALIDACION.keys())
         )
 
         # Errores de selects y campos requeridos
-        errores_basicos = bool(
-            self.error_empresa_id or
-            self.error_tipo_contrato or
-            self.error_modalidad_adjudicacion or
-            self.error_fecha_inicio or
-            self.error_descripcion_objeto
-        )
+        errores_basicos = self.tiene_errores_en_campos(self._campos_error_basicos)
 
         # Errores condicionales según tipo de contrato
         es_servicios = self.form_tipo_contrato == TipoContrato.SERVICIOS.value
-        errores_servicios = False
-        if es_servicios:
-            errores_servicios = bool(
-                self.error_tipo_servicio_id or
-                self.error_tipo_duracion or
-                self.error_fecha_fin
-            )
+        errores_servicios = es_servicios and self.tiene_errores_en_campos(
+            self._campos_error_servicios
+        )
 
         return errores_campos or errores_basicos or errores_servicios
 
@@ -1053,23 +1056,7 @@ class ContratosState(BaseState, CRUDStateMixin):
 
     async def _crear_contrato(self):
         """Crear nuevo contrato"""
-        # Obtener datos de empresa y tipo de servicio para generar código
-        codigo_empresa = ""
-        clave_servicio = ""
-
-        for e in self.empresas:
-            if str(e["id"]) == self.form_empresa_id:
-                codigo_empresa = e.get("codigo_corto") or "XXX"
-                break
-
-        # Para ADQUISICION usar "ADQ", para SERVICIOS usar la clave del tipo de servicio
-        if self.form_tipo_contrato == TipoContrato.ADQUISICION.value:
-            clave_servicio = "ADQ"
-        else:
-            for t in self.tipos_servicio:
-                if str(t["id"]) == self.form_tipo_servicio_id:
-                    clave_servicio = t.get("clave") or "XX"
-                    break
+        codigo_empresa, clave_servicio = self._resolver_codigos_contrato()
 
         contrato_create = self._preparar_contrato_desde_formulario()
 
@@ -1230,23 +1217,7 @@ class ContratosState(BaseState, CRUDStateMixin):
         """
         requisicion_id = self.parse_id(self.form_requisicion_id)
 
-        # Obtener datos de empresa para código
-        codigo_empresa = ""
-        clave_servicio = ""
-
-        for e in self.empresas:
-            if str(e["id"]) == self.form_empresa_id:
-                codigo_empresa = e.get("codigo_corto") or "XXX"
-                break
-
-        # Para ADQUISICION usar "ADQ", para SERVICIOS usar la clave del tipo de servicio
-        if self.form_tipo_contrato == TipoContrato.ADQUISICION.value:
-            clave_servicio = "ADQ"
-        else:
-            for t in self.tipos_servicio:
-                if str(t["id"]) == self.form_tipo_servicio_id:
-                    clave_servicio = t.get("clave") or "XX"
-                    break
+        codigo_empresa, clave_servicio = self._resolver_codigos_contrato()
 
         contrato_create = self._preparar_contrato_desde_formulario()
 
@@ -1457,15 +1428,7 @@ class ContratosState(BaseState, CRUDStateMixin):
 
     def _limpiar_errores(self):
         """Limpia todos los errores de validación"""
-        self.limpiar_errores_campos(list(CAMPOS_VALIDACION.keys()) + [
-            "empresa_id",
-            "tipo_servicio_id",
-            "tipo_contrato",
-            "modalidad_adjudicacion",
-            "tipo_duracion",
-            "fecha_inicio",
-            "fecha_fin",
-        ])
+        self.limpiar_errores_campos(self._campos_error)
 
     def _cargar_contrato_en_formulario(self, contrato: dict):
         """Carga datos de contrato en el formulario"""
@@ -1574,6 +1537,45 @@ class ContratosState(BaseState, CRUDStateMixin):
             return Decimal(value.replace(",", "").replace("$", "").strip())
         except InvalidOperation:
             return None
+
+    def _resolver_codigos_contrato(self) -> tuple[str, str]:
+        """Resuelve los códigos necesarios para autogenerar el folio del contrato."""
+        return self._resolver_codigo_empresa(), self._resolver_clave_servicio()
+
+    def _resolver_codigo_empresa(self) -> str:
+        """Obtiene el código corto configurado de la empresa seleccionada."""
+        for empresa in self.empresas:
+            if str(empresa["id"]) != self.form_empresa_id:
+                continue
+
+            codigo_empresa = normalizar_mayusculas(str(empresa.get("codigo_corto") or "").strip())
+            if codigo_empresa:
+                return codigo_empresa
+            raise BusinessRuleError(
+                "La empresa seleccionada no tiene código corto configurado"
+            )
+
+        raise BusinessRuleError("No se encontró la empresa seleccionada para generar el contrato")
+
+    def _resolver_clave_servicio(self) -> str:
+        """Obtiene la clave de servicio para el código autogenerado del contrato."""
+        if self.form_tipo_contrato == TipoContrato.ADQUISICION.value:
+            return CLAVE_SERVICIO_ADQUISICION
+
+        for tipo in self.tipos_servicio:
+            if str(tipo["id"]) != self.form_tipo_servicio_id:
+                continue
+
+            clave_servicio = normalizar_mayusculas(str(tipo.get("clave") or "").strip())
+            if clave_servicio:
+                return clave_servicio
+            raise BusinessRuleError(
+                "El tipo de servicio seleccionado no tiene clave configurada"
+            )
+
+        raise BusinessRuleError(
+            "No se encontró el tipo de servicio seleccionado para generar el contrato"
+        )
 
     def obtener_nombre_empresa(self, empresa_id: int) -> str:
         """Obtener nombre de empresa por ID"""

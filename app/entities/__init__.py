@@ -50,6 +50,15 @@ from app.core.enums import (
     EstatusOnboarding,
     TipoDocumentoEmpleado,
     EstatusDocumento,
+    # Enums de Nómina — Catálogo
+    TipoConcepto,
+    TratamientoISR,
+    OrigenCaptura,
+    # Enums de Nómina — Operación
+    EstatusPeriodoNomina,
+    PeriodicidadNomina,
+    OrigenMovimiento,
+    EstatusNominaEmpleado,
 )
 
 # Empresa
@@ -295,6 +304,45 @@ from app.entities.onboarding import (
     ExpedienteStatus,
 )
 
+# Concepto Nómina
+from app.entities.concepto_nomina import (
+    ConceptoNomina,
+    ConceptoNominaCreate,
+    ConceptoNominaResumen,
+    ConceptoNominaEmpresa,
+    ConceptoNominaEmpresaCreate,
+    ConceptoNominaEmpresaResumen,
+)
+
+# Período de Nómina
+from app.entities.periodo_nomina import (
+    PeriodoNomina,
+    PeriodoNominaCreate,
+    PeriodoNominaUpdate,
+    PeriodoNominaResumen,
+)
+
+# Nómina Empleado
+from app.entities.nomina_empleado import (
+    NominaEmpleado,
+    NominaEmpleadoCreate,
+    NominaEmpleadoUpdate,
+    NominaEmpleadoResumen,
+)
+
+# Nómina Movimiento
+from app.entities.nomina_movimiento import (
+    NominaMovimiento,
+    NominaMovimientoCreate,
+    NominaMovimientoResumen,
+)
+from app.entities.configuracion_dispersion import (
+    ConfiguracionBancoEmpresa,
+    ConfiguracionBancoEmpresaCreate,
+    DispersionLayout,
+    ResultadoDispersion,
+)
+
 
 __all__ = [
     # Enums
@@ -469,4 +517,39 @@ __all__ = [
     "AltaEmpleadoBuap",
     "CompletarDatosEmpleado",
     "ExpedienteStatus",
+    # Enums Nómina — Catálogo
+    "TipoConcepto",
+    "TratamientoISR",
+    "OrigenCaptura",
+    # Enums Nómina — Operación
+    "EstatusPeriodoNomina",
+    "PeriodicidadNomina",
+    "OrigenMovimiento",
+    "EstatusNominaEmpleado",
+    # Concepto Nómina
+    "ConceptoNomina",
+    "ConceptoNominaCreate",
+    "ConceptoNominaResumen",
+    "ConceptoNominaEmpresa",
+    "ConceptoNominaEmpresaCreate",
+    "ConceptoNominaEmpresaResumen",
+    # Período de Nómina
+    "PeriodoNomina",
+    "PeriodoNominaCreate",
+    "PeriodoNominaUpdate",
+    "PeriodoNominaResumen",
+    # Nómina Empleado
+    "NominaEmpleado",
+    "NominaEmpleadoCreate",
+    "NominaEmpleadoUpdate",
+    "NominaEmpleadoResumen",
+    # Nómina Movimiento
+    "NominaMovimiento",
+    "NominaMovimientoCreate",
+    "NominaMovimientoResumen",
+    # Dispersión Bancaria
+    "ConfiguracionBancoEmpresa",
+    "ConfiguracionBancoEmpresaCreate",
+    "DispersionLayout",
+    "ResultadoDispersion",
 ]

@@ -21,6 +21,8 @@ FORM_DEFAULTS = {
 class InstitucionesState(AuthState):
     """Estado para el modulo de Instituciones"""
 
+    _campos_error_formulario: List[str] = ["nombre", "codigo"]
+
     # ========================
     # ESTADO DE DATOS
     # ========================
@@ -127,7 +129,7 @@ class InstitucionesState(AuthState):
 
     @rx.var
     def tiene_errores_formulario(self) -> bool:
-        return bool(self.error_nombre or self.error_codigo)
+        return self.tiene_errores_en_campos(self._campos_error_formulario)
 
     @rx.var
     def puede_guardar(self) -> bool:
@@ -303,11 +305,12 @@ class InstitucionesState(AuthState):
 
         self.saving = True
         try:
+            nombre_institucion = self.institucion_seleccionada["nombre"]
             await institucion_service.desactivar(self.institucion_seleccionada["id"])
             self.cerrar_confirmar_desactivar()
             await self._fetch_instituciones()
             return rx.toast.success(
-                f"Institucion '{self.institucion_seleccionada['nombre']}' desactivada",
+                f"Institucion '{nombre_institucion}' desactivada",
                 position="top-center",
                 duration=3000,
             )
@@ -423,6 +426,6 @@ class InstitucionesState(AuthState):
     def _limpiar_formulario(self):
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
-        self.limpiar_errores_campos(["nombre", "codigo"])
+        self.limpiar_errores_campos(self._campos_error_formulario)
         self.institucion_seleccionada = None
         self.es_edicion = False

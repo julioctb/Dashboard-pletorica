@@ -48,6 +48,18 @@ def _render_footer(error: Any = None, hint: str = "") -> rx.Component:
         return rx.text("", size="1")
 
 
+def select_items_from_options(options: Any) -> rx.Component:
+    """Renderiza items de select ignorando opciones con value vacío."""
+    return rx.foreach(
+        options,
+        lambda opt: rx.cond(
+            opt["value"] != "",
+            rx.select.item(opt["label"], value=opt["value"]),
+            rx.fragment(),
+        ),
+    )
+
+
 # =============================================================================
 # COMPONENTES DE FORMULARIO
 # =============================================================================
@@ -175,12 +187,7 @@ def form_select(
         _render_label(label, required, error),
         rx.select.root(
             rx.select.trigger(placeholder=placeholder, width="100%"),
-            rx.select.content(
-                rx.foreach(
-                    options,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
+            rx.select.content(select_items_from_options(options)),
             value=value,
             on_change=on_change,
             **props

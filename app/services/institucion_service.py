@@ -13,6 +13,7 @@ from app.core.exceptions import (
     NotFoundError,
     DuplicateError,
     DatabaseError,
+    BusinessRuleError,
 )
 from app.database import db_manager
 from app.entities.institucion import (
@@ -158,6 +159,14 @@ class InstitucionService:
     async def desactivar(self, id: int) -> Institucion:
         """Desactiva una institución (soft delete)."""
         try:
+            institucion = await self.obtener_por_id(id)
+            empresas_asignadas = await self._contar_empresas_asignadas(id)
+            if empresas_asignadas > 0:
+                raise BusinessRuleError(
+                    f"No se puede desactivar '{institucion.nombre}' porque tiene "
+                    f"{empresas_asignadas} empresa(s) asignada(s)"
+                )
+
             result = self.supabase.table(self.tabla)\
                 .update({'activo': False})\
                 .eq('id', id)\
@@ -169,7 +178,7 @@ class InstitucionService:
             logger.info(f"Institución {id} desactivada")
             return Institucion(**result.data[0])
 
-        except NotFoundError:
+        except (NotFoundError, BusinessRuleError):
             raise
         except Exception as e:
             logger.error(f"Error desactivando institución {id}: {e}")
@@ -307,6 +316,20 @@ class InstitucionService:
                 f"Error obteniendo IDs de empresas para institución {institucion_id}: {e}"
             )
             return []
+
+    async def _contar_empresas_asignadas(self, institucion_id: int) -> int:
+        """Cuenta empresas asociadas a la institución."""
+        try:
+            result = self.supabase.table(self.tabla_empresas)\
+                .select('id', count='exact')\
+                .eq('institucion_id', institucion_id)\
+                .execute()
+            return result.count or 0
+        except Exception as e:
+            logger.error(
+                f"Error contando empresas de institución {institucion_id}: {e}"
+            )
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
 
 
 # =============================================================================

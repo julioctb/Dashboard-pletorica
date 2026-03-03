@@ -199,6 +199,16 @@ def _accesos_rapidos() -> rx.Component:
                 rx.fragment(),
             ),
             rx.cond(
+                PortalState.puede_acceder_nomina,
+                _quick_link(
+                    "Nomina",
+                    "calculator",
+                    "/portal/nominas",
+                    "Periodos, preparacion y calculo",
+                ),
+                rx.fragment(),
+            ),
+            rx.cond(
                 PortalState.rol_empresa_actual == "operaciones",
                 _quick_link(
                     "Requisiciones",

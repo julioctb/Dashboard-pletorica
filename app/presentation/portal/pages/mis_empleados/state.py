@@ -3,7 +3,6 @@ State para la pagina Mis Empleados del portal.
 """
 from datetime import date
 from typing import List
-from uuid import UUID
 
 import reflex as rx
 
@@ -39,6 +38,22 @@ from app.presentation.pages.empleados.empleados_validators import (
 
 class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
     """State para la lista de empleados del portal."""
+
+    _campos_error_formulario: List[str] = [
+        "curp",
+        "nombre",
+        "apellido_paterno",
+        "apellido_materno",
+        "rfc",
+        "nss",
+        "genero",
+        "fecha_nacimiento",
+        "email",
+        "telefono",
+        "contacto_nombre",
+        "contacto_telefono",
+        "contacto_parentesco",
+    ]
 
     empleados: List[dict] = []
     total_empleados_lista: int = 0
@@ -288,6 +303,11 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
         ]
 
     @rx.var
+    def total_empleados_filtrados(self) -> int:
+        """Total visible en la tabla tras aplicar la búsqueda local."""
+        return len(self.empleados_filtrados)
+
+    @rx.var
     def nombre_empleado_baja(self) -> str:
         """Nombre del empleado seleccionado para baja."""
         emp = self.empleado_baja_seleccionado
@@ -518,12 +538,7 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
                 yield rx.toast.error("Fecha efectiva invalida")
                 return
 
-        registrado_por = None
-        if self.id_usuario:
-            try:
-                registrado_por = UUID(self.id_usuario)
-            except ValueError:
-                registrado_por = None
+        registrado_por = self.obtener_uuid_usuario_actual()
 
         self.saving = True
         try:
@@ -561,21 +576,7 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
     def _limpiar_formulario(self):
         """Limpia el formulario."""
         self._reset_employee_form_fields(
-            error_fields=[
-                "curp",
-                "nombre",
-                "apellido_paterno",
-                "apellido_materno",
-                "rfc",
-                "nss",
-                "genero",
-                "fecha_nacimiento",
-                "email",
-                "telefono",
-                "contacto_nombre",
-                "contacto_telefono",
-                "contacto_parentesco",
-            ],
+            error_fields=self._campos_error_formulario,
             extra_defaults={
                 "form_motivo_baja": "",
                 "form_fecha_efectiva_baja": "",
@@ -585,21 +586,7 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
 
     def _limpiar_errores(self):
         """Limpia los errores de validacion."""
-        self.limpiar_errores_campos([
-            "curp",
-            "nombre",
-            "apellido_paterno",
-            "apellido_materno",
-            "rfc",
-            "nss",
-            "genero",
-            "fecha_nacimiento",
-            "email",
-            "telefono",
-            "contacto_nombre",
-            "contacto_telefono",
-            "contacto_parentesco",
-        ])
+        self.limpiar_errores_campos(self._campos_error_formulario)
 
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es valido."""

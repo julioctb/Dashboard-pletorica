@@ -20,6 +20,7 @@ from app.presentation.components.reusable import (
     employee_rfc_nss_row,
 )
 from app.presentation.components.ui import boton_cancelar, boton_guardar
+from app.presentation.components.ui.form_input import select_items_from_options
 from .components import estatus_badge, restriccion_badge
 
 
@@ -42,12 +43,7 @@ def modal_empleado() -> rx.Component:
                             placeholder="Seleccionar empresa...",
                             width="100%",
                         ),
-                        rx.select.content(
-                            rx.foreach(
-                                EmpleadosState.opciones_empresas,
-                                lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                            ),
-                        ),
+                        rx.select.content(select_items_from_options(EmpleadosState.opciones_empresas)),
                         value=EmpleadosState.form_empresa_id,
                         on_change=EmpleadosState.set_form_empresa_id,
                         disabled=~EmpleadosState.puede_cambiar_empresa_formulario,
@@ -461,12 +457,7 @@ def modal_baja() -> rx.Component:
                             placeholder="Seleccionar motivo...",
                             width="100%",
                         ),
-                        rx.select.content(
-                            rx.foreach(
-                                EmpleadosState.opciones_motivo_baja,
-                                lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                            ),
-                        ),
+                        rx.select.content(select_items_from_options(EmpleadosState.opciones_motivo_baja)),
                         value=EmpleadosState.form_motivo_baja,
                         on_change=EmpleadosState.set_form_motivo_baja,
                     ),
@@ -597,8 +588,9 @@ def modal_restriccion() -> rx.Component:
                 # Advertencia
                 rx.callout(
                     rx.text(
-                        "Esta accion bloqueara al empleado en ", rx.text.strong("TODO")," el sistema. " \
-                        "Ninguna empresa proveedora podra darlo de alta.", as_='span'
+                        "Esta accion bloqueara al empleado en todas las empresas proveedoras del sistema. "
+                        "Ninguna empresa proveedora podra darlo de alta.",
+                        as_="span",
                     ),
                     icon="triangle-alert",
                     color_scheme="red",

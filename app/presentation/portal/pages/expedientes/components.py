@@ -97,13 +97,13 @@ def tabla_expedientes() -> rx.Component:
         headers=ENCABEZADOS_EXPEDIENTES,
         rows=ExpedientesState.empleados_expedientes_filtrados,
         row_renderer=fila_expediente,
-        has_rows=ExpedientesState.total_expedientes > 0,
+        has_rows=ExpedientesState.total_expedientes_filtrados > 0,
         empty_component=empty_state_card(
             title="No hay expedientes para revisar",
             description="Cuando existan expedientes pendientes apareceran aqui.",
             icon="folder-check",
         ),
-        total_caption="Mostrando " + ExpedientesState.total_expedientes.to(str) + " empleado(s)",
+        total_caption="Mostrando " + ExpedientesState.total_expedientes_filtrados.to(str) + " empleado(s)",
         loading_rows=5,
     )
 
@@ -196,21 +196,30 @@ def fila_documento(doc: dict) -> rx.Component:
                         on_click=ExpedientesState.ver_documento(doc),
                         color_scheme="blue",
                     ),
-                    tabla_action_button(
-                        icon="check",
-                        tooltip="Aprobar",
-                        on_click=ExpedientesState.aprobar_documento(doc),
-                        color_scheme="green",
-                        visible=es_pendiente,
+                    rx.cond(
+                        es_pendiente,
+                        rx.button(
+                            "Aprobar",
+                            on_click=ExpedientesState.aprobar_documento(doc),
+                            color_scheme="green",
+                            variant="soft",
+                            size="1",
+                        ),
+                        rx.fragment(),
                     ),
-                    tabla_action_button(
-                        icon="x",
-                        tooltip="Rechazar",
-                        on_click=ExpedientesState.abrir_modal_rechazo(doc),
-                        color_scheme="red",
-                        visible=es_pendiente,
+                    rx.cond(
+                        es_pendiente,
+                        rx.button(
+                            "Rechazar",
+                            on_click=ExpedientesState.abrir_modal_rechazo(doc),
+                            color_scheme="red",
+                            variant="soft",
+                            size="1",
+                        ),
+                        rx.fragment(),
                     ),
                     spacing="1",
+                    align="center",
                 ),
                 rx.fragment(),
             ),
@@ -224,7 +233,7 @@ ENCABEZADOS_DOCUMENTOS = [
     {"nombre": "Version", "ancho": "80px"},
     {"nombre": "Estatus", "ancho": "120px"},
     {"nombre": "Obs.", "ancho": "60px"},
-    {"nombre": "Acciones", "ancho": "100px"},
+    {"nombre": "Acciones", "ancho": "200px"},
 ]
 
 
@@ -290,13 +299,13 @@ def area_subida_rrhh() -> rx.Component:
                                 ),
                                 rx.text(
                                     "Arrastre un archivo o haga clic para seleccionar",
-                                    font_size="13px",
-                                    color="var(--gray-9)",
+                                    font_size=Typography.SIZE_BASE,
+                                    color=Colors.TEXT_SECONDARY,
                                 ),
                                 rx.text(
                                     "PDF, PNG o JPG - se aprobara automaticamente",
-                                    font_size="12px",
-                                    color="var(--gray-8)",
+                                    font_size=Typography.SIZE_SM,
+                                    color=Colors.TEXT_MUTED,
                                 ),
                                 align="center",
                                 spacing="2",
@@ -313,7 +322,7 @@ def area_subida_rrhh() -> rx.Component:
                                 rx.upload_files(upload_id=UPLOAD_ID_EXPEDIENTE),
                             ),
                             border="2px dashed var(--gray-6)",
-                            border_radius="8px",
+                            border_radius=Radius.LG,
                             width="100%",
                             cursor="pointer",
                             style={"_hover": {"border_color": "var(--blue-7)"}},
@@ -324,7 +333,7 @@ def area_subida_rrhh() -> rx.Component:
                     padding="16px",
                     background="var(--blue-2)",
                     border="1px solid var(--blue-6)",
-                    border_radius="8px",
+                    border_radius=Radius.LG,
                 ),
             ),
             width="100%",

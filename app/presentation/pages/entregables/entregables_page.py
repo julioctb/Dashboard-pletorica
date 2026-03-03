@@ -13,6 +13,7 @@ from app.presentation.components.ui import (
     table_shell,
     tabla_vacia,
     skeleton_tabla,
+    select_items_from_options,
 )
 from app.presentation.theme import Colors, Spacing, Typography, Radius, Shadows
 
@@ -182,12 +183,7 @@ def _barra_filtros() -> rx.Component:
         # Filtro por contrato (opcional)
         rx.select.root(
             rx.select.trigger(placeholder="Todos los contratos", width="220px"),
-            rx.select.content(
-                rx.foreach(
-                    EntregablesState.opciones_contratos,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
+            rx.select.content(select_items_from_options(EntregablesState.opciones_contratos)),
             value=EntregablesState.filtro_contrato_id,
             on_change=EntregablesState.set_filtro_contrato,
         ),

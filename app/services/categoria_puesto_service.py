@@ -183,15 +183,16 @@ class CategoriaPuestoService(BaseService):
         """
         Valida si una categoria puede ser eliminada.
         """
-        # TODO: Cuando exista el modulo de empleados:
-        # from app.repositories import SupabaseEmpleadoRepository
-        # empleado_repo = SupabaseEmpleadoRepository()
-        # empleados = await empleado_repo.contar_por_categoria(categoria.id, solo_activos=True)
-        # if empleados > 0:
-        #     raise BusinessRuleError(
-        #         f"No se puede eliminar '{categoria.nombre}' porque tiene {empleados} empleado(s)"
-        #     )
-        pass
+        from app.services.contrato_categoria_service import contrato_categoria_service
+
+        contratos_asociados = await contrato_categoria_service.contar_contratos_con_categoria(
+            categoria.id
+        )
+        if contratos_asociados > 0:
+            raise BusinessRuleError(
+                f"No se puede eliminar '{categoria.nombre}' porque está asociada a "
+                f"{contratos_asociados} contrato(s)"
+            )
 
     async def existe_clave_en_tipo(
         self,

@@ -5,6 +5,7 @@ Tabla, cards, badges, acciones y filtros.
 """
 import reflex as rx
 
+from app.presentation.constants import FILTRO_TODAS
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
 from app.presentation.components.reusable import employee_filters_bar, employee_table
 from app.presentation.components.ui import (
@@ -13,6 +14,7 @@ from app.presentation.components.ui import (
     tabla_action_buttons,
     badge_onboarding,
     table_text_sm,
+    select_items_from_options,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 
@@ -216,7 +218,7 @@ def tabla_empleados() -> rx.Component:
         row_renderer=fila_empleado,
         has_rows=EmpleadosState.tiene_empleados,
         empty_component=tabla_vacia(onclick=EmpleadosState.abrir_modal_crear),
-        total_caption="Mostrando " + EmpleadosState.total_empleados.to(str) + " empleado(s)",
+        total_caption="Mostrando " + EmpleadosState.total_empleados_filtrados.to(str) + " empleado(s)",
         footer_component=_boton_ver_mas(),
         loading_rows=5,
     )
@@ -342,7 +344,7 @@ def grid_empleados() -> rx.Component:
                 ),
                 # Contador
                 rx.text(
-                    "Mostrando ", EmpleadosState.total_empleados, " empleado(s)",
+                    "Mostrando ", EmpleadosState.total_empleados_filtrados, " empleado(s)",
                     font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_MUTED,
                 ),
@@ -368,11 +370,8 @@ def filtros_empleados() -> rx.Component:
             rx.select.root(
                 rx.select.trigger(placeholder="Empresa", width="180px"),
                 rx.select.content(
-                    rx.select.item("Todas", value="TODAS"),
-                    rx.foreach(
-                        EmpleadosState.opciones_empresas,
-                        lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                    ),
+                    rx.select.item("Todas", value=FILTRO_TODAS),
+                    select_items_from_options(EmpleadosState.opciones_empresas),
                 ),
                 value=EmpleadosState.filtro_empresa_id,
                 on_change=EmpleadosState.set_filtro_empresa_id,
@@ -382,12 +381,7 @@ def filtros_empleados() -> rx.Component:
         # Filtro por estatus
         rx.select.root(
             rx.select.trigger(placeholder="Estatus", width="140px"),
-            rx.select.content(
-                rx.foreach(
-                    EmpleadosState.opciones_estatus,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                ),
-            ),
+            rx.select.content(select_items_from_options(EmpleadosState.opciones_estatus)),
             value=EmpleadosState.filtro_estatus,
             on_change=EmpleadosState.set_filtro_estatus,
         ),
