@@ -31,6 +31,28 @@ def modal_crear_periodo() -> rx.Component:
                 "Define el rango de fechas y la periodicidad del período.",
                 margin_bottom="16px",
             ),
+            rx.cond(
+                NominaRRHHState.mensaje_info != "",
+                rx.callout(
+                    NominaRRHHState.mensaje_info,
+                    icon=rx.cond(
+                        NominaRRHHState.tipo_mensaje == "error",
+                        "triangle-alert",
+                        "info",
+                    ),
+                    color_scheme=rx.cond(
+                        NominaRRHHState.tipo_mensaje == "error",
+                        "red",
+                        "blue",
+                    ),
+                    size="2",
+                    width="100%",
+                    role="alert",
+                    aria_live="assertive",
+                    margin_bottom="16px",
+                ),
+                rx.fragment(),
+            ),
             rx.vstack(
                 form_input(
                     label="Nombre del período",
@@ -54,12 +76,14 @@ def modal_crear_periodo() -> rx.Component:
                         required=True,
                         value=NominaRRHHState.form_fecha_inicio,
                         on_change=NominaRRHHState.set_form_fecha_inicio,
+                        error=NominaRRHHState.error_fecha_inicio,
                     ),
                     form_date(
                         label="Fecha de fin",
                         required=True,
                         value=NominaRRHHState.form_fecha_fin,
                         on_change=NominaRRHHState.set_form_fecha_fin,
+                        error=NominaRRHHState.error_fecha_fin,
                     ),
                     spacing="3",
                     width="100%",
@@ -68,6 +92,7 @@ def modal_crear_periodo() -> rx.Component:
                     label="Fecha de pago (opcional)",
                     value=NominaRRHHState.form_fecha_pago,
                     on_change=NominaRRHHState.set_form_fecha_pago,
+                    error=NominaRRHHState.error_fecha_pago,
                 ),
                 spacing="4",
                 width="100%",
@@ -88,7 +113,7 @@ def modal_crear_periodo() -> rx.Component:
             max_width="480px",
         ),
         open=NominaRRHHState.mostrar_modal_periodo,
-        on_open_change=rx.noop,
+        on_open_change=NominaRRHHState.set_mostrar_modal_periodo,
     )
 
 

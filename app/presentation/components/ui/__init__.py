@@ -9,6 +9,7 @@ from .form_input import (
     form_row,
     select_items_from_options,
 )
+from .accumulating_select import accumulating_select
 from .badges import estatus_badge, badge_onboarding
 from .badges_domain import employee_status_badge, document_status_badge
 from .tables import tabla_vacia
@@ -93,6 +94,7 @@ __all__ = [
     'form_date',
     'form_row',
     'select_items_from_options',
+    'accumulating_select',
     'estatus_badge',
     'employee_status_badge',
     'document_status_badge',

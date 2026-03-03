@@ -4,8 +4,9 @@ Modales para el módulo de Contratos.
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea, form_date
 from app.presentation.components.ui import status_badge_reactive, boton_guardar, boton_cancelar, boton_eliminar, table_shell
+from app.presentation.components.ui import accumulating_select
 from app.presentation.pages.contratos.contratos_state import ContratosState
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Radius, Spacing
 
 
 def _seccion_info_basica() -> rx.Component:
@@ -15,14 +16,25 @@ def _seccion_info_basica() -> rx.Component:
 
         # Fila 1: Empresa y Tipo de Contrato
         rx.hstack(
-            form_select(
-                label="Empresa",
-                required=True,
-                placeholder="Seleccione empresa",
-                value=ContratosState.form_empresa_id,
-                on_change=ContratosState.set_form_empresa_id,
-                options=ContratosState.opciones_empresa,
-                error=ContratosState.error_empresa_id,
+            rx.cond(
+                ContratosState.empresa_fijada_en_contexto,
+                form_input(
+                    label="Empresa",
+                    required=True,
+                    value=ContratosState.nombre_empresa_formulario,
+                    error=ContratosState.error_empresa_id,
+                    hint="Se usará la empresa activa del portal",
+                    disabled=True,
+                ),
+                form_select(
+                    label="Empresa",
+                    required=True,
+                    placeholder="Seleccione empresa",
+                    value=ContratosState.form_empresa_id,
+                    on_change=ContratosState.set_form_empresa_id,
+                    options=ContratosState.opciones_empresa,
+                    error=ContratosState.error_empresa_id,
+                ),
             ),
             form_select(
                 label="Tipo de contrato",
@@ -284,40 +296,127 @@ def _tab_general() -> rx.Component:
     return _contenido_detalles()
 
 
+def _fila_categoria_puesto_seleccionada(categoria: dict) -> rx.Component:
+    """Fila resumida de categoría seleccionada en creación inicial del contrato."""
+    return rx.hstack(
+        rx.hstack(
+            rx.badge(
+                categoria["clave"],
+                variant="soft",
+                color_scheme="blue",
+                size="1",
+            ),
+            rx.text(categoria["nombre"], size="2"),
+            spacing="2",
+            align="center",
+        ),
+        rx.spacer(),
+        rx.icon_button(
+            rx.icon("trash-2", size=14),
+            size="1",
+            variant="ghost",
+            color_scheme="red",
+            on_click=lambda: ContratosState.quitar_categoria_puesto_seleccionada(categoria["id"]),
+        ),
+        width="100%",
+        align="center",
+        padding=Spacing.SM,
+        border_radius=Radius.LG,
+        background=Colors.SECONDARY_LIGHT,
+    )
+
+
 def _tab_config_personal() -> rx.Component:
     """Pestaña de configuración de personal (solo para contratos de SERVICIOS)"""
     return rx.vstack(
-        rx.callout(
-            "Configure los parámetros de personal para este contrato de servicios.",
-            icon="info",
-            color_scheme="blue",
-            size="2",
-        ),
-
-        # Tipo de servicio para configuración de personal
-        form_select(
-            label="Tipo de servicio",
-            required=True,
-            placeholder="Seleccione tipo de servicio",
-            value=ContratosState.form_tipo_servicio_id,
-            on_change=ContratosState.set_form_tipo_servicio_id,
-            options=ContratosState.opciones_tipo_servicio,
-        ),
-
-        # Categoría de puesto (depende del tipo de servicio seleccionado)
         rx.cond(
-            ContratosState.form_tipo_servicio_id != "",
-            form_select(
-                label="Categoria de puesto",
-                required=True,
-                placeholder="Seleccione categoria",
-                value=ContratosState.form_categoria_puesto_id,
-                on_change=ContratosState.set_form_categoria_puesto_id,
-                options=ContratosState.opciones_categoria_puesto,
+            ContratosState.es_edicion,
+            rx.callout(
+                "Las categorías del contrato existente se administran desde el módulo Personal.",
+                icon="info",
+                color_scheme="blue",
+                size="2",
+            ),
+            rx.vstack(
+                rx.callout(
+                    "Seleccione una o varias categorías iniciales para este contrato de servicios.",
+                    icon="info",
+                    color_scheme="blue",
+                    size="2",
+                ),
+                rx.text(
+                    "Las categorías se crearán con cantidades en 0 para que luego pueda configurarlas en Personal.",
+                    size="1",
+                    color=Colors.TEXT_MUTED,
+                ),
+
+                # Tipo de servicio para configuración de personal
+                form_select(
+                    label="Tipo de servicio",
+                    required=True,
+                    placeholder="Seleccione tipo de servicio",
+                    value=ContratosState.form_tipo_servicio_id,
+                    on_change=ContratosState.set_form_tipo_servicio_id,
+                    options=ContratosState.opciones_tipo_servicio,
+                    error=ContratosState.error_tipo_servicio_id,
+                ),
+
+                # Categorías de puesto (depende del tipo de servicio seleccionado)
+                rx.cond(
+                    ContratosState.form_tipo_servicio_id != "",
+                    rx.vstack(
+                        rx.cond(
+                            ContratosState.cargando_categorias_puesto,
+                            rx.center(
+                                rx.spinner(size="2"),
+                                width="100%",
+                                padding="4",
+                            ),
+                            rx.cond(
+                                ContratosState.tiene_categorias_puesto_disponibles,
+                                rx.vstack(
+                                    accumulating_select(
+                                        label="Categorías de puesto",
+                                        placeholder="Seleccione categoría",
+                                        value=ContratosState.form_categoria_puesto_id,
+                                        on_change=ContratosState.set_form_categoria_puesto_id,
+                                        options=ContratosState.opciones_categoria_puesto_disponibles,
+                                        on_add=ContratosState.agregar_categoria_puesto_seleccionada,
+                                        can_add=ContratosState.puede_agregar_categoria_puesto,
+                                        add_button_text="Agregar categoría",
+                                        selected_items=ContratosState.categorias_puesto_seleccionadas_resumen,
+                                        render_selected_item=_fila_categoria_puesto_seleccionada,
+                                        empty_message="Aún no ha agregado categorías de puesto.",
+                                        hint="Seleccione una categoría y agréguela a la lista inicial del contrato.",
+                                    ),
+                                    rx.cond(
+                                        ContratosState.tiene_categorias_puesto_seleccionadas,
+                                        rx.text(
+                                            "Las categorías agregadas se crearán como configuración inicial y luego podrá ajustar cantidades desde Personal.",
+                                            size="1",
+                                            color=Colors.TEXT_MUTED,
+                                            width="100%",
+                                        ),
+                                        rx.fragment(),
+                                    ),
+                                    spacing="3",
+                                    width="100%",
+                                ),
+                                rx.text(
+                                    "No hay categorías activas para este tipo de servicio.",
+                                    size="2",
+                                    color=Colors.TEXT_MUTED,
+                                ),
+                            ),
+                        ),
+                        spacing="3",
+                        width="100%",
+                    ),
+                ),
+                spacing="4",
+                width="100%",
             ),
         ),
-
-        spacing="4",
         width="100%",
         min_height="300px",
     )

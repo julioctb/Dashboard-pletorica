@@ -167,7 +167,7 @@ class ExpedientesState(PortalState):
             self.loading = False
             yield resultado
             return
-        if not self.es_rrhh:
+        if not self.mostrar_seccion_rrhh or not self.es_rrhh:
             yield rx.redirect("/portal")
             return
         async for _ in self._montar_pagina(self._fetch_empleados_expedientes):

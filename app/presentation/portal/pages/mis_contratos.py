@@ -8,6 +8,9 @@ import reflex as rx
 from typing import List
 
 from app.presentation.constants import FILTRO_TODOS
+from app.presentation.components.shared.auth_state import AuthState
+from app.presentation.pages.contratos.contratos_modals import modal_contrato
+from app.presentation.pages.contratos.contratos_state import ContratosState
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.layout import page_layout, page_header, page_toolbar
 from app.presentation.components.ui import entity_card, entity_grid
@@ -47,7 +50,7 @@ class MisContratosState(PortalState):
             self.loading = False
             yield resultado
             return
-        if not self.es_operaciones:
+        if not self.mostrar_seccion_contrato:
             yield rx.redirect("/portal")
             return
         async for _ in self._montar_pagina(self._fetch_contratos):
@@ -318,13 +321,23 @@ def _modal_detalle_contrato() -> rx.Component:
 # =============================================================================
 
 def mis_contratos_page() -> rx.Component:
-    """Pagina de lista de contratos (solo lectura)."""
+    """Pagina de lista de contratos del portal."""
     return rx.box(
         page_layout(
             header=page_header(
                 titulo="Contratos",
                 subtitulo="Contratos de la empresa",
                 icono="file-text",
+                accion_principal=rx.cond(
+                    AuthState.es_admin_empresa,
+                    rx.button(
+                        rx.icon("plus", size=16),
+                        "Nuevo Contrato",
+                        on_click=ContratosState.abrir_modal_crear_portal,
+                        color_scheme="blue",
+                    ),
+                    rx.fragment(),
+                ),
             ),
             toolbar=page_toolbar(
                 search_value=MisContratosState.filtro_busqueda_cto,
@@ -337,6 +350,7 @@ def mis_contratos_page() -> rx.Component:
             content=rx.vstack(
                 _grid_contratos(),
                 _modal_detalle_contrato(),
+                modal_contrato(),
                 width="100%",
                 spacing="4",
             ),

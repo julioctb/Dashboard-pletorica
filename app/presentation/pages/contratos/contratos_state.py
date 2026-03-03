@@ -11,14 +11,14 @@ from typing import List, Optional, Callable
 from decimal import Decimal, InvalidOperation
 from datetime import date
 
-from app.presentation.components.shared.base_state import BaseState
+from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.components.shared.crud_state_mixin import CRUDStateMixin
 from app.core.ui_helpers import (
     FILTRO_TODOS,
     FILTRO_SIN_SELECCION,
     opciones_desde_enum,
 )
-from app.services import contrato_service, empresa_service, tipo_servicio_service, categoria_puesto_service, entregable_service, requisicion_service
+from app.services import contrato_service, empresa_service, tipo_servicio_service, categoria_puesto_service, entregable_service, requisicion_service, contrato_categoria_service
 from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
 
 from app.entities import (
@@ -106,7 +106,7 @@ FORM_DEFAULTS = {
 CLAVE_SERVICIO_ADQUISICION = "ADQ"
 
 
-class ContratosState(BaseState, CRUDStateMixin):
+class ContratosState(AuthState, CRUDStateMixin):
     """Estado para el módulo de Contratos"""
 
     # ========================
@@ -181,6 +181,7 @@ class ContratosState(BaseState, CRUDStateMixin):
     form_empresa_id: str = ""
     form_tipo_servicio_id: str = ""
     form_categoria_puesto_id: str = ""
+    form_categoria_puesto_ids: List[str] = []
     form_codigo: str = ""
     form_folio_buap: str = ""
     form_tipo_contrato: str = ""
@@ -274,12 +275,16 @@ class ContratosState(BaseState, CRUDStateMixin):
 
     # --- Formulario: setters simples ---
     def set_form_empresa_id(self, value):
+        if self.empresa_fijada_en_contexto:
+            self.form_empresa_id = str(self.id_empresa_actual) if self.id_empresa_actual else ""
+            return
         self.form_empresa_id = value if value else ""
 
     def set_form_tipo_servicio_id(self, value):
         self.form_tipo_servicio_id = value if value else ""
         # Limpiar categoría seleccionada al cambiar tipo de servicio
         self.form_categoria_puesto_id = ""
+        self.form_categoria_puesto_ids = []
         self.categorias_puesto = []
         # Cargar categorías del nuevo tipo de servicio
         if value:
@@ -287,6 +292,23 @@ class ContratosState(BaseState, CRUDStateMixin):
 
     def set_form_categoria_puesto_id(self, value):
         self.form_categoria_puesto_id = value if value else ""
+
+    def agregar_categoria_puesto_seleccionada(self):
+        """Agrega la categoría actualmente seleccionada a la lista acumulada."""
+        categoria_id = str(self.form_categoria_puesto_id or "").strip()
+        if not categoria_id or categoria_id in self.form_categoria_puesto_ids:
+            return
+
+        self.form_categoria_puesto_ids = self.form_categoria_puesto_ids + [categoria_id]
+        self.form_categoria_puesto_id = ""
+
+    def quitar_categoria_puesto_seleccionada(self, categoria_id: str):
+        """Elimina una categoría de la lista acumulada."""
+        categoria_id = str(categoria_id or "").strip()
+        self.form_categoria_puesto_ids = [
+            item for item in self.form_categoria_puesto_ids
+            if item != categoria_id
+        ]
 
     def set_form_codigo(self, value):
         self.form_codigo = normalizar_mayusculas(value) if value else ""
@@ -326,6 +348,9 @@ class ContratosState(BaseState, CRUDStateMixin):
 
     def set_form_tiene_personal(self, value):
         self.form_tiene_personal = bool(value)
+        if not self.form_tiene_personal:
+            self.form_categoria_puesto_id = ""
+            self.form_categoria_puesto_ids = []
 
     def set_form_estatus(self, value):
         self.form_estatus = value if value else ""
@@ -628,6 +653,16 @@ class ContratosState(BaseState, CRUDStateMixin):
         return [{"value": str(e["id"]), "label": f"{e['codigo_corto']} - {e['nombre_comercial']}"} for e in self.empresas]
 
     @rx.var
+    def nombre_empresa_formulario(self) -> str:
+        """Nombre legible de la empresa actualmente seleccionada en el formulario."""
+        for empresa in self.empresas:
+            if str(empresa["id"]) == self.form_empresa_id:
+                codigo = str(empresa.get("codigo_corto") or "").strip()
+                nombre = str(empresa.get("nombre_comercial") or "").strip()
+                return f"{codigo} - {nombre}".strip(" -")
+        return self.nombre_empresa_actual or "Empresa actual"
+
+    @rx.var
     def opciones_tipo_servicio(self) -> List[dict]:
         """Opciones formateadas para el select de tipo de servicio"""
         return [{"value": str(t["id"]), "label": f"{t['clave']} - {t['nombre']}"} for t in self.tipos_servicio]
@@ -636,6 +671,16 @@ class ContratosState(BaseState, CRUDStateMixin):
     def opciones_categoria_puesto(self) -> List[dict]:
         """Opciones formateadas para el select de categoría de puesto"""
         return [{"value": str(c["id"]), "label": f"{c['clave']} - {c['nombre']}"} for c in self.categorias_puesto]
+
+    @rx.var
+    def opciones_categoria_puesto_disponibles(self) -> List[dict]:
+        """Opciones aún no seleccionadas para el selector acumulativo."""
+        seleccionadas = set(self.form_categoria_puesto_ids)
+        return [
+            option
+            for option in self.opciones_categoria_puesto
+            if option["value"] not in seleccionadas
+        ]
 
     @rx.var
     def opciones_modalidad(self) -> List[dict]:
@@ -732,6 +777,51 @@ class ContratosState(BaseState, CRUDStateMixin):
         """True si se puede agregar un tipo de entregable"""
         return bool(self.form_tipo_entregable)
 
+    @rx.var
+    def tiene_categorias_puesto_disponibles(self) -> bool:
+        return len(self.categorias_puesto) > 0
+
+    @rx.var
+    def tiene_categorias_puesto_seleccionadas(self) -> bool:
+        return len(self.form_categoria_puesto_ids) > 0
+
+    @rx.var
+    def puede_agregar_categoria_puesto(self) -> bool:
+        return bool(self.form_categoria_puesto_id and self.form_categoria_puesto_id not in self.form_categoria_puesto_ids)
+
+    @rx.var
+    def categorias_puesto_seleccionadas_resumen(self) -> List[dict]:
+        """Resumen de categorías seleccionadas para mostrar badges/lista."""
+        seleccionadas = set(self.form_categoria_puesto_ids)
+        return [
+            {
+                "id": str(c["id"]),
+                "clave": c["clave"],
+                "nombre": c["nombre"],
+                "label": f"{c['clave']} - {c['nombre']}",
+            }
+            for c in self.categorias_puesto
+            if str(c["id"]) in seleccionadas
+        ]
+
+    @rx.var
+    def es_contexto_portal(self) -> bool:
+        """True cuando el state se usa en una ruta del portal."""
+        ruta_actual = self.router.route_id or ""
+        return ruta_actual.startswith("/portal/")
+
+    @rx.var
+    def empresa_fijada_en_contexto(self) -> bool:
+        """En portal, el contrato siempre debe crearse sobre la empresa activa."""
+        return self.es_contexto_portal and self.es_admin_empresa and bool(self.id_empresa_actual)
+
+    @rx.var
+    def puede_operar_contratos_en_contexto(self) -> bool:
+        """Permiso efectivo para operar contratos según backoffice o portal."""
+        if self.es_contexto_portal:
+            return self.es_admin_empresa and bool(self.id_empresa_actual)
+        return self.es_superadmin or self.puede_operar_contratos
+
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
@@ -747,12 +837,27 @@ class ContratosState(BaseState, CRUDStateMixin):
     async def cargar_empresas(self):
         """Cargar empresas para el dropdown"""
         try:
+            if self.es_contexto_portal and self.id_empresa_actual:
+                await self._cargar_empresa_actual_portal()
+                return
+
             from app.services import empresa_service
             empresas = await empresa_service.obtener_todas(incluir_inactivas=False)
             self.empresas = [e.model_dump() for e in empresas]
         except Exception as e:
             self.mostrar_mensaje(f"Error al cargar empresas: {str(e)}", "error")
             self.empresas = []
+
+    async def _cargar_empresa_actual_portal(self):
+        """Carga solo la empresa activa cuando el formulario se usa desde el portal."""
+        if not self.id_empresa_actual:
+            self.empresas = []
+            return
+
+        from app.services import empresa_service
+
+        empresa = await empresa_service.obtener_por_id(self.id_empresa_actual)
+        self.empresas = [empresa.model_dump()]
 
     async def cargar_tipos_servicio(self):
         """Cargar tipos de servicio para el dropdown"""
@@ -913,6 +1018,25 @@ class ContratosState(BaseState, CRUDStateMixin):
         self.form_fecha_inicio = date.today().isoformat()
         self.mostrar_modal_contrato = True
 
+    async def abrir_modal_crear_portal(self):
+        """Abre el modal de creación desde el portal para la empresa activa."""
+        try:
+            resultado = await self.verificar_y_redirigir()
+            if resultado:
+                return resultado
+
+            self._asegurar_permiso_operar_contratos()
+            await self.cargar_empresas()
+            await self.cargar_tipos_servicio()
+
+            self._limpiar_formulario()
+            self.es_edicion = False
+            self.form_empresa_id = str(self.id_empresa_actual)
+            self.form_fecha_inicio = date.today().isoformat()
+            self.mostrar_modal_contrato = True
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "al preparar el formulario de contrato")
+
     def abrir_modal_editar(self, contrato: dict):
         """Abrir modal para editar contrato"""
         self._limpiar_formulario()
@@ -991,45 +1115,46 @@ class ContratosState(BaseState, CRUDStateMixin):
 
     async def guardar_contrato(self):
         """Guardar contrato (crear o actualizar)"""
-        self._validar_todos_los_campos()
-
-        if self.tiene_errores_formulario:
-            # Recopilar errores para mostrar mensaje descriptivo
-            errores = []
-            # Errores de campos siempre requeridos
-            if self.error_empresa_id:
-                errores.append(f"Empresa: {self.error_empresa_id}")
-            if self.error_tipo_contrato:
-                errores.append(f"Tipo Contrato: {self.error_tipo_contrato}")
-            if self.error_modalidad_adjudicacion:
-                errores.append(f"Modalidad: {self.error_modalidad_adjudicacion}")
-            if self.error_fecha_inicio:
-                errores.append(f"Fecha inicio: {self.error_fecha_inicio}")
-            if self.error_descripcion_objeto:
-                errores.append(f"Descripción: {self.error_descripcion_objeto}")
-
-            # Errores condicionales (solo si es SERVICIOS)
-            es_servicios = self.form_tipo_contrato == TipoContrato.SERVICIOS.value
-            if es_servicios:
-                if self.error_tipo_servicio_id:
-                    errores.append(f"Tipo Servicio: {self.error_tipo_servicio_id}")
-                if self.error_tipo_duracion:
-                    errores.append(f"Duración: {self.error_tipo_duracion}")
-                if self.error_fecha_fin:
-                    errores.append(f"Fecha fin: {self.error_fecha_fin}")
-
-            mensaje_errores = "; ".join(errores) if errores else "Verifique los campos del formulario"
-            yield rx.toast.error(
-                mensaje_errores,
-                position="top-center",
-                duration=5000
-            )
-            return  # Salir sin continuar
-
-        self.saving = True
-        yield  # Forzar actualización de UI para mostrar spinner
-
         try:
+            self._asegurar_permiso_operar_contratos()
+            self._validar_todos_los_campos()
+
+            if self.tiene_errores_formulario:
+                # Recopilar errores para mostrar mensaje descriptivo
+                errores = []
+                # Errores de campos siempre requeridos
+                if self.error_empresa_id:
+                    errores.append(f"Empresa: {self.error_empresa_id}")
+                if self.error_tipo_contrato:
+                    errores.append(f"Tipo Contrato: {self.error_tipo_contrato}")
+                if self.error_modalidad_adjudicacion:
+                    errores.append(f"Modalidad: {self.error_modalidad_adjudicacion}")
+                if self.error_fecha_inicio:
+                    errores.append(f"Fecha inicio: {self.error_fecha_inicio}")
+                if self.error_descripcion_objeto:
+                    errores.append(f"Descripción: {self.error_descripcion_objeto}")
+
+                # Errores condicionales (solo si es SERVICIOS)
+                es_servicios = self.form_tipo_contrato == TipoContrato.SERVICIOS.value
+                if es_servicios:
+                    if self.error_tipo_servicio_id:
+                        errores.append(f"Tipo Servicio: {self.error_tipo_servicio_id}")
+                    if self.error_tipo_duracion:
+                        errores.append(f"Duración: {self.error_tipo_duracion}")
+                    if self.error_fecha_fin:
+                        errores.append(f"Fecha fin: {self.error_fecha_fin}")
+
+                mensaje_errores = "; ".join(errores) if errores else "Verifique los campos del formulario"
+                yield rx.toast.error(
+                    mensaje_errores,
+                    position="top-center",
+                    duration=5000
+                )
+                return
+
+            self.saving = True
+            yield
+
             if self.es_edicion:
                 mensaje = await self._actualizar_contrato()
             elif self.form_requisicion_id:
@@ -1045,6 +1170,11 @@ class ContratosState(BaseState, CRUDStateMixin):
                 position="top-center",
                 duration=3000
             )
+
+            if self.es_contexto_portal:
+                from app.presentation.portal.pages.mis_contratos import MisContratosState
+
+                yield MisContratosState.cargar_contratos
 
         except DuplicateError as e:
             self.error_codigo = f"El código '{self.form_codigo}' ya existe"
@@ -1066,6 +1196,8 @@ class ContratosState(BaseState, CRUDStateMixin):
             codigo_empresa,
             clave_servicio
         )
+
+        await self._guardar_categorias_iniciales_contrato(contrato_creado.id)
 
         # Guardar configuración de entregables si hay tipos configurados
         if self.config_entregables:
@@ -1249,6 +1381,8 @@ class ContratosState(BaseState, CRUDStateMixin):
             items_contrato=items_contrato,
         )
 
+        await self._guardar_categorias_iniciales_contrato(contrato_creado.id)
+
         # Guardar configuración de entregables si hay tipos configurados
         if self.config_entregables:
             for config in self.config_entregables:
@@ -1419,12 +1553,14 @@ class ContratosState(BaseState, CRUDStateMixin):
         """Limpia campos del formulario"""
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
+        self.form_categoria_puesto_ids = []
         self._limpiar_errores()
         self._limpiar_form_entregable()
         self.config_entregables = []
         self.form_contrato_items = []
         self.contrato_seleccionado = None
         self.es_edicion = False
+        self._aplicar_contexto_empresa_portal()
 
     def _limpiar_errores(self):
         """Limpia todos los errores de validación"""
@@ -1471,6 +1607,7 @@ class ContratosState(BaseState, CRUDStateMixin):
 
     def _preparar_contrato_desde_formulario(self) -> ContratoCreate:
         """Prepara objeto ContratoCreate desde formulario con lógica condicional"""
+        self._aplicar_contexto_empresa_portal()
         es_adquisicion = self.form_tipo_contrato == TipoContrato.ADQUISICION.value
 
         # tipo_servicio_id: requerido para SERVICIOS, opcional para ADQUISICION
@@ -1541,6 +1678,40 @@ class ContratosState(BaseState, CRUDStateMixin):
     def _resolver_codigos_contrato(self) -> tuple[str, str]:
         """Resuelve los códigos necesarios para autogenerar el folio del contrato."""
         return self._resolver_codigo_empresa(), self._resolver_clave_servicio()
+
+    def _aplicar_contexto_empresa_portal(self):
+        """Fija empresa del formulario a la empresa activa cuando aplica."""
+        if self.empresa_fijada_en_contexto:
+            self.form_empresa_id = str(self.id_empresa_actual)
+
+    async def _guardar_categorias_iniciales_contrato(self, contrato_id: int):
+        """Crea asignaciones iniciales para las categorías seleccionadas al crear el contrato."""
+        if self.form_tipo_contrato != TipoContrato.SERVICIOS.value:
+            return
+        if not self.form_tiene_personal or not self.form_categoria_puesto_ids:
+            return
+
+        categorias = [
+            {
+                "categoria_puesto_id": self.parse_id(categoria_id),
+                "cantidad_minima": 0,
+                "cantidad_maxima": 0,
+            }
+            for categoria_id in self.form_categoria_puesto_ids
+        ]
+        await contrato_categoria_service.asignar_categorias(contrato_id, categorias)
+
+    def _asegurar_permiso_operar_contratos(self):
+        """Valida que el usuario pueda operar contratos en el contexto actual."""
+        if self.es_contexto_portal:
+            if not self.es_admin_empresa:
+                raise BusinessRuleError("Solo admin_empresa puede crear contratos desde el portal")
+            if not self.id_empresa_actual:
+                raise BusinessRuleError("No hay empresa activa seleccionada")
+            return
+
+        if not (self.es_superadmin or self.puede_operar_contratos):
+            raise BusinessRuleError("No tienes permisos para operar contratos")
 
     def _resolver_codigo_empresa(self) -> str:
         """Obtiene el código corto configurado de la empresa seleccionada."""

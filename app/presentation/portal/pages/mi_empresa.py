@@ -47,7 +47,7 @@ class MiEmpresaState(PortalState):
             self.loading = False
             yield resultado
             return
-        if not self.es_admin_empresa:
+        if not self.mostrar_seccion_empresa:
             yield rx.redirect("/portal")
             return
         async for _ in self._montar_pagina(self.cargar_datos_empresa):
@@ -94,6 +94,8 @@ class MiEmpresaState(PortalState):
     # --- Acciones de contacto ---
     def abrir_edicion_contacto(self):
         """Puebla el formulario con datos actuales y activa modo edicion."""
+        if not self.es_admin_empresa:
+            return
         datos = self.datos_empresa
         self.form_telefono = datos.get("telefono") or ""
         self.form_email = datos.get("email") or ""
@@ -110,6 +112,8 @@ class MiEmpresaState(PortalState):
 
     async def guardar_contacto(self):
         """Guarda los datos de contacto editados."""
+        if not self.es_admin_empresa:
+            return rx.toast.error("No tienes permisos para editar la empresa")
         if self._validar_contacto():
             return
 
@@ -347,7 +351,7 @@ def _seccion_contacto() -> rx.Component:
                 ),
                 rx.spacer(),
                 rx.cond(
-                    ~MiEmpresaState.editando_contacto,
+                    MiEmpresaState.es_admin_empresa & ~MiEmpresaState.editando_contacto,
                     rx.button(
                         rx.icon("pencil", size=14),
                         "Editar",

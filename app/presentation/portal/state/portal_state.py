@@ -6,7 +6,6 @@ acceso a la empresa activa, y carga de metricas del dashboard.
 """
 import reflex as rx
 import logging
-from typing import List, Optional
 
 from app.presentation.components.shared.auth_state import AuthState
 from app.services import empresa_service, empleado_service, contrato_service
@@ -38,6 +37,7 @@ class PortalState(AuthState):
     total_contratos: int = 0
     total_plazas_ocupadas: int = 0
     total_plazas_vacantes: int = 0
+    tiene_contratos_con_personal: bool = False
     metricas_cargadas: bool = False
 
     # ========================
@@ -62,6 +62,44 @@ class PortalState(AuthState):
                 "No tienes una empresa asignada. Contacta al administrador.",
                 position="top-center",
             )
+
+        await self._cargar_contexto_portal_empresa()
+
+    @staticmethod
+    def _contrato_tiene_personal(contrato) -> bool:
+        """Normaliza la bandera `tiene_personal` para modelos y dicts."""
+        if isinstance(contrato, dict):
+            return bool(contrato.get("tiene_personal"))
+        return bool(getattr(contrato, "tiene_personal", False))
+
+    async def _obtener_contratos_activos_empresa(self) -> list:
+        """Obtiene contratos activos de la empresa actual."""
+        if not self.id_empresa_actual:
+            return []
+        return await contrato_service.obtener_por_empresa(
+            self.id_empresa_actual,
+            incluir_inactivos=False,
+        )
+
+    async def _cargar_contexto_portal_empresa(self):
+        """Carga señales mínimas que usa la navegación del portal."""
+        self.total_contratos = 0
+        self.tiene_contratos_con_personal = False
+
+        if self.es_empleado_portal or not self.id_empresa_actual:
+            return
+
+        try:
+            contratos = await self._obtener_contratos_activos_empresa()
+            self.total_contratos = len(contratos)
+            self.tiene_contratos_con_personal = any(
+                self._contrato_tiene_personal(contrato)
+                for contrato in contratos
+            )
+        except Exception as e:
+            logger.error("Error cargando contexto del portal: %s", e)
+            self.total_contratos = 0
+            self.tiene_contratos_con_personal = False
 
     async def cambiar_empresa_portal(self, empresa_id_str: str):
         """
@@ -150,6 +188,11 @@ class PortalState(AuthState):
     async def _fetch_metricas(self):
         """Carga metricas rapidas para el dashboard (sin manejo de loading)."""
         if not self.id_empresa_actual:
+            self.total_empleados = 0
+            self.total_contratos = 0
+            self.total_plazas_ocupadas = 0
+            self.total_plazas_vacantes = 0
+            self.tiene_contratos_con_personal = False
             return
 
         try:
@@ -160,11 +203,12 @@ class PortalState(AuthState):
             )
 
             # Contratos activos
-            contratos = await contrato_service.obtener_por_empresa(
-                self.id_empresa_actual,
-                incluir_inactivos=False,
-            )
+            contratos = await self._obtener_contratos_activos_empresa()
             self.total_contratos = len(contratos)
+            self.tiene_contratos_con_personal = any(
+                self._contrato_tiene_personal(contrato)
+                for contrato in contratos
+            )
 
             # Plazas: sumar de todos los contratos
             from app.services import plaza_service
@@ -197,6 +241,73 @@ class PortalState(AuthState):
     def empresa_id(self) -> int:
         """ID de la empresa del usuario (shortcut)."""
         return self.id_empresa_actual
+
+    @rx.var
+    def es_usuario_empresa_portal(self) -> bool:
+        """Usuario portal vinculado a una empresa distinta al autoservicio."""
+        return bool(self.id_empresa_actual) and not self.es_empleado_portal
+
+    @rx.var
+    def mostrar_seccion_contrato(self) -> bool:
+        return self.es_usuario_empresa_portal
+
+    @rx.var
+    def mostrar_seccion_entregables(self) -> bool:
+        return self.es_usuario_empresa_portal and (
+            self.es_operaciones or self.es_contabilidad or self.es_admin_empresa
+        )
+
+    @rx.var
+    def mostrar_seccion_rrhh(self) -> bool:
+        return self.es_usuario_empresa_portal and self.tiene_contratos_con_personal and (
+            self.puede_gestionar_personal
+            or self.puede_registrar_personal
+            or self.es_operaciones
+        )
+
+    @rx.var
+    def mostrar_seccion_nominas(self) -> bool:
+        return self.es_usuario_empresa_portal and self.puede_acceder_nomina
+
+    @rx.var
+    def mostrar_seccion_empresa(self) -> bool:
+        return self.es_usuario_empresa_portal
+
+    @rx.var
+    def mostrar_seccion_autoservicio(self) -> bool:
+        return self.es_empleado_portal
+
+    @rx.var
+    def ruta_contrato_principal(self) -> str:
+        return "/portal/contratos"
+
+    @rx.var
+    def ruta_entregables_principal(self) -> str:
+        return "/portal/entregables"
+
+    @rx.var
+    def ruta_rrhh_principal(self) -> str:
+        if not self.mostrar_seccion_rrhh:
+            return "/portal"
+        if self.puede_gestionar_personal:
+            return "/portal/empleados"
+        if self.puede_registrar_personal:
+            return "/portal/onboarding"
+        if self.es_operaciones:
+            return "/portal/asistencias"
+        return "/portal"
+
+    @rx.var
+    def ruta_nominas_principal(self) -> str:
+        return "/portal/nominas"
+
+    @rx.var
+    def ruta_empresa_principal(self) -> str:
+        return "/portal/mi-empresa"
+
+    @rx.var
+    def ruta_autoservicio_principal(self) -> str:
+        return "/portal/mis-datos"
 
     @rx.var
     def total_plazas(self) -> int:

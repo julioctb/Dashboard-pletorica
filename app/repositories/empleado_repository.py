@@ -514,7 +514,7 @@ class SupabaseEmpleadoRepository:
 
         Un empleado está disponible si:
         - Está activo (estatus = ACTIVO)
-        - No tiene una asignación activa en historial_laboral
+        - No tiene una asignación vigente en historial_laboral (`fecha_fin IS NULL`)
 
         Returns:
             Lista de EmpleadoResumen de empleados disponibles
@@ -523,15 +523,15 @@ class SupabaseEmpleadoRepository:
             DatabaseError: Si hay error de BD
         """
         try:
-            # Obtener IDs de empleados con asignación activa
+            # Obtener IDs de empleados con asignación vigente a una plaza.
             result_historial = self.supabase.table('historial_laboral')\
-                .select('empleado_id')\
-                .eq('estatus', 'ACTIVA')\
+                .select('empleado_id, plaza_id')\
+                .is_('fecha_fin', 'null')\
                 .execute()
 
             empleados_asignados = set(
                 h['empleado_id'] for h in result_historial.data
-                if h.get('empleado_id') is not None
+                if h.get('empleado_id') is not None and h.get('plaza_id') is not None
             )
 
             # Obtener empleados activos

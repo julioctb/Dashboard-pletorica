@@ -332,7 +332,7 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
             self.loading = False
             yield resultado
             return
-        if not self.puede_gestionar_personal:
+        if not self.mostrar_seccion_rrhh or not self.puede_gestionar_personal:
             yield rx.redirect("/portal")
             return
         async for _ in self._montar_pagina(self._fetch_empleados):

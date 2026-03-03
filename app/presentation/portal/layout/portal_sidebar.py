@@ -129,52 +129,81 @@ def _portal_header() -> rx.Component:
 
 
 def _portal_navigation() -> rx.Component:
-    """Navegacion completa del portal, filtrada por rol_empresa."""
+    """Navegación del portal alineada con las secciones funcionales."""
     return rx.vstack(
-        # --- Dashboard (siempre visible) ---
         nav_group(nav_item(text="Dashboard", icon="layout-dashboard", href="/portal")),
-        # --- Mi Empresa (admin_empresa, rrhh) ---
         _cond_group(
-            AuthState.es_rrhh | AuthState.es_admin_empresa,
-            "Mi Empresa",
-            _cond_item(AuthState.es_admin_empresa, "Datos Empresa", "building-2", "/portal/mi-empresa"),
-            _cond_item(AuthState.puede_gestionar_personal, "Empleados", "users", "/portal/empleados"),
-            _cond_item(AuthState.puede_gestionar_personal, "Alta Masiva", "upload", "/portal/alta-masiva"),
-            _cond_item(AuthState.puede_configurar_empresa, "Configuracion", "settings", "/portal/configuracion-empresa"),
-            _cond_item(AuthState.es_admin_empresa, "Usuarios", "users-round", "/portal/usuarios"),
+            PortalState.mostrar_seccion_contrato,
+            "Contrato",
+            _cond_item(
+                PortalState.mostrar_seccion_contrato,
+                "Contratos",
+                "file-text",
+                "/portal/contratos",
+            ),
         ),
-        # --- RRHH (puede_registrar_personal) ---
         _cond_group(
-            AuthState.puede_registrar_personal,
+            PortalState.mostrar_seccion_entregables,
+            "Entregables",
+            _cond_item(
+                PortalState.mostrar_seccion_entregables,
+                "Entregables",
+                "package-check",
+                "/portal/entregables",
+            ),
+        ),
+        _cond_group(
+            PortalState.mostrar_seccion_rrhh,
             "RRHH",
-            _cond_item(AuthState.puede_registrar_personal, "Alta Empleados", "user-plus", "/portal/onboarding"),
+            _cond_item(AuthState.puede_gestionar_personal, "Empleados", "users", "/portal/empleados"),
+            _cond_item(AuthState.puede_gestionar_personal, "Alta masiva", "upload", "/portal/alta-masiva"),
+            _cond_item(AuthState.puede_registrar_personal, "Alta empleados", "user-plus", "/portal/onboarding"),
             _cond_item(AuthState.es_rrhh, "Expedientes", "folder-check", "/portal/expedientes"),
             _cond_item(AuthState.es_rrhh, "Bajas", "user-minus", "/portal/bajas"),
-            _cond_item(AuthState.es_rrhh & ~AuthState.es_operaciones, "Asistencias", "clipboard-check", "/portal/asistencias"),
-        ),
-        # --- Nomina (rrhh, contabilidad, admin_empresa) ---
-        _cond_group(
-            AuthState.puede_acceder_nomina,
-            "Nomina",
             _cond_item(
-                AuthState.puede_acceder_nomina,
+                AuthState.es_operaciones | AuthState.es_rrhh | AuthState.es_admin_empresa,
+                "Asistencias",
+                "clipboard-check",
+                "/portal/asistencias",
+            ),
+        ),
+        _cond_group(
+            PortalState.mostrar_seccion_nominas,
+            "Nominas",
+            _cond_item(
+                PortalState.mostrar_seccion_nominas,
                 "Nominas",
                 "calculator",
                 "/portal/nominas",
             ),
+            _cond_item(
+                PortalState.mostrar_seccion_nominas,
+                "Dashboard",
+                "layout-dashboard",
+                "/portal/nominas/dashboard",
+            ),
         ),
-        # --- Autoservicio (siempre visible) ---
-        nav_group(
-            nav_item(text="Mis Datos", icon="user-check", href="/portal/mis-datos"),
-            label="Autoservicio",
-        ),
-        # --- Operacion (operaciones, contabilidad, admin_empresa) ---
         _cond_group(
-            AuthState.es_operaciones | AuthState.es_contabilidad,
-            "Operacion",
-            _cond_item(AuthState.es_operaciones, "Contratos", "file-text", "/portal/contratos"),
-            _cond_item(AuthState.es_operaciones, "Asistencias", "clipboard-check", "/portal/asistencias"),
-            _cond_item(AuthState.es_operaciones | AuthState.es_contabilidad, "Entregables", "package-check", "/portal/entregables"),
+            PortalState.mostrar_seccion_empresa,
+            "Empresa",
+            _cond_item(
+                PortalState.mostrar_seccion_empresa,
+                "Datos empresa",
+                "building-2",
+                "/portal/mi-empresa",
+            ),
+            _cond_item(AuthState.puede_configurar_empresa, "Configuracion", "settings", "/portal/configuracion-empresa"),
+            _cond_item(AuthState.es_admin_empresa, "Usuarios", "users-round", "/portal/usuarios"),
+        ),
+        _cond_group(
+            PortalState.mostrar_seccion_autoservicio,
+            "Auto servicio",
+            _cond_item(
+                PortalState.mostrar_seccion_autoservicio,
+                "Mis datos",
+                "user-check",
+                "/portal/mis-datos",
+            ),
         ),
         spacing="0",
         width="100%",

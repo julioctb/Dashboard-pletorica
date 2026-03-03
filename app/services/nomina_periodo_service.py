@@ -64,7 +64,8 @@ class NominaPeriodoService:
         Resuelve salario diario vigente por empleado desde su asignación activa.
 
         Fuente de verdad:
-        - `historial_laboral` determina la asignación ACTIVA del empleado.
+        - `historial_laboral` determina la asignación vigente del empleado
+          mediante `fecha_fin IS NULL`.
         - `plazas.salario_mensual` define el salario vigente de esa asignación.
         """
         if not empleado_ids:
@@ -72,10 +73,10 @@ class NominaPeriodoService:
 
         res_historial = (
             self.supabase.table("historial_laboral")
-            .select("empleado_id, plaza_id")
+            .select("empleado_id, plaza_id, fecha_inicio")
             .in_("empleado_id", empleado_ids)
-            .eq("estatus", "ACTIVA")
             .is_("fecha_fin", "null")
+            .order("fecha_inicio", desc=True)
             .execute()
         )
 
@@ -105,6 +106,8 @@ class NominaPeriodoService:
             empleado_id = item.get("empleado_id")
             plaza_id = item.get("plaza_id")
             if empleado_id is None or plaza_id is None:
+                continue
+            if empleado_id in salario_diario_por_empleado:
                 continue
             salario_mensual = salario_mensual_por_plaza.get(plaza_id)
             salario_diario_por_empleado[empleado_id] = self._salario_diario_desde_mensual(

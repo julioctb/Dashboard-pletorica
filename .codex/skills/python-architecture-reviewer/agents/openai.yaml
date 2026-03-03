@@ -1,0 +1,4 @@
+interface:
+  display_name: "Python Architecture Reviewer"
+  short_description: "Revision Python, DRY, reuse y arquitectura"
+  default_prompt: "Use $python-architecture-reviewer para revisar este codigo Python y detectar duplicacion, inconsistencias y oportunidades de centralizar funciones reutilizables."

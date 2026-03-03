@@ -195,21 +195,21 @@ app.add_page(lambda: index(instituciones_page()), route="/admin/instituciones")
 app.add_page(login_page, route="/login")
 
 # =============================================================================
-# PORTAL — Dashboard y Autoservicio (sin guard de rol)
+# PORTAL — Dashboard y autoservicio
 # =============================================================================
 app.add_page(lambda: portal_index(portal_dashboard_page()), route="/portal")
 app.add_page(lambda: portal_index(mis_datos_page()), route="/portal/mis-datos")
 app.add_page(lambda: portal_index(mi_perfil_page()), route="/portal/mi-perfil")
 
 # =============================================================================
-# PORTAL — Mi Empresa (admin_empresa)
+# PORTAL — Empresa
 # =============================================================================
 app.add_page(lambda: portal_index(mi_empresa_page()), route="/portal/mi-empresa")
 app.add_page(lambda: portal_index(configuracion_empresa_page()), route="/portal/configuracion-empresa")
 app.add_page(lambda: portal_index(usuarios_empresa_page()), route="/portal/usuarios")
 
 # =============================================================================
-# PORTAL — RRHH (puede_gestionar_personal / puede_registrar_personal / es_rrhh)
+# PORTAL — RRHH
 # =============================================================================
 app.add_page(lambda: portal_index(mis_empleados_page()), route="/portal/empleados")
 app.add_page(lambda: portal_index(alta_masiva_page()), route="/portal/alta-masiva")
@@ -224,7 +224,7 @@ app.add_page(lambda: portal_index(dashboard_nomina_page()), route="/portal/nomin
 app.add_page(lambda: portal_index(conciliacion_nomina_page()), route="/portal/nominas/conciliacion")
 
 # =============================================================================
-# PORTAL — Operacion (es_operaciones / es_contabilidad)
+# PORTAL — Contratos y entregables
 # =============================================================================
 app.add_page(lambda: portal_index(mis_contratos_page()), route="/portal/contratos")
 app.add_page(lambda: portal_index(asistencias_page()), route="/portal/asistencias")

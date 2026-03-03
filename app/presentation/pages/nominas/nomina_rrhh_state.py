@@ -65,6 +65,9 @@ class NominaRRHHState(NominaBaseState):
     form_fecha_fin: str = ""
     form_fecha_pago: str = ""
     error_nombre: str = ""
+    error_fecha_inicio: str = ""
+    error_fecha_fin: str = ""
+    error_fecha_pago: str = ""
 
     # =========================================================================
     # FORMULARIO — Descuento
@@ -149,18 +152,25 @@ class NominaRRHHState(NominaBaseState):
     def set_form_nombre(self, v: str):
         self.form_nombre = v
         self.error_nombre = ""
+        self.limpiar_mensajes()
 
     def set_form_periodicidad(self, v: str):
         self.form_periodicidad = v
 
     def set_form_fecha_inicio(self, v: str):
         self.form_fecha_inicio = v
+        self.error_fecha_inicio = ""
+        self.limpiar_mensajes()
 
     def set_form_fecha_fin(self, v: str):
         self.form_fecha_fin = v
+        self.error_fecha_fin = ""
+        self.limpiar_mensajes()
 
     def set_form_fecha_pago(self, v: str):
         self.form_fecha_pago = v
+        self.error_fecha_pago = ""
+        self.limpiar_mensajes()
 
     def set_form_concepto_clave(self, v: str):
         self.form_concepto_clave = v
@@ -240,11 +250,19 @@ class NominaRRHHState(NominaBaseState):
     # =========================================================================
 
     def abrir_modal_periodo(self):
+        self.limpiar_mensajes()
         self._limpiar_form_periodo()
         self.mostrar_modal_periodo = True
 
     def cerrar_modal_periodo(self):
         self.mostrar_modal_periodo = False
+        self._limpiar_form_periodo()
+
+    def set_mostrar_modal_periodo(self, value: bool):
+        self.mostrar_modal_periodo = value
+        if value:
+            self.limpiar_mensajes()
+            return
         self._limpiar_form_periodo()
 
     def _limpiar_form_periodo(self):
@@ -254,29 +272,77 @@ class NominaRRHHState(NominaBaseState):
         self.form_fecha_fin = ""
         self.form_fecha_pago = ""
         self.error_nombre = ""
+        self.error_fecha_inicio = ""
+        self.error_fecha_fin = ""
+        self.error_fecha_pago = ""
+        self.limpiar_mensajes()
+
+    def _validar_form_periodo(self) -> Optional[tuple[date, date, Optional[date]]]:
+        """Valida el formulario y retorna fechas parseadas cuando es válido."""
+        self.error_nombre = ""
+        self.error_fecha_inicio = ""
+        self.error_fecha_fin = ""
+        self.error_fecha_pago = ""
+        self.limpiar_mensajes()
+
+        if not self.form_nombre.strip():
+            self.error_nombre = "El nombre es obligatorio"
+
+        if not self.form_fecha_inicio:
+            self.error_fecha_inicio = "La fecha de inicio es obligatoria"
+
+        if not self.form_fecha_fin:
+            self.error_fecha_fin = "La fecha de fin es obligatoria"
+
+        if self.error_nombre or self.error_fecha_inicio or self.error_fecha_fin:
+            self.mostrar_mensaje("Completa los campos obligatorios del período.", "error")
+            return None
+
+        try:
+            fecha_inicio = date.fromisoformat(self.form_fecha_inicio)
+        except ValueError:
+            self.error_fecha_inicio = "La fecha de inicio no es válida"
+            self.mostrar_mensaje("Corrige la fecha de inicio.", "error")
+            return None
+
+        try:
+            fecha_fin = date.fromisoformat(self.form_fecha_fin)
+        except ValueError:
+            self.error_fecha_fin = "La fecha de fin no es válida"
+            self.mostrar_mensaje("Corrige la fecha de fin.", "error")
+            return None
+
+        fecha_pago = None
+        if self.form_fecha_pago:
+            try:
+                fecha_pago = date.fromisoformat(self.form_fecha_pago)
+            except ValueError:
+                self.error_fecha_pago = "La fecha de pago no es válida"
+                self.mostrar_mensaje("Corrige la fecha de pago.", "error")
+                return None
+
+        if fecha_fin < fecha_inicio:
+            self.error_fecha_fin = "La fecha de fin debe ser posterior o igual al inicio"
+            self.mostrar_mensaje("Corrige el rango de fechas del período.", "error")
+            return None
+
+        if fecha_pago is not None and fecha_pago < fecha_inicio:
+            self.error_fecha_pago = "La fecha de pago no puede ser anterior al inicio"
+            self.mostrar_mensaje("Corrige la fecha de pago.", "error")
+            return None
+
+        return fecha_inicio, fecha_fin, fecha_pago
 
     async def crear_periodo(self):
         """Crea período, pobla empleados y refresca la lista."""
-        if not self.form_nombre.strip():
-            self.error_nombre = "El nombre es obligatorio"
+        valores = self._validar_form_periodo()
+        if not valores:
             return
-        if not self.form_fecha_inicio or not self.form_fecha_fin:
-            yield self.mostrar_mensaje("Las fechas de inicio y fin son obligatorias", "error")
-            return
+
+        fecha_inicio, fecha_fin, fecha_pago = valores
 
         self.saving = True
         try:
-            fecha_inicio = date.fromisoformat(self.form_fecha_inicio)
-            fecha_fin = date.fromisoformat(self.form_fecha_fin)
-            fecha_pago = (
-                date.fromisoformat(self.form_fecha_pago)
-                if self.form_fecha_pago else None
-            )
-
-            if fecha_fin < fecha_inicio:
-                yield self.mostrar_mensaje("La fecha de fin debe ser posterior al inicio", "error")
-                return
-
             periodo = await nomina_periodo_service.crear_periodo(
                 empresa_id=self.id_empresa_actual,
                 nombre=self.form_nombre.strip(),
@@ -285,12 +351,23 @@ class NominaRRHHState(NominaBaseState):
                 periodicidad=self.form_periodicidad,
                 fecha_pago=fecha_pago,
             )
-            await nomina_periodo_service.poblar_empleados(periodo['id'])
+            total_empleados = await nomina_periodo_service.poblar_empleados(periodo['id'])
 
             self.mostrar_modal_periodo = False
             self._limpiar_form_periodo()
-            yield self.mostrar_mensaje("Período creado y empleados cargados", "success")
+            self.filtro_estatus_periodos = FILTRO_TODOS
             await self._cargar_periodos()
+
+            if total_empleados > 0:
+                yield rx.toast.success(
+                    f"Período creado con {total_empleados} empleado(s) cargado(s)",
+                    position="top-center",
+                )
+            else:
+                yield rx.toast.success(
+                    "Período creado. No se encontraron empleados activos para poblar.",
+                    position="top-center",
+                )
 
         except Exception as e:
             self.manejar_error(e, "crear período")

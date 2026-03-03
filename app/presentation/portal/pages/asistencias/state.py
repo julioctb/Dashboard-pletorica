@@ -328,10 +328,12 @@ class AsistenciasState(PortalState):
             self.loading = False
             yield resultado
             return
-        if not (self.es_operaciones or self.es_rrhh or self.es_admin_empresa):
+        if not self.mostrar_seccion_rrhh or not (
+            self.es_operaciones or self.es_rrhh or self.es_admin_empresa
+        ):
             yield rx.redirect("/portal")
             return
-        async for _ in self._montar_pagina_portal(self._cargar_contexto_inicial):
+        async for _ in self._montar_pagina(self._cargar_contexto_inicial):
             yield
 
     async def _cargar_contexto_inicial(self):
