@@ -644,6 +644,7 @@ def modal_contrato() -> rx.Component:
                     texto_guardando="Guardando...",
                     on_click=ContratosState.guardar_contrato,
                     saving=ContratosState.saving,
+                    disabled=~ContratosState.puede_guardar,
                 ),
                 spacing="4",
                 justify="end"

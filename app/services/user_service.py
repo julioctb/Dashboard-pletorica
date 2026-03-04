@@ -83,6 +83,41 @@ class UserService:
         # Cliente admin (service_role, ignora RLS) - para crear usuarios y queries de datos
         self.supabase_admin: Optional[Client] = db_manager.get_client()
 
+    def _listar_auth_users_admin(self) -> list:
+        """Obtiene usuarios de auth.users con una forma estable entre SDKs."""
+        if not self.supabase_admin:
+            return []
+
+        response = self.supabase_admin.auth.admin.list_users()
+        users = getattr(response, "users", None)
+        if users is not None:
+            return list(users)
+        if isinstance(response, list):
+            return response
+        data = getattr(response, "data", None)
+        if isinstance(data, list):
+            return data
+        return []
+
+    def _emails_map_auth_users(self) -> dict[str, str]:
+        """Mapa user_id -> email desde auth.users."""
+        emails_map: dict[str, str] = {}
+        for user in self._listar_auth_users_admin():
+            user_id = getattr(user, "id", None)
+            email = getattr(user, "email", None)
+            if user_id and email:
+                emails_map[str(user_id)] = str(email).strip().lower()
+        return emails_map
+
+    def _buscar_auth_user_por_email(self, email: str):
+        """Busca un usuario de auth.users por email normalizado."""
+        email_normalizado = email.strip().lower()
+        for user in self._listar_auth_users_admin():
+            user_email = getattr(user, "email", None)
+            if user_email and str(user_email).strip().lower() == email_normalizado:
+                return user
+        return None
+
     # =========================================================================
     # AUTENTICACIÓN
     # =========================================================================
@@ -704,8 +739,7 @@ class UserService:
             # Obtener emails de auth.users (un solo request)
             emails_map = {}
             try:
-                auth_users = self.supabase_admin.auth.admin.list_users()
-                emails_map = {u.id: u.email for u in auth_users if u.email}
+                emails_map = self._emails_map_auth_users()
             except Exception as e:
                 logger.warning(f"No se pudieron obtener emails de auth.users: {e}")
 
@@ -728,7 +762,7 @@ class UserService:
                     ultimo_acceso=profile.ultimo_acceso,
                     puede_gestionar_usuarios=profile.puede_gestionar_usuarios,
                     permisos=profile.permisos,
-                    email=emails_map.get(str(profile.id)),
+                email=emails_map.get(str(profile.id)),
                     cantidad_empresas=len(empresas),
                     empresa_principal=empresa_principal,
                 )
@@ -1272,16 +1306,48 @@ class UserService:
         """
         try:
             result = self.supabase_admin.table(self.tabla_companies)\
-                .select('*, user_profiles(id, email, nombre_completo, telefono, activo, permisos)')\
+                .select('*')\
                 .eq('empresa_id', empresa_id)\
                 .execute()
 
+            rows = result.data or []
+            user_ids = [
+                str(row.get('user_id'))
+                for row in rows
+                if row.get('user_id')
+            ]
+
+            perfiles_map: dict[str, dict] = {}
+            if user_ids:
+                perfiles_result = self.supabase_admin.table(self.tabla_profiles)\
+                    .select('id, nombre_completo, telefono, activo, permisos')\
+                    .in_('id', user_ids)\
+                    .execute()
+                perfiles_map = {
+                    str(perfil.get('id')): perfil
+                    for perfil in (perfiles_result.data or [])
+                    if perfil.get('id')
+                }
+
+            emails_map = {}
+            try:
+                emails_map = self._emails_map_auth_users()
+            except Exception as e:
+                logger.warning(f"No se pudieron obtener emails de auth.users: {e}")
+
             usuarios = []
-            for row in result.data:
-                perfil = row.get('user_profiles') or {}
+            for row in rows:
+                user_id = str(row.get('user_id', ''))
+                perfil = perfiles_map.get(user_id, {})
+                if not perfil:
+                    logger.warning(
+                        "Usuario %s asignado a empresa %s sin perfil cargado en listado portal",
+                        user_id,
+                        empresa_id,
+                    )
                 usuarios.append({
-                    'user_id': str(row.get('user_id', '')),
-                    'email': perfil.get('email', ''),
+                    'user_id': user_id,
+                    'email': emails_map.get(user_id, ''),
                     'nombre_completo': perfil.get('nombre_completo', ''),
                     'telefono': perfil.get('telefono', ''),
                     'rol_empresa': row.get('rol_empresa', 'lectura'),
@@ -1289,7 +1355,11 @@ class UserService:
                     'activo_empresa': row.get('activo', True),
                     'activo_perfil': perfil.get('activo', True),
                     'es_principal': row.get('es_principal', False),
-                    'created_at': str(row.get('created_at', '')),
+                    'created_at': str(
+                        row.get('created_at')
+                        or row.get('fecha_creacion')
+                        or ''
+                    ),
                 })
 
             # Ordenar por nombre
@@ -1329,16 +1399,19 @@ class UserService:
                 "No se puede crear usuarios: SUPABASE_SERVICE_KEY no configurada"
             )
 
-        # Buscar si el email ya existe en user_profiles
+        # Buscar si el email ya existe en auth.users
         try:
-            perfil_result = self.supabase_admin.table(self.tabla_profiles)\
-                .select('id, email, rol, activo')\
-                .eq('email', email.strip().lower())\
-                .execute()
+            auth_user = self._buscar_auth_user_por_email(email)
+            perfil_result = None
+            if auth_user and getattr(auth_user, "id", None):
+                perfil_result = self.supabase_admin.table(self.tabla_profiles)\
+                    .select('id, rol, activo, nombre_completo')\
+                    .eq('id', str(auth_user.id))\
+                    .execute()
         except Exception as e:
             raise DatabaseError(f"Error buscando usuario: {str(e)}")
 
-        if not perfil_result.data:
+        if not perfil_result or not perfil_result.data:
             # --- CASO 1: Usuario nuevo ---
             password_temporal = self._generar_password_temporal()
             perfil = await self.crear_usuario(
@@ -1486,4 +1559,3 @@ class UserService:
 # =============================================================================
 
 user_service = UserService()
-

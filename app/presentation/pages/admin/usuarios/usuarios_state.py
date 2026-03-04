@@ -688,11 +688,7 @@ class UsuariosAdminState(AuthState):
             items = [u for u in items if self._rol_matches_filtro(str(u.get("rol", "")))]
 
             # Ocultar cuenta propia de la gestión de usuarios (Mi Perfil va aparte)
-            if self.id_usuario:
-                items = [
-                    u for u in items
-                    if str(u.get("id", "")) != str(self.id_usuario)
-                ]
+            items = self.excluir_usuario_actual(items, id_field="id")
 
             # Scope institucional: solo proveedores ligados a empresas de su institución
             if self._actor_es_institucion_local():

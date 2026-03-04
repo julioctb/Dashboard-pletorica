@@ -1039,11 +1039,15 @@ class ContratosState(AuthState, CRUDStateMixin):
 
     def abrir_modal_editar(self, contrato: dict):
         """Abrir modal para editar contrato"""
-        self._limpiar_formulario()
-        self.es_edicion = True
-        self.contrato_seleccionado = contrato
-        self._cargar_contrato_en_formulario(contrato)
-        self.mostrar_modal_contrato = True
+        try:
+            self._asegurar_permiso_editar_contrato(contrato)
+            self._limpiar_formulario()
+            self.es_edicion = True
+            self.contrato_seleccionado = contrato
+            self._cargar_contrato_en_formulario(contrato)
+            self.mostrar_modal_contrato = True
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "al abrir edición de contrato")
 
     def cerrar_modal_contrato(self):
         """Cerrar modal de crear/editar"""
@@ -1627,6 +1631,8 @@ class ContratosState(AuthState, CRUDStateMixin):
         fecha_fin = None
         if self.form_fecha_fin:
             fecha_fin = date.fromisoformat(self.form_fecha_fin)
+        if tipo_duracion == TipoDuracion.TIEMPO_DETERMINADO and not fecha_fin:
+            raise BusinessRuleError("Los contratos de tiempo determinado deben tener fecha de fin")
 
         # monto_minimo: solo para SERVICIOS
         monto_minimo = None
@@ -1712,6 +1718,20 @@ class ContratosState(AuthState, CRUDStateMixin):
 
         if not (self.es_superadmin or self.puede_operar_contratos):
             raise BusinessRuleError("No tienes permisos para operar contratos")
+
+    def _asegurar_permiso_editar_contrato(self, contrato: Optional[dict]):
+        """Valida que el usuario pueda editar el contrato en el contexto actual."""
+        self._asegurar_permiso_operar_contratos()
+
+        if not contrato:
+            raise BusinessRuleError("No hay contrato seleccionado para editar")
+
+        if self.es_contexto_portal:
+            contrato_empresa_id = int(contrato.get("empresa_id") or 0)
+            if not self.id_empresa_actual or contrato_empresa_id != int(self.id_empresa_actual):
+                raise BusinessRuleError(
+                    "Solo puedes editar contratos de la empresa activa en el portal"
+                )
 
     def _resolver_codigo_empresa(self) -> str:
         """Obtiene el código corto configurado de la empresa seleccionada."""

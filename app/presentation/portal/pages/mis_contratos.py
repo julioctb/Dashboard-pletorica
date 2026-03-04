@@ -1,8 +1,8 @@
 """
 Pagina Mis Contratos del portal de cliente.
 
-Muestra la lista de contratos de la empresa en modo solo lectura.
-Permite busqueda y filtro por estatus. Incluye detalle expandible.
+Muestra la lista de contratos de la empresa.
+Permite búsqueda, filtro por estatus, detalle, edición y cambios de estatus para admin_empresa.
 """
 import reflex as rx
 from typing import List
@@ -13,10 +13,15 @@ from app.presentation.pages.contratos.contratos_modals import modal_contrato
 from app.presentation.pages.contratos.contratos_state import ContratosState
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.layout import page_layout, page_header, page_toolbar
-from app.presentation.components.ui import entity_card, entity_grid
+from app.presentation.components.ui import (
+    entity_card,
+    entity_grid,
+    boton_cancelar,
+    boton_eliminar,
+)
 from app.presentation.theme import Colors, Typography, Spacing
 from app.services import contrato_service
-from app.core.exceptions import DatabaseError
+from app.core.exceptions import DatabaseError, BusinessRuleError
 
 
 # =============================================================================
@@ -36,6 +41,8 @@ class MisContratosState(PortalState):
     # Detalle
     contrato_detalle: dict = {}
     modal_detalle_abierto: bool = False
+    mostrar_modal_confirmar_cancelar: bool = False
+    saving_accion_contrato: bool = False
 
     # Setters
     def set_filtro_busqueda_cto(self, value: str):
@@ -99,6 +106,113 @@ class MisContratosState(PortalState):
         self.modal_detalle_abierto = False
         self.contrato_detalle = {}
 
+    def abrir_confirmar_cancelar(self):
+        """Abre la confirmación de cancelación para el contrato en detalle."""
+        if not self.contrato_detalle:
+            return rx.toast.error("No hay contrato seleccionado")
+        self.modal_detalle_abierto = False
+        self.mostrar_modal_confirmar_cancelar = True
+
+    def cerrar_confirmar_cancelar(self):
+        self.mostrar_modal_confirmar_cancelar = False
+
+    async def abrir_edicion_contrato(self):
+        """Abre el modal de edición del contrato seleccionado desde el detalle."""
+        if not self.es_admin_empresa:
+            return rx.toast.error("Solo admin_empresa puede editar contratos en el portal")
+
+        contrato = self.contrato_detalle
+        if not contrato:
+            return rx.toast.error("No hay contrato seleccionado")
+
+        contrato_empresa_id = int(contrato.get("empresa_id") or 0)
+        if not self.id_empresa_actual or contrato_empresa_id != int(self.id_empresa_actual):
+            return rx.toast.error("Solo puedes editar contratos de la empresa activa")
+
+        contratos_state = await self.get_state(ContratosState)
+        await contratos_state.cargar_empresas()
+        await contratos_state.cargar_tipos_servicio()
+
+        self.cerrar_detalle()
+        return contratos_state.abrir_modal_editar(contrato)
+
+    def _asegurar_permiso_operar_contrato(self, contrato: dict):
+        """Valida que el contrato pertenezca a la empresa activa del portal."""
+        if not self.es_admin_empresa:
+            raise BusinessRuleError("Solo admin_empresa puede operar contratos en el portal")
+
+        if not contrato:
+            raise BusinessRuleError("No hay contrato seleccionado")
+
+        contrato_empresa_id = int(contrato.get("empresa_id") or 0)
+        if not self.id_empresa_actual or contrato_empresa_id != int(self.id_empresa_actual):
+            raise BusinessRuleError("Solo puedes operar contratos de la empresa activa")
+
+    async def activar_contrato(self):
+        """Activa un contrato en borrador desde el portal."""
+        contrato = self.contrato_detalle
+        try:
+            self._asegurar_permiso_operar_contrato(contrato)
+            self.saving_accion_contrato = True
+            codigo = contrato.get("codigo", "")
+            await contrato_service.activar(int(contrato["id"]))
+            self.cerrar_detalle()
+            await self._fetch_contratos()
+            return rx.toast.success(f"Contrato '{codigo}' activado exitosamente")
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "activando contrato")
+        finally:
+            self.saving_accion_contrato = False
+
+    async def suspender_contrato(self):
+        """Suspende un contrato activo desde el portal."""
+        contrato = self.contrato_detalle
+        try:
+            self._asegurar_permiso_operar_contrato(contrato)
+            self.saving_accion_contrato = True
+            codigo = contrato.get("codigo", "")
+            await contrato_service.suspender(int(contrato["id"]))
+            self.cerrar_detalle()
+            await self._fetch_contratos()
+            return rx.toast.success(f"Contrato '{codigo}' suspendido exitosamente")
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "suspendiendo contrato")
+        finally:
+            self.saving_accion_contrato = False
+
+    async def reactivar_contrato(self):
+        """Reactiva un contrato suspendido desde el portal."""
+        contrato = self.contrato_detalle
+        try:
+            self._asegurar_permiso_operar_contrato(contrato)
+            self.saving_accion_contrato = True
+            codigo = contrato.get("codigo", "")
+            await contrato_service.reactivar(int(contrato["id"]))
+            self.cerrar_detalle()
+            await self._fetch_contratos()
+            return rx.toast.success(f"Contrato '{codigo}' reactivado exitosamente")
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "reactivando contrato")
+        finally:
+            self.saving_accion_contrato = False
+
+    async def cancelar_contrato(self):
+        """Cancela el contrato seleccionado desde el portal."""
+        contrato = self.contrato_detalle
+        try:
+            self._asegurar_permiso_operar_contrato(contrato)
+            self.saving_accion_contrato = True
+            codigo = contrato.get("codigo", "")
+            await contrato_service.cancelar(int(contrato["id"]))
+            self.cerrar_confirmar_cancelar()
+            self.contrato_detalle = {}
+            await self._fetch_contratos()
+            return rx.toast.success(f"Contrato '{codigo}' cancelado exitosamente")
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "cancelando contrato")
+        finally:
+            self.saving_accion_contrato = False
+
     @rx.var
     def contratos_filtrados(self) -> List[dict]:
         """Filtra contratos por texto de busqueda."""
@@ -111,6 +225,34 @@ class MisContratosState(PortalState):
             or termino in (c.get("numero_folio_buap") or "").lower()
             or termino in (c.get("descripcion_objeto") or "").lower()
         ]
+
+    @rx.var
+    def puede_editar_detalle(self) -> bool:
+        contrato = self.contrato_detalle
+        if not self.es_admin_empresa or not contrato:
+            return False
+        estatus = str(contrato.get("estatus", ""))
+        return estatus in ("BORRADOR", "SUSPENDIDO")
+
+    @rx.var
+    def puede_activar_detalle(self) -> bool:
+        contrato = self.contrato_detalle
+        return bool(self.es_admin_empresa and contrato and contrato.get("estatus") == "BORRADOR")
+
+    @rx.var
+    def puede_suspender_detalle(self) -> bool:
+        contrato = self.contrato_detalle
+        return bool(self.es_admin_empresa and contrato and contrato.get("estatus") == "ACTIVO")
+
+    @rx.var
+    def puede_reactivar_detalle(self) -> bool:
+        contrato = self.contrato_detalle
+        return bool(self.es_admin_empresa and contrato and contrato.get("estatus") == "SUSPENDIDO")
+
+    @rx.var
+    def puede_cancelar_detalle(self) -> bool:
+        contrato = self.contrato_detalle
+        return bool(self.es_admin_empresa and contrato and contrato.get("estatus") != "CANCELADO")
 
 
 # =============================================================================
@@ -301,17 +443,129 @@ def _modal_detalle_contrato() -> rx.Component:
                 width="100%",
                 padding_y=Spacing.BASE,
             ),
-            rx.button(
-                "Cerrar",
-                variant="outline",
-                size="2",
+            rx.vstack(
+                rx.hstack(
+                    rx.cond(
+                        MisContratosState.puede_editar_detalle,
+                        rx.button(
+                            rx.icon("pencil", size=16),
+                            "Editar contrato",
+                            on_click=MisContratosState.abrir_edicion_contrato,
+                            color_scheme="teal",
+                            variant="soft",
+                            disabled=MisContratosState.saving_accion_contrato,
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.cond(
+                        MisContratosState.puede_activar_detalle,
+                        rx.button(
+                            rx.icon("check", size=16),
+                            "Activar",
+                            on_click=MisContratosState.activar_contrato,
+                            color_scheme="green",
+                            variant="soft",
+                            disabled=MisContratosState.saving_accion_contrato,
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.cond(
+                        MisContratosState.puede_suspender_detalle,
+                        rx.button(
+                            rx.icon("pause", size=16),
+                            "Suspender",
+                            on_click=MisContratosState.suspender_contrato,
+                            color_scheme="orange",
+                            variant="soft",
+                            disabled=MisContratosState.saving_accion_contrato,
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.cond(
+                        MisContratosState.puede_reactivar_detalle,
+                        rx.button(
+                            rx.icon("play", size=16),
+                            "Reactivar",
+                            on_click=MisContratosState.reactivar_contrato,
+                            color_scheme="green",
+                            variant="soft",
+                            disabled=MisContratosState.saving_accion_contrato,
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.cond(
+                        MisContratosState.puede_cancelar_detalle,
+                        rx.button(
+                            rx.icon("x", size=16),
+                            "Cancelar contrato",
+                            on_click=MisContratosState.abrir_confirmar_cancelar,
+                            color_scheme="red",
+                            variant="soft",
+                            disabled=MisContratosState.saving_accion_contrato,
+                        ),
+                        rx.fragment(),
+                    ),
+                    spacing="2",
+                    wrap="wrap",
+                    width="100%",
+                ),
+                rx.hstack(
+                    rx.spacer(),
+                    boton_cancelar(
+                        texto="Cerrar",
+                        on_click=MisContratosState.cerrar_detalle,
+                    ),
+                    width="100%",
+                    align="center",
+                ),
+                spacing="3",
                 width="100%",
-                on_click=MisContratosState.cerrar_detalle,
             ),
             max_width="600px",
         ),
         open=MisContratosState.modal_detalle_abierto,
         # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
+    )
+
+
+def _modal_confirmar_cancelar() -> rx.Component:
+    """Modal de confirmación para cancelar el contrato desde el portal."""
+    datos = MisContratosState.contrato_detalle
+
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title("Cancelar contrato"),
+            rx.dialog.description(
+                rx.cond(
+                    datos,
+                    rx.text(
+                        "¿Está seguro que desea cancelar el contrato ",
+                        rx.text(datos["codigo"], weight="bold", as_="span"),
+                        "? Esta acción no se puede deshacer.",
+                    ),
+                    rx.text("¿Está seguro que desea cancelar este contrato?"),
+                ),
+            ),
+            rx.hstack(
+                boton_cancelar(
+                    texto="No, conservar",
+                    on_click=MisContratosState.cerrar_confirmar_cancelar,
+                    disabled=MisContratosState.saving_accion_contrato,
+                ),
+                boton_eliminar(
+                    texto="Sí, cancelar",
+                    texto_eliminando="Cancelando...",
+                    on_click=MisContratosState.cancelar_contrato,
+                    saving=MisContratosState.saving_accion_contrato,
+                ),
+                spacing="3",
+                justify="end",
+                width="100%",
+            ),
+            max_width="500px",
+        ),
+        open=MisContratosState.mostrar_modal_confirmar_cancelar,
         on_open_change=rx.noop,
     )
 
@@ -350,6 +604,7 @@ def mis_contratos_page() -> rx.Component:
             content=rx.vstack(
                 _grid_contratos(),
                 _modal_detalle_contrato(),
+                _modal_confirmar_cancelar(),
                 modal_contrato(),
                 width="100%",
                 spacing="4",

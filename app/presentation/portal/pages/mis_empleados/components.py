@@ -8,6 +8,7 @@ import reflex as rx
 from app.presentation.constants import FILTRO_TODOS
 from app.presentation.components.ui import (
     tabla_action_button,
+    tabla_action_buttons,
     empty_state_card,
     employee_status_badge,
 )
@@ -54,7 +55,7 @@ def fila_empleado(emp: dict) -> rx.Component:
             badge_estatus(emp["estatus"]),
         ),
         rx.table.cell(
-            rx.hstack(
+            tabla_action_buttons([
                 tabla_action_button(
                     icon="pencil",
                     tooltip="Editar",
@@ -62,21 +63,14 @@ def fila_empleado(emp: dict) -> rx.Component:
                     color_scheme="teal",
                     visible=puede_editar,
                 ),
-                rx.cond(
-                    puede_dar_baja,
-                    rx.button(
-                        rx.icon("user-minus", size=14),
-                        "Dar de baja",
-                        on_click=MisEmpleadosState.abrir_modal_baja(emp),
-                        variant="soft",
-                        color_scheme="red",
-                        size="1",
-                    ),
-                    rx.fragment(),
+                tabla_action_button(
+                    icon="user-minus",
+                    tooltip="Dar de baja",
+                    on_click=MisEmpleadosState.abrir_modal_baja(emp),
+                    color_scheme="red",
+                    visible=puede_dar_baja,
                 ),
-                spacing="1",
-                align="center",
-            ),
+            ]),
         ),
     )
 
@@ -86,7 +80,7 @@ ENCABEZADOS_EMPLEADOS = [
     {"nombre": "Nombre", "ancho": "auto"},
     {"nombre": "CURP", "ancho": "200px"},
     {"nombre": "Estatus", "ancho": "100px"},
-    {"nombre": "Acciones", "ancho": "170px"},
+    {"nombre": "Acciones", "ancho": "120px"},
 ]
 
 
@@ -100,8 +94,15 @@ def tabla_empleados() -> rx.Component:
         has_rows=MisEmpleadosState.total_empleados_filtrados > 0,
         empty_component=empty_state_card(
             title="No hay empleados registrados",
-            description="Cree el primer empleado para esta empresa.",
+            description="Cree el primer empleado de esta empresa.",
             icon="users",
+            action_button=rx.button(
+                rx.icon("plus", size=16),
+                "Nuevo Empleado",
+                on_click=MisEmpleadosState.abrir_modal_crear,
+                color_scheme="teal",
+                variant="soft",
+            ),
         ),
         total_caption="Mostrando "
         + MisEmpleadosState.total_empleados_filtrados.to(str)

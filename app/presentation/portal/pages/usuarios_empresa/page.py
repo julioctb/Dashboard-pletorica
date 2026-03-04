@@ -7,8 +7,12 @@ crear usuarios, editar rol/permisos, desactivar/reactivar.
 import reflex as rx
 
 from app.presentation.layout import page_layout, page_header, page_toolbar
-from app.presentation.theme import Colors, Typography, Spacing
+from app.presentation.theme import Colors
 from app.core.constants.permisos import ROLES_ASIGNABLES_POR_ADMIN_EMPRESA
+from app.presentation.components.ui import (
+    tabla_action_button,
+    tabla_action_buttons,
+)
 
 from .state import UsuariosEmpresaState
 from .modals import (
@@ -16,32 +20,6 @@ from .modals import (
     modal_editar_usuario_empresa,
     modal_toggle_activo_usuario,
 )
-
-
-# =============================================================================
-# BADGE DE ROL
-# =============================================================================
-
-_ROL_COLORES = {
-    "rrhh": "blue",
-    "operaciones": "orange",
-    "contabilidad": "purple",
-    "lectura": "gray",
-}
-
-
-def _badge_rol(rol: str) -> rx.Component:
-    """Badge con el rol de empresa."""
-    labels = {
-        "rrhh": "RRHH",
-        "operaciones": "Operaciones",
-        "contabilidad": "Contabilidad",
-        "lectura": "Solo lectura",
-    }
-    return rx.foreach(
-        ROLES_ASIGNABLES_POR_ADMIN_EMPRESA,
-        lambda _: rx.fragment(),  # dummy — ver abajo
-    )
 
 
 def _badge_rol_usuario(usuario: dict) -> rx.Component:
@@ -105,42 +83,31 @@ def _fila_usuario(usuario: dict) -> rx.Component:
         rx.table.cell(_badge_estado(usuario)),
         # Acciones
         rx.table.cell(
-            rx.hstack(
-                rx.tooltip(
-                    rx.icon_button(
-                        rx.icon("pencil", size=14),
-                        size="1",
-                        variant="ghost",
-                        color_scheme="blue",
-                        on_click=UsuariosEmpresaState.abrir_modal_editar(usuario),
-                    ),
-                    content="Editar rol y permisos",
+            tabla_action_buttons([
+                tabla_action_button(
+                    icon="pencil",
+                    tooltip="Editar rol y permisos",
+                    on_click=UsuariosEmpresaState.abrir_modal_editar(usuario),
+                    color_scheme="blue",
+                    disabled=UsuariosEmpresaState.saving,
                 ),
-                rx.tooltip(
-                    rx.icon_button(
-                        rx.cond(
-                            usuario["activo_empresa"].to(bool),
-                            rx.icon("user-x", size=14),
-                            rx.icon("user-check", size=14),
-                        ),
-                        size="1",
-                        variant="ghost",
-                        color_scheme=rx.cond(
-                            usuario["activo_empresa"].to(bool),
-                            "red",
-                            "green",
-                        ),
-                        on_click=UsuariosEmpresaState.abrir_modal_desactivar(usuario),
-                    ),
-                    content=rx.cond(
-                        usuario["activo_empresa"].to(bool),
-                        "Desactivar acceso",
-                        "Reactivar acceso",
-                    ),
+                tabla_action_button(
+                    icon="user-x",
+                    tooltip="Desactivar acceso",
+                    on_click=UsuariosEmpresaState.abrir_modal_desactivar(usuario),
+                    color_scheme="red",
+                    visible=usuario["activo_empresa"].to(bool),
+                    disabled=UsuariosEmpresaState.saving,
                 ),
-                spacing="1",
-                align="center",
-            ),
+                tabla_action_button(
+                    icon="user-check",
+                    tooltip="Reactivar acceso",
+                    on_click=UsuariosEmpresaState.abrir_modal_desactivar(usuario),
+                    color_scheme="green",
+                    visible=~usuario["activo_empresa"].to(bool),
+                    disabled=UsuariosEmpresaState.saving,
+                ),
+            ]),
             text_align="right",
         ),
         align="center",

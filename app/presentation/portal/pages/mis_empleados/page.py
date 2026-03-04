@@ -19,7 +19,7 @@ def mis_empleados_page() -> rx.Component:
         page_layout(
             header=page_header(
                 titulo="Empleados",
-                subtitulo="Empleados de la empresa",
+                subtitulo="Empleados de la empresa actual",
                 icono="users",
                 accion_principal=rx.button(
                     rx.icon("plus", size=16),

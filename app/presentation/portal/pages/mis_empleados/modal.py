@@ -4,7 +4,7 @@ Modal para crear/editar empleados en el portal.
 import reflex as rx
 
 from app.presentation.theme import Colors, Typography, Spacing
-from app.presentation.components.ui import boton_cancelar, boton_guardar
+from app.presentation.components.ui import form_date, form_select, form_textarea
 from app.presentation.components.reusable import (
     employee_form_body,
     employee_form_modal,
@@ -34,7 +34,7 @@ def modal_empleado() -> rx.Component:
             MisEmpleadosState.es_edicion,
             rx.text("Modifique los datos del empleado. El CURP no se puede cambiar."),
             rx.text(
-                "El empleado se asignara a ",
+                "El empleado se asignará a ",
                 rx.text(
                     MisEmpleadosState.nombre_empresa_actual,
                     font_weight=Typography.WEIGHT_BOLD,
@@ -85,125 +85,80 @@ def modal_empleado() -> rx.Component:
 
 def modal_baja() -> rx.Component:
     """Modal para dar de baja a un empleado desde el portal."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title("Dar de Baja"),
-            rx.dialog.description(
-                rx.vstack(
-                    rx.text("Se registrara la baja del empleado seleccionado."),
-                    rx.hstack(
-                        rx.text(
-                            MisEmpleadosState.nombre_empleado_baja,
-                            font_weight=Typography.WEIGHT_BOLD,
-                        ),
-                        rx.cond(
-                            MisEmpleadosState.clave_empleado_baja != "",
-                            rx.text(
-                                "(" + MisEmpleadosState.clave_empleado_baja + ")",
-                                color=Colors.TEXT_SECONDARY,
-                            ),
-                            rx.fragment(),
-                        ),
-                        spacing="2",
-                        align="center",
-                    ),
-                    spacing="1",
-                    align="start",
+    return employee_form_modal(
+        open_state=MisEmpleadosState.mostrar_modal_baja,
+        title="Dar de Baja",
+        description=rx.vstack(
+            rx.text("Se registrará la baja del empleado seleccionado."),
+            rx.hstack(
+                rx.text(
+                    MisEmpleadosState.nombre_empleado_baja,
+                    font_weight=Typography.WEIGHT_BOLD,
                 ),
-            ),
-            rx.vstack(
-                rx.vstack(
+                rx.cond(
+                    MisEmpleadosState.clave_empleado_baja != "",
                     rx.text(
-                        "Motivo de baja *",
-                        font_size=Typography.SIZE_SM,
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                    ),
-                    rx.select.root(
-                        rx.select.trigger(
-                            placeholder="Seleccionar motivo...",
-                            width="100%",
-                        ),
-                        rx.select.content(
-                            rx.select.item("Renuncia voluntaria", value="RENUNCIA"),
-                            rx.select.item("Despido", value="DESPIDO"),
-                            rx.select.item("Fin de contrato", value="FIN_CONTRATO"),
-                            rx.select.item("Jubilacion", value="JUBILACION"),
-                            rx.select.item("Fallecimiento", value="FALLECIMIENTO"),
-                            rx.select.item("Otro", value="OTRO"),
-                        ),
-                        value=MisEmpleadosState.form_motivo_baja,
-                        on_change=MisEmpleadosState.set_form_motivo_baja,
-                    ),
-                    width="100%",
-                    spacing="1",
-                ),
-                rx.vstack(
-                    rx.text(
-                        "Fecha efectiva",
-                        font_size=Typography.SIZE_SM,
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                    ),
-                    rx.input(
-                        type="date",
-                        value=MisEmpleadosState.form_fecha_efectiva_baja,
-                        on_change=MisEmpleadosState.set_form_fecha_efectiva_baja,
-                        width="100%",
-                    ),
-                    rx.text(
-                        "Ultimo dia de trabajo. Si es hoy, dejar vacio.",
-                        font_size=Typography.SIZE_BASE,
+                        "(" + MisEmpleadosState.clave_empleado_baja + ")",
                         color=Colors.TEXT_SECONDARY,
                     ),
-                    width="100%",
-                    spacing="1",
+                    rx.fragment(),
                 ),
-                rx.vstack(
-                    rx.text(
-                        "Observaciones",
-                        font_size=Typography.SIZE_SM,
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                    ),
-                    rx.text_area(
-                        placeholder="Detalles adicionales sobre la baja...",
-                        value=MisEmpleadosState.form_notas_baja,
-                        on_change=MisEmpleadosState.set_form_notas_baja,
-                        rows="3",
-                        width="100%",
-                    ),
-                    width="100%",
-                    spacing="1",
-                ),
-                rx.callout(
-                    rx.text(
-                        "Se generara alerta automatica para entregar liquidacion/finiquito dentro de 15 dias habiles.",
-                        font_size=Typography.SIZE_BASE,
-                    ),
-                    icon="info",
-                    color_scheme="blue",
-                    size="1",
-                    width="100%",
-                ),
-                spacing="4",
-                width="100%",
-                padding_y=Spacing.SM,
+                spacing="2",
+                align="center",
             ),
-            rx.hstack(
-                boton_cancelar(on_click=MisEmpleadosState.cerrar_modal_baja),
-                boton_guardar(
-                    texto="Confirmar Baja",
-                    texto_guardando="Procesando...",
-                    on_click=MisEmpleadosState.confirmar_baja,
-                    saving=MisEmpleadosState.saving,
-                    color_scheme="red",
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-            ),
-            max_width="480px",
+            spacing="1",
+            align="start",
         ),
-        open=MisEmpleadosState.mostrar_modal_baja,
-        on_open_change=rx.noop,
+        body=employee_form_body(
+            form_select(
+                label="Motivo de baja",
+                required=True,
+                placeholder="Seleccionar motivo...",
+                value=MisEmpleadosState.form_motivo_baja,
+                on_change=MisEmpleadosState.set_form_motivo_baja,
+                options=[
+                    {"label": "Renuncia voluntaria", "value": "RENUNCIA"},
+                    {"label": "Despido", "value": "DESPIDO"},
+                    {"label": "Fin de contrato", "value": "FIN_CONTRATO"},
+                    {"label": "Jubilación", "value": "JUBILACION"},
+                    {"label": "Fallecimiento", "value": "FALLECIMIENTO"},
+                    {"label": "Otro", "value": "OTRO"},
+                ],
+                error=MisEmpleadosState.error_motivo_baja,
+            ),
+            form_date(
+                label="Fecha efectiva",
+                value=MisEmpleadosState.form_fecha_efectiva_baja,
+                on_change=MisEmpleadosState.set_form_fecha_efectiva_baja,
+                error=MisEmpleadosState.error_fecha_efectiva_baja,
+                hint="Último día de trabajo. Si es hoy, deje el campo vacío.",
+            ),
+            form_textarea(
+                label="Observaciones",
+                placeholder="Detalles adicionales sobre la baja...",
+                value=MisEmpleadosState.form_notas_baja,
+                on_change=MisEmpleadosState.set_form_notas_baja,
+                rows="3",
+            ),
+            rx.callout(
+                rx.text(
+                    "Se generará una alerta automática para entregar liquidación o finiquito dentro de 15 días hábiles.",
+                    font_size=Typography.SIZE_BASE,
+                ),
+                icon="info",
+                color_scheme="blue",
+                size="1",
+                width="100%",
+            ),
+            padding_y=Spacing.SM,
+        ),
+        on_cancel=MisEmpleadosState.cerrar_modal_baja,
+        on_save=MisEmpleadosState.confirmar_baja,
+        save_text="Confirmar Baja",
+        saving=MisEmpleadosState.saving,
+        save_loading_text="Procesando...",
+        save_color_scheme="red",
+        max_width="480px",
     )
 
 
@@ -262,7 +217,7 @@ def _campos_rfc_nss() -> rx.Component:
 
 
 def _campos_fecha_genero() -> rx.Component:
-    """Campos fecha de nacimiento y genero."""
+    """Campos fecha de nacimiento y género."""
     return employee_birth_gender_row(
         fecha_value=MisEmpleadosState.form_fecha_nacimiento,
         fecha_on_change=MisEmpleadosState.set_form_fecha_nacimiento,
@@ -274,12 +229,12 @@ def _campos_fecha_genero() -> rx.Component:
         opciones_genero=MisEmpleadosState.opciones_genero,
         fecha_required=True,
         genero_required=True,
-        genero_label="Genero",
+        genero_label="Género",
     )
 
 
 def _campos_telefono_email() -> rx.Component:
-    """Campos telefono y email."""
+    """Campos teléfono y email."""
     return employee_phone_email_row(
         telefono_value=MisEmpleadosState.form_telefono,
         telefono_on_change=MisEmpleadosState.set_form_telefono,
@@ -294,12 +249,12 @@ def _campos_telefono_email() -> rx.Component:
 
 
 def _campo_direccion() -> rx.Component:
-    """Campo direccion."""
+    """Campo dirección."""
     return employee_address_field(
         value=MisEmpleadosState.form_direccion,
         on_change=MisEmpleadosState.set_form_direccion,
-        placeholder="Direccion completa",
-        label="Direccion",
+        placeholder="Dirección completa",
+        label="Dirección",
     )
 
 

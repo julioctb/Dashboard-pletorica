@@ -203,8 +203,12 @@ class UsuariosEmpresaState(PortalState):
         if not self.id_empresa_actual:
             return
         try:
-            self.usuarios_empresa = await user_service.listar_usuarios_empresa(
+            usuarios = await user_service.listar_usuarios_empresa(
                 empresa_id=self.id_empresa_actual,
+            )
+            self.usuarios_empresa = self.excluir_usuario_actual(
+                usuarios,
+                id_field="user_id",
             )
         except DatabaseError as e:
             self.mostrar_mensaje(f"Error cargando usuarios: {e}", "error")

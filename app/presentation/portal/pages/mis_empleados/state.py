@@ -94,6 +94,8 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
     form_motivo_baja: str = ""
     form_fecha_efectiva_baja: str = ""
     form_notas_baja: str = ""
+    error_motivo_baja: str = ""
+    error_fecha_efectiva_baja: str = ""
 
     # ========================
     # ERRORES DE VALIDACION
@@ -171,9 +173,11 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
 
     def set_form_motivo_baja(self, value: str):
         self._set_form_plain_field("form_motivo_baja", value)
+        self.error_motivo_baja = ""
 
     def set_form_fecha_efectiva_baja(self, value: str):
         self._set_form_plain_field("form_fecha_efectiva_baja", value)
+        self.error_fecha_efectiva_baja = ""
 
     def set_form_notas_baja(self, value: str):
         self._set_form_plain_field("form_notas_baja", value)
@@ -394,6 +398,8 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
         self.form_motivo_baja = ""
         self.form_fecha_efectiva_baja = ""
         self.form_notas_baja = ""
+        self.error_motivo_baja = ""
+        self.error_fecha_efectiva_baja = ""
         self.mostrar_modal_baja = True
 
     def cerrar_modal_baja(self):
@@ -403,6 +409,8 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
         self.form_motivo_baja = ""
         self.form_fecha_efectiva_baja = ""
         self.form_notas_baja = ""
+        self.error_motivo_baja = ""
+        self.error_fecha_efectiva_baja = ""
 
     # ========================
     # CREAR EMPLEADO
@@ -522,7 +530,11 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
             yield rx.toast.error("Error: no se pudo obtener el ID del empleado")
             return
 
+        self.error_motivo_baja = ""
+        self.error_fecha_efectiva_baja = ""
+
         if not self.form_motivo_baja:
+            self.error_motivo_baja = "Debe seleccionar un motivo de baja"
             yield rx.toast.error("Debe seleccionar un motivo de baja")
             return
 
@@ -535,7 +547,8 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
             try:
                 fecha_efectiva = date.fromisoformat(self.form_fecha_efectiva_baja)
             except ValueError:
-                yield rx.toast.error("Fecha efectiva invalida")
+                self.error_fecha_efectiva_baja = "Fecha efectiva inválida"
+                yield rx.toast.error("Fecha efectiva inválida")
                 return
 
         registrado_por = self.obtener_uuid_usuario_actual()
@@ -557,7 +570,7 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
             await self._fetch_empleados()
 
             yield rx.toast.success(
-                "Baja registrada. Se genero alerta de liquidacion (15 dias habiles). Gestionar en Bajas."
+                "Baja registrada. Se generó una alerta de liquidación en Bajas (15 días hábiles)."
             )
         except (BusinessRuleError, ValueError) as e:
             yield rx.toast.error(str(e))

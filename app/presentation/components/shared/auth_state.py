@@ -174,6 +174,19 @@ class AuthState(BaseState):
         except (TypeError, ValueError):
             return None
 
+    def excluir_usuario_actual(
+        self,
+        items: list[dict],
+        id_field: str = "id",
+    ) -> list[dict]:
+        """Remueve del listado la cuenta actual para evitar auto-gestión."""
+        if not self.id_usuario:
+            return items
+        return [
+            item for item in items
+            if str(item.get(id_field, "")) != str(self.id_usuario)
+        ]
+
     @rx.var
     def nombre_empresa_actual(self) -> str:
         """Nombre de la empresa actualmente seleccionada."""
