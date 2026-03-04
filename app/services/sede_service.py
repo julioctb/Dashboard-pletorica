@@ -14,21 +14,20 @@ from app.entities import (
     SedeResumen,
 )
 from app.core.enums import Estatus
-from app.database import db_manager
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
+from app.services.direct_service import DirectSupabaseService
 
 logger = logging.getLogger(__name__)
 
 
-class SedeService:
+class SedeService(DirectSupabaseService):
     """
     Servicio de aplicación para sedes BUAP.
     Orquesta las operaciones de negocio con acceso directo a Supabase.
     """
 
     def __init__(self):
-        self.supabase = db_manager.get_client()
-        self.tabla = 'sedes'
+        super().__init__("sedes")
 
     # ==========================================
     # OPERACIONES DE LECTURA
@@ -43,12 +42,10 @@ class SedeService:
             DatabaseError: Si hay error de BD
         """
         try:
-            result = self.supabase.table(self.tabla).select('*').eq('id', sede_id).execute()
-
-            if not result.data:
+            sede = self._fetch_one(Sede, filters={"id": sede_id})
+            if not sede:
                 raise NotFoundError(f"Sede con ID {sede_id} no encontrada")
-
-            return Sede(**result.data[0])
+            return sede
 
         except NotFoundError:
             raise
@@ -67,13 +64,7 @@ class SedeService:
             DatabaseError: Si hay error de BD
         """
         try:
-            result = self.supabase.table(self.tabla).select('*').eq('codigo', codigo.upper()).execute()
-
-            if not result.data:
-                return None
-
-            return Sede(**result.data[0])
-
+            return self._fetch_one(Sede, filters={"codigo": codigo.upper()})
         except Exception as e:
             logger.error(f"Error obteniendo sede por código {codigo}: {e}")
             raise DatabaseError(f"Error de base de datos al obtener sede: {str(e)}")
@@ -91,7 +82,7 @@ class SedeService:
             DatabaseError: Si hay error de BD
         """
         try:
-            query = self.supabase.table(self.tabla).select('*')
+            query = self._query()
 
             if not incluir_inactivas:
                 query = query.eq('estatus', Estatus.ACTIVO.value)
@@ -102,9 +93,7 @@ class SedeService:
                 limite = 100
 
             query = query.range(offset, offset + limite - 1)
-
-            result = query.execute()
-            return [Sede(**data) for data in result.data]
+            return self._fetch_many(Sede, query)
 
         except Exception as e:
             logger.error(f"Error obteniendo sedes: {e}")
@@ -118,14 +107,11 @@ class SedeService:
             DatabaseError: Si hay error de BD
         """
         try:
-            result = self.supabase.table(self.tabla)\
-                .select('*')\
+            query = self._query()\
                 .eq('sede_padre_id', sede_padre_id)\
                 .eq('estatus', Estatus.ACTIVO.value)\
-                .order('nombre')\
-                .execute()
-
-            return [Sede(**data) for data in result.data]
+                .order('nombre')
+            return self._fetch_many(Sede, query)
 
         except Exception as e:
             logger.error(f"Error obteniendo hijos de sede {sede_padre_id}: {e}")
@@ -141,8 +127,7 @@ class SedeService:
         """
         try:
             # Obtener todas las sedes activas
-            result = self.supabase.table(self.tabla)\
-                .select('*')\
+            result = self._query()\
                 .eq('estatus', Estatus.ACTIVO.value)\
                 .order('nombre')\
                 .execute()
@@ -180,8 +165,7 @@ class SedeService:
         try:
             termino_limpio = termino.strip()
 
-            result = self.supabase.table(self.tabla)\
-                .select('*')\
+            query = self._query()\
                 .eq('estatus', Estatus.ACTIVO.value)\
                 .or_(
                     f"nombre.ilike.%{termino_limpio}%,"
@@ -189,10 +173,8 @@ class SedeService:
                     f"codigo.ilike.%{termino_limpio}%"
                 )\
                 .order('nombre')\
-                .limit(limite)\
-                .execute()
-
-            return [Sede(**data) for data in result.data]
+                .limit(limite)
+            return self._fetch_many(Sede, query)
 
         except Exception as e:
             logger.error(f"Error buscando sedes con término '{termino}': {e}")
@@ -253,7 +235,7 @@ class SedeService:
                 mode='json',
                 exclude={'id', 'fecha_creacion', 'fecha_actualizacion'},
             )
-            result = self.supabase.table(self.tabla).insert(datos).execute()
+            result = self._insert_row(datos)
 
             if not result.data:
                 raise DatabaseError("No se pudo crear la sede (sin respuesta de BD)")
@@ -277,11 +259,7 @@ class SedeService:
         """
         try:
             sede_actual = await self.obtener_por_id(sede_id)
-
-            datos_actualizados = sede_update.model_dump(exclude_unset=True)
-            for campo, valor in datos_actualizados.items():
-                if valor is not None:
-                    setattr(sede_actual, campo, valor)
+            self._merge_update_model(sede_actual, sede_update)
 
             logger.info(f"Actualizando sede ID {sede_id}")
 
@@ -307,7 +285,7 @@ class SedeService:
                 mode='json',
                 exclude={'id', 'fecha_creacion', 'fecha_actualizacion'},
             )
-            result = self.supabase.table(self.tabla).update(datos).eq('id', sede_actual.id).execute()
+            result = self._update_rows(datos, filters={"id": sede_actual.id})
 
             if not result.data:
                 raise NotFoundError(f"Sede con ID {sede_actual.id} no encontrada")
@@ -336,9 +314,10 @@ class SedeService:
 
             logger.info(f"Eliminando (desactivando) sede: {sede.codigo}")
 
-            result = self.supabase.table(self.tabla).update(
-                {'estatus': Estatus.INACTIVO.value}
-            ).eq('id', sede_id).execute()
+            result = self._update_rows(
+                {'estatus': Estatus.INACTIVO.value},
+                filters={"id": sede_id},
+            )
 
             return bool(result.data)
 
@@ -365,9 +344,10 @@ class SedeService:
 
             logger.info(f"Activando sede: {sede.codigo}")
 
-            result = self.supabase.table(self.tabla).update(
-                {'estatus': Estatus.ACTIVO.value}
-            ).eq('id', sede_id).execute()
+            result = self._update_rows(
+                {'estatus': Estatus.ACTIVO.value},
+                filters={"id": sede_id},
+            )
 
             if not result.data:
                 raise NotFoundError(f"Sede con ID {sede_id} no encontrada")
@@ -422,8 +402,7 @@ class SedeService:
     async def _validar_sede_existe(self, sede_id: int, descripcion: str) -> None:
         """Valida que una sede referenciada existe."""
         try:
-            result = self.supabase.table(self.tabla).select('id').eq('id', sede_id).execute()
-            if not result.data:
+            if not self._fetch_one(Sede, filters={"id": sede_id}):
                 raise NotFoundError(f"La {descripcion} con ID {sede_id} no existe")
         except NotFoundError:
             raise

@@ -83,6 +83,7 @@ NAVIGATION_GROUPS = [
         "label": "Herramientas",
         "items": [
             {"text": "Simulador", "icon": "calculator", "href": "/simulador"},
+            {"text": "Cotizador", "icon": "file-spreadsheet", "href": "/cotizador"},
         ],
     },
 ]

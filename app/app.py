@@ -28,6 +28,9 @@ from .presentation.pages.simulador.simulador_page import simulador_page
 from .presentation.pages.configuracion.configuracion_page import configuracion_page
 from .presentation.pages.mi_perfil import mi_perfil_page
 
+# BACKOFFICE — Cotizador
+from .presentation.pages.cotizador import cotizador_page, cotizador_detalle_page
+
 # BACKOFFICE — Nóminas
 from .presentation.pages.nominas import (
     periodos_nomina_page,
@@ -171,6 +174,12 @@ app.add_page(lambda: index(categorias_puesto_page()), route="/categorias-puesto"
 app.add_page(lambda: index(simulador_page()), route="/simulador")
 app.add_page(lambda: index(configuracion_page()), route="/configuracion")
 app.add_page(lambda: index(mi_perfil_page()), route="/mi-perfil")
+
+# =============================================================================
+# BACKOFFICE — Cotizador
+# =============================================================================
+app.add_page(lambda: index(cotizador_page()), route="/cotizador")
+app.add_page(lambda: index(cotizador_detalle_page()), route="/cotizador/[cotizacion_id]")
 
 # =============================================================================
 # BACKOFFICE — Nóminas

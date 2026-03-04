@@ -204,6 +204,24 @@ from app.services.dispersion_service import (
     dispersion_service,
 )
 
+# Configuración Fiscal Empresa
+from app.services.configuracion_fiscal_service import (
+    ConfiguracionFiscalService,
+    configuracion_fiscal_service,
+)
+
+# Cotizador
+from app.services.cotizacion_service import (
+    CotizacionService,
+    cotizacion_service,
+)
+
+# Cotizador PDF
+from app.services.cotizacion_pdf_service import (
+    CotizacionPdfService,
+    cotizacion_pdf_service,
+)
+
 
 __all__ = [
     # Empresa
@@ -304,4 +322,13 @@ __all__ = [
     # Dispersión Bancaria
     "DispersionService",
     "dispersion_service",
+    # Configuración Fiscal Empresa
+    "ConfiguracionFiscalService",
+    "configuracion_fiscal_service",
+    # Cotizador
+    "CotizacionService",
+    "cotizacion_service",
+    # Cotizador PDF
+    "CotizacionPdfService",
+    "cotizacion_pdf_service",
 ]

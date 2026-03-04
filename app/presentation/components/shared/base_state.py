@@ -356,6 +356,59 @@ class BaseState(rx.State):
         self.loading = False
 
     # ========================
+    # SERIALIZACIÓN PARA STATE
+    # ========================
+    @staticmethod
+    def serializar_item_state(
+        item: Any,
+        *,
+        transformar: Optional[Callable[[Any], Any]] = None,
+    ) -> Any:
+        """Convierte un modelo u objeto a un valor serializable para Reflex."""
+        if transformar:
+            return transformar(item)
+        if hasattr(item, "model_dump"):
+            return item.model_dump(mode="json")
+        return item
+
+    def serializar_lista_state(
+        self,
+        items: List[Any],
+        *,
+        transformar: Optional[Callable[[Any], Any]] = None,
+    ) -> List[Any]:
+        """Convierte una colección a una lista serializable para guardar en state."""
+        return [
+            self.serializar_item_state(item, transformar=transformar)
+            for item in items
+        ]
+
+    async def cargar_y_asignar_lista(
+        self,
+        campo_destino: str,
+        cargar_fn: Callable[[], Awaitable[List[Any]]],
+        *,
+        contexto_error: str,
+        transformar: Optional[Callable[[Any], Any]] = None,
+        vacio: Optional[List[Any]] = None,
+    ) -> List[Any]:
+        """
+        Ejecuta una carga de lista con serialización y manejo estándar de error.
+        """
+        try:
+            datos = self.serializar_lista_state(
+                await cargar_fn(),
+                transformar=transformar,
+            )
+            setattr(self, campo_destino, datos)
+            return datos
+        except Exception as e:
+            self.manejar_error(e, contexto_error)
+            datos_vacios = vacio if vacio is not None else []
+            setattr(self, campo_destino, datos_vacios)
+            return datos_vacios
+
+    # ========================
     # PATRÓN DE CARGA CON SKELETON
     # ========================
 
@@ -545,13 +598,7 @@ class BaseState(rx.State):
         """
         try:
             items = await servicio_metodo(**kwargs)
-            if transformar:
-                datos = [transformar(item) for item in items]
-            else:
-                datos = [
-                    item.model_dump(mode='json') if hasattr(item, 'model_dump') else item
-                    for item in items
-                ]
+            datos = self.serializar_lista_state(items, transformar=transformar)
             setattr(self, campo_destino, datos)
             return datos
         except Exception as e:

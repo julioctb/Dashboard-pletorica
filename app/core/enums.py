@@ -1051,3 +1051,86 @@ class EstatusNominaEmpleado(str, Enum):
             'APROBADO': 'Aprobado',
         }
         return descripciones.get(self.value, self.value)
+
+
+# =============================================================================
+# ENUMS DE COTIZACIÓN
+# =============================================================================
+
+class EstatusCotizacion(str, Enum):
+    """Estados del ciclo de vida de una cotización."""
+    BORRADOR = 'BORRADOR'
+    PREPARADA = 'PREPARADA'
+    ENVIADA = 'ENVIADA'
+    APROBADA = 'APROBADA'
+    RECHAZADA = 'RECHAZADA'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'BORRADOR': 'Borrador',
+            'PREPARADA': 'Preparada',
+            'ENVIADA': 'Enviada',
+            'APROBADA': 'Aprobada',
+            'RECHAZADA': 'Rechazada',
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def es_editable(self) -> bool:
+        """Solo BORRADOR permite edición."""
+        return self == EstatusCotizacion.BORRADOR
+
+    @property
+    def es_estado_final(self) -> bool:
+        return self in (EstatusCotizacion.APROBADA, EstatusCotizacion.RECHAZADA)
+
+
+class EstatusPartidaCotizacion(str, Enum):
+    """Estados de una partida dentro de la cotización."""
+    PENDIENTE = 'PENDIENTE'
+    ACEPTADA = 'ACEPTADA'
+    NO_ASIGNADA = 'NO_ASIGNADA'
+    CONVERTIDA = 'CONVERTIDA'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'PENDIENTE': 'Pendiente',
+            'ACEPTADA': 'Aceptada',
+            'NO_ASIGNADA': 'No asignada',
+            'CONVERTIDA': 'Convertida a contrato',
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def puede_convertir(self) -> bool:
+        return self == EstatusPartidaCotizacion.ACEPTADA
+
+
+class TipoConceptoCotizacion(str, Enum):
+    """Tipo de concepto en la matriz de costos."""
+    PATRONAL = 'PATRONAL'
+    INDIRECTO = 'INDIRECTO'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'PATRONAL': 'Costo patronal',
+            'INDIRECTO': 'Gasto indirecto',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class TipoValorConcepto(str, Enum):
+    """Cómo se expresa el valor del concepto."""
+    FIJO = 'FIJO'
+    PORCENTAJE = 'PORCENTAJE'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'FIJO': 'Importe fijo (pesos)',
+            'PORCENTAJE': 'Porcentaje (%)',
+        }
+        return descripciones.get(self.value, self.value)

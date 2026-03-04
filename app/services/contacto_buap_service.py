@@ -12,22 +12,20 @@ from app.entities import (
     ContactoBuapCreate,
     ContactoBuapUpdate,
 )
-from app.core.enums import Estatus
-from app.database import db_manager
-from app.core.exceptions import NotFoundError, DatabaseError, BusinessRuleError
+from app.core.exceptions import NotFoundError, DatabaseError
+from app.services.direct_service import DirectSupabaseService
 
 logger = logging.getLogger(__name__)
 
 
-class ContactoBuapService:
+class ContactoBuapService(DirectSupabaseService):
     """
     Servicio de aplicación para contactos BUAP.
     Orquesta las operaciones de negocio con acceso directo a Supabase.
     """
 
     def __init__(self):
-        self.supabase = db_manager.get_client()
-        self.tabla = 'contactos_buap'
+        super().__init__("contactos_buap")
 
     # ==========================================
     # OPERACIONES DE LECTURA
@@ -42,12 +40,10 @@ class ContactoBuapService:
             DatabaseError: Si hay error de BD
         """
         try:
-            result = self.supabase.table(self.tabla).select('*').eq('id', contacto_id).execute()
-
-            if not result.data:
+            contacto = self._fetch_one(ContactoBuap, filters={"id": contacto_id})
+            if not contacto:
                 raise NotFoundError(f"Contacto con ID {contacto_id} no encontrado")
-
-            return ContactoBuap(**result.data[0])
+            return contacto
 
         except NotFoundError:
             raise
@@ -67,17 +63,14 @@ class ContactoBuapService:
             DatabaseError: Si hay error de BD
         """
         try:
-            query = self.supabase.table(self.tabla)\
-                .select('*')\
-                .eq('sede_id', sede_id)
+            query = self._query().eq('sede_id', sede_id)
 
             if not incluir_inactivos:
                 query = query.eq('estatus', 'ACTIVO')
 
             query = query.order('es_principal', desc=True).order('nombre')
 
-            result = query.execute()
-            return [ContactoBuap(**data) for data in result.data]
+            return self._fetch_many(ContactoBuap, query)
 
         except Exception as e:
             logger.error(f"Error obteniendo contactos de sede {sede_id}: {e}")
@@ -135,7 +128,7 @@ class ContactoBuapService:
                 mode='json',
                 exclude={'id', 'fecha_creacion', 'fecha_actualizacion'},
             )
-            result = self.supabase.table(self.tabla).insert(datos).execute()
+            result = self._insert_row(datos)
 
             if not result.data:
                 raise DatabaseError("No se pudo crear el contacto (sin respuesta de BD)")
@@ -158,11 +151,7 @@ class ContactoBuapService:
         """
         try:
             contacto_actual = await self.obtener_por_id(contacto_id)
-
-            datos_actualizados = contacto_update.model_dump(exclude_unset=True)
-            for campo, valor in datos_actualizados.items():
-                if valor is not None:
-                    setattr(contacto_actual, campo, valor)
+            self._merge_update_model(contacto_actual, contacto_update)
 
             logger.info(f"Actualizando contacto ID {contacto_id}")
 
@@ -174,7 +163,7 @@ class ContactoBuapService:
                 mode='json',
                 exclude={'id', 'fecha_creacion', 'fecha_actualizacion'},
             )
-            result = self.supabase.table(self.tabla).update(datos).eq('id', contacto_actual.id).execute()
+            result = self._update_rows(datos, filters={"id": contacto_actual.id})
 
             if not result.data:
                 raise NotFoundError(f"Contacto con ID {contacto_actual.id} no encontrado")
@@ -200,9 +189,10 @@ class ContactoBuapService:
 
             logger.info(f"Eliminando (desactivando) contacto ID {contacto_id}")
 
-            result = self.supabase.table(self.tabla).update(
-                {'estatus': 'INACTIVO'}
-            ).eq('id', contacto_id).execute()
+            result = self._update_rows(
+                {'estatus': 'INACTIVO'},
+                filters={"id": contacto_id},
+            )
 
             return bool(result.data)
 

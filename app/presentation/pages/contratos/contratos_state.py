@@ -836,17 +836,17 @@ class ContratosState(AuthState, CRUDStateMixin):
 
     async def cargar_empresas(self):
         """Cargar empresas para el dropdown"""
-        try:
-            if self.es_contexto_portal and self.id_empresa_actual:
-                await self._cargar_empresa_actual_portal()
-                return
+        if self.es_contexto_portal and self.id_empresa_actual:
+            await self._cargar_empresa_actual_portal()
+            return
 
-            from app.services import empresa_service
-            empresas = await empresa_service.obtener_todas(incluir_inactivas=False)
-            self.empresas = [e.model_dump() for e in empresas]
-        except Exception as e:
-            self.mostrar_mensaje(f"Error al cargar empresas: {str(e)}", "error")
-            self.empresas = []
+        from app.services import empresa_service
+
+        await self.cargar_y_asignar_lista(
+            "empresas",
+            lambda: empresa_service.obtener_todas(incluir_inactivas=False),
+            contexto_error="al cargar empresas",
+        )
 
     async def _cargar_empresa_actual_portal(self):
         """Carga solo la empresa activa cuando el formulario se usa desde el portal."""
@@ -857,16 +857,15 @@ class ContratosState(AuthState, CRUDStateMixin):
         from app.services import empresa_service
 
         empresa = await empresa_service.obtener_por_id(self.id_empresa_actual)
-        self.empresas = [empresa.model_dump()]
+        self.empresas = [self.serializar_item_state(empresa)]
 
     async def cargar_tipos_servicio(self):
         """Cargar tipos de servicio para el dropdown"""
-        try:
-            tipos = await tipo_servicio_service.obtener_activas()
-            self.tipos_servicio = [t.model_dump() for t in tipos]
-        except Exception as e:
-            self.mostrar_mensaje(f"Error al cargar tipos de servicio: {str(e)}", "error")
-            self.tipos_servicio = []
+        await self.cargar_y_asignar_lista(
+            "tipos_servicio",
+            tipo_servicio_service.obtener_activas,
+            contexto_error="al cargar tipos de servicio",
+        )
 
     async def cargar_categorias_puesto(self):
         """Cargar categorías de puesto según el tipo de servicio seleccionado"""
@@ -876,14 +875,14 @@ class ContratosState(AuthState, CRUDStateMixin):
         self.cargando_categorias_puesto = True
         try:
             tipo_servicio_id = self.parse_id(self.form_tipo_servicio_id)
-            categorias = await categoria_puesto_service.obtener_por_tipo_servicio(
-                tipo_servicio_id,
-                incluir_inactivas=False
+            await self.cargar_y_asignar_lista(
+                "categorias_puesto",
+                lambda: categoria_puesto_service.obtener_por_tipo_servicio(
+                    tipo_servicio_id,
+                    incluir_inactivas=False,
+                ),
+                contexto_error="al cargar categorías",
             )
-            self.categorias_puesto = [c.model_dump() for c in categorias]
-        except Exception as e:
-            self.mostrar_mensaje(f"Error al cargar categorías: {str(e)}", "error")
-            self.categorias_puesto = []
         finally:
             self.cargando_categorias_puesto = False
 
@@ -928,28 +927,12 @@ class ContratosState(AuthState, CRUDStateMixin):
             # Enriquecer con nombres de empresa, tipo de servicio y saldos
             self.contratos = []
             for c in contratos:
-                contrato_dict = c.model_dump()
-                # Buscar nombre de empresa
-                for e in self.empresas:
-                    if e["id"] == c.empresa_id:
-                        contrato_dict["nombre_empresa"] = e["nombre_comercial"]
-                        break
-                # Buscar nombre de tipo de servicio
-                for t in self.tipos_servicio:
-                    if t["id"] == c.tipo_servicio_id:
-                        contrato_dict["nombre_servicio"] = t["nombre"]
-                        break
-                # Formatear fechas para mostrar en la tabla
-                contrato_dict["fecha_inicio_fmt"] = formatear_fecha(c.fecha_inicio)
-                contrato_dict["fecha_fin_fmt"] = formatear_fecha(c.fecha_fin)
-                # Formatear monto máximo como moneda
-                contrato_dict["monto_maximo_fmt"] = formatear_moneda(str(c.monto_maximo)) if c.monto_maximo else "-"
-
-                # Obtener saldo pendiente del batch (ya calculado)
-                saldo = saldos_pendientes.get(c.id)
-                contrato_dict["saldo_pendiente_fmt"] = formatear_moneda(str(saldo)) if saldo is not None else "-"
-
-                self.contratos.append(contrato_dict)
+                self.contratos.append(
+                    self._enriquecer_contrato_dict(
+                        c,
+                        saldo_pendiente=saldos_pendientes.get(c.id),
+                    )
+                )
 
             # Filtro adicional por nombre de empresa (búsqueda in-memory)
             if self.filtro_busqueda and self.filtro_busqueda.strip():
@@ -966,11 +949,8 @@ class ContratosState(AuthState, CRUDStateMixin):
 
             self.total_contratos = len(self.contratos)
 
-        except DatabaseError as e:
-            self.mostrar_mensaje(f"Error al cargar contratos: {str(e)}", "error")
-            self.contratos = []
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            self.manejar_error(e, "al cargar contratos")
             self.contratos = []
 
     async def cargar_contratos(self):
@@ -1058,17 +1038,7 @@ class ContratosState(AuthState, CRUDStateMixin):
         """Abrir modal de detalles"""
         try:
             contrato = await contrato_service.obtener_por_id(contrato_id)
-            contrato_dict = contrato.model_dump()
-            # Enriquecer con nombres
-            for e in self.empresas:
-                if e["id"] == contrato.empresa_id:
-                    contrato_dict["nombre_empresa"] = e["nombre_comercial"]
-                    break
-            for t in self.tipos_servicio:
-                if t["id"] == contrato.tipo_servicio_id:
-                    contrato_dict["nombre_servicio"] = t["nombre"]
-                    break
-            self.contrato_seleccionado = contrato_dict
+            self.contrato_seleccionado = self._enriquecer_contrato_dict(contrato)
             self.mostrar_modal_detalle = True
             # Cargar entregables del contrato
             await self._cargar_entregables_contrato(contrato_id)
@@ -1569,6 +1539,33 @@ class ContratosState(AuthState, CRUDStateMixin):
     def _limpiar_errores(self):
         """Limpia todos los errores de validación"""
         self.limpiar_errores_campos(self._campos_error)
+
+    def _enriquecer_contrato_dict(self, contrato, *, saldo_pendiente=None) -> dict:
+        """Convierte un contrato a dict de UI y agrega campos derivados."""
+        contrato_dict = self.serializar_item_state(contrato)
+
+        for empresa in self.empresas:
+            if empresa["id"] == contrato.empresa_id:
+                contrato_dict["nombre_empresa"] = empresa["nombre_comercial"]
+                break
+
+        for tipo in self.tipos_servicio:
+            if tipo["id"] == contrato.tipo_servicio_id:
+                contrato_dict["nombre_servicio"] = tipo["nombre"]
+                break
+
+        contrato_dict["fecha_inicio_fmt"] = formatear_fecha(contrato.fecha_inicio)
+        contrato_dict["fecha_fin_fmt"] = formatear_fecha(contrato.fecha_fin)
+        contrato_dict["monto_maximo_fmt"] = (
+            formatear_moneda(str(contrato.monto_maximo))
+            if contrato.monto_maximo else "-"
+        )
+        contrato_dict["saldo_pendiente_fmt"] = (
+            formatear_moneda(str(saldo_pendiente))
+            if saldo_pendiente is not None else "-"
+        )
+
+        return contrato_dict
 
     def _cargar_contrato_en_formulario(self, contrato: dict):
         """Carga datos de contrato en el formulario"""

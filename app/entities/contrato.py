@@ -80,7 +80,8 @@ class Contrato(BaseModel):
     tipo_contrato: TipoContrato = Field(
         description="Tipo de contrato (Adquisición o Servicios)"
     )
-    modalidad_adjudicacion: ModalidadAdjudicacion = Field(
+    modalidad_adjudicacion: Optional[ModalidadAdjudicacion] = Field(
+        None,
         description="Modalidad de adjudicación del contrato"
     )
     tipo_duracion: Optional[TipoDuracion] = Field(
@@ -205,13 +206,13 @@ class Contrato(BaseModel):
             raise ValueError(MSG_TIEMPO_DETERMINADO_SIN_FIN)
 
         # Validar montos (coherencia solo si ambos están presentes)
-        if self.monto_minimo and self.monto_maximo:
+        if self.monto_minimo is not None and self.monto_maximo is not None:
             if self.monto_maximo < self.monto_minimo:
                 raise ValueError(MSG_MONTO_MAX_MENOR_MIN)
 
         # Validaciones según tipo de contrato
         es_servicios = self.tipo_contrato == TipoContrato.SERVICIOS
-        if es_servicios:
+        if es_servicios and self.estatus != EstatusContrato.BORRADOR:
             # SERVICIOS requiere tipo_servicio_id y tipo_duracion
             if not self.tipo_servicio_id:
                 raise ValueError("Tipo de servicio es requerido para contratos de servicios")
@@ -338,7 +339,7 @@ class ContratoCreate(BaseModel):
     codigo: str = Field(max_length=CODIGO_CONTRATO_MAX)
     numero_folio_buap: Optional[str] = Field(None, max_length=FOLIO_BUAP_MAX)
     tipo_contrato: TipoContrato
-    modalidad_adjudicacion: ModalidadAdjudicacion
+    modalidad_adjudicacion: Optional[ModalidadAdjudicacion] = None
     tipo_duracion: Optional[TipoDuracion] = None  # Opcional para ADQUISICION
     fecha_inicio: date
     fecha_fin: Optional[date] = None
@@ -402,7 +403,7 @@ class ContratoResumen(BaseModel):
     empresa_id: int
     tipo_servicio_id: Optional[int]  # Opcional para ADQUISICION
     tipo_contrato: TipoContrato
-    modalidad_adjudicacion: ModalidadAdjudicacion
+    modalidad_adjudicacion: Optional[ModalidadAdjudicacion]
     tipo_duracion: Optional[TipoDuracion]  # Opcional para ADQUISICION
     fecha_inicio: date
     fecha_fin: Optional[date]

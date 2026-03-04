@@ -15,7 +15,6 @@ from app.core.exceptions import (
     DatabaseError,
     BusinessRuleError,
 )
-from app.database import db_manager
 from app.entities.institucion import (
     Institucion,
     InstitucionCreate,
@@ -23,11 +22,12 @@ from app.entities.institucion import (
     InstitucionResumen,
     InstitucionEmpresa,
 )
+from app.services.direct_service import DirectSupabaseService
 
 logger = logging.getLogger(__name__)
 
 
-class InstitucionService:
+class InstitucionService(DirectSupabaseService):
     """
     Servicio para gestión de instituciones y sus empresas asociadas.
 
@@ -38,8 +38,7 @@ class InstitucionService:
     """
 
     def __init__(self):
-        self.supabase = db_manager.get_client()
-        self.tabla = 'instituciones'
+        super().__init__("instituciones")
         self.tabla_empresas = 'instituciones_empresas'
 
     # =========================================================================
@@ -49,15 +48,10 @@ class InstitucionService:
     async def obtener_por_id(self, id: int) -> Institucion:
         """Obtiene una institución por ID."""
         try:
-            result = self.supabase.table(self.tabla)\
-                .select('*')\
-                .eq('id', id)\
-                .execute()
-
-            if not result.data:
+            institucion = self._fetch_one(Institucion, filters={"id": id})
+            if not institucion:
                 raise NotFoundError(f"Institución con ID {id} no encontrada")
-
-            return Institucion(**result.data[0])
+            return institucion
 
         except NotFoundError:
             raise
@@ -78,20 +72,24 @@ class InstitucionService:
 
             result = query.order('nombre').execute()
 
+            asignaciones = self.supabase.table(self.tabla_empresas)\
+                .select('institucion_id')\
+                .execute()
+            conteos_empresas: dict[int, int] = {}
+            for row in asignaciones.data or []:
+                institucion_id = row['institucion_id']
+                conteos_empresas[institucion_id] = (
+                    conteos_empresas.get(institucion_id, 0) + 1
+                )
+
             resumenes = []
             for data in result.data:
-                # Contar empresas asociadas
-                count_result = self.supabase.table(self.tabla_empresas)\
-                    .select('id', count='exact')\
-                    .eq('institucion_id', data['id'])\
-                    .execute()
-
                 resumenes.append(InstitucionResumen(
                     id=data['id'],
                     nombre=data['nombre'],
                     codigo=data['codigo'],
                     activo=data['activo'],
-                    cantidad_empresas=count_result.count or 0,
+                    cantidad_empresas=conteos_empresas.get(data['id'], 0),
                 ))
 
             return resumenes
@@ -103,10 +101,7 @@ class InstitucionService:
     async def crear(self, datos: InstitucionCreate) -> Institucion:
         """Crea una nueva institución."""
         try:
-            insert_data = datos.model_dump(mode='json')
-            result = self.supabase.table(self.tabla)\
-                .insert(insert_data)\
-                .execute()
+            result = self._insert_row(datos.model_dump(mode='json'))
 
             if not result.data:
                 raise DatabaseError("No se pudo crear la institución")
@@ -128,14 +123,13 @@ class InstitucionService:
     async def actualizar(self, id: int, datos: InstitucionUpdate) -> Institucion:
         """Actualiza una institución existente."""
         try:
-            update_data = datos.model_dump(mode='json', exclude_none=True)
-            if not update_data:
-                return await self.obtener_por_id(id)
-
-            result = self.supabase.table(self.tabla)\
-                .update(update_data)\
-                .eq('id', id)\
-                .execute()
+            actual = await self.obtener_por_id(id)
+            self._merge_update_model(actual, datos)
+            payload = actual.model_dump(
+                mode='json',
+                exclude={'id', 'fecha_creacion', 'fecha_actualizacion'},
+            )
+            result = self._update_rows(payload, filters={"id": id})
 
             if not result.data:
                 raise NotFoundError(f"Institución con ID {id} no encontrada")
@@ -167,10 +161,7 @@ class InstitucionService:
                     f"{empresas_asignadas} empresa(s) asignada(s)"
                 )
 
-            result = self.supabase.table(self.tabla)\
-                .update({'activo': False})\
-                .eq('id', id)\
-                .execute()
+            result = self._update_rows({'activo': False}, filters={"id": id})
 
             if not result.data:
                 raise NotFoundError(f"Institución con ID {id} no encontrada")
@@ -187,10 +178,7 @@ class InstitucionService:
     async def activar(self, id: int) -> Institucion:
         """Reactiva una institución."""
         try:
-            result = self.supabase.table(self.tabla)\
-                .update({'activo': True})\
-                .eq('id', id)\
-                .execute()
+            result = self._update_rows({'activo': True}, filters={"id": id})
 
             if not result.data:
                 raise NotFoundError(f"Institución con ID {id} no encontrada")

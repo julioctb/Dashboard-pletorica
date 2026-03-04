@@ -118,6 +118,89 @@ class UserService:
                 return user
         return None
 
+    def _query_profile(self, select: str = "*"):
+        """Query base para user_profiles."""
+        return self.supabase_admin.table(self.tabla_profiles).select(select)
+
+    def _obtener_profile_data(
+        self,
+        user_id: UUID,
+        *,
+        select: str = "*",
+    ) -> Optional[dict]:
+        """Obtiene la fila cruda de user_profiles para un usuario."""
+        result = self._query_profile(select).eq('id', str(user_id)).execute()
+        return result.data[0] if result.data else None
+
+    def _actualizar_profile_data(self, user_id: UUID, payload: dict):
+        """Actualiza user_profiles para un usuario."""
+        return self.supabase_admin.table(self.tabla_profiles)\
+            .update(payload)\
+            .eq('id', str(user_id))\
+            .execute()
+
+    def _obtener_profiles_map(
+        self,
+        user_ids: list[str],
+        *,
+        select: str,
+    ) -> dict[str, dict]:
+        """Obtiene perfiles en batch indexados por id."""
+        if not user_ids:
+            return {}
+        result = self._query_profile(select).in_('id', user_ids).execute()
+        return {
+            str(perfil.get('id')): perfil
+            for perfil in (result.data or [])
+            if perfil.get('id')
+        }
+
+    @staticmethod
+    def _construir_resumen_empresa_usuario(data: dict) -> UserCompanyResumen:
+        """Convierte una fila con JOIN a empresas en resumen tipado."""
+        empresa_data = data.get('empresas', {})
+        return UserCompanyResumen(
+            id=data['id'],
+            user_id=UUID(data['user_id']),
+            empresa_id=data['empresa_id'],
+            es_principal=data['es_principal'],
+            rol_empresa=data.get('rol_empresa', 'lectura'),
+            fecha_creacion=data.get('fecha_creacion'),
+            empresa_nombre=empresa_data.get('nombre_comercial'),
+            empresa_rfc=empresa_data.get('rfc'),
+            empresa_tipo=empresa_data.get('tipo_empresa'),
+            empresa_activa=empresa_data.get('estatus') == 'ACTIVO',
+        )
+
+    async def _obtener_resumen_empresas_por_usuarios(
+        self,
+        user_ids: list[str],
+    ) -> dict[str, dict]:
+        """Resume cantidad de empresas y principal por usuario."""
+        if not user_ids:
+            return {}
+
+        result = self.supabase_admin.table(self.tabla_companies)\
+            .select('user_id, es_principal, empresas(nombre_comercial)')\
+            .in_('user_id', user_ids)\
+            .execute()
+
+        resumen_map: dict[str, dict] = {}
+        for row in result.data or []:
+            user_id = str(row.get('user_id', ''))
+            if not user_id:
+                continue
+            resumen = resumen_map.setdefault(
+                user_id,
+                {"cantidad_empresas": 0, "empresa_principal": None},
+            )
+            resumen["cantidad_empresas"] += 1
+            empresa_data = row.get('empresas') or {}
+            if row.get('es_principal') and empresa_data.get('nombre_comercial'):
+                resumen["empresa_principal"] = empresa_data.get('nombre_comercial')
+
+        return resumen_map
+
     # =========================================================================
     # AUTENTICACIÓN
     # =========================================================================
@@ -235,17 +318,14 @@ class UserService:
                 if datos.puede_gestionar_usuarios:
                     permisos_update['puede_gestionar_usuarios'] = datos.puede_gestionar_usuarios
                 if permisos_update:
-                    self.supabase_admin.table(self.tabla_profiles)\
-                        .update(permisos_update)\
-                        .eq('id', str(user_id))\
-                        .execute()
+                    self._actualizar_profile_data(user_id, permisos_update)
                     profile = await self.obtener_por_id(user_id)
 
             if datos.institucion_id:
-                self.supabase_admin.table(self.tabla_profiles)\
-                    .update({'institucion_id': datos.institucion_id})\
-                    .eq('id', str(user_id))\
-                    .execute()
+                self._actualizar_profile_data(
+                    user_id,
+                    {'institucion_id': datos.institucion_id},
+                )
                 profile = await self.obtener_por_id(user_id)
 
             # Asignar empresas si se proporcionaron
@@ -521,15 +601,10 @@ class UserService:
             DatabaseError: Si hay error de BD
         """
         try:
-            result = self.supabase_admin.table(self.tabla_profiles)\
-                .select('*')\
-                .eq('id', str(user_id))\
-                .execute()
-
-            if not result.data:
+            data = self._obtener_profile_data(user_id)
+            if not data:
                 raise NotFoundError(f"Usuario con ID {user_id} no encontrado")
-
-            return UserProfile(**result.data[0])
+            return UserProfile(**data)
 
         except NotFoundError:
             raise
@@ -556,13 +631,9 @@ class UserService:
             return None
 
         try:
-            # Buscar en auth.users
-            response = self.supabase_admin.auth.admin.list_users()
-
-            for user in response:
-                if user.email and user.email.lower() == email.lower():
-                    return await self.obtener_por_id(UUID(user.id))
-
+            user = self._buscar_auth_user_por_email(email)
+            if user and getattr(user, "id", None):
+                return await self.obtener_por_id(UUID(user.id))
             return None
 
         except Exception as e:
@@ -602,10 +673,7 @@ class UserService:
                 # Nada que actualizar, retornar el profile actual
                 return await self.obtener_por_id(user_id)
 
-            result = self.supabase_admin.table(self.tabla_profiles)\
-                .update(datos_update)\
-                .eq('id', str(user_id))\
-                .execute()
+            result = self._actualizar_profile_data(user_id, datos_update)
 
             if not result.data:
                 raise DatabaseError("No se pudo actualizar el perfil")
@@ -735,6 +803,12 @@ class UserService:
                 .range(offset, offset + limite - 1)
 
             result = query.execute()
+            profile_ids = [
+                str(data['id'])
+                for data in (result.data or [])
+                if data.get('id')
+            ]
+            empresas_map = await self._obtener_resumen_empresas_por_usuarios(profile_ids)
 
             # Obtener emails de auth.users (un solo request)
             emails_map = {}
@@ -747,11 +821,9 @@ class UserService:
             resumenes = []
             for data in result.data:
                 profile = UserProfile(**data)
-                # Obtener cantidad de empresas
-                empresas = await self.obtener_empresas_usuario(profile.id)
-                empresa_principal = next(
-                    (e.empresa_nombre for e in empresas if e.es_principal),
-                    None
+                resumen_empresas = empresas_map.get(
+                    str(profile.id),
+                    {"cantidad_empresas": 0, "empresa_principal": None},
                 )
 
                 resumen = UserProfileResumen(
@@ -762,9 +834,9 @@ class UserService:
                     ultimo_acceso=profile.ultimo_acceso,
                     puede_gestionar_usuarios=profile.puede_gestionar_usuarios,
                     permisos=profile.permisos,
-                email=emails_map.get(str(profile.id)),
-                    cantidad_empresas=len(empresas),
-                    empresa_principal=empresa_principal,
+                    email=emails_map.get(str(profile.id)),
+                    cantidad_empresas=resumen_empresas["cantidad_empresas"],
+                    empresa_principal=resumen_empresas["empresa_principal"],
                 )
                 resumenes.append(resumen)
 
@@ -777,10 +849,10 @@ class UserService:
     async def _actualizar_ultimo_acceso(self, user_id: UUID) -> None:
         """Actualiza el timestamp de último acceso."""
         try:
-            self.supabase_admin.table(self.tabla_profiles)\
-                .update({'ultimo_acceso': datetime.now().isoformat()})\
-                .eq('id', str(user_id))\
-                .execute()
+            self._actualizar_profile_data(
+                user_id,
+                {'ultimo_acceso': datetime.now().isoformat()},
+            )
         except Exception as e:
             # No es crítico, solo loguear
             logger.warning(f"Error actualizando último acceso: {e}")
@@ -813,24 +885,10 @@ class UserService:
                 .order('es_principal', desc=True)\
                 .execute()
 
-            resumenes = []
-            for data in result.data:
-                empresa_data = data.get('empresas', {})
-                resumen = UserCompanyResumen(
-                    id=data['id'],
-                    user_id=UUID(data['user_id']),
-                    empresa_id=data['empresa_id'],
-                    es_principal=data['es_principal'],
-                    rol_empresa=data.get('rol_empresa', 'lectura'),
-                    fecha_creacion=data.get('fecha_creacion'),
-                    empresa_nombre=empresa_data.get('nombre_comercial'),
-                    empresa_rfc=empresa_data.get('rfc'),
-                    empresa_tipo=empresa_data.get('tipo_empresa'),
-                    empresa_activa=empresa_data.get('estatus') == 'ACTIVO',
-                )
-                resumenes.append(resumen)
-
-            return resumenes
+            return [
+                self._construir_resumen_empresa_usuario(data)
+                for data in (result.data or [])
+            ]
 
         except Exception as e:
             logger.error(f"Error obteniendo empresas de usuario {user_id}: {e}")
@@ -987,11 +1045,11 @@ class UserService:
             await self._quitar_principal_actual(user_id)
 
             # Marcar la nueva como principal
-            result = self.supabase_admin.table(self.tabla_companies)\
-                .update({'es_principal': True})\
-                .eq('user_id', str(user_id))\
-                .eq('empresa_id', empresa_id)\
-                .execute()
+            result = self._actualizar_relacion_user_company(
+                user_id,
+                empresa_id,
+                {'es_principal': True},
+            )
 
             if not result.data:
                 raise DatabaseError("No se pudo cambiar la empresa principal")
@@ -1028,6 +1086,47 @@ class UserService:
                 )
         except NotFoundError:
             raise NotFoundError(f"Empresa con ID {empresa_id} no encontrada")
+
+    def _query_user_company(
+        self,
+        user_id: UUID,
+        empresa_id: int,
+        *,
+        select: str = "*",
+    ):
+        """Query base para la relación usuario-empresa."""
+        return self.supabase_admin.table(self.tabla_companies)\
+            .select(select)\
+            .eq('user_id', str(user_id))\
+            .eq('empresa_id', empresa_id)
+
+    def _obtener_relacion_user_company(
+        self,
+        user_id: UUID,
+        empresa_id: int,
+        *,
+        select: str = "*",
+    ) -> Optional[dict]:
+        """Obtiene la fila de user_companies para un usuario y empresa."""
+        result = self._query_user_company(
+            user_id,
+            empresa_id,
+            select=select,
+        ).execute()
+        return result.data[0] if result.data else None
+
+    def _actualizar_relacion_user_company(
+        self,
+        user_id: UUID,
+        empresa_id: int,
+        payload: dict,
+    ):
+        """Actualiza la relación user_companies para un usuario y empresa."""
+        return self.supabase_admin.table(self.tabla_companies)\
+            .update(payload)\
+            .eq('user_id', str(user_id))\
+            .eq('empresa_id', empresa_id)\
+            .execute()
 
     # =========================================================================
     # RESET DE CONTRASEÑA (SUPER ADMIN)
@@ -1117,13 +1216,11 @@ class UserService:
             True si tiene acceso, False si no
         """
         try:
-            result = self.supabase_admin.table(self.tabla_companies)\
-                .select('id')\
-                .eq('user_id', str(user_id))\
-                .eq('empresa_id', empresa_id)\
-                .execute()
-
-            return len(result.data) > 0
+            return self._obtener_relacion_user_company(
+                user_id,
+                empresa_id,
+                select='id',
+            ) is not None
 
         except Exception as e:
             logger.error(f"Error verificando acceso: {e}")
@@ -1160,23 +1257,22 @@ class UserService:
 
         # Verificar que la relación existe
         try:
-            result = self.supabase_admin.table(self.tabla_companies)\
-                .select('id')\
-                .eq('user_id', str(user_id))\
-                .eq('empresa_id', empresa_id)\
-                .execute()
-
-            if not result.data:
+            relacion = self._obtener_relacion_user_company(
+                user_id,
+                empresa_id,
+                select='id',
+            )
+            if not relacion:
                 raise NotFoundError(
                     f"El usuario {user_id} no tiene asignada la empresa {empresa_id}"
                 )
 
             # Actualizar rol
-            result = self.supabase_admin.table(self.tabla_companies)\
-                .update({'rol_empresa': rol_empresa})\
-                .eq('user_id', str(user_id))\
-                .eq('empresa_id', empresa_id)\
-                .execute()
+            result = self._actualizar_relacion_user_company(
+                user_id,
+                empresa_id,
+                {'rol_empresa': rol_empresa},
+            )
 
             if not result.data:
                 raise DatabaseError("No se pudo actualizar el rol de empresa")
@@ -1208,16 +1304,15 @@ class UserService:
             True si tiene alguno de los roles requeridos
         """
         try:
-            result = self.supabase_admin.table(self.tabla_companies)\
-                .select('rol_empresa')\
-                .eq('user_id', str(user_id))\
-                .eq('empresa_id', empresa_id)\
-                .execute()
-
-            if not result.data:
+            relacion = self._obtener_relacion_user_company(
+                user_id,
+                empresa_id,
+                select='rol_empresa',
+            )
+            if not relacion:
                 return False
 
-            rol_actual = result.data[0].get('rol_empresa', 'lectura')
+            rol_actual = relacion.get('rol_empresa', 'lectura')
             return rol_actual in roles_requeridos
 
         except Exception as e:
@@ -1263,8 +1358,7 @@ class UserService:
         """
         try:
             # Obtener todos los usuarios activos
-            result = self.supabase_admin.table(self.tabla_profiles)\
-                .select('*')\
+            result = self._query_profile()\
                 .eq('activo', True)\
                 .execute()
 
@@ -1319,15 +1413,10 @@ class UserService:
 
             perfiles_map: dict[str, dict] = {}
             if user_ids:
-                perfiles_result = self.supabase_admin.table(self.tabla_profiles)\
-                    .select('id, nombre_completo, telefono, activo, permisos')\
-                    .in_('id', user_ids)\
-                    .execute()
-                perfiles_map = {
-                    str(perfil.get('id')): perfil
-                    for perfil in (perfiles_result.data or [])
-                    if perfil.get('id')
-                }
+                perfiles_map = self._obtener_profiles_map(
+                    user_ids,
+                    select='id, nombre_completo, telefono, activo, permisos',
+                )
 
             emails_map = {}
             try:
@@ -1402,16 +1491,16 @@ class UserService:
         # Buscar si el email ya existe en auth.users
         try:
             auth_user = self._buscar_auth_user_por_email(email)
-            perfil_result = None
+            perfil_data = None
             if auth_user and getattr(auth_user, "id", None):
-                perfil_result = self.supabase_admin.table(self.tabla_profiles)\
-                    .select('id, rol, activo, nombre_completo')\
-                    .eq('id', str(auth_user.id))\
-                    .execute()
+                perfil_data = self._obtener_profile_data(
+                    UUID(str(auth_user.id)),
+                    select='id, rol, activo, nombre_completo',
+                )
         except Exception as e:
             raise DatabaseError(f"Error buscando usuario: {str(e)}")
 
-        if not perfil_result or not perfil_result.data:
+        if not perfil_data:
             # --- CASO 1: Usuario nuevo ---
             password_temporal = self._generar_password_temporal()
             perfil = await self.crear_usuario(
@@ -1445,7 +1534,6 @@ class UserService:
 
         else:
             # --- CASO 2/3: Usuario existente ---
-            perfil_data = perfil_result.data[0]
             rol_existente = perfil_data.get('rol', '')
             user_id = UUID(perfil_data['id'])
 
@@ -1459,15 +1547,15 @@ class UserService:
 
             # Verificar que el usuario no tenga ya asignación en esta empresa
             try:
-                asig_result = self.supabase_admin.table(self.tabla_companies)\
-                    .select('id')\
-                    .eq('user_id', str(user_id))\
-                    .eq('empresa_id', empresa_id)\
-                    .execute()
+                asignacion_existente = self._obtener_relacion_user_company(
+                    user_id,
+                    empresa_id,
+                    select='id',
+                )
             except Exception as e:
                 raise DatabaseError(f"Error verificando asignación: {str(e)}")
 
-            if asig_result.data:
+            if asignacion_existente:
                 raise DuplicateError(
                     f"El usuario {email} ya tiene acceso a esta empresa.",
                     field="email",
@@ -1484,10 +1572,7 @@ class UserService:
 
             # Actualizar permisos en el perfil global
             if permisos:
-                self.supabase_admin.table(self.tabla_profiles)\
-                    .update({'permisos': permisos})\
-                    .eq('id', str(user_id))\
-                    .execute()
+                self._actualizar_profile_data(user_id, {'permisos': permisos})
 
             logger.info(
                 f"Usuario existente {email} vinculado a empresa {empresa_id} "
@@ -1520,26 +1605,25 @@ class UserService:
         """
         try:
             # Leer estado actual
-            result = self.supabase_admin.table(self.tabla_companies)\
-                .select('activo')\
-                .eq('user_id', str(user_id))\
-                .eq('empresa_id', empresa_id)\
-                .execute()
-
-            if not result.data:
+            relacion = self._obtener_relacion_user_company(
+                user_id,
+                empresa_id,
+                select='activo',
+            )
+            if not relacion:
                 raise NotFoundError(
                     f"El usuario {user_id} no tiene asignada la empresa {empresa_id}"
                 )
 
-            estado_actual = result.data[0].get('activo', True)
+            estado_actual = relacion.get('activo', True)
             nuevo_estado = not estado_actual
 
             # Actualizar
-            self.supabase_admin.table(self.tabla_companies)\
-                .update({'activo': nuevo_estado})\
-                .eq('user_id', str(user_id))\
-                .eq('empresa_id', empresa_id)\
-                .execute()
+            self._actualizar_relacion_user_company(
+                user_id,
+                empresa_id,
+                {'activo': nuevo_estado},
+            )
 
             logger.info(
                 f"Usuario {user_id} en empresa {empresa_id}: "

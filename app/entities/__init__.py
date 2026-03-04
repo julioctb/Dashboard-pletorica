@@ -14,6 +14,11 @@ from app.core.enums import (
     RolUsuario,
     RolPlataforma,
     RolEmpresa,
+    # Enums de Cotización
+    EstatusCotizacion,
+    EstatusPartidaCotizacion,
+    TipoConceptoCotizacion,
+    TipoValorConcepto,
     # Enums de Contrato
     TipoContrato,
     ModalidadAdjudicacion,
@@ -343,6 +348,47 @@ from app.entities.configuracion_dispersion import (
     ResultadoDispersion,
 )
 
+# Configuración Fiscal Empresa
+from app.entities.configuracion_fiscal_empresa import (
+    ConfiguracionFiscalEmpresa,
+    ConfiguracionFiscalEmpresaCreate,
+    ConfiguracionFiscalEmpresaUpdate,
+)
+
+# Cotización
+from app.entities.cotizacion import (
+    Cotizacion,
+    CotizacionCreate,
+    CotizacionUpdate,
+    CotizacionResumen,
+)
+
+# Cotización Partida
+from app.entities.cotizacion_partida import (
+    CotizacionPartida,
+    CotizacionPartidaCreate,
+    CotizacionPartidaResumen,
+)
+
+# Cotización Partida Categoría
+from app.entities.cotizacion_partida_categoria import (
+    CotizacionPartidaCategoria,
+    CotizacionPartidaCategoriaCreate,
+    CotizacionPartidaCategoriaResumen,
+)
+
+# Cotización Concepto
+from app.entities.cotizacion_concepto import (
+    CotizacionConcepto,
+    CotizacionConceptoCreate,
+)
+
+# Cotización Concepto Valor
+from app.entities.cotizacion_concepto_valor import (
+    CotizacionConceptoValor,
+    CotizacionConceptoValorCreate,
+)
+
 
 __all__ = [
     # Enums
@@ -552,4 +598,32 @@ __all__ = [
     "ConfiguracionBancoEmpresaCreate",
     "DispersionLayout",
     "ResultadoDispersion",
+    # Enums Cotización
+    "EstatusCotizacion",
+    "EstatusPartidaCotizacion",
+    "TipoConceptoCotizacion",
+    "TipoValorConcepto",
+    # Configuración Fiscal Empresa
+    "ConfiguracionFiscalEmpresa",
+    "ConfiguracionFiscalEmpresaCreate",
+    "ConfiguracionFiscalEmpresaUpdate",
+    # Cotización
+    "Cotizacion",
+    "CotizacionCreate",
+    "CotizacionUpdate",
+    "CotizacionResumen",
+    # Cotización Partida
+    "CotizacionPartida",
+    "CotizacionPartidaCreate",
+    "CotizacionPartidaResumen",
+    # Cotización Partida Categoría
+    "CotizacionPartidaCategoria",
+    "CotizacionPartidaCategoriaCreate",
+    "CotizacionPartidaCategoriaResumen",
+    # Cotización Concepto
+    "CotizacionConcepto",
+    "CotizacionConceptoCreate",
+    # Cotización Concepto Valor
+    "CotizacionConceptoValor",
+    "CotizacionConceptoValorCreate",
 ]

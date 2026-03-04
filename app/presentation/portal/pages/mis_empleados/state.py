@@ -11,7 +11,7 @@ from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.components.shared.employee_form_state_mixin import EmployeeFormStateMixin
 from app.services import empleado_service
 from app.entities import EmpleadoCreate, EmpleadoUpdate
-from app.core.exceptions import DatabaseError, DuplicateError, BusinessRuleError, NotFoundError
+from app.core.exceptions import DuplicateError, BusinessRuleError, NotFoundError
 from app.core.ui_helpers import opciones_desde_enum
 from app.core.validation import (
     validar_rfc_empleado_requerido,
@@ -350,23 +350,16 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
         if not self.id_empresa_actual:
             return
 
-        try:
-            incluir_inactivos = self.filtro_estatus_emp != "ACTIVO"
-            empleados = await empleado_service.obtener_resumen_por_empresa(
+        empleados = await self.cargar_y_asignar_lista(
+            "empleados",
+            lambda: empleado_service.obtener_resumen_por_empresa(
                 empresa_id=self.id_empresa_actual,
-                incluir_inactivos=incluir_inactivos,
+                incluir_inactivos=self.filtro_estatus_emp != "ACTIVO",
                 limite=200,
-            )
-            self.empleados = [e.model_dump(mode='json') if hasattr(e, 'model_dump') else e for e in empleados]
-            self.total_empleados_lista = len(self.empleados)
-        except DatabaseError as e:
-            self.mostrar_mensaje(f"Error cargando empleados: {e}", "error")
-            self.empleados = []
-            self.total_empleados_lista = 0
-        except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {e}", "error")
-            self.empleados = []
-            self.total_empleados_lista = 0
+            ),
+            contexto_error="cargando empleados",
+        )
+        self.total_empleados_lista = len(empleados)
 
     async def cargar_empleados(self):
         """Recarga empleados con skeleton (filtros)."""
@@ -395,22 +388,14 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
         if not empleado or not isinstance(empleado, dict):
             return
         self.empleado_baja_seleccionado = empleado
-        self.form_motivo_baja = ""
-        self.form_fecha_efectiva_baja = ""
-        self.form_notas_baja = ""
-        self.error_motivo_baja = ""
-        self.error_fecha_efectiva_baja = ""
+        self._limpiar_formulario_baja()
         self.mostrar_modal_baja = True
 
     def cerrar_modal_baja(self):
         """Cierra modal de baja y limpia estado asociado."""
         self.mostrar_modal_baja = False
         self.empleado_baja_seleccionado = {}
-        self.form_motivo_baja = ""
-        self.form_fecha_efectiva_baja = ""
-        self.form_notas_baja = ""
-        self.error_motivo_baja = ""
-        self.error_fecha_efectiva_baja = ""
+        self._limpiar_formulario_baja()
 
     # ========================
     # CREAR EMPLEADO
@@ -586,6 +571,14 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
         """Construye el string de contacto de emergencia desde los campos del form."""
         return self._construir_contacto_emergencia_compartido()
 
+    def _limpiar_formulario_baja(self) -> None:
+        """Resetea el formulario de baja del portal."""
+        self.form_motivo_baja = ""
+        self.form_fecha_efectiva_baja = ""
+        self.form_notas_baja = ""
+        self.error_motivo_baja = ""
+        self.error_fecha_efectiva_baja = ""
+
     def _limpiar_formulario(self):
         """Limpia el formulario."""
         self._reset_employee_form_fields(
@@ -604,21 +597,7 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es valido."""
         return self._validar_formulario_empleado_compartido(
-            error_fields=[
-                "curp",
-                "nombre",
-                "apellido_paterno",
-                "apellido_materno",
-                "rfc",
-                "nss",
-                "genero",
-                "fecha_nacimiento",
-                "email",
-                "telefono",
-                "contacto_nombre",
-                "contacto_telefono",
-                "contacto_parentesco",
-            ],
+            error_fields=self._campos_error_formulario,
             curp_validator=validar_curp,
             required_validations=[
                 ("error_nombre", self.form_nombre, validar_nombre),

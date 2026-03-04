@@ -532,24 +532,23 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
     async def cargar_empresas(self):
         """Carga el catálogo de empresas para el select"""
-        try:
-            empresas = await empresa_service.obtener_todas(incluir_inactivas=False)
-            self.empresas = [
-                {
-                    "id": e.id,
-                    "nombre_comercial": e.nombre_comercial,
-                    "codigo_corto": e.codigo_corto or "",
-                }
-                for e in empresas
-                if e.puede_tener_empleados() and self._empresa_en_alcance(e.id)
-            ]
-            if not self.es_admin:
-                empresa_restringida = self._filtro_empresa_restringido()
-                self.filtro_empresa_id = empresa_restringida
-                self.form_empresa_id = empresa_restringida if empresa_restringida != FILTRO_TODAS else ""
-        except Exception as e:
-            self.manejar_error(e, "cargando empresas")
-            self.empresas = []
+        empresas = await self.cargar_y_asignar_lista(
+            "empresas",
+            lambda: empresa_service.obtener_todas(incluir_inactivas=False),
+            contexto_error="cargando empresas",
+            transformar=lambda e: {
+                "id": e.id,
+                "nombre_comercial": e.nombre_comercial,
+                "codigo_corto": e.codigo_corto or "",
+            } if e.puede_tener_empleados() and self._empresa_en_alcance(e.id) else None,
+        )
+        self.empresas = [empresa for empresa in empresas if empresa]
+        if not self.es_admin:
+            empresa_restringida = self._filtro_empresa_restringido()
+            self.filtro_empresa_id = empresa_restringida
+            self.form_empresa_id = (
+                empresa_restringida if empresa_restringida != FILTRO_TODAS else ""
+            )
 
     async def cargar_detalle(self, empleado_id: int):
         """Carga el detalle de un empleado"""
@@ -626,22 +625,16 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         emp_id = empleado.get("id", 0)
         if not emp_id:
             return
-        self._limpiar_formulario()
-        self.es_edicion = True
-        self.empleado_seleccionado = empleado
-        self.empleado_id_edicion = emp_id
-        self._llenar_formulario_desde_empleado(empleado)
-        self.mostrar_modal_empleado = True
+        self._abrir_modal_edicion_empleado(empleado, emp_id)
 
     def abrir_modal_editar_desde_detalle(self):
         """Abre el modal de edición usando el empleado_seleccionado actual"""
         if not self.empleado_seleccionado:
             return
-        self._limpiar_formulario()
-        self.es_edicion = True
-        self.empleado_id_edicion = self.empleado_seleccionado.get("id", 0)  # Guardar ID
-        self._llenar_formulario_desde_empleado(self.empleado_seleccionado)
-        self.mostrar_modal_empleado = True
+        self._abrir_modal_edicion_empleado(
+            self.empleado_seleccionado,
+            self.empleado_seleccionado.get("id", 0),
+        )
 
     def _llenar_formulario_desde_empleado(self, empleado: dict):
         """Llena el formulario con datos del empleado"""
@@ -657,9 +650,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
     def abrir_modal_baja(self):
         """Abre el modal para dar de baja"""
-        self.form_motivo_baja = ""
-        self.form_fecha_efectiva = ""
-        self.form_notas_baja = ""
+        self._limpiar_formulario_baja()
         self.mostrar_modal_baja = True
 
     def cerrar_modal_empleado(self):
@@ -675,9 +666,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     def cerrar_modal_baja(self):
         """Cierra el modal de baja"""
         self.mostrar_modal_baja = False
-        self.form_motivo_baja = ""
-        self.form_fecha_efectiva = ""
-        self.form_notas_baja = ""
+        self._limpiar_formulario_baja()
 
     # ========================
     # ACCIONES DE MODAL - RESTRICCIONES
@@ -946,9 +935,6 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
             self.cerrar_modal_baja()
             self.cerrar_modal_detalle()
-            self.form_motivo_baja = ""
-            self.form_fecha_efectiva = ""
-            self.form_notas_baja = ""
 
             async for _ in self._recargar_datos(self._fetch_empleados):
                 yield
@@ -1149,6 +1135,21 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         self._limpiar_formulario_crud()  # Usa _campos_formulario y _campos_error
         if not self.es_admin:
             self.form_empresa_id = self._filtro_empresa_restringido_value()
+
+    def _limpiar_formulario_baja(self) -> None:
+        """Resetea los campos del modal de baja."""
+        self.form_motivo_baja = ""
+        self.form_fecha_efectiva = ""
+        self.form_notas_baja = ""
+
+    def _abrir_modal_edicion_empleado(self, empleado: dict, empleado_id: int) -> None:
+        """Centraliza la apertura del modal de edición."""
+        self._limpiar_formulario()
+        self.es_edicion = True
+        self.empleado_seleccionado = empleado
+        self.empleado_id_edicion = empleado_id
+        self._llenar_formulario_desde_empleado(empleado)
+        self.mostrar_modal_empleado = True
 
     def _empresa_en_alcance(self, empresa_id: Optional[int]) -> bool:
         """Valida si la empresa está en el alcance del usuario actual."""

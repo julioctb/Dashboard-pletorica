@@ -96,64 +96,21 @@ class AsistenciaService:
             supervisor_id=contexto["supervisor_id"],
             fecha=fecha,
         )
-        employee_ids = [emp.empleado_id for emp in empleados]
-        incidencias = await self._obtener_incidencias_fecha(empresa_id, fecha, employee_ids)
-        incidencias_map = {item.empleado_id: item for item in incidencias}
-
-        registros_map: dict[int, RegistroAsistencia] = {}
-        if (
-            jornada
-            and self._enum_value(jornada.estatus) == EstatusJornada.CONSOLIDADA.value
-            and employee_ids
-        ):
-            registros = await self._obtener_registros_jornada(jornada.id)
-            registros_map = {item.empleado_id: item for item in registros}
-
-        filas = []
-        for empleado in empleados:
-            fila = empleado.model_dump(mode="json")
-            incidencia = incidencias_map.get(empleado.empleado_id)
-            registro = registros_map.get(empleado.empleado_id)
-
-            if incidencia:
-                fila["incidencia_id"] = incidencia.id
-                fila["tipo_incidencia"] = self._enum_value(incidencia.tipo_incidencia)
-                fila["resultado_dia"] = self._enum_value(incidencia.tipo_incidencia)
-                fila["minutos_retardo"] = incidencia.minutos_retardo
-                fila["horas_extra"] = float(incidencia.horas_extra or 0)
-                fila["motivo"] = incidencia.motivo or ""
-                fila["origen"] = self._enum_value(incidencia.origen)
-            elif registro:
-                fila["registro_id"] = registro.id
-                fila["resultado_dia"] = self._enum_value(registro.tipo_registro)
-                fila["minutos_retardo"] = registro.minutos_retardo
-                fila["horas_extra"] = float(registro.horas_extra or 0)
-                fila["es_consolidado"] = registro.es_consolidado
-            elif (
-                jornada
-                and self._enum_value(jornada.estatus) == EstatusJornada.ABIERTA.value
-            ):
-                fila["resultado_dia"] = "SIN_NOVEDAD"
-            elif (
-                jornada
-                and self._enum_value(jornada.estatus) == EstatusJornada.CERRADA.value
-            ):
-                fila["resultado_dia"] = "CERRADA"
-            else:
-                fila["resultado_dia"] = "PENDIENTE"
-
-            filas.append(fila)
-
-        return {
-            "supervisor": contexto["supervisor"],
-            "sedes_supervision": contexto["sedes_supervision"],
-            "horario": horario.model_dump(mode="json") if horario else {},
-            "jornada": jornada.model_dump(mode="json") if jornada else {},
-            "empleados": filas,
-            "incidencias": [item.model_dump(mode="json") for item in incidencias],
-            "total_empleados": len(filas),
-            "total_incidencias": len(incidencias),
-        }
+        incidencias = await self._obtener_incidencias_fecha(
+            empresa_id,
+            fecha,
+            [emp.empleado_id for emp in empleados],
+        )
+        return await self._construir_panel_asistencia(
+            supervisor=contexto["supervisor"],
+            sedes_supervision=contexto["sedes_supervision"],
+            horario=horario,
+            jornada=jornada,
+            empleados=empleados,
+            incidencias=incidencias,
+            incluir_registros_consolidados=True,
+            usar_estado_jornada=True,
+        )
 
     async def obtener_panel_rrhh(
         self,
@@ -175,36 +132,21 @@ class AsistenciaService:
             supervisor_id=None,
             fecha=fecha,
         )
-        employee_ids = [emp.empleado_id for emp in empleados]
-        incidencias = await self._obtener_incidencias_fecha(empresa_id, fecha, employee_ids)
-        incidencias_map = {item.empleado_id: item for item in incidencias}
-
-        filas = []
-        for empleado in empleados:
-            fila = empleado.model_dump(mode="json")
-            incidencia = incidencias_map.get(empleado.empleado_id)
-            if incidencia:
-                fila["incidencia_id"] = incidencia.id
-                fila["tipo_incidencia"] = self._enum_value(incidencia.tipo_incidencia)
-                fila["resultado_dia"] = self._enum_value(incidencia.tipo_incidencia)
-                fila["minutos_retardo"] = incidencia.minutos_retardo
-                fila["horas_extra"] = float(incidencia.horas_extra or 0)
-                fila["motivo"] = incidencia.motivo or ""
-                fila["origen"] = self._enum_value(incidencia.origen)
-            else:
-                fila["resultado_dia"] = "PENDIENTE"
-            filas.append(fila)
-
-        return {
-            "supervisor": {},
-            "sedes_supervision": [],
-            "horario": horario.model_dump(mode="json") if horario else {},
-            "jornada": jornada.model_dump(mode="json") if jornada else {},
-            "empleados": filas,
-            "incidencias": [item.model_dump(mode="json") for item in incidencias],
-            "total_empleados": len(filas),
-            "total_incidencias": len(incidencias),
-        }
+        incidencias = await self._obtener_incidencias_fecha(
+            empresa_id,
+            fecha,
+            [emp.empleado_id for emp in empleados],
+        )
+        return await self._construir_panel_asistencia(
+            supervisor={},
+            sedes_supervision=[],
+            horario=horario,
+            jornada=jornada,
+            empleados=empleados,
+            incidencias=incidencias,
+            incluir_registros_consolidados=False,
+            usar_estado_jornada=False,
+        )
 
     async def obtener_horario_activo(
         self,
@@ -526,31 +468,15 @@ class AsistenciaService:
             raise BusinessRuleError("Primero abre la jornada del dia")
         if self._enum_value(jornada.estatus) != EstatusJornada.ABIERTA.value:
             raise BusinessRuleError("La jornada ya no permite registrar incidencias")
-
-        if (
-            datos.tipo_incidencia == TipoIncidencia.RETARDO
-            and int(datos.minutos_retardo or 0) <= 0
-        ):
-            raise BusinessRuleError("Captura minutos de retardo mayores a 0")
-        if (
-            datos.tipo_incidencia == TipoIncidencia.HORA_EXTRA
-            and Decimal(str(datos.horas_extra or 0)) <= 0
-        ):
-            raise BusinessRuleError("Captura horas extra mayores a 0")
-
-        payload = {
-            "jornada_id": jornada.id,
-            "empleado_id": datos.empleado_id,
-            "empresa_id": empresa_id,
-            "fecha": fecha.isoformat(),
-            "tipo_incidencia": self._enum_value(datos.tipo_incidencia),
-            "minutos_retardo": int(datos.minutos_retardo or 0),
-            "horas_extra": float(datos.horas_extra or 0),
-            "motivo": datos.motivo,
-            "origen": self._enum_value(datos.origen or OrigenIncidencia.SUPERVISOR),
-            "registrado_por": user_id or datos.registrado_por,
-            "sede_real_id": datos.sede_real_id,
-        }
+        self._validar_valores_incidencia(datos)
+        payload = self._construir_payload_incidencia(
+            jornada_id=jornada.id,
+            empresa_id=empresa_id,
+            fecha=fecha,
+            datos=datos,
+            registrado_por=user_id or datos.registrado_por,
+            origen=datos.origen or OrigenIncidencia.SUPERVISOR,
+        )
         existente = await self._obtener_incidencia_empleado(datos.empleado_id, fecha)
         try:
             if existente:
@@ -591,16 +517,7 @@ class AsistenciaService:
             empleado_id=datos.empleado_id,
             fecha=fecha,
         )
-        if (
-            datos.tipo_incidencia == TipoIncidencia.RETARDO
-            and int(datos.minutos_retardo or 0) <= 0
-        ):
-            raise BusinessRuleError("Captura minutos de retardo mayores a 0")
-        if (
-            datos.tipo_incidencia == TipoIncidencia.HORA_EXTRA
-            and Decimal(str(datos.horas_extra or 0)) <= 0
-        ):
-            raise BusinessRuleError("Captura horas extra mayores a 0")
+        self._validar_valores_incidencia(datos)
 
         existente = await self._obtener_incidencia_empleado(datos.empleado_id, fecha)
         if existente and (
@@ -611,19 +528,14 @@ class AsistenciaService:
                 "La incidencia ya fue capturada durante la jornada y no puede sobrescribirse desde RH"
             )
 
-        payload = {
-            "jornada_id": existente.jornada_id if existente else None,
-            "empleado_id": datos.empleado_id,
-            "empresa_id": empresa_id,
-            "fecha": fecha.isoformat(),
-            "tipo_incidencia": self._enum_value(datos.tipo_incidencia),
-            "minutos_retardo": int(datos.minutos_retardo or 0),
-            "horas_extra": float(datos.horas_extra or 0),
-            "motivo": datos.motivo,
-            "origen": OrigenIncidencia.RH.value,
-            "registrado_por": user_id or datos.registrado_por,
-            "sede_real_id": datos.sede_real_id,
-        }
+        payload = self._construir_payload_incidencia(
+            jornada_id=existente.jornada_id if existente else None,
+            empresa_id=empresa_id,
+            fecha=fecha,
+            datos=datos,
+            registrado_por=user_id or datos.registrado_por,
+            origen=OrigenIncidencia.RH,
+        )
         try:
             if existente:
                 result = (
@@ -1164,6 +1076,95 @@ class AsistenciaService:
                 "El empleado seleccionado no pertenece al contrato o no tiene plaza ocupada"
             )
 
+    async def _construir_panel_asistencia(
+        self,
+        *,
+        supervisor: dict,
+        sedes_supervision: list[dict],
+        horario: Optional[Horario],
+        jornada: Optional[JornadaAsistencia],
+        empleados: list[EmpleadoAsistenciaEsperado],
+        incidencias: list[IncidenciaAsistencia],
+        incluir_registros_consolidados: bool,
+        usar_estado_jornada: bool,
+    ) -> dict:
+        """Construye el payload serializable del panel de asistencias."""
+        incidencias_map = {item.empleado_id: item for item in incidencias}
+        registros_map: dict[int, RegistroAsistencia] = {}
+
+        if (
+            incluir_registros_consolidados
+            and jornada
+            and self._enum_value(jornada.estatus) == EstatusJornada.CONSOLIDADA.value
+            and empleados
+        ):
+            registros = await self._obtener_registros_jornada(jornada.id)
+            registros_map = {item.empleado_id: item for item in registros}
+
+        filas = [
+            self._construir_fila_panel_asistencia(
+                empleado,
+                incidencia=incidencias_map.get(empleado.empleado_id),
+                registro=registros_map.get(empleado.empleado_id),
+                jornada=jornada,
+                usar_estado_jornada=usar_estado_jornada,
+            )
+            for empleado in empleados
+        ]
+
+        return {
+            "supervisor": supervisor,
+            "sedes_supervision": sedes_supervision,
+            "horario": self._serializar_modelo(horario),
+            "jornada": self._serializar_modelo(jornada),
+            "empleados": filas,
+            "incidencias": self._serializar_modelos(incidencias),
+            "total_empleados": len(filas),
+            "total_incidencias": len(incidencias),
+        }
+
+    def _construir_fila_panel_asistencia(
+        self,
+        empleado: EmpleadoAsistenciaEsperado,
+        *,
+        incidencia: Optional[IncidenciaAsistencia],
+        registro: Optional[RegistroAsistencia],
+        jornada: Optional[JornadaAsistencia],
+        usar_estado_jornada: bool,
+    ) -> dict:
+        """Enriquece la fila serializada de un empleado para el panel diario."""
+        fila = empleado.model_dump(mode="json")
+
+        if incidencia:
+            fila["incidencia_id"] = incidencia.id
+            fila["tipo_incidencia"] = self._enum_value(incidencia.tipo_incidencia)
+            fila["resultado_dia"] = self._enum_value(incidencia.tipo_incidencia)
+            fila["minutos_retardo"] = incidencia.minutos_retardo
+            fila["horas_extra"] = float(incidencia.horas_extra or 0)
+            fila["motivo"] = incidencia.motivo or ""
+            fila["origen"] = self._enum_value(incidencia.origen)
+            return fila
+
+        if registro:
+            fila["registro_id"] = registro.id
+            fila["resultado_dia"] = self._enum_value(registro.tipo_registro)
+            fila["minutos_retardo"] = registro.minutos_retardo
+            fila["horas_extra"] = float(registro.horas_extra or 0)
+            fila["es_consolidado"] = registro.es_consolidado
+            return fila
+
+        if usar_estado_jornada and jornada:
+            estatus_jornada = self._enum_value(jornada.estatus)
+            if estatus_jornada == EstatusJornada.ABIERTA.value:
+                fila["resultado_dia"] = "SIN_NOVEDAD"
+                return fila
+            if estatus_jornada == EstatusJornada.CERRADA.value:
+                fila["resultado_dia"] = "CERRADA"
+                return fila
+
+        fila["resultado_dia"] = "PENDIENTE"
+        return fila
+
     async def _obtener_jornada_contextual(
         self,
         empresa_id: int,
@@ -1172,25 +1173,12 @@ class AsistenciaService:
         supervisor_id: Optional[int],
     ) -> Optional[JornadaAsistencia]:
         """Obtiene la jornada que aplica a la combinacion actual."""
-        try:
-            query = (
-                self.supabase.table("jornadas")
-                .select("*")
-                .eq("empresa_id", empresa_id)
-                .eq("contrato_id", contrato_id)
-                .eq("fecha", fecha.isoformat())
-            )
-            if supervisor_id is None:
-                query = query.is_("supervisor_id", "null")
-            else:
-                query = query.eq("supervisor_id", supervisor_id)
-            result = query.limit(1).execute()
-            if not result.data:
-                return None
-            return JornadaAsistencia(**result.data[0])
-        except Exception as e:
-            logger.error("Error obteniendo jornada contextual: %s", e)
-            raise DatabaseError(f"Error obteniendo jornada contextual: {e}")
+        return await self._buscar_jornada(
+            empresa_id=empresa_id,
+            fecha=fecha,
+            supervisor_id=supervisor_id,
+            contrato_id=contrato_id,
+        )
 
     async def _obtener_jornada_existente_supervisor(
         self,
@@ -1199,6 +1187,22 @@ class AsistenciaService:
         supervisor_id: Optional[int],
     ) -> Optional[JornadaAsistencia]:
         """Busca jornada existente del mismo supervisor y fecha."""
+        return await self._buscar_jornada(
+            empresa_id=empresa_id,
+            fecha=fecha,
+            supervisor_id=supervisor_id,
+            contrato_id=None,
+        )
+
+    async def _buscar_jornada(
+        self,
+        *,
+        empresa_id: int,
+        fecha: date,
+        supervisor_id: Optional[int],
+        contrato_id: Optional[int],
+    ) -> Optional[JornadaAsistencia]:
+        """Busca una jornada por contexto compartido de empresa/fecha/supervisor."""
         try:
             query = (
                 self.supabase.table("jornadas")
@@ -1206,6 +1210,8 @@ class AsistenciaService:
                 .eq("empresa_id", empresa_id)
                 .eq("fecha", fecha.isoformat())
             )
+            if contrato_id is not None:
+                query = query.eq("contrato_id", contrato_id)
             if supervisor_id is None:
                 query = query.is_("supervisor_id", "null")
             else:
@@ -1215,8 +1221,8 @@ class AsistenciaService:
                 return None
             return JornadaAsistencia(**result.data[0])
         except Exception as e:
-            logger.error("Error obteniendo jornada existente: %s", e)
-            raise DatabaseError(f"Error obteniendo jornada existente: {e}")
+            logger.error("Error obteniendo jornada: %s", e)
+            raise DatabaseError(f"Error obteniendo jornada: {e}")
 
     async def _obtener_incidencias_fecha(
         self,
@@ -1362,6 +1368,52 @@ class AsistenciaService:
     @staticmethod
     def _enum_value(value) -> str:
         return value.value if hasattr(value, "value") else str(value)
+
+    @staticmethod
+    def _serializar_modelo(item) -> dict:
+        return item.model_dump(mode="json") if item else {}
+
+    def _serializar_modelos(self, items: list) -> list[dict]:
+        return [self._serializar_modelo(item) for item in items]
+
+    def _construir_payload_incidencia(
+        self,
+        *,
+        jornada_id: Optional[int],
+        empresa_id: int,
+        fecha: date,
+        datos: IncidenciaAsistenciaCreate,
+        registrado_por: str,
+        origen,
+    ) -> dict:
+        """Arma el payload persistible de una incidencia/precarga."""
+        return {
+            "jornada_id": jornada_id,
+            "empleado_id": datos.empleado_id,
+            "empresa_id": empresa_id,
+            "fecha": fecha.isoformat(),
+            "tipo_incidencia": self._enum_value(datos.tipo_incidencia),
+            "minutos_retardo": int(datos.minutos_retardo or 0),
+            "horas_extra": float(datos.horas_extra or 0),
+            "motivo": datos.motivo,
+            "origen": self._enum_value(origen),
+            "registrado_por": registrado_por,
+            "sede_real_id": datos.sede_real_id,
+        }
+
+    @staticmethod
+    def _validar_valores_incidencia(datos: IncidenciaAsistenciaCreate) -> None:
+        """Valida montos obligatorios por tipo de incidencia."""
+        if (
+            datos.tipo_incidencia == TipoIncidencia.RETARDO
+            and int(datos.minutos_retardo or 0) <= 0
+        ):
+            raise BusinessRuleError("Captura minutos de retardo mayores a 0")
+        if (
+            datos.tipo_incidencia == TipoIncidencia.HORA_EXTRA
+            and Decimal(str(datos.horas_extra or 0)) <= 0
+        ):
+            raise BusinessRuleError("Captura horas extra mayores a 0")
 
 
 asistencia_service = AsistenciaService()
