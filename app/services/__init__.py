@@ -91,6 +91,11 @@ from app.services.contacto_buap_service import (
 )
 
 # User (Autenticación y Perfiles)
+from app.services.users import (
+    UserAuthService,
+    UserCompanyService,
+    UserProfileService,
+)
 from app.services.user_service import user_service
 
 # Institucion
@@ -175,6 +180,12 @@ from app.services.onboarding_service import (
 )
 
 # Asistencia
+from app.services.asistencias import (
+    AsistenciaConfigService,
+    AsistenciaIncidenciaService,
+    AsistenciaJornadaService,
+    AsistenciaPanelService,
+)
 from app.services.asistencia_service import (
     AsistenciaService,
     asistencia_service,
@@ -267,6 +278,9 @@ __all__ = [
     "ContactoBuapService",
     "contacto_buap_service",
     # User (Autenticación y Perfiles)
+    "UserAuthService",
+    "UserProfileService",
+    "UserCompanyService",
     "user_service",
     # Institucion
     "InstitucionService",
@@ -308,6 +322,10 @@ __all__ = [
     "OnboardingService",
     "onboarding_service",
     # Asistencia
+    "AsistenciaPanelService",
+    "AsistenciaConfigService",
+    "AsistenciaJornadaService",
+    "AsistenciaIncidenciaService",
     "AsistenciaService",
     "asistencia_service",
     # Concepto Nómina

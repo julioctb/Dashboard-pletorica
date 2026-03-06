@@ -763,7 +763,8 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
     async def confirmar_restriccion(self):
         """Confirma la restriccion del empleado."""
-        if not self.empleado_seleccionado:
+        empleado_id = self._obtener_empleado_id_seleccionado()
+        if empleado_id is None:
             return rx.toast.error("No hay empleado seleccionado")
 
         error_motivo = validar_motivo_restriccion(self.form_motivo_restriccion)
@@ -774,14 +775,12 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         if not admin_id:
             return rx.toast.error("No se pudo obtener el ID del usuario")
 
-        empleado_id = self.empleado_seleccionado["id"]
         motivo = self.form_motivo_restriccion.strip()
         notas = self.form_notas_restriccion.strip() or None
 
         async def _on_exito():
             self.cerrar_modal_restriccion()
-            self.cerrar_modal_detalle()
-            await self._fetch_empleados()
+            await self._cerrar_detalle_y_recargar_empleados()
 
         return await self.ejecutar_guardado(
             operacion=lambda: empleado_service.restringir_empleado(
@@ -796,7 +795,8 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
     async def confirmar_liberacion(self):
         """Confirma la liberacion de la restriccion."""
-        if not self.empleado_seleccionado:
+        empleado_id = self._obtener_empleado_id_seleccionado()
+        if empleado_id is None:
             return rx.toast.error("No hay empleado seleccionado")
 
         error_motivo = validar_motivo_restriccion(self.form_motivo_liberacion)
@@ -807,14 +807,12 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         if not admin_id:
             return rx.toast.error("No se pudo obtener el ID del usuario")
 
-        empleado_id = self.empleado_seleccionado["id"]
         motivo = self.form_motivo_liberacion.strip()
         notas = self.form_notas_liberacion.strip() or None
 
         async def _on_exito():
             self.cerrar_modal_liberacion()
-            self.cerrar_modal_detalle()
-            await self._fetch_empleados()
+            await self._cerrar_detalle_y_recargar_empleados()
 
         return await self.ejecutar_guardado(
             operacion=lambda: empleado_service.liberar_empleado(
@@ -951,40 +949,28 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
     async def reactivar_empleado(self):
         """Reactiva al empleado seleccionado"""
-        if not self.empleado_seleccionado:
+        empleado_id = self._obtener_empleado_id_seleccionado()
+        if empleado_id is None:
             return rx.toast.error("No hay empleado seleccionado")
-
-        empleado_id = self.empleado_seleccionado.get("id") if isinstance(self.empleado_seleccionado, dict) else None
         if not empleado_id:
             return rx.toast.error("Error: No se pudo obtener el ID del empleado")
 
-        async def _on_exito():
-            self.cerrar_modal_detalle()
-            await self._fetch_empleados()
-
-        return await self.ejecutar_guardado(
+        return await self._ejecutar_cambio_estatus_empleado(
             operacion=lambda: empleado_service.reactivar(empleado_id),
             mensaje_exito="Empleado reactivado correctamente",
-            on_exito=_on_exito,
         )
 
     async def suspender_empleado(self):
         """Suspende al empleado seleccionado"""
-        if not self.empleado_seleccionado:
+        empleado_id = self._obtener_empleado_id_seleccionado()
+        if empleado_id is None:
             return rx.toast.error("No hay empleado seleccionado")
-
-        empleado_id = self.empleado_seleccionado.get("id") if isinstance(self.empleado_seleccionado, dict) else None
         if not empleado_id:
             return rx.toast.error("Error: No se pudo obtener el ID del empleado")
 
-        async def _on_exito():
-            self.cerrar_modal_detalle()
-            await self._fetch_empleados()
-
-        return await self.ejecutar_guardado(
+        return await self._ejecutar_cambio_estatus_empleado(
             operacion=lambda: empleado_service.suspender(empleado_id),
             mensaje_exito="Empleado suspendido correctamente",
-            on_exito=_on_exito,
         )
 
     async def suspender_desde_lista(self, empleado_id: int):
@@ -1150,6 +1136,25 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         self.empleado_id_edicion = empleado_id
         self._llenar_formulario_desde_empleado(empleado)
         self.mostrar_modal_empleado = True
+
+    def _obtener_empleado_id_seleccionado(self) -> Optional[int]:
+        """Devuelve el id del empleado seleccionado actual si existe."""
+        if not isinstance(self.empleado_seleccionado, dict):
+            return None
+        return self.empleado_seleccionado.get("id")
+
+    async def _cerrar_detalle_y_recargar_empleados(self) -> None:
+        """Mantiene consistente el detalle tras cambios de estatus o restricción."""
+        self.cerrar_modal_detalle()
+        await self._fetch_empleados()
+
+    async def _ejecutar_cambio_estatus_empleado(self, *, operacion, mensaje_exito: str):
+        """Centraliza cambios de estatus sobre el empleado seleccionado."""
+        return await self.ejecutar_guardado(
+            operacion=operacion,
+            mensaje_exito=mensaje_exito,
+            on_exito=self._cerrar_detalle_y_recargar_empleados,
+        )
 
     def _empresa_en_alcance(self, empresa_id: Optional[int]) -> bool:
         """Valida si la empresa está en el alcance del usuario actual."""

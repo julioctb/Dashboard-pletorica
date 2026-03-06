@@ -1094,31 +1094,7 @@ class ContratosState(AuthState, CRUDStateMixin):
             self._validar_todos_los_campos()
 
             if self.tiene_errores_formulario:
-                # Recopilar errores para mostrar mensaje descriptivo
-                errores = []
-                # Errores de campos siempre requeridos
-                if self.error_empresa_id:
-                    errores.append(f"Empresa: {self.error_empresa_id}")
-                if self.error_tipo_contrato:
-                    errores.append(f"Tipo Contrato: {self.error_tipo_contrato}")
-                if self.error_modalidad_adjudicacion:
-                    errores.append(f"Modalidad: {self.error_modalidad_adjudicacion}")
-                if self.error_fecha_inicio:
-                    errores.append(f"Fecha inicio: {self.error_fecha_inicio}")
-                if self.error_descripcion_objeto:
-                    errores.append(f"Descripción: {self.error_descripcion_objeto}")
-
-                # Errores condicionales (solo si es SERVICIOS)
-                es_servicios = self.form_tipo_contrato == TipoContrato.SERVICIOS.value
-                if es_servicios:
-                    if self.error_tipo_servicio_id:
-                        errores.append(f"Tipo Servicio: {self.error_tipo_servicio_id}")
-                    if self.error_tipo_duracion:
-                        errores.append(f"Duración: {self.error_tipo_duracion}")
-                    if self.error_fecha_fin:
-                        errores.append(f"Fecha fin: {self.error_fecha_fin}")
-
-                mensaje_errores = "; ".join(errores) if errores else "Verifique los campos del formulario"
+                mensaje_errores = self._mensaje_errores_formulario()
                 yield rx.toast.error(
                     mensaje_errores,
                     position="top-center",
@@ -1172,19 +1148,7 @@ class ContratosState(AuthState, CRUDStateMixin):
         )
 
         await self._guardar_categorias_iniciales_contrato(contrato_creado.id)
-
-        # Guardar configuración de entregables si hay tipos configurados
-        if self.config_entregables:
-            for config in self.config_entregables:
-                tipo_config = ContratoTipoEntregableCreate(
-                    contrato_id=contrato_creado.id,
-                    tipo_entregable=TipoEntregable(config["tipo_entregable"]),
-                    periodicidad=PeriodicidadEntregable(config["periodicidad"]),
-                    requerido=config["requerido"],
-                    descripcion=config.get("descripcion"),
-                    instrucciones=config.get("instrucciones"),
-                )
-                await entregable_service.configurar_tipo_entregable(tipo_config)
+        await self._guardar_entregables_configurados(contrato_creado.id)
 
         return f"Contrato '{contrato_creado.codigo}' creado exitosamente"
 
@@ -1356,19 +1320,7 @@ class ContratosState(AuthState, CRUDStateMixin):
         )
 
         await self._guardar_categorias_iniciales_contrato(contrato_creado.id)
-
-        # Guardar configuración de entregables si hay tipos configurados
-        if self.config_entregables:
-            for config in self.config_entregables:
-                tipo_config = ContratoTipoEntregableCreate(
-                    contrato_id=contrato_creado.id,
-                    tipo_entregable=TipoEntregable(config["tipo_entregable"]),
-                    periodicidad=PeriodicidadEntregable(config["periodicidad"]),
-                    requerido=config["requerido"],
-                    descripcion=config.get("descripcion"),
-                    instrucciones=config.get("instrucciones"),
-                )
-                await entregable_service.configurar_tipo_entregable(tipo_config)
+        await self._guardar_entregables_configurados(contrato_creado.id)
 
         return f"Contrato '{contrato_creado.codigo}' creado desde requisición"
 
@@ -1377,95 +1329,45 @@ class ContratosState(AuthState, CRUDStateMixin):
         if not self.contrato_seleccionado:
             return
 
-        codigo = self.contrato_seleccionado["codigo"]
-        contrato_id = self.contrato_seleccionado["id"]
-
-        self.saving = True
-
-        yield rx.toast.info(
-            f"Cancelando contrato '{codigo}'...",
-            position="top-center",
-            duration=2000
-        )
-
-        try:
-            await contrato_service.cancelar(contrato_id)
-            self.cerrar_confirmar_cancelar()
-            await self._fetch_contratos()
-
-            yield rx.toast.success(
-                f"Contrato '{codigo}' cancelado exitosamente",
-                position="top-center",
-                duration=3000
-            )
-
-        except Exception as e:
-            yield self.manejar_error_con_toast(e, "al cancelar contrato")
-        finally:
-            self.saving = False
+        async for event in self._ejecutar_transicion_contrato(
+            contrato=self.contrato_seleccionado,
+            operacion=lambda contrato_id: contrato_service.cancelar(contrato_id),
+            mensaje_accion="Cancelando",
+            mensaje_exito="cancelado",
+            contexto_error="al cancelar contrato",
+            on_exito=self.cerrar_confirmar_cancelar,
+        ):
+            yield event
 
     async def activar_contrato(self, contrato: dict):
         """Activar un contrato en borrador"""
-        codigo = contrato["codigo"]
-        self.saving = True
-        yield
-
-        try:
-            await contrato_service.activar(contrato["id"])
-            await self._fetch_contratos()
-
-            yield rx.toast.success(
-                f"Contrato '{codigo}' activado exitosamente",
-                position="top-center",
-                duration=3000
-            )
-
-        except Exception as e:
-            yield self.manejar_error_con_toast(e, "al activar contrato")
-        finally:
-            self.saving = False
+        async for event in self._ejecutar_transicion_contrato(
+            contrato=contrato,
+            operacion=lambda contrato_id: contrato_service.activar(contrato_id),
+            mensaje_exito="activado",
+            contexto_error="al activar contrato",
+        ):
+            yield event
 
     async def suspender_contrato(self, contrato: dict):
         """Suspender un contrato activo"""
-        codigo = contrato["codigo"]
-        self.saving = True
-        yield
-
-        try:
-            await contrato_service.suspender(contrato["id"])
-            await self._fetch_contratos()
-
-            yield rx.toast.success(
-                f"Contrato '{codigo}' suspendido exitosamente",
-                position="top-center",
-                duration=3000
-            )
-
-        except Exception as e:
-            yield self.manejar_error_con_toast(e, "al suspender contrato")
-        finally:
-            self.saving = False
+        async for event in self._ejecutar_transicion_contrato(
+            contrato=contrato,
+            operacion=lambda contrato_id: contrato_service.suspender(contrato_id),
+            mensaje_exito="suspendido",
+            contexto_error="al suspender contrato",
+        ):
+            yield event
 
     async def reactivar_contrato(self, contrato: dict):
         """Reactivar un contrato suspendido"""
-        codigo = contrato["codigo"]
-        self.saving = True
-        yield
-
-        try:
-            await contrato_service.reactivar(contrato["id"])
-            await self._fetch_contratos()
-
-            yield rx.toast.success(
-                f"Contrato '{codigo}' reactivado exitosamente",
-                position="top-center",
-                duration=3000
-            )
-
-        except Exception as e:
-            yield self.manejar_error_con_toast(e, "al reactivar contrato")
-        finally:
-            self.saving = False
+        async for event in self._ejecutar_transicion_contrato(
+            contrato=contrato,
+            operacion=lambda contrato_id: contrato_service.reactivar(contrato_id),
+            mensaje_exito="reactivado",
+            contexto_error="al reactivar contrato",
+        ):
+            yield event
 
     # ========================
     # CONFIGURACIÓN DE ENTREGABLES
@@ -1703,6 +1605,86 @@ class ContratosState(AuthState, CRUDStateMixin):
             for categoria_id in self.form_categoria_puesto_ids
         ]
         await contrato_categoria_service.asignar_categorias(contrato_id, categorias)
+
+    async def _guardar_entregables_configurados(self, contrato_id: int):
+        """Persistir tipos de entregable configurados desde el formulario."""
+        if not self.config_entregables:
+            return
+
+        for config in self.config_entregables:
+            tipo_config = ContratoTipoEntregableCreate(
+                contrato_id=contrato_id,
+                tipo_entregable=TipoEntregable(config["tipo_entregable"]),
+                periodicidad=PeriodicidadEntregable(config["periodicidad"]),
+                requerido=config["requerido"],
+                descripcion=config.get("descripcion"),
+                instrucciones=config.get("instrucciones"),
+            )
+            await entregable_service.configurar_tipo_entregable(tipo_config)
+
+    def _mensaje_errores_formulario(self) -> str:
+        """Construye el mensaje agregado de errores visibles del formulario."""
+        errores = []
+        errores_base = (
+            ("Empresa", self.error_empresa_id),
+            ("Tipo Contrato", self.error_tipo_contrato),
+            ("Modalidad", self.error_modalidad_adjudicacion),
+            ("Fecha inicio", self.error_fecha_inicio),
+            ("Descripción", self.error_descripcion_objeto),
+        )
+        for etiqueta, error in errores_base:
+            if error:
+                errores.append(f"{etiqueta}: {error}")
+
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
+            errores_servicio = (
+                ("Tipo Servicio", self.error_tipo_servicio_id),
+                ("Duración", self.error_tipo_duracion),
+                ("Fecha fin", self.error_fecha_fin),
+            )
+            for etiqueta, error in errores_servicio:
+                if error:
+                    errores.append(f"{etiqueta}: {error}")
+
+        return "; ".join(errores) if errores else "Verifique los campos del formulario"
+
+    async def _ejecutar_transicion_contrato(
+        self,
+        *,
+        contrato: dict,
+        operacion,
+        mensaje_exito: str,
+        contexto_error: str,
+        mensaje_accion: Optional[str] = None,
+        on_exito=None,
+    ):
+        """Centraliza transiciones de estatus y refresh del listado."""
+        codigo = contrato["codigo"]
+        self.saving = True
+
+        if mensaje_accion:
+            yield rx.toast.info(
+                f"{mensaje_accion} contrato '{codigo}'...",
+                position="top-center",
+                duration=2000,
+            )
+        else:
+            yield
+
+        try:
+            await operacion(contrato["id"])
+            if on_exito:
+                on_exito()
+            await self._fetch_contratos()
+            yield rx.toast.success(
+                f"Contrato '{codigo}' {mensaje_exito} exitosamente",
+                position="top-center",
+                duration=3000,
+            )
+        except Exception as e:
+            yield self.manejar_error_con_toast(e, contexto_error)
+        finally:
+            self.saving = False
 
     def _asegurar_permiso_operar_contratos(self):
         """Valida que el usuario pueda operar contratos en el contexto actual."""
