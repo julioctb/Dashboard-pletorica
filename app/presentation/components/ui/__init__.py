@@ -11,7 +11,11 @@ from .form_input import (
 )
 from .accumulating_select import accumulating_select
 from .badges import estatus_badge, badge_onboarding
-from .badges_domain import employee_status_badge, document_status_badge
+from .badges_domain import (
+    employee_status_badge,
+    document_status_badge,
+    payroll_period_status_badge,
+)
 from .tables import tabla_vacia
 from .table_primitives import (
     table_cell_text,
@@ -19,6 +23,7 @@ from .table_primitives import (
     table_cell_badge,
     table_cell_actions,
     table_header_cells,
+    table_pagination,
     table_shell,
     table_text,
     table_text_sm,
@@ -96,12 +101,14 @@ __all__ = [
     'select_items_from_options',
     'accumulating_select',
     'estatus_badge',
+    'payroll_period_status_badge',
     'employee_status_badge',
     'document_status_badge',
     'badge_onboarding',
     # tablas
     'tabla_vacia',
     'table_header_cells',
+    'table_pagination',
     'table_shell',
     'table_cell_text',
     'table_cell_text_sm',

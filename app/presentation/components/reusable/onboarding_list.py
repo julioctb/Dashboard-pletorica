@@ -9,7 +9,7 @@ from app.presentation.components.ui import (
     select_estatus_onboarding,
     table_shell,
 )
-from app.presentation.theme import Colors, Typography
+from app.presentation.theme import Colors, Spacing, Typography
 
 
 def onboarding_filters(
@@ -33,16 +33,17 @@ def onboarding_filters(
     if total_text is None:
         return select_component
 
-    return rx.hstack(
+    return rx.flex(
         select_component,
-        rx.spacer(),
         rx.text(
             total_text,
             font_size=Typography.SIZE_SM,
             color=Colors.TEXT_SECONDARY,
         ),
         align="center",
-        width="100%",
+        wrap="wrap",
+        column_gap=Spacing.SM,
+        row_gap=Spacing.XS,
     )
 
 
@@ -59,6 +60,7 @@ def onboarding_table(
     empty_icon: str,
     loading_rows: int = 5,
     total_caption: Any = None,
+    footer_component: rx.Component | None = None,
     header_variant: str = "default",
 ) -> rx.Component:
     """Tabla reusable de onboarding con skeleton y empty state."""
@@ -74,6 +76,7 @@ def onboarding_table(
             icon=empty_icon,
         ),
         total_caption=total_caption,
+        footer_component=footer_component,
         loading_rows=loading_rows,
         header_variant="uppercase_muted" if header_variant == "admin" else "default",
     )

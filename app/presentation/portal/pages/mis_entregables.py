@@ -50,12 +50,8 @@ def _stat_card(
             align="center",
         ),
         padding=Spacing.MD,
-        background=rx.cond(is_active, Colors.PORTAL_PRIMARY_LIGHT, Colors.SURFACE),
-        border=rx.cond(
-            is_active,
-            f"2px solid {Colors.PORTAL_PRIMARY}",
-            f"1px solid {Colors.BORDER}",
-        ),
+        background=Colors.SURFACE,
+        border=f"1px solid {Colors.BORDER}",
         border_radius=Radius.LG,
         flex="1",
         min_width="140px",
@@ -592,7 +588,7 @@ def _card_pagado(entregable: dict) -> rx.Component:
         ),
         padding=Spacing.MD,
         background=Colors.SURFACE,
-        border=f"1px solid {Colors.SUCCESS}",
+        border=f"1px solid {Colors.BORDER}",
         border_radius=Radius.MD,
     )
 

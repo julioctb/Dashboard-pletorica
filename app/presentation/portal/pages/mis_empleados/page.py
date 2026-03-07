@@ -21,11 +21,21 @@ def mis_empleados_page() -> rx.Component:
                 titulo="Empleados",
                 subtitulo="Empleados de la empresa actual",
                 icono="users",
-                accion_principal=rx.button(
-                    rx.icon("plus", size=16),
-                    "Nuevo Empleado",
-                    on_click=MisEmpleadosState.abrir_modal_crear,
-                    color_scheme="teal",
+                accion_principal=rx.hstack(
+                    rx.button(
+                        rx.icon("upload", size=16),
+                        "Alta masiva",
+                        on_click=rx.redirect("/portal/alta-masiva"),
+                        variant="outline",
+                        color_scheme="teal",
+                    ),
+                    rx.button(
+                        rx.icon("plus", size=16),
+                        "Nuevo Empleado",
+                        on_click=MisEmpleadosState.abrir_modal_crear,
+                        color_scheme="teal",
+                    ),
+                    spacing="2",
                 ),
             ),
             toolbar=page_toolbar(

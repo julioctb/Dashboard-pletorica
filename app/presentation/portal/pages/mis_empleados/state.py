@@ -12,7 +12,7 @@ from app.presentation.components.shared.employee_form_state_mixin import Employe
 from app.services import empleado_service
 from app.entities import EmpleadoCreate, EmpleadoUpdate
 from app.core.exceptions import DuplicateError, BusinessRuleError, NotFoundError
-from app.core.ui_helpers import opciones_desde_enum
+from app.core.ui_helpers import opciones_desde_enum, rango_paginacion
 from app.core.validation import (
     validar_rfc_empleado_requerido,
     validar_nss_empleado_requerido,
@@ -61,6 +61,8 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
     # Filtros
     filtro_busqueda_emp: str = ""
     filtro_estatus_emp: str = "ACTIVO"
+    pagina: int = 1
+    por_pagina: int = 20
 
     # ========================
     # FORMULARIO
@@ -119,9 +121,11 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
     # ========================
     def set_filtro_busqueda_emp(self, value: str):
         self.filtro_busqueda_emp = value
+        self.pagina = 1
 
     def set_filtro_estatus_emp(self, value: str):
         self.filtro_estatus_emp = value
+        self.pagina = 1
 
     # ========================
     # SETTERS DE FORMULARIO
@@ -312,6 +316,53 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
         return len(self.empleados_filtrados)
 
     @rx.var
+    def total_paginas_empleados(self) -> int:
+        """Total de páginas del listado actual."""
+        return self.calcular_total_paginas(
+            self.total_empleados_filtrados,
+            self.por_pagina,
+        )
+
+    @rx.var
+    def pagina_empleados_actual(self) -> int:
+        """Página actual acotada al rango válido."""
+        if self.pagina < 1:
+            return 1
+        if self.pagina > self.total_paginas_empleados:
+            return self.total_paginas_empleados
+        return self.pagina
+
+    @rx.var
+    def empleados_paginados(self) -> List[dict]:
+        """Slice visible de empleados para la página actual."""
+        inicio = (self.pagina_empleados_actual - 1) * self.por_pagina
+        fin = inicio + self.por_pagina
+        return self.empleados_filtrados[inicio:fin]
+
+    @rx.var
+    def paginas_visibles_empleados(self) -> List[int]:
+        """Rango de páginas visibles para el paginador."""
+        return rango_paginacion(
+            self.pagina_empleados_actual,
+            self.total_paginas_empleados,
+            visible=5,
+        )
+
+    @rx.var
+    def resumen_paginacion_empleados(self) -> str:
+        """Texto resumen del rango mostrado en la tabla."""
+        total = self.total_empleados_filtrados
+        if total <= 0:
+            return "Sin empleados registrados"
+
+        inicio = ((self.pagina_empleados_actual - 1) * self.por_pagina) + 1
+        fin = min(
+            inicio + len(self.empleados_paginados) - 1,
+            total,
+        )
+        return f"Mostrando {inicio}-{fin} de {total} empleado(s)"
+
+    @rx.var
     def nombre_empleado_baja(self) -> str:
         """Nombre del empleado seleccionado para baja."""
         emp = self.empleado_baja_seleccionado
@@ -360,6 +411,7 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
             contexto_error="cargando empleados",
         )
         self.total_empleados_lista = len(self.empleados)
+        self._ajustar_pagina_empleados()
 
     async def cargar_empleados(self):
         """Recarga empleados con skeleton (filtros)."""
@@ -369,6 +421,19 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
     async def aplicar_filtros_emp(self):
         async for _ in self.cargar_empleados():
             yield
+
+    def ir_a_pagina(self, pagina: int):
+        """Navega a una página específica del listado."""
+        self.pagina = int(pagina) if pagina else 1
+        self._ajustar_pagina_empleados()
+
+    def pagina_anterior(self):
+        """Retrocede una página del listado."""
+        self.ir_a_pagina(self.pagina_empleados_actual - 1)
+
+    def pagina_siguiente(self):
+        """Avanza una página del listado."""
+        self.ir_a_pagina(self.pagina_empleados_actual + 1)
 
     # ========================
     # ACCIONES DE MODAL
@@ -578,6 +643,17 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
         self.form_notas_baja = ""
         self.error_motivo_baja = ""
         self.error_fecha_efectiva_baja = ""
+
+    def _ajustar_pagina_empleados(self) -> None:
+        """Mantiene la página actual dentro del rango válido."""
+        total_paginas = self.calcular_total_paginas(
+            self.total_empleados_filtrados,
+            self.por_pagina,
+        )
+        if self.pagina < 1:
+            self.pagina = 1
+        elif self.pagina > total_paginas:
+            self.pagina = total_paginas
 
     def _limpiar_formulario(self):
         """Limpia el formulario."""

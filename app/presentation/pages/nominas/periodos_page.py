@@ -17,6 +17,7 @@ from app.presentation.pages.nominas.dashboard_page import (
     card_comparativo,
 )
 from app.presentation.components.ui import (
+    payroll_period_status_badge,
     tabla_vacia,
     table_shell,
     table_cell_text_sm,
@@ -26,30 +27,6 @@ from app.presentation.components.ui import (
 )
 from app.presentation.layout import page_layout, page_header, page_toolbar
 from app.presentation.theme import Colors, Spacing, Typography, Radius
-
-
-# =============================================================================
-# BADGE DE ESTATUS
-# =============================================================================
-
-def _badge_estatus(estatus: rx.Var) -> rx.Component:
-    """Badge de color según el estatus del período."""
-    return rx.match(
-        estatus,
-        ('BORRADOR',
-         rx.badge('Borrador', color_scheme='gray', size='1')),
-        ('EN_PREPARACION_RRHH',
-         rx.badge('Preparando', color_scheme='blue', size='1')),
-        ('ENVIADO_A_CONTABILIDAD',
-         rx.badge('Enviado', color_scheme='orange', size='1')),
-        ('EN_PROCESO_CONTABILIDAD',
-         rx.badge('En proceso', color_scheme='purple', size='1')),
-        ('CALCULADO',
-         rx.badge('Calculado', color_scheme='green', size='1')),
-        ('CERRADO',
-         rx.badge('Cerrado', color_scheme='gray', size='1', variant='surface')),
-        rx.badge(estatus, size='1'),
-    )
 
 
 # =============================================================================
@@ -102,7 +79,7 @@ def _fila_periodo(periodo: dict) -> rx.Component:
             ),
         ),
         rx.table.cell(fechas),
-        rx.table.cell(_badge_estatus(periodo['estatus'])),
+        rx.table.cell(payroll_period_status_badge(periodo['estatus'])),
         table_cell_text_sm(periodo['total_empleados'].to(str), tone="muted"),
         rx.table.cell(
             rx.text(

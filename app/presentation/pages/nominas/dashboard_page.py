@@ -11,6 +11,7 @@ import reflex as rx
 
 from app.presentation.pages.nominas.dashboard_state import NominaDashboardState
 from app.presentation.components.ui import (
+    payroll_period_status_badge,
     tabla_vacia,
     table_shell,
     table_cell_text_sm,
@@ -312,22 +313,6 @@ def _tabla_incidencias() -> rx.Component:
 
 
 # =============================================================================
-# BADGE ESTATUS PERÍODO
-# =============================================================================
-
-def _badge_estatus_periodo(estatus: rx.Var) -> rx.Component:
-    return rx.match(
-        estatus,
-        ('CALCULADO', rx.badge('Calculado', color_scheme='green',  size='1')),
-        ('CERRADO',   rx.badge('Cerrado',   color_scheme='gray',   size='1')),
-        ('EN_PREPARACION_RRHH',       rx.badge('En preparación', color_scheme='blue',   size='1')),
-        ('ENVIADO_A_CONTABILIDAD',    rx.badge('Enviado',        color_scheme='purple', size='1')),
-        ('EN_PROCESO_CONTABILIDAD',   rx.badge('En proceso',     color_scheme='blue',   size='1')),
-        rx.badge(estatus, size='1'),
-    )
-
-
-# =============================================================================
 # CONTENIDO PRINCIPAL
 # =============================================================================
 
@@ -343,7 +328,7 @@ def _contenido_dashboard() -> rx.Component:
                     weight="bold",
                     color=Colors.TEXT_PRIMARY,
                 ),
-                _badge_estatus_periodo(NominaDashboardState.periodo_estatus_actual),
+                payroll_period_status_badge(NominaDashboardState.periodo_estatus_actual),
                 spacing="2",
                 align="center",
             ),

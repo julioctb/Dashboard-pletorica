@@ -3,6 +3,20 @@
 import reflex as rx
 
 
+def payroll_period_status_badge(estatus: rx.Var | str) -> rx.Component:
+    """Badge reactivo para el workflow de periodos de nomina."""
+    return rx.match(
+        estatus,
+        ("BORRADOR", rx.badge("Borrador", color_scheme="gray", size="1")),
+        ("EN_PREPARACION_RRHH", rx.badge("Preparando", color_scheme="blue", size="1")),
+        ("ENVIADO_A_CONTABILIDAD", rx.badge("Enviado", color_scheme="orange", size="1")),
+        ("EN_PROCESO_CONTABILIDAD", rx.badge("En proceso", color_scheme="purple", size="1")),
+        ("CALCULADO", rx.badge("Calculado", color_scheme="green", size="1")),
+        ("CERRADO", rx.badge("Cerrado", color_scheme="gray", size="1", variant="surface")),
+        rx.badge(estatus, color_scheme="gray", variant="soft", size="1"),
+    )
+
+
 def employee_status_badge(estatus: str, variant: str = "soft") -> rx.Component:
     """Badge de estatus de empleado con labels consistentes."""
     return rx.match(

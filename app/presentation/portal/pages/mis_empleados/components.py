@@ -11,6 +11,7 @@ from app.presentation.components.ui import (
     tabla_action_buttons,
     empty_state_card,
     employee_status_badge,
+    table_pagination,
 )
 from app.presentation.components.reusable import employee_filters_bar, employee_table
 from app.presentation.theme import Colors, Typography
@@ -89,7 +90,7 @@ def tabla_empleados() -> rx.Component:
     return employee_table(
         loading=MisEmpleadosState.loading,
         headers=ENCABEZADOS_EMPLEADOS,
-        rows=MisEmpleadosState.empleados_filtrados,
+        rows=MisEmpleadosState.empleados_paginados,
         row_renderer=fila_empleado,
         has_rows=MisEmpleadosState.total_empleados_filtrados > 0,
         empty_component=empty_state_card(
@@ -104,9 +105,16 @@ def tabla_empleados() -> rx.Component:
                 variant="soft",
             ),
         ),
-        total_caption="Mostrando "
-        + MisEmpleadosState.total_empleados_filtrados.to(str)
-        + " empleado(s)",
+        total_caption=MisEmpleadosState.resumen_paginacion_empleados,
+        footer_component=table_pagination(
+            current_page=MisEmpleadosState.pagina_empleados_actual,
+            total_pages=MisEmpleadosState.total_paginas_empleados,
+            page_numbers=MisEmpleadosState.paginas_visibles_empleados,
+            on_page_change=MisEmpleadosState.ir_a_pagina,
+            on_previous=MisEmpleadosState.pagina_anterior,
+            on_next=MisEmpleadosState.pagina_siguiente,
+            color_scheme="teal",
+        ),
         loading_rows=5,
     )
 

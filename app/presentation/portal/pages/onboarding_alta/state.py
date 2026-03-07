@@ -4,6 +4,7 @@ State para la pagina Alta de Empleados (Onboarding) del portal.
 import reflex as rx
 from typing import List
 
+from app.core.ui_helpers import rango_paginacion
 from app.presentation.constants import FILTRO_TODOS
 from app.presentation.portal.state.portal_state import PortalState
 from app.services.onboarding_service import onboarding_service
@@ -41,6 +42,8 @@ class OnboardingAltaState(PortalState):
 
     # Filtros
     filtro_estatus_onboarding: str = FILTRO_TODOS
+    pagina: int = 1
+    por_pagina: int = 20
 
     # ========================
     # FORMULARIO ALTA
@@ -71,6 +74,11 @@ class OnboardingAltaState(PortalState):
     # ========================
     def set_filtro_estatus_onboarding(self, value: str):
         self.filtro_estatus_onboarding = value
+        self.pagina = 1
+
+    def set_filtro_busqueda(self, value: str):
+        self.filtro_busqueda = value if value else ""
+        self.pagina = 1
 
     def set_form_curp(self, value: str):
         self.form_curp = value.upper() if value else ""
@@ -161,20 +169,75 @@ class OnboardingAltaState(PortalState):
     # ========================
     @rx.var
     def empleados_onboarding_filtrados(self) -> List[dict]:
-        """Filtra por estatus de onboarding."""
-        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == FILTRO_TODOS:
-            return self.empleados_onboarding
-        return [
-            e for e in self.empleados_onboarding
-            if e.get("estatus_onboarding") == self.filtro_estatus_onboarding
-        ]
+        """Filtra onboarding por búsqueda y estatus."""
+        empleados = self.empleados_onboarding
+
+        if self.filtro_estatus_onboarding and self.filtro_estatus_onboarding != FILTRO_TODOS:
+            empleados = [
+                e for e in empleados
+                if e.get("estatus_onboarding") == self.filtro_estatus_onboarding
+            ]
+
+        if self.filtro_busqueda:
+            termino = self.filtro_busqueda.strip().lower()
+            empleados = [
+                e for e in empleados
+                if termino in str(e.get("nombre_completo", "")).lower()
+                or termino in str(e.get("clave", "")).lower()
+                or termino in str(e.get("curp", "")).lower()
+                or termino in str(e.get("email", "")).lower()
+            ]
+
+        return empleados
 
     @rx.var
     def total_onboarding_filtrados(self) -> int:
         """Total visible según el filtro actual."""
-        if not self.filtro_estatus_onboarding or self.filtro_estatus_onboarding == FILTRO_TODOS:
-            return self.total_onboarding
         return len(self.empleados_onboarding_filtrados)
+
+    @rx.var
+    def total_paginas_onboarding(self) -> int:
+        """Total de páginas para el listado actual."""
+        return self.calcular_total_paginas(self.total_onboarding_filtrados, self.por_pagina)
+
+    @rx.var
+    def pagina_onboarding_actual(self) -> int:
+        """Página actual acotada al rango válido."""
+        if self.pagina < 1:
+            return 1
+        if self.pagina > self.total_paginas_onboarding:
+            return self.total_paginas_onboarding
+        return self.pagina
+
+    @rx.var
+    def empleados_onboarding_paginados(self) -> List[dict]:
+        """Slice visible de onboarding para la página actual."""
+        inicio = (self.pagina_onboarding_actual - 1) * self.por_pagina
+        fin = inicio + self.por_pagina
+        return self.empleados_onboarding_filtrados[inicio:fin]
+
+    @rx.var
+    def paginas_visibles_onboarding(self) -> List[int]:
+        """Rango de páginas visibles para el paginador."""
+        return rango_paginacion(
+            self.pagina_onboarding_actual,
+            self.total_paginas_onboarding,
+            visible=5,
+        )
+
+    @rx.var
+    def resumen_paginacion_onboarding(self) -> str:
+        """Texto resumen del rango mostrado en la tabla."""
+        total = self.total_onboarding_filtrados
+        if total <= 0:
+            return "Sin empleados en onboarding"
+
+        inicio = ((self.pagina_onboarding_actual - 1) * self.por_pagina) + 1
+        fin = min(
+            inicio + len(self.empleados_onboarding_paginados) - 1,
+            total,
+        )
+        return f"Mostrando {inicio}-{fin} de {total} empleado(s)"
 
     @rx.var
     def opciones_estatus_onboarding(self) -> List[dict]:
@@ -210,19 +273,39 @@ class OnboardingAltaState(PortalState):
             )
             self.empleados_onboarding = empleados
             self.total_onboarding = len(empleados)
+            self._ajustar_pagina_onboarding()
         except DatabaseError as e:
             self.mostrar_mensaje(f"Error cargando empleados: {e}", "error")
             self.empleados_onboarding = []
             self.total_onboarding = 0
+            self.pagina = 1
         except Exception as e:
             self.mostrar_mensaje(f"Error inesperado: {e}", "error")
             self.empleados_onboarding = []
             self.total_onboarding = 0
+            self.pagina = 1
 
     async def recargar_onboarding(self):
         """Recarga con skeleton."""
         async for _ in self._recargar_datos(self._fetch_empleados_onboarding):
             yield
+
+    # ========================
+    # ENVIAR ENLACE DE REGISTRO
+    # ========================
+    async def enviar_enlace_registro(self, empleado_id: int):
+        """Envía correo con enlace para que el empleado complete su registro.
+
+        TODO: Implementar envío real de correo.
+        Requiere:
+        - Servicio de correo (email_service)
+        - Plantilla configurable desde /portal/configuracion-empresa
+        - Generar token/enlace temporal para autoservicio
+        """
+        return rx.toast.info(
+            "Funcionalidad pendiente: envío de correo con enlace de registro",
+            position="top-center",
+        )
 
     # ========================
     # ACCIONES DE MODAL
@@ -295,9 +378,33 @@ class OnboardingAltaState(PortalState):
         self.curp_es_valido = False
         self._limpiar_errores()
 
+    def _ajustar_pagina_onboarding(self):
+        """Mantiene la página actual dentro del rango válido."""
+        total_paginas = self.calcular_total_paginas(
+            self.total_onboarding_filtrados,
+            self.por_pagina,
+        )
+        if self.pagina < 1:
+            self.pagina = 1
+        elif self.pagina > total_paginas:
+            self.pagina = total_paginas
+
     def _limpiar_errores(self):
         """Limpia errores de validacion."""
         self.limpiar_errores_campos(self._campos_error_formulario)
+
+    def ir_a_pagina(self, pagina: int):
+        """Navega a una página específica del listado."""
+        self.pagina = int(pagina) if pagina else 1
+        self._ajustar_pagina_onboarding()
+
+    def pagina_anterior(self):
+        """Retrocede una página en el listado."""
+        self.ir_a_pagina(self.pagina_onboarding_actual - 1)
+
+    def pagina_siguiente(self):
+        """Avanza una página en el listado."""
+        self.ir_a_pagina(self.pagina_onboarding_actual + 1)
 
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es valido."""

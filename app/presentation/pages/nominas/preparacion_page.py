@@ -16,6 +16,7 @@ from app.presentation.pages.nominas.nomina_modals import (
     dialog_enviar_contabilidad,
 )
 from app.presentation.components.ui import (
+    payroll_period_status_badge,
     tabla_vacia,
     table_shell,
     table_cell_text_sm,
@@ -24,23 +25,6 @@ from app.presentation.components.ui import (
 )
 from app.presentation.layout import page_layout, page_header
 from app.presentation.theme import Colors, Spacing, Typography, Radius
-
-
-# =============================================================================
-# BADGE ESTATUS (reutilizable, mismo que periodos_page)
-# =============================================================================
-
-def _badge_estatus_periodo(estatus: rx.Var) -> rx.Component:
-    return rx.match(
-        estatus,
-        ('BORRADOR', rx.badge('Borrador', color_scheme='gray', size='1')),
-        ('EN_PREPARACION_RRHH', rx.badge('Preparando', color_scheme='blue', size='1')),
-        ('ENVIADO_A_CONTABILIDAD', rx.badge('Enviado', color_scheme='orange', size='1')),
-        ('EN_PROCESO_CONTABILIDAD', rx.badge('En proceso', color_scheme='purple', size='1')),
-        ('CALCULADO', rx.badge('Calculado', color_scheme='green', size='1')),
-        ('CERRADO', rx.badge('Cerrado', color_scheme='gray', size='1', variant='surface')),
-        rx.badge(estatus, size='1'),
-    )
 
 
 # =============================================================================
@@ -87,7 +71,7 @@ def _resumen_periodo() -> rx.Component:
             # Estatus
             rx.vstack(
                 rx.text("Estatus", size="1", color=Colors.TEXT_MUTED),
-                _badge_estatus_periodo(NominaRRHHState.periodo_estatus),
+                payroll_period_status_badge(NominaRRHHState.periodo_estatus),
                 spacing="1",
                 align="start",
             ),

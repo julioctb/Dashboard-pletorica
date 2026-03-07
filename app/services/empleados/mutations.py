@@ -10,6 +10,12 @@ from app.core.enums import EstatusEmpleado, MotivoBaja
 from app.core.exceptions import BusinessRuleError, DuplicateError
 from app.entities.empleado import Empleado, EmpleadoCreate, EmpleadoUpdate
 
+
+def _get_historial_service():
+    """Import diferido para evitar imports circulares."""
+    from app.services.historial_laboral_service import historial_laboral_service
+    return historial_laboral_service
+
 if TYPE_CHECKING:
     from app.services.empleado_service import EmpleadoService
 
@@ -65,7 +71,7 @@ class EmpleadoMutationService:
         empleado_creado = await self.root.repository.crear(empleado)
 
         try:
-            historial_service = self.root._get_historial_service()
+            historial_service = _get_historial_service()
             await historial_service.registrar_alta(
                 empleado_id=empleado_creado.id,
                 plaza_id=None,
@@ -104,7 +110,7 @@ class EmpleadoMutationService:
         empleado_actualizado = await self.root.repository.actualizar(empleado)
 
         try:
-            historial_service = self.root._get_historial_service()
+            historial_service = _get_historial_service()
             await historial_service.registrar_baja(
                 empleado_id=empleado_id,
                 fecha=fecha_baja,
@@ -124,7 +130,7 @@ class EmpleadoMutationService:
         empleado_actualizado = await self.root.repository.actualizar(empleado)
 
         try:
-            historial_service = self.root._get_historial_service()
+            historial_service = _get_historial_service()
             await historial_service.registrar_reactivacion(
                 empleado_id=empleado_id,
                 plaza_id=None,
@@ -144,7 +150,7 @@ class EmpleadoMutationService:
         empleado_actualizado = await self.root.repository.actualizar(empleado)
 
         try:
-            historial_service = self.root._get_historial_service()
+            historial_service = _get_historial_service()
             await historial_service.registrar_suspension(
                 empleado_id=empleado_id,
                 notas="Suspensión temporal",
@@ -191,7 +197,7 @@ class EmpleadoMutationService:
         empleado_actualizado = await self.root.repository.actualizar(empleado)
 
         try:
-            historial_service = self.root._get_historial_service()
+            historial_service = _get_historial_service()
             await historial_service.registrar_reingreso(
                 empleado_id=empleado_id,
                 empresa_anterior_id=empresa_anterior_id,

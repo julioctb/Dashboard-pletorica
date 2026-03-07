@@ -5,7 +5,7 @@ from typing import Any, Callable
 import reflex as rx
 
 from app.presentation.components.ui.skeletons import skeleton_tabla
-from app.presentation.theme import Colors, Typography
+from app.presentation.theme import Colors, Spacing, Typography
 
 
 def table_header_cells(headers: list[dict], variant: str = "default") -> list[rx.Component]:
@@ -117,6 +117,80 @@ def table_cell_actions(component: rx.Component) -> rx.Component:
     return rx.table.cell(component)
 
 
+def table_pagination(
+    *,
+    current_page,
+    total_pages,
+    page_numbers,
+    on_page_change: Callable,
+    on_previous: Callable,
+    on_next: Callable,
+    color_scheme: str = "blue",
+) -> rx.Component:
+    """Paginador reusable para tablas con patrón visual consistente."""
+    page_buttons = rx.foreach(
+        page_numbers,
+        lambda page: rx.cond(
+            page == current_page,
+            rx.button(
+                page.to(str),
+                size="2",
+                variant="solid",
+                color_scheme=color_scheme,
+                min_width="40px",
+                disabled=True,
+                cursor="default",
+            ),
+            rx.button(
+                page.to(str),
+                size="2",
+                variant="soft",
+                color_scheme="gray",
+                min_width="40px",
+                on_click=on_page_change(page),
+            ),
+        ),
+    )
+
+    return rx.cond(
+        total_pages > 1,
+        rx.flex(
+            rx.button(
+                rx.icon("chevron-left", size=16),
+                "Anterior",
+                size="2",
+                variant="soft",
+                color_scheme="gray",
+                on_click=on_previous,
+                disabled=current_page <= 1,
+            ),
+            rx.flex(
+                page_buttons,
+                wrap="wrap",
+                align="center",
+                justify="center",
+                gap=Spacing.XS,
+            ),
+            rx.button(
+                "Siguiente",
+                rx.icon("chevron-right", size=16),
+                size="2",
+                variant="soft",
+                color_scheme="gray",
+                on_click=on_next,
+                disabled=current_page >= total_pages,
+            ),
+            width="100%",
+            wrap="wrap",
+            align="center",
+            justify="end",
+            column_gap=Spacing.SM,
+            row_gap=Spacing.XS,
+        ),
+        rx.fragment(),
+    )
+
+
 def table_shell(
     *,
     loading,
@@ -168,17 +242,40 @@ def table_shell(
         )
     ]
 
+    footer_caption = None
     if total_caption is not None:
-        content_with_rows.append(
-            rx.text(
-                total_caption,
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            )
+        footer_caption = rx.text(
+            total_caption,
+            font_size=Typography.SIZE_SM,
+            color=Colors.TEXT_SECONDARY,
         )
 
-    if footer_component is not None:
-        content_with_rows.append(footer_component)
+    if footer_caption is not None or footer_component is not None:
+        footer_children: list[rx.Component] = []
+        if footer_caption is not None:
+            footer_children.append(footer_caption)
+        if footer_component is not None:
+            footer_children.append(footer_component)
+
+        footer_justify = "between"
+        if footer_caption is None and footer_component is not None:
+            footer_justify = "end"
+        elif footer_caption is not None and footer_component is None:
+            footer_justify = "start"
+
+        content_with_rows.append(
+            rx.flex(
+                *footer_children,
+                width="100%",
+                wrap="wrap",
+                align="center",
+                justify=footer_justify,
+                column_gap=Spacing.MD,
+                row_gap=Spacing.SM,
+                padding_top=Spacing.SM,
+                border_top=f"1px solid {Colors.BORDER}",
+            )
+        )
 
     rows_component = rx.vstack(
         *content_with_rows,
