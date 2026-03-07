@@ -78,8 +78,6 @@ Backoffice:
 - `/simulador`
 - `/configuracion`
 - `/mi-perfil`
-- `/cotizador`
-- `/cotizador/[cotizacion_id]`
 - `/nominas`
 - `/nominas/preparacion`
 - `/nominas/calculo`
@@ -109,6 +107,8 @@ Portal:
 - `/portal/nominas/empleado-detalle`
 - `/portal/nominas/dashboard`
 - `/portal/nominas/conciliacion`
+- `/cotizador`
+- `/cotizador/[cotizacion_id]`
 - `/portal/contratos`
 - `/portal/asistencias`
 - `/portal/entregables`

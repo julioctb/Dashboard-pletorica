@@ -23,26 +23,33 @@ def portal_index(content: rx.Component) -> rx.Component:
     """
     return rx.box(
         rx.cond(
-            AuthState.debe_redirigir_login,
+            ~AuthState.auth_contexto_listo,
             rx.center(
                 rx.spinner(size="3"),
                 height="100vh",
             ),
-            rx.hstack(
-                portal_sidebar(),
-                rx.box(
-                    content,
-                    background_color=Colors.BACKGROUND,
-                    width="100%",
-                    flex="1",
-                    overflow_y="auto",
-                    style={
-                        "minHeight": "calc(100vh - 140px)",
-                        "padding": "1.5rem",
-                    },
+            rx.cond(
+                AuthState.debe_redirigir_login,
+                rx.center(
+                    rx.spinner(size="3"),
+                    height="100vh",
                 ),
-                width="100%",
-                spacing="0",
+                rx.hstack(
+                    portal_sidebar(),
+                    rx.box(
+                        content,
+                        background_color=Colors.BACKGROUND,
+                        width="100%",
+                        flex="1",
+                        overflow_y="auto",
+                        style={
+                            "minHeight": "calc(100vh - 140px)",
+                            "padding": "1.5rem",
+                        },
+                    ),
+                    width="100%",
+                    spacing="0",
+                ),
             ),
         ),
         on_mount=AuthState.verificar_y_redirigir,

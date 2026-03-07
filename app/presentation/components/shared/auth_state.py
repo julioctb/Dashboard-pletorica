@@ -44,6 +44,20 @@ from app.presentation.components.shared.base_state import BaseState
 
 logger = logging.getLogger(__name__)
 
+_AUTH_CONTEXT_CACHE = {
+    "verificada": False,
+    "access_token": "",
+    "refresh_token": "",
+    "token_expires_at": 0,
+    "usuario_actual": {},
+    "empresa_actual": {},
+    "empresas_disponibles": [],
+    "institucion_actual": {},
+    "empresas_institucion": [],
+    "simulando_cliente": False,
+    "empresas_simulacion": [],
+}
+
 
 class AuthState(BaseState):
     """
@@ -410,6 +424,50 @@ class AuthState(BaseState):
     # MÉTODOS DE AUTENTICACIÓN
     # =========================================================================
 
+    def _actualizar_cache_auth(self):
+        """Sincroniza el contexto auth verificado para otros states protegidos."""
+        _AUTH_CONTEXT_CACHE["verificada"] = bool(self._sesion_verificada)
+        _AUTH_CONTEXT_CACHE["access_token"] = self._access_token
+        _AUTH_CONTEXT_CACHE["refresh_token"] = self._refresh_token
+        _AUTH_CONTEXT_CACHE["token_expires_at"] = self._token_expires_at
+        _AUTH_CONTEXT_CACHE["usuario_actual"] = dict(self.usuario_actual)
+        _AUTH_CONTEXT_CACHE["empresa_actual"] = dict(self.empresa_actual)
+        _AUTH_CONTEXT_CACHE["empresas_disponibles"] = [
+            dict(item) for item in self.empresas_disponibles
+        ]
+        _AUTH_CONTEXT_CACHE["institucion_actual"] = dict(self.institucion_actual)
+        _AUTH_CONTEXT_CACHE["empresas_institucion"] = [
+            dict(item) for item in self.empresas_institucion
+        ]
+        _AUTH_CONTEXT_CACHE["simulando_cliente"] = bool(self._simulando_cliente)
+        _AUTH_CONTEXT_CACHE["empresas_simulacion"] = [
+            dict(item) for item in self._empresas_simulacion
+        ]
+
+    def _hidratar_desde_cache_auth(self) -> bool:
+        """Reutiliza el contexto auth ya verificado para evitar doble bootstrap."""
+        if not _AUTH_CONTEXT_CACHE["verificada"]:
+            return False
+
+        self._access_token = str(_AUTH_CONTEXT_CACHE["access_token"] or "")
+        self._refresh_token = str(_AUTH_CONTEXT_CACHE["refresh_token"] or "")
+        self._token_expires_at = int(_AUTH_CONTEXT_CACHE["token_expires_at"] or 0)
+        self.usuario_actual = dict(_AUTH_CONTEXT_CACHE["usuario_actual"])
+        self.empresa_actual = dict(_AUTH_CONTEXT_CACHE["empresa_actual"])
+        self.empresas_disponibles = [
+            dict(item) for item in _AUTH_CONTEXT_CACHE["empresas_disponibles"]
+        ]
+        self.institucion_actual = dict(_AUTH_CONTEXT_CACHE["institucion_actual"])
+        self.empresas_institucion = [
+            dict(item) for item in _AUTH_CONTEXT_CACHE["empresas_institucion"]
+        ]
+        self._simulando_cliente = bool(_AUTH_CONTEXT_CACHE["simulando_cliente"])
+        self._empresas_simulacion = [
+            dict(item) for item in _AUTH_CONTEXT_CACHE["empresas_simulacion"]
+        ]
+        self._sesion_verificada = True
+        return True
+
     async def iniciar_sesion(self, email: str, password: str):
         """
         Inicia sesión con email y contraseña.
@@ -466,6 +524,7 @@ class AuthState(BaseState):
 
             # Reintentar email desde token por consistencia (no crítico si falla)
             await self._enriquecer_email_usuario_desde_token()
+            self._actualizar_cache_auth()
 
             # Redirigir según rol (una sola fuente de verdad)
             return rx.redirect(self.obtener_ruta_inicio())
@@ -526,9 +585,13 @@ class AuthState(BaseState):
         if self._sesion_verificada:
             return
 
+        if self._hidratar_desde_cache_auth():
+            return
+
         # Si no hay token, no hay nada que verificar
         if not self._access_token:
             self._sesion_verificada = True
+            self._actualizar_cache_auth()
             return
 
         try:
@@ -556,6 +619,7 @@ class AuthState(BaseState):
 
         finally:
             self._sesion_verificada = True
+            self._actualizar_cache_auth()
 
     async def _enriquecer_email_usuario_desde_token(self):
         """
@@ -675,6 +739,7 @@ class AuthState(BaseState):
             "empresa_id": empresa["id"],
             "empresa_nombre": empresa["nombre"],
         }
+        self._actualizar_cache_auth()
         logger.info(f"Simulación cliente activada: {empresa['nombre']} (ID {eid})")
         return rx.redirect("/portal")
 
@@ -683,6 +748,7 @@ class AuthState(BaseState):
         self._simulando_cliente = False
         self.empresa_actual = {}
         self._empresas_simulacion = []
+        self._actualizar_cache_auth()
         logger.info("Simulación cliente desactivada")
         return rx.redirect(self.obtener_ruta_inicio())
 
@@ -699,6 +765,17 @@ class AuthState(BaseState):
         self._sesion_verificada = False
         self._simulando_cliente = False
         self._empresas_simulacion = []
+        _AUTH_CONTEXT_CACHE["verificada"] = False
+        _AUTH_CONTEXT_CACHE["access_token"] = ""
+        _AUTH_CONTEXT_CACHE["refresh_token"] = ""
+        _AUTH_CONTEXT_CACHE["token_expires_at"] = 0
+        _AUTH_CONTEXT_CACHE["usuario_actual"] = {}
+        _AUTH_CONTEXT_CACHE["empresa_actual"] = {}
+        _AUTH_CONTEXT_CACHE["empresas_disponibles"] = []
+        _AUTH_CONTEXT_CACHE["institucion_actual"] = {}
+        _AUTH_CONTEXT_CACHE["empresas_institucion"] = []
+        _AUTH_CONTEXT_CACHE["simulando_cliente"] = False
+        _AUTH_CONTEXT_CACHE["empresas_simulacion"] = []
 
     def obtener_ruta_inicio(self) -> str:
         """
@@ -769,6 +846,7 @@ class AuthState(BaseState):
 
             if empresa_principal:
                 self.empresa_actual = empresa_principal
+            self._actualizar_cache_auth()
 
             logger.debug(f"Cargadas {len(self.empresas_disponibles)} empresas para usuario")
 
@@ -820,6 +898,7 @@ class AuthState(BaseState):
             # Para instituciones, la primera empresa supervisada es la "activa"
             if self.empresas_institucion and not self.empresa_actual:
                 self.empresa_actual = self.empresas_institucion[0]
+            self._actualizar_cache_auth()
 
             logger.debug(
                 f"Institución cargada: {inst.codigo} con "
@@ -854,6 +933,7 @@ class AuthState(BaseState):
             )
 
         self.empresa_actual = empresa
+        self._actualizar_cache_auth()
         logger.info(f"Empresa cambiada a: {empresa.get('empresa_nombre')}")
 
         return rx.toast.success(
@@ -889,6 +969,13 @@ class AuthState(BaseState):
         if not self.requiere_login:
             return False
         return not self.esta_autenticado
+
+    @rx.var
+    def auth_contexto_listo(self) -> bool:
+        """Evita renderizar layouts protegidos antes de verificar la sesión."""
+        if not self.requiere_login:
+            return True
+        return self._sesion_verificada
 
     async def verificar_y_redirigir(self):
         """

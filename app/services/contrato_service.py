@@ -20,6 +20,9 @@ from app.entities import (
 from app.entities.contrato_item import ContratoItem, ContratoItemCreate
 from app.repositories import SupabaseContratoRepository
 from app.core.exceptions import BusinessRuleError
+from app.services.contratos.items import ContratoItemService
+from app.services.contratos.mutations import ContratoMutationService
+from app.services.contratos.queries import ContratoQueryService
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +43,9 @@ class ContratoService:
         if repository is None:
             repository = SupabaseContratoRepository()
         self.repository = repository
+        self._query_service = ContratoQueryService(self)
+        self._mutation_service = ContratoMutationService(self)
+        self._item_service = ContratoItemService(self)
 
     # ==========================================
     # OPERACIONES CRUD
@@ -59,7 +65,7 @@ class ContratoService:
             NotFoundError: Si el contrato no existe
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_id(contrato_id)
+        return await self._query_service.obtener_por_id(contrato_id)
 
     async def obtener_por_codigo(self, codigo: str) -> Optional[Contrato]:
         """
@@ -74,7 +80,7 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_codigo(codigo)
+        return await self._query_service.obtener_por_codigo(codigo)
 
     async def obtener_todos(
         self,
@@ -96,7 +102,7 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_todos(incluir_inactivos, limite, offset)
+        return await self._query_service.obtener_todos(incluir_inactivos, limite, offset)
 
     async def obtener_resumen_contratos(
         self,
@@ -118,8 +124,11 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        contratos = await self.repository.obtener_todos(incluir_inactivos, limite, offset)
-        return [ContratoResumen.from_contrato(c) for c in contratos]
+        return await self._query_service.obtener_resumen_contratos(
+            incluir_inactivos,
+            limite,
+            offset,
+        )
 
     async def obtener_por_empresa(
         self,
@@ -139,7 +148,7 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_empresa(empresa_id, incluir_inactivos)
+        return await self._query_service.obtener_por_empresa(empresa_id, incluir_inactivos)
 
     async def obtener_por_tipo_servicio(
         self,
@@ -159,7 +168,10 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_tipo_servicio(tipo_servicio_id, incluir_inactivos)
+        return await self._query_service.obtener_por_tipo_servicio(
+            tipo_servicio_id,
+            incluir_inactivos,
+        )
 
     async def buscar_por_texto(self, termino: str, limite: int = 10) -> List[Contrato]:
         """
@@ -175,9 +187,7 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        if not termino or len(termino) < 2:
-            return []
-        return await self.repository.buscar_por_texto(termino, limite)
+        return await self._query_service.buscar_por_texto(termino, limite)
 
     async def buscar_con_filtros(
         self,
@@ -213,10 +223,7 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        if texto and len(texto.strip()) < 2:
-            texto = None
-
-        contratos = await self.repository.buscar_con_filtros(
+        return await self._query_service.buscar_con_filtros(
             texto=texto,
             empresa_id=empresa_id,
             tipo_servicio_id=tipo_servicio_id,
@@ -226,9 +233,8 @@ class ContratoService:
             fecha_inicio_hasta=fecha_inicio_hasta,
             incluir_inactivos=incluir_inactivos,
             limite=limite,
-            offset=offset
+            offset=offset,
         )
-        return [ContratoResumen.from_contrato(c) for c in contratos]
 
     async def obtener_con_personal(
         self,
@@ -248,21 +254,7 @@ class ContratoService:
         Returns:
             Lista de resúmenes de contratos con personal
         """
-        contratos = await self.repository.obtener_todos(
-            incluir_inactivos=not solo_activos,
-            limite=limite
-        )
-
-        # Filtrar por tiene_personal = True
-        contratos_con_personal = [
-            c for c in contratos
-            if c.tiene_personal and (
-                not solo_activos or
-                c.estatus in [EstatusContrato.ACTIVO, EstatusContrato.BORRADOR]
-            )
-        ]
-
-        return [ContratoResumen.from_contrato(c) for c in contratos_con_personal]
+        return await self._query_service.obtener_con_personal(solo_activos, limite)
 
     # ==========================================
     # OPERACIONES DE CREACIÓN
@@ -283,11 +275,7 @@ class ContratoService:
             ValidationError: Si los datos no son válidos
             DatabaseError: Si hay error de BD
         """
-        # Convertir a Contrato
-        contrato = Contrato(**contrato_create.model_dump())
-
-        # Delegar al repository
-        return await self.repository.crear(contrato)
+        return await self._mutation_service.crear(contrato_create)
 
     async def crear_con_codigo_auto(
         self,
@@ -314,19 +302,11 @@ class ContratoService:
             ValidationError: Si los datos no son válidos
             DatabaseError: Si hay error de BD
         """
-        # Generar código único
-        codigo = await self.generar_codigo_contrato(
+        return await self._mutation_service.crear_con_codigo_auto(
+            contrato_create,
             codigo_empresa,
             clave_servicio,
-            contrato_create.fecha_inicio.year
         )
-
-        # Crear contrato con código generado
-        datos = contrato_create.model_dump()
-        datos['codigo'] = codigo
-        contrato = Contrato(**datos)
-
-        return await self.repository.crear(contrato)
 
     async def generar_codigo_contrato(
         self,
@@ -351,12 +331,11 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error al obtener consecutivo
         """
-        consecutivo = await self.repository.obtener_siguiente_consecutivo(
+        return await self._mutation_service.generar_codigo_contrato(
             codigo_empresa,
             clave_servicio,
-            anio
+            anio,
         )
-        return Contrato.generar_codigo(codigo_empresa, clave_servicio, anio, consecutivo)
 
     # ==========================================
     # OPERACIONES DE ACTUALIZACIÓN
@@ -379,25 +358,7 @@ class ContratoService:
             ValidationError: Si los datos no son válidos
             DatabaseError: Si hay error de BD
         """
-        # Obtener contrato actual
-        contrato_actual = await self.repository.obtener_por_id(contrato_id)
-
-        # Verificar si puede modificarse
-        if not contrato_actual.puede_modificarse():
-            raise BusinessRuleError(
-                f"No se puede modificar un contrato en estado {contrato_actual.estatus}"
-            )
-
-        # Aplicar actualizaciones
-        datos_actualizados = contrato_actual.model_dump()
-        for campo, valor in contrato_update.model_dump(exclude_unset=True).items():
-            if valor is not None:
-                datos_actualizados[campo] = valor
-
-        # Crear contrato modificado (valida automáticamente)
-        contrato_modificado = Contrato(**datos_actualizados)
-
-        return await self.repository.actualizar(contrato_modificado)
+        return await self._mutation_service.actualizar(contrato_id, contrato_update)
 
     # ==========================================
     # OPERACIONES DE CAMBIO DE ESTATUS
@@ -418,14 +379,7 @@ class ContratoService:
             BusinessRuleError: Si no puede activarse
             DatabaseError: Si hay error de BD
         """
-        contrato = await self.repository.obtener_por_id(contrato_id)
-
-        if not contrato.puede_activarse():
-            raise BusinessRuleError(
-                f"No se puede activar un contrato en estado {contrato.estatus}"
-            )
-
-        return await self.repository.cambiar_estatus(contrato_id, EstatusContrato.ACTIVO)
+        return await self._mutation_service.activar(contrato_id)
 
     async def suspender(self, contrato_id: int) -> Contrato:
         """
@@ -442,12 +396,7 @@ class ContratoService:
             BusinessRuleError: Si no puede suspenderse
             DatabaseError: Si hay error de BD
         """
-        contrato = await self.repository.obtener_por_id(contrato_id)
-
-        if contrato.estatus != EstatusContrato.ACTIVO:
-            raise BusinessRuleError("Solo se pueden suspender contratos activos")
-
-        return await self.repository.cambiar_estatus(contrato_id, EstatusContrato.SUSPENDIDO)
+        return await self._mutation_service.suspender(contrato_id)
 
     async def reactivar(self, contrato_id: int) -> Contrato:
         """
@@ -464,12 +413,7 @@ class ContratoService:
             BusinessRuleError: Si no puede reactivarse
             DatabaseError: Si hay error de BD
         """
-        contrato = await self.repository.obtener_por_id(contrato_id)
-
-        if contrato.estatus != EstatusContrato.SUSPENDIDO:
-            raise BusinessRuleError("Solo se pueden reactivar contratos suspendidos")
-
-        return await self.repository.cambiar_estatus(contrato_id, EstatusContrato.ACTIVO)
+        return await self._mutation_service.reactivar(contrato_id)
 
     async def cancelar(self, contrato_id: int) -> Contrato:
         """
@@ -486,12 +430,7 @@ class ContratoService:
             BusinessRuleError: Si ya está cancelado
             DatabaseError: Si hay error de BD
         """
-        contrato = await self.repository.obtener_por_id(contrato_id)
-
-        if contrato.estatus == EstatusContrato.CANCELADO:
-            raise BusinessRuleError("El contrato ya está cancelado")
-
-        return await self.repository.cambiar_estatus(contrato_id, EstatusContrato.CANCELADO)
+        return await self._mutation_service.cancelar(contrato_id)
 
     async def eliminar(self, contrato_id: int) -> bool:
         """
@@ -506,7 +445,7 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.eliminar(contrato_id)
+        return await self._mutation_service.eliminar(contrato_id)
 
     # ==========================================
     # CONSULTAS ESPECIALIZADAS
@@ -522,7 +461,7 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_vigentes()
+        return await self._query_service.obtener_vigentes()
 
     async def obtener_por_vencer(self, dias: int = 30) -> List[Contrato]:
         """
@@ -537,7 +476,7 @@ class ContratoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self.repository.obtener_por_vencer(dias)
+        return await self._query_service.obtener_por_vencer(dias)
 
     async def existe_codigo(self, codigo: str, excluir_id: Optional[int] = None) -> bool:
         """
@@ -550,7 +489,7 @@ class ContratoService:
         Returns:
             True si el código ya existe
         """
-        return await self.repository.existe_codigo(codigo, excluir_id)
+        return await self._query_service.existe_codigo(codigo, excluir_id)
 
     # ==========================================
     # CREACIÓN DESDE REQUISICIÓN
@@ -587,45 +526,13 @@ class ContratoService:
             DuplicateError: Si el código ya existe
             DatabaseError: Si hay error de BD
         """
-        from app.services.requisicion_service import requisicion_service
-        from app.core.enums import EstadoRequisicion
-
-        # Validar estado de requisición
-        requisicion = await requisicion_service.obtener_por_id(requisicion_id)
-        if requisicion.estado != EstadoRequisicion.ADJUDICADA:
-            raise BusinessRuleError(
-                f"Solo se pueden crear contratos desde requisiciones ADJUDICADAS. "
-                f"Estado actual: {requisicion.estado}"
-            )
-
-        # Asegurar que el contrato lleve requisicion_id
-        datos = contrato_create.model_dump()
-        datos['requisicion_id'] = requisicion_id
-
-        contrato_create_con_req = ContratoCreate(**datos)
-
-        # Crear contrato con código autogenerado
-        contrato = await self.crear_con_codigo_auto(
-            contrato_create_con_req,
-            codigo_empresa,
-            clave_servicio
+        return await self._item_service.crear_desde_requisicion(
+            requisicion_id=requisicion_id,
+            contrato_create=contrato_create,
+            codigo_empresa=codigo_empresa,
+            clave_servicio=clave_servicio,
+            items_contrato=items_contrato,
         )
-
-        # Crear items de contrato si se proporcionan
-        if items_contrato:
-            items = []
-            for item_create in items_contrato:
-                item = ContratoItem(
-                    **item_create.model_dump(),
-                    subtotal=item_create.cantidad * item_create.precio_unitario,
-                )
-                items.append(item)
-            await self.repository.crear_items_batch(contrato.id, items)
-
-        # Marcar requisición como contratada
-        await requisicion_service.marcar_contratada(requisicion_id, contrato.id)
-
-        return contrato
 
     # ==========================================
     # CONTRATO ITEMS
@@ -633,7 +540,7 @@ class ContratoService:
 
     async def obtener_items(self, contrato_id: int) -> List[ContratoItem]:
         """Obtiene todos los items de un contrato."""
-        return await self.repository.obtener_items(contrato_id)
+        return await self._item_service.obtener_items(contrato_id)
 
     async def copiar_items_desde_requisicion(
         self,
@@ -652,30 +559,11 @@ class ContratoService:
         Returns:
             Lista de items creados en el contrato
         """
-        items = []
-        for req_item in requisicion_items:
-            req_item_id = req_item.id if hasattr(req_item, 'id') else req_item.get('id')
-            precio = precios.get(req_item_id, Decimal('0'))
-
-            cantidad = req_item.cantidad if hasattr(req_item, 'cantidad') else Decimal(str(req_item.get('cantidad', 1)))
-            descripcion = req_item.descripcion if hasattr(req_item, 'descripcion') else req_item.get('descripcion', '')
-            unidad = req_item.unidad_medida if hasattr(req_item, 'unidad_medida') else req_item.get('unidad_medida', 'Pieza')
-            numero = req_item.numero_item if hasattr(req_item, 'numero_item') else req_item.get('numero_item', 1)
-            specs = req_item.especificaciones_tecnicas if hasattr(req_item, 'especificaciones_tecnicas') else req_item.get('especificaciones_tecnicas')
-
-            item = ContratoItem(
-                requisicion_item_id=req_item_id,
-                numero_item=numero,
-                unidad_medida=unidad,
-                cantidad=cantidad,
-                descripcion=descripcion,
-                precio_unitario=precio,
-                subtotal=cantidad * precio,
-                especificaciones_tecnicas=specs,
-            )
-            items.append(item)
-
-        return await self.repository.crear_items_batch(contrato_id, items)
+        return await self._item_service.copiar_items_desde_requisicion(
+            contrato_id,
+            requisicion_items,
+            precios,
+        )
 
 
 # Instancia global del servicio (singleton)

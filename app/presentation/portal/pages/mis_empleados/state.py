@@ -350,7 +350,7 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
         if not self.id_empresa_actual:
             return
 
-        empleados = await self.cargar_y_asignar_lista(
+        self.empleados = await self.cargar_y_asignar_lista(
             "empleados",
             lambda: empleado_service.obtener_resumen_por_empresa(
                 empresa_id=self.id_empresa_actual,
@@ -359,7 +359,7 @@ class MisEmpleadosState(PortalState, EmployeeFormStateMixin):
             ),
             contexto_error="cargando empleados",
         )
-        self.total_empleados_lista = len(empleados)
+        self.total_empleados_lista = len(self.empleados)
 
     async def cargar_empleados(self):
         """Recarga empleados con skeleton (filtros)."""

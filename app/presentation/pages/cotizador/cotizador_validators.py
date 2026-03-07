@@ -71,3 +71,39 @@ def validar_nombre_concepto(valor: str) -> Optional[str]:
     if len(valor.strip()) > 200:
         return "El nombre no puede superar 200 caracteres"
     return None
+
+
+def validar_precio_unitario(valor: str) -> Optional[str]:
+    """Valida que el precio unitario sea un número no negativo."""
+    if not valor or not valor.strip():
+        return "El precio unitario es requerido"
+    try:
+        precio = float(valor.replace(',', ''))
+        if precio < 0:
+            return "El precio no puede ser negativo"
+    except ValueError:
+        return "Ingresa un monto numérico válido"
+    return None
+
+
+def validar_cantidad_meses(valor: str) -> Optional[str]:
+    """Valida la cantidad de meses (>= 1)."""
+    if not valor or not valor.strip():
+        return "La cantidad de meses es requerida"
+    try:
+        n = int(valor)
+        if n < 1:
+            return "Mínimo 1 mes"
+    except ValueError:
+        return "Ingresa un número entero válido"
+    return None
+
+
+def validar_cantidad_items(items: list) -> Optional[str]:
+    """Valida que haya al menos un item con descripción."""
+    if not items:
+        return "Agrega al menos un concepto"
+    items_validos = [i for i in items if i.get("descripcion", "").strip()]
+    if not items_validos:
+        return "Al menos un concepto debe tener descripción"
+    return None

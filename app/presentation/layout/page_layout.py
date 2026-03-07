@@ -71,6 +71,9 @@ def view_toggle(
 # =============================================================================
 
 def page_toolbar(
+    # Mostrar/ocultar búsqueda
+    show_search: bool = True,
+
     # Búsqueda
     search_value: str = "",
     search_placeholder: str = "Buscar...",
@@ -115,19 +118,23 @@ def page_toolbar(
         )
     """
     left_group = rx.flex(
-        rx.box(
-            input_busqueda(
-                value=search_value,
-                on_change=on_search_change,
-                on_clear=on_search_clear,
-                placeholder=search_placeholder,
+        rx.cond(
+            show_search,
+            rx.box(
+                input_busqueda(
+                    value=search_value,
+                    on_change=on_search_change,
+                    on_clear=on_search_clear,
+                    placeholder=search_placeholder,
+                    width="100%",
+                    toolbar_style=True,
+                ),
                 width="100%",
-                toolbar_style=True,
+                min_width="260px",
+                max_width="400px",
+                flex="1 1 300px",
             ),
-            width="100%",
-            min_width="260px",
-            max_width="400px",
-            flex="1 1 300px",
+            rx.fragment(),
         ),
         filters if filters else rx.fragment(),
         wrap="wrap",

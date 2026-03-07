@@ -1057,6 +1057,34 @@ class EstatusNominaEmpleado(str, Enum):
 # ENUMS DE COTIZACIÓN
 # =============================================================================
 
+class TipoCotizacion(str, Enum):
+    """Tipo de cotización."""
+    PRODUCTOS_SERVICIOS = 'PRODUCTOS_SERVICIOS'
+    PERSONAL = 'PERSONAL'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'PRODUCTOS_SERVICIOS': 'Productos/Servicios',
+            'PERSONAL': 'Personal',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class TipoSueldo(str, Enum):
+    """Tipo de sueldo para cálculo patronal."""
+    NETO = 'NETO'
+    BRUTO = 'BRUTO'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'NETO': 'Neto',
+            'BRUTO': 'Bruto',
+        }
+        return descripciones.get(self.value, self.value)
+
+
 class EstatusCotizacion(str, Enum):
     """Estados del ciclo de vida de una cotización."""
     BORRADOR = 'BORRADOR'

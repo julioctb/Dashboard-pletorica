@@ -5,9 +5,21 @@ from app.services import (
     AsistenciaIncidenciaService as InitAsistenciaIncidenciaService,
     AsistenciaJornadaService as InitAsistenciaJornadaService,
     AsistenciaPanelService as InitAsistenciaPanelService,
+    ContratoItemService as InitContratoItemService,
+    ContratoMutationService as InitContratoMutationService,
+    ContratoQueryService as InitContratoQueryService,
+    EmpleadoMutationService as InitEmpleadoMutationService,
+    EmpleadoQueryService as InitEmpleadoQueryService,
+    EmpleadoRestrictionService as InitEmpleadoRestrictionService,
     UserAuthService as InitUserAuthService,
     UserCompanyService as InitUserCompanyService,
     UserProfileService as InitUserProfileService,
+)
+from app.services.contratos import ContratoItemService, ContratoMutationService, ContratoQueryService
+from app.services.empleados import (
+    EmpleadoMutationService,
+    EmpleadoQueryService,
+    EmpleadoRestrictionService,
 )
 from app.services.asistencia_config_service import AsistenciaConfigService as LegacyAsistenciaConfigService
 from app.services.asistencia_incidencia_service import AsistenciaIncidenciaService as LegacyAsistenciaIncidenciaService
@@ -42,6 +54,12 @@ def test_app_services_expone_subdominios_canonicos():
     assert InitUserAuthService is UserAuthService
     assert InitUserProfileService is UserProfileService
     assert InitUserCompanyService is UserCompanyService
+    assert InitContratoQueryService is ContratoQueryService
+    assert InitContratoMutationService is ContratoMutationService
+    assert InitContratoItemService is ContratoItemService
+    assert InitEmpleadoQueryService is EmpleadoQueryService
+    assert InitEmpleadoMutationService is EmpleadoMutationService
+    assert InitEmpleadoRestrictionService is EmpleadoRestrictionService
     assert InitAsistenciaPanelService is AsistenciaPanelService
     assert InitAsistenciaConfigService is AsistenciaConfigService
     assert InitAsistenciaJornadaService is AsistenciaJornadaService

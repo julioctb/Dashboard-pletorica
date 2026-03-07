@@ -842,7 +842,7 @@ class ContratosState(AuthState, CRUDStateMixin):
 
         from app.services import empresa_service
 
-        await self.cargar_y_asignar_lista(
+        self.empresas = await self.cargar_y_asignar_lista(
             "empresas",
             lambda: empresa_service.obtener_todas(incluir_inactivas=False),
             contexto_error="al cargar empresas",
@@ -861,7 +861,7 @@ class ContratosState(AuthState, CRUDStateMixin):
 
     async def cargar_tipos_servicio(self):
         """Cargar tipos de servicio para el dropdown"""
-        await self.cargar_y_asignar_lista(
+        self.tipos_servicio = await self.cargar_y_asignar_lista(
             "tipos_servicio",
             tipo_servicio_service.obtener_activas,
             contexto_error="al cargar tipos de servicio",
@@ -875,7 +875,7 @@ class ContratosState(AuthState, CRUDStateMixin):
         self.cargando_categorias_puesto = True
         try:
             tipo_servicio_id = self.parse_id(self.form_tipo_servicio_id)
-            await self.cargar_y_asignar_lista(
+            self.categorias_puesto = await self.cargar_y_asignar_lista(
                 "categorias_puesto",
                 lambda: categoria_puesto_service.obtener_por_tipo_servicio(
                     tipo_servicio_id,

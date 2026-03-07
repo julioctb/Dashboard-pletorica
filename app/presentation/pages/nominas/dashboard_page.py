@@ -25,14 +25,14 @@ from app.presentation.theme import Colors, Spacing, Radius, Typography
 # SELECTOR DE PERÍODO
 # =============================================================================
 
-def _opcion_periodo(periodo: dict) -> rx.Component:
+def opcion_periodo(periodo: dict) -> rx.Component:
     return rx.select.item(
         periodo['nombre'],
         value=periodo['id'],
     )
 
 
-def _selector_periodo() -> rx.Component:
+def selector_periodo() -> rx.Component:
     return rx.hstack(
         rx.text("Período:", size="2", weight="medium", color=Colors.TEXT_SECONDARY),
         rx.select.root(
@@ -43,7 +43,7 @@ def _selector_periodo() -> rx.Component:
             rx.select.content(
                 rx.foreach(
                     NominaDashboardState.periodos_disponibles,
-                    _opcion_periodo,
+                    opcion_periodo,
                 ),
             ),
             value=NominaDashboardState.periodo_seleccionado_id,
@@ -59,7 +59,7 @@ def _selector_periodo() -> rx.Component:
 # KPI CARDS
 # =============================================================================
 
-def _kpi_card(
+def kpi_card(
     titulo: str,
     valor: rx.Var,
     icono: str,
@@ -92,27 +92,27 @@ def _kpi_card(
     )
 
 
-def _grid_kpis() -> rx.Component:
+def grid_kpis() -> rx.Component:
     return rx.flex(
-        _kpi_card(
+        kpi_card(
             "Total Bruto",
             NominaDashboardState.total_bruto,
             "trending-up",
             Colors.SUCCESS,
         ),
-        _kpi_card(
+        kpi_card(
             "Total Neto",
             NominaDashboardState.total_neto_kpi,
             "banknote",
             Colors.PRIMARY,
         ),
-        _kpi_card(
+        kpi_card(
             "Retenciones ISR",
             NominaDashboardState.total_retenciones_isr,
             "receipt",
             Colors.WARNING,
         ),
-        _kpi_card(
+        kpi_card(
             "Cuotas IMSS",
             NominaDashboardState.total_cuotas_imss,
             "shield",
@@ -128,7 +128,7 @@ def _grid_kpis() -> rx.Component:
 # CARD COMPARATIVO
 # =============================================================================
 
-def _card_comparativo() -> rx.Component:
+def card_comparativo() -> rx.Component:
     return rx.cond(
         NominaDashboardState.tiene_comparativo,
         rx.box(
@@ -347,8 +347,8 @@ def _contenido_dashboard() -> rx.Component:
                 spacing="2",
                 align="center",
             ),
-            _grid_kpis(),
-            _card_comparativo(),
+            grid_kpis(),
+            card_comparativo(),
             rx.flex(
                 _tabla_top_empleados(),
                 _tabla_incidencias(),
@@ -390,7 +390,7 @@ def dashboard_nomina_page() -> rx.Component:
                 "chart-bar",
                 "Dashboard Nómina",
                 subtitulo="KPIs, comparativos y resumen ejecutivo por período",
-                accion_principal=_selector_periodo(),
+                accion_principal=selector_periodo(),
             ),
             content=_contenido_dashboard(),
         ),

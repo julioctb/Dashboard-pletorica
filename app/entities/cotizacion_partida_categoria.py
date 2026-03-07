@@ -31,6 +31,9 @@ class CotizacionPartidaCategoria(BaseModel):
     costo_patronal_editado: Optional[Decimal] = None
     fue_editado_manualmente: bool = False
 
+    # Tipo de sueldo para cálculo patronal
+    tipo_sueldo: str = "BRUTO"
+
     # Precio unitario final (sin IVA)
     precio_unitario_final: Decimal = Field(default=Decimal('0'), ge=Decimal('0'))
 
@@ -60,6 +63,7 @@ class CotizacionPartidaCategoriaCreate(BaseModel):
     cantidad_minima: int = Field(default=0, ge=0)
     cantidad_maxima: int = Field(default=0, ge=0)
     salario_base_mensual: Decimal = Field(gt=Decimal('0'))
+    tipo_sueldo: str = "BRUTO"
 
     @model_validator(mode='after')
     def validar_cantidades(self) -> 'CotizacionPartidaCategoriaCreate':
@@ -88,6 +92,7 @@ class CotizacionPartidaCategoriaResumen(BaseModel):
     costo_patronal_calculado: Decimal = Decimal('0')
     costo_patronal_editado: Optional[Decimal] = None
     fue_editado_manualmente: bool = False
+    tipo_sueldo: str = "BRUTO"
     costo_patronal_efectivo: Decimal = Decimal('0')
     precio_unitario_final: Decimal = Decimal('0')
 

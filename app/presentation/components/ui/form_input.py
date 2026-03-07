@@ -29,23 +29,26 @@ def _render_label(label: str, required: bool = False, error: Any = None) -> rx.C
 
 
 def _render_footer(error: Any = None, hint: str = "") -> rx.Component:
-    """Renderiza error (prioridad) o hint debajo del input."""
+    """Renderiza error (prioridad) o hint debajo del input sin swap de nodos DOM."""
     if error is not None and hint:
-        return rx.cond(
-            error != "",
-            rx.text(error, color="var(--red-9)", size="1"),
-            rx.text(hint, size="1", color="var(--gray-9)"),
+        return rx.text(
+            rx.cond(error != "", error, hint),
+            color=rx.cond(error != "", "var(--red-9)", "var(--gray-9)"),
+            size="1",
+            min_height="1em",
         )
     elif error is not None:
-        return rx.cond(
-            error != "",
-            rx.text(error, color="var(--red-9)", size="1"),
-            rx.text("", size="1"),
+        return rx.text(
+            error,
+            color="var(--red-9)",
+            size="1",
+            min_height="1em",
+            visibility=rx.cond(error != "", "visible", "hidden"),
         )
     elif hint:
-        return rx.text(hint, size="1", color="var(--gray-9)")
+        return rx.text(hint, size="1", color="var(--gray-9)", min_height="1em")
     else:
-        return rx.text("", size="1")
+        return rx.text("", size="1", min_height="1em", visibility="hidden")
 
 
 def select_items_from_options(options: Any) -> rx.Component:
@@ -203,6 +206,7 @@ def form_date(
     label: str = "",
     value: Any = "",
     on_change: callable = None,
+    on_blur: callable = None,
     error: Any = None,
     required: bool = False,
     hint: str = "",
@@ -225,7 +229,9 @@ def form_date(
             type="date",
             value=value,
             on_change=on_change,
+            on_blur=on_blur,
             width="100%",
+            size="2",
             **props
         ),
         _render_footer(error, hint),

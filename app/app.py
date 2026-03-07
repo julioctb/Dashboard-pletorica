@@ -28,7 +28,7 @@ from .presentation.pages.simulador.simulador_page import simulador_page
 from .presentation.pages.configuracion.configuracion_page import configuracion_page
 from .presentation.pages.mi_perfil import mi_perfil_page
 
-# BACKOFFICE — Cotizador
+# PORTAL — Cotizador
 from .presentation.pages.cotizador import cotizador_page, cotizador_detalle_page
 
 # BACKOFFICE — Nóminas
@@ -84,28 +84,35 @@ def index(content: rx.Component) -> rx.Component:
     """Layout wrapper para todas las paginas del backoffice."""
     return rx.box(
         rx.cond(
-            AuthState.debe_redirigir_login,
-            # No autenticado: spinner mientras se redirige a /login
+            ~AuthState.auth_contexto_listo,
             rx.center(
                 rx.spinner(size="3"),
                 height="100vh",
             ),
-            # Autenticado (o SKIP_AUTH=true): layout normal
-            rx.hstack(
-                sidebar(),
-                rx.box(
-                    content,
-                    background_color='var(--gray-2)',
-                    width="100%",
-                    flex="1",
-                    overflow_y="auto",
-                    style={
-                        "minHeight": "calc(100vh - 140px)",
-                        "padding": "1.5rem"
-                    }
+            rx.cond(
+                AuthState.debe_redirigir_login,
+                # No autenticado: spinner mientras se redirige a /login
+                rx.center(
+                    rx.spinner(size="3"),
+                    height="100vh",
                 ),
-                width="100%",
-                spacing="0"
+                # Autenticado (o SKIP_AUTH=true): layout normal
+                rx.hstack(
+                    sidebar(),
+                    rx.box(
+                        content,
+                        background_color='var(--gray-2)',
+                        width="100%",
+                        flex="1",
+                        overflow_y="auto",
+                        style={
+                            "minHeight": "calc(100vh - 140px)",
+                            "padding": "1.5rem"
+                        }
+                    ),
+                    width="100%",
+                    spacing="0"
+                ),
             ),
         ),
         on_mount=AuthState.verificar_y_redirigir,
@@ -176,12 +183,6 @@ app.add_page(lambda: index(configuracion_page()), route="/configuracion")
 app.add_page(lambda: index(mi_perfil_page()), route="/mi-perfil")
 
 # =============================================================================
-# BACKOFFICE — Cotizador
-# =============================================================================
-app.add_page(lambda: index(cotizador_page()), route="/cotizador")
-app.add_page(lambda: index(cotizador_detalle_page()), route="/cotizador/[cotizacion_id]")
-
-# =============================================================================
 # BACKOFFICE — Nóminas
 # =============================================================================
 app.add_page(lambda: index(periodos_nomina_page()),      route="/nominas")
@@ -236,5 +237,10 @@ app.add_page(lambda: portal_index(conciliacion_nomina_page()), route="/portal/no
 # PORTAL — Contratos y entregables
 # =============================================================================
 app.add_page(lambda: portal_index(mis_contratos_page()), route="/portal/contratos")
+app.add_page(lambda: portal_index(cotizador_page()), route="/portal/cotizador")
+app.add_page(
+    lambda: portal_index(cotizador_detalle_page()),
+    route="/portal/cotizador/[cotizacion_id]",
+)
 app.add_page(lambda: portal_index(asistencias_page()), route="/portal/asistencias")
 app.add_page(lambda: portal_index(mis_entregables_page()), route="/portal/entregables")

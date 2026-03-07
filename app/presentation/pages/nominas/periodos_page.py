@@ -10,6 +10,12 @@ from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.pages.nominas.nomina_rrhh_state import NominaRRHHState
 from app.presentation.pages.nominas.nomina_contabilidad_state import NominaContabilidadState
 from app.presentation.pages.nominas.nomina_modals import modal_crear_periodo
+from app.presentation.pages.nominas.dashboard_state import NominaDashboardState
+from app.presentation.pages.nominas.dashboard_page import (
+    selector_periodo,
+    grid_kpis,
+    card_comparativo,
+)
 from app.presentation.components.ui import (
     tabla_vacia,
     table_shell,
@@ -221,6 +227,29 @@ def periodos_nomina_page() -> rx.Component:
                 show_view_toggle=False,
             ),
             content=rx.vstack(
+                # --- Dashboard KPIs integrado ---
+                rx.vstack(
+                    rx.hstack(
+                        selector_periodo(),
+                        spacing="2",
+                        align="center",
+                        width="100%",
+                    ),
+                    rx.cond(
+                        NominaDashboardState.tiene_resumen,
+                        rx.vstack(
+                            grid_kpis(),
+                            card_comparativo(),
+                            spacing="4",
+                            width="100%",
+                        ),
+                        rx.fragment(),
+                    ),
+                    spacing="3",
+                    width="100%",
+                    padding_bottom=Spacing.MD,
+                ),
+                # --- Tabla de períodos ---
                 _tabla_periodos(),
                 modal_crear_periodo(),
                 spacing="4",
@@ -229,5 +258,8 @@ def periodos_nomina_page() -> rx.Component:
         ),
         width="100%",
         min_height="100vh",
-        on_mount=NominaRRHHState.on_mount_periodos,
+        on_mount=[
+            NominaRRHHState.on_mount_periodos,
+            NominaDashboardState.on_mount_dashboard,
+        ],
     )

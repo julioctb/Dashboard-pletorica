@@ -394,19 +394,19 @@ class BaseState(rx.State):
     ) -> List[Any]:
         """
         Ejecuta una carga de lista con serialización y manejo estándar de error.
+
+        Retorna la lista serializada. El caller debe asignar al state var:
+            self.mi_campo = await self.cargar_y_asignar_lista(...)
         """
         try:
             datos = self.serializar_lista_state(
                 await cargar_fn(),
                 transformar=transformar,
             )
-            setattr(self, campo_destino, datos)
             return datos
         except Exception as e:
             self.manejar_error(e, contexto_error)
-            datos_vacios = vacio if vacio is not None else []
-            setattr(self, campo_destino, datos_vacios)
-            return datos_vacios
+            return vacio if vacio is not None else []
 
     # ========================
     # PATRÓN DE CARGA CON SKELETON

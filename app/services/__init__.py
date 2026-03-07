@@ -24,6 +24,11 @@ from app.services.categoria_puesto_service import (
 )
 
 # Contrato
+from app.services.contratos import (
+    ContratoItemService,
+    ContratoMutationService,
+    ContratoQueryService,
+)
 from app.services.contrato_service import (
     ContratoService,
     contrato_service,
@@ -48,6 +53,11 @@ from app.services.plaza_service import (
 )
 
 # Empleado
+from app.services.empleados import (
+    EmpleadoMutationService,
+    EmpleadoQueryService,
+    EmpleadoRestrictionService,
+)
 from app.services.empleado_service import (
     EmpleadoService,
     empleado_service,
@@ -245,6 +255,9 @@ __all__ = [
     "CategoriaPuestoService",
     "categoria_puesto_service",
     # Contrato
+    "ContratoQueryService",
+    "ContratoMutationService",
+    "ContratoItemService",
     "ContratoService",
     "contrato_service",
     # Pago
@@ -257,6 +270,9 @@ __all__ = [
     "PlazaService",
     "plaza_service",
     # Empleado
+    "EmpleadoQueryService",
+    "EmpleadoMutationService",
+    "EmpleadoRestrictionService",
     "EmpleadoService",
     "empleado_service",
     # Historial Laboral

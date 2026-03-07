@@ -14,6 +14,8 @@ import logging
 from decimal import Decimal
 from typing import Optional
 
+from app.entities.cotizacion import calcular_meses_periodo
+
 logger = logging.getLogger(__name__)
 
 
@@ -171,6 +173,7 @@ class CotizacionPdfService:
 
         nombre_empresa = empresa.get('nombre_comercial', 'EMPRESA')
         mostrar_desglose = cotizacion.get('mostrar_desglose', False)
+        from app.services import cotizacion_service
 
         for i, partida in enumerate(partidas):
             if i > 0:
@@ -214,11 +217,15 @@ class CotizacionPdfService:
                 .execute()
             )
             categorias = cats_result.data or []
+            matriz_partida = await cotizacion_service.obtener_valores_partida(
+                partida_id,
+                empresa_id=cotizacion.get('empresa_id'),
+            )
 
             # --- TABLA DESGLOSE (si aplica) ---
             if mostrar_desglose and categorias:
                 story += self._build_desglose_table(
-                    supabase, partida_id, categorias,
+                    partida_id, categorias, matriz_partida,
                     num_partida, nombre_empresa,
                     normal_center, bold_left, small_center,
                 )
@@ -259,7 +266,6 @@ class CotizacionPdfService:
 
         # Calcular meses
         try:
-            from dateutil.relativedelta import relativedelta
             from datetime import date
             if isinstance(fecha_inicio, str):
                 fi = date.fromisoformat(fecha_inicio)
@@ -269,8 +275,7 @@ class CotizacionPdfService:
                 ff = date.fromisoformat(fecha_fin)
             else:
                 ff = fecha_fin
-            delta = relativedelta(ff, fi)
-            meses = delta.months + (delta.years * 12) or 1
+            meses = calcular_meses_periodo(fi, ff) or 1
         except Exception:
             meses = 1
 
@@ -397,7 +402,7 @@ class CotizacionPdfService:
         return story
 
     def _build_desglose_table(
-        self, supabase, partida_id, categorias,
+        self, partida_id, categorias, matriz_partida,
         num_partida, nombre_empresa,
         normal_center, bold_left, small_center,
     ) -> list:
@@ -408,9 +413,9 @@ class CotizacionPdfService:
 
         story = []
 
-        # Cargar conceptos y valores
+        # Cargar conceptos
         conceptos_result = (
-            supabase.table('cotizacion_conceptos')
+            self._get_supabase().table('cotizacion_conceptos')
             .select('id, nombre, tipo_concepto, orden')
             .eq('partida_id', partida_id)
             .order('orden')
@@ -420,16 +425,12 @@ class CotizacionPdfService:
         if not conceptos:
             return story
 
-        valores_result = (
-            supabase.table('cotizacion_concepto_valores')
-            .select('concepto_id, partida_categoria_id, valor_pesos')
-            .in_('concepto_id', [c['id'] for c in conceptos])
-            .execute()
-        )
-        # Mapear valor[concepto_id][cat_id] = valor
+        # Mapear valor efectivo en pesos por concepto/categoría
         valor_map = {}
-        for v in (valores_result.data or []):
-            valor_map.setdefault(v['concepto_id'], {})[v['partida_categoria_id']] = float(v['valor_pesos'] or 0)
+        for valor in (matriz_partida or []):
+            valor_map.setdefault(valor['concepto_id'], {})[
+                valor['partida_categoria_id']
+            ] = float(valor.get('valor_calculado') or 0)
 
         # Encabezados: Concepto | Cat1 | Cat2 ...
         cat_nombres = []

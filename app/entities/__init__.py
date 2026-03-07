@@ -15,6 +15,8 @@ from app.core.enums import (
     RolPlataforma,
     RolEmpresa,
     # Enums de Cotización
+    TipoCotizacion,
+    TipoSueldo,
     EstatusCotizacion,
     EstatusPartidaCotizacion,
     TipoConceptoCotizacion,
@@ -383,6 +385,12 @@ from app.entities.cotizacion_concepto import (
     CotizacionConceptoCreate,
 )
 
+# Cotización Item
+from app.entities.cotizacion_item import (
+    CotizacionItem,
+    CotizacionItemCreate,
+)
+
 # Cotización Concepto Valor
 from app.entities.cotizacion_concepto_valor import (
     CotizacionConceptoValor,
@@ -599,6 +607,8 @@ __all__ = [
     "DispersionLayout",
     "ResultadoDispersion",
     # Enums Cotización
+    "TipoCotizacion",
+    "TipoSueldo",
     "EstatusCotizacion",
     "EstatusPartidaCotizacion",
     "TipoConceptoCotizacion",
@@ -623,6 +633,9 @@ __all__ = [
     # Cotización Concepto
     "CotizacionConcepto",
     "CotizacionConceptoCreate",
+    # Cotización Item
+    "CotizacionItem",
+    "CotizacionItemCreate",
     # Cotización Concepto Valor
     "CotizacionConceptoValor",
     "CotizacionConceptoValorCreate",
