@@ -1,126 +1,31 @@
 """
-Componentes UI para la pagina Expedientes del portal.
-
-Tabla de empleados, detalle de expediente, filas de documentos,
-badges y modal de rechazo.
+Componentes UI para el detalle de expediente del portal.
 """
 import reflex as rx
 
-from app.presentation.components.ui import (
-    table_shell,
-    boton_guardar,
-    boton_cancelar,
-    tabla_action_button,
-    badge_onboarding,
-    select_estatus_onboarding,
-    empty_state_card,
-    document_status_badge,
-)
 from app.presentation.components.reusable import (
     document_table_shell,
     documento_observacion,
     documento_requerido_badge,
     documento_subido_icon,
 )
-from app.presentation.theme import Colors, Typography, Spacing, Radius
+from app.presentation.components.ui import (
+    boton_cancelar,
+    boton_guardar,
+    document_status_badge,
+    tabla_action_button,
+)
+from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 from .state import ExpedientesState
 
 UPLOAD_ID_EXPEDIENTE = "upload_doc_expediente_rrhh"
 
 
-# =============================================================================
-# BADGES
-# =============================================================================
-
 def badge_documento(estatus: str) -> rx.Component:
     """Badge de estatus de documento."""
     return document_status_badge(estatus)
 
-
-# =============================================================================
-# TABLA DE EMPLEADOS (LISTA)
-# =============================================================================
-
-def fila_expediente(emp: dict) -> rx.Component:
-    """Fila de la tabla de expedientes."""
-    return rx.table.row(
-        rx.table.cell(
-            rx.text(
-                emp["clave"],
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
-                color=Colors.PORTAL_PRIMARY_TEXT,
-            ),
-        ),
-        rx.table.cell(
-            rx.text(
-                emp["nombre_completo"],
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
-            ),
-        ),
-        rx.table.cell(
-            rx.text(
-                emp["curp"],
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            ),
-        ),
-        rx.table.cell(
-            badge_onboarding(emp.get("estatus_onboarding", "")),
-        ),
-        rx.table.cell(
-            tabla_action_button(
-                icon="folder-open",
-                tooltip="Ver Expediente",
-                on_click=ExpedientesState.ver_expediente(emp),
-                color_scheme="blue",
-            ),
-        ),
-    )
-
-
-ENCABEZADOS_EXPEDIENTES = [
-    {"nombre": "Clave", "ancho": "120px"},
-    {"nombre": "Nombre", "ancho": "auto"},
-    {"nombre": "CURP", "ancho": "200px"},
-    {"nombre": "Estatus", "ancho": "150px"},
-    {"nombre": "Acciones", "ancho": "80px"},
-]
-
-
-def tabla_expedientes() -> rx.Component:
-    """Tabla de empleados para revision de expedientes."""
-    return table_shell(
-        loading=ExpedientesState.loading,
-        headers=ENCABEZADOS_EXPEDIENTES,
-        rows=ExpedientesState.empleados_expedientes_filtrados,
-        row_renderer=fila_expediente,
-        has_rows=ExpedientesState.total_expedientes_filtrados > 0,
-        empty_component=empty_state_card(
-            title="No hay expedientes para revisar",
-            description="Cuando existan expedientes pendientes apareceran aqui.",
-            icon="folder-check",
-        ),
-        total_caption="Mostrando " + ExpedientesState.total_expedientes_filtrados.to(str) + " empleado(s)",
-        loading_rows=5,
-    )
-
-
-def filtros_expedientes() -> rx.Component:
-    """Filtros para la tabla de expedientes."""
-    return select_estatus_onboarding(
-        opciones=ExpedientesState.opciones_estatus_expediente,
-        value=ExpedientesState.filtro_estatus_expediente,
-        on_change=ExpedientesState.set_filtro_estatus_expediente,
-        on_reload=ExpedientesState.recargar_expedientes,
-    )
-
-
-# =============================================================================
-# DETALLE DEL EXPEDIENTE
-# =============================================================================
 
 def fila_documento(doc: dict) -> rx.Component:
     """Fila de documento en el detalle del expediente."""
@@ -239,118 +144,113 @@ ENCABEZADOS_DOCUMENTOS = [
 
 def area_subida_rrhh() -> rx.Component:
     """Area de subida de documentos para RRHH."""
-    return rx.cond(
-        ExpedientesState.mostrando_detalle,
-        rx.vstack(
-            rx.cond(
-                ExpedientesState.tipo_documento_subiendo == "",
-                rx.button(
-                    rx.icon("upload", size=16),
-                    "Subir documento",
-                    on_click=ExpedientesState.set_tipo_documento_subiendo("_seleccionar"),
-                    variant="outline",
-                    size="2",
-                    color_scheme="blue",
-                ),
-                rx.vstack(
-                    rx.hstack(
-                        rx.select.root(
-                            rx.select.trigger(
-                                placeholder="Seleccionar tipo de documento...",
-                                width="300px",
-                            ),
-                            rx.select.content(
-                                rx.foreach(
-                                    ExpedientesState.tipos_documento_disponibles,
-                                    lambda opt: rx.select.item(
-                                        opt["label"], value=opt["value"]
-                                    ),
-                                ),
-                            ),
-                            value=rx.cond(
-                                ExpedientesState.tipo_documento_subiendo == "_seleccionar",
-                                "",
-                                ExpedientesState.tipo_documento_subiendo,
-                            ),
-                            on_change=ExpedientesState.set_tipo_documento_subiendo,
-                        ),
-                        rx.icon_button(
-                            rx.icon("x", size=14),
-                            size="1",
-                            variant="ghost",
-                            color_scheme="gray",
-                            on_click=ExpedientesState.set_tipo_documento_subiendo(""),
-                        ),
-                        align="center",
-                    ),
-                    rx.cond(
-                        (ExpedientesState.tipo_documento_subiendo != "")
-                        & (ExpedientesState.tipo_documento_subiendo != "_seleccionar"),
-                        rx.upload(
-                            rx.vstack(
-                                rx.cond(
-                                    ExpedientesState.subiendo_archivo,
-                                    rx.spinner(size="2"),
-                                    rx.icon(
-                                        "cloud-upload",
-                                        size=32,
-                                        color="var(--gray-8)",
-                                    ),
-                                ),
-                                rx.text(
-                                    "Arrastre un archivo o haga clic para seleccionar",
-                                    font_size=Typography.SIZE_BASE,
-                                    color=Colors.TEXT_SECONDARY,
-                                ),
-                                rx.text(
-                                    "PDF, PNG o JPG - se aprobara automaticamente",
-                                    font_size=Typography.SIZE_SM,
-                                    color=Colors.TEXT_MUTED,
-                                ),
-                                align="center",
-                                spacing="2",
-                                padding_y="24px",
-                            ),
-                            id=UPLOAD_ID_EXPEDIENTE,
-                            accept={
-                                "application/pdf": [".pdf"],
-                                "image/png": [".png"],
-                                "image/jpeg": [".jpg", ".jpeg"],
-                            },
-                            max_files=1,
-                            on_drop=ExpedientesState.handle_upload_documento(
-                                rx.upload_files(upload_id=UPLOAD_ID_EXPEDIENTE),
-                            ),
-                            border="2px dashed var(--gray-6)",
-                            border_radius=Radius.LG,
-                            width="100%",
-                            cursor="pointer",
-                            style={"_hover": {"border_color": "var(--blue-7)"}},
-                        ),
-                    ),
-                    width="100%",
-                    spacing="2",
-                    padding="16px",
-                    background="var(--blue-2)",
-                    border="1px solid var(--blue-6)",
-                    border_radius=Radius.LG,
-                ),
+    return rx.vstack(
+        rx.cond(
+            ExpedientesState.tipo_documento_subiendo == "",
+            rx.button(
+                rx.icon("upload", size=16),
+                "Subir documento",
+                on_click=ExpedientesState.set_tipo_documento_subiendo("_seleccionar"),
+                variant="outline",
+                size="2",
+                color_scheme="blue",
             ),
-            width="100%",
+            rx.vstack(
+                rx.hstack(
+                    rx.select.root(
+                        rx.select.trigger(
+                            placeholder="Seleccionar tipo de documento...",
+                            width="300px",
+                        ),
+                        rx.select.content(
+                            rx.foreach(
+                                ExpedientesState.tipos_documento_disponibles,
+                                lambda opt: rx.select.item(
+                                    opt["label"], value=opt["value"]
+                                ),
+                            ),
+                        ),
+                        value=rx.cond(
+                            ExpedientesState.tipo_documento_subiendo == "_seleccionar",
+                            "",
+                            ExpedientesState.tipo_documento_subiendo,
+                        ),
+                        on_change=ExpedientesState.set_tipo_documento_subiendo,
+                    ),
+                    rx.icon_button(
+                        rx.icon("x", size=14),
+                        size="1",
+                        variant="ghost",
+                        color_scheme="gray",
+                        on_click=ExpedientesState.set_tipo_documento_subiendo(""),
+                    ),
+                    align="center",
+                ),
+                rx.cond(
+                    (ExpedientesState.tipo_documento_subiendo != "")
+                    & (ExpedientesState.tipo_documento_subiendo != "_seleccionar"),
+                    rx.upload(
+                        rx.vstack(
+                            rx.cond(
+                                ExpedientesState.subiendo_archivo,
+                                rx.spinner(size="2"),
+                                rx.icon(
+                                    "cloud-upload",
+                                    size=32,
+                                    color="var(--gray-8)",
+                                ),
+                            ),
+                            rx.text(
+                                "Arrastre un archivo o haga clic para seleccionar",
+                                font_size=Typography.SIZE_BASE,
+                                color=Colors.TEXT_SECONDARY,
+                            ),
+                            rx.text(
+                                "PDF, PNG o JPG - se aprobara automaticamente",
+                                font_size=Typography.SIZE_SM,
+                                color=Colors.TEXT_MUTED,
+                            ),
+                            align="center",
+                            spacing="2",
+                            padding_y="24px",
+                        ),
+                        id=UPLOAD_ID_EXPEDIENTE,
+                        accept={
+                            "application/pdf": [".pdf"],
+                            "image/png": [".png"],
+                            "image/jpeg": [".jpg", ".jpeg"],
+                        },
+                        max_files=1,
+                        on_drop=ExpedientesState.handle_upload_documento(
+                            rx.upload_files(upload_id=UPLOAD_ID_EXPEDIENTE),
+                        ),
+                        border="2px dashed var(--gray-6)",
+                        border_radius=Radius.LG,
+                        width="100%",
+                        cursor="pointer",
+                        style={"_hover": {"border_color": "var(--blue-7)"}},
+                    ),
+                ),
+                width="100%",
+                spacing="2",
+                padding="16px",
+                background="var(--blue-2)",
+                border="1px solid var(--blue-6)",
+                border_radius=Radius.LG,
+            ),
         ),
-        rx.fragment(),
+        width="100%",
     )
 
 
 def detalle_expediente() -> rx.Component:
     """Vista de detalle del expediente de un empleado."""
     return rx.vstack(
-        # Header con boton volver
         rx.hstack(
             rx.button(
                 rx.icon("arrow-left", size=16),
-                "Volver a lista",
-                on_click=ExpedientesState.volver_a_lista,
+                "Volver a empleados",
+                on_click=ExpedientesState.volver_a_empleados,
                 variant="ghost",
                 size="2",
             ),
@@ -359,8 +259,6 @@ def detalle_expediente() -> rx.Component:
             width="100%",
             align="center",
         ),
-
-        # Info del empleado
         rx.hstack(
             rx.vstack(
                 rx.text(
@@ -376,7 +274,6 @@ def detalle_expediente() -> rx.Component:
                 spacing="1",
             ),
             rx.spacer(),
-            # Metricas del expediente
             rx.hstack(
                 _metric_card("Requeridos", ExpedientesState.total_docs_requeridos, "blue"),
                 _metric_card("Aprobados", ExpedientesState.total_docs_aprobados, "green"),
@@ -391,10 +288,7 @@ def detalle_expediente() -> rx.Component:
             border=f"1px solid {Colors.BORDER}",
             border_radius=Radius.MD,
         ),
-
         area_subida_rrhh(),
-
-        # Barra de progreso
         rx.vstack(
             rx.hstack(
                 rx.text(
@@ -420,8 +314,6 @@ def detalle_expediente() -> rx.Component:
             width="100%",
             spacing="2",
         ),
-
-        # Tabla de documentos
         document_table_shell(
             headers=ENCABEZADOS_DOCUMENTOS,
             items=ExpedientesState.documentos_expediente_lista,
@@ -431,7 +323,6 @@ def detalle_expediente() -> rx.Component:
             empty_description="No se encontro el catalogo de documentos del expediente.",
             empty_icon="file-x",
         ),
-
         width="100%",
         spacing="4",
         padding=Spacing.LG,
@@ -461,10 +352,6 @@ def _metric_card(label: str, value, color_scheme: str) -> rx.Component:
     )
 
 
-# =============================================================================
-# MODAL RECHAZO
-# =============================================================================
-
 def modal_rechazo() -> rx.Component:
     """Modal para ingresar observacion de rechazo."""
     return rx.dialog.root(
@@ -473,7 +360,6 @@ def modal_rechazo() -> rx.Component:
             rx.dialog.description(
                 "Ingrese el motivo del rechazo. El empleado podra ver esta observacion."
             ),
-
             rx.vstack(
                 rx.text(
                     "Observacion *",
@@ -499,7 +385,6 @@ def modal_rechazo() -> rx.Component:
                 width="100%",
                 padding_y=Spacing.BASE,
             ),
-
             rx.hstack(
                 boton_cancelar(
                     on_click=ExpedientesState.cerrar_modal_rechazo,
@@ -515,7 +400,6 @@ def modal_rechazo() -> rx.Component:
                 justify="end",
                 width="100%",
             ),
-
             max_width="500px",
         ),
         open=ExpedientesState.mostrar_modal_rechazo,

@@ -13,6 +13,7 @@ from app.presentation.components.ui import (
     tabla_action_button,
     tabla_action_buttons,
     badge_onboarding,
+    identifier_badge,
     table_text_sm,
     select_items_from_options,
 )
@@ -238,7 +239,7 @@ def card_empleado(empleado: dict) -> rx.Component:
                 # Header con clave y estatus
                 rx.hstack(
                     rx.hstack(
-                        rx.badge(empleado["clave"], variant="outline", size="2"),
+                        identifier_badge(empleado["clave"]),
                         spacing="2",
                     ),
                     rx.spacer(),

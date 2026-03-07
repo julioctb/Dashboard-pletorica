@@ -151,23 +151,18 @@ def contador_registros(
     """
     plural = texto_entidad_plural if texto_entidad_plural else f"{texto_entidad}s"
 
-    return rx.hstack(
-        rx.icon("list", size=14, color="gray"),
-        rx.cond(
-            tiene_filtros,
-            rx.text(
-                f"{total} resultado(s) encontrado(s)",
-                size="2",
-                color="gray",
-            ),
-            rx.text(
-                f"{total} {plural}",
-                size="2",
-                color="gray",
-            ),
+    return rx.cond(
+        tiene_filtros,
+        rx.text(
+            f"{total} resultado(s) encontrado(s)",
+            size="2",
+            color=Colors.TEXT_MUTED,
         ),
-        spacing="2",
-        align="center",
+        rx.text(
+            f"{total} {plural}",
+            size="2",
+            color=Colors.TEXT_MUTED,
+        ),
     )
 
 

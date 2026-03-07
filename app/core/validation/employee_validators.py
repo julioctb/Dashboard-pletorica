@@ -7,6 +7,8 @@ from .constants import (
     RFC_PERSONA_PATTERN,
     NSS_PATTERN,
     EMAIL_PATTERN,
+    CLABE_PATTERN,
+    CUENTA_BANCARIA_PATTERN,
     CURP_LEN,
     RFC_PERSONA_LEN,
     NSS_LEN,
@@ -19,6 +21,17 @@ from .constants import (
     TELEFONO_PATTERN,
     MOTIVO_RESTRICCION_MIN,
     NOMBRE_CONTACTO_MAX,
+    CUENTA_BANCARIA_MIN,
+    CUENTA_BANCARIA_MAX,
+    CLABE_LEN,
+    BANCO_MAX,
+)
+from .bank_validators import (
+    cuenta_parece_clabe,
+    normalizar_clabe_interbancaria,
+    normalizar_cuenta_bancaria,
+    normalizar_nombre_banco,
+    verificar_clabe,
 )
 from .common_validators import (
     validar_select_requerido,
@@ -242,6 +255,67 @@ def validar_contacto_emergencia_telefono(telefono: str) -> str:
     return ""
 
 
+def validar_cuenta_bancaria_empleado(cuenta: str) -> str:
+    """Valida cuenta bancaria opcional para formularios de empleado."""
+    if not cuenta:
+        return ""
+
+    cuenta_limpia = normalizar_cuenta_bancaria(cuenta)
+    if not re.match(CUENTA_BANCARIA_PATTERN, cuenta_limpia):
+        if not cuenta_limpia.isdigit():
+            return "Cuenta bancaria debe contener solo números"
+        if len(cuenta_limpia) < CUENTA_BANCARIA_MIN:
+            return (
+                f"Cuenta bancaria debe tener al menos "
+                f"{CUENTA_BANCARIA_MIN} dígitos"
+            )
+        if len(cuenta_limpia) > CUENTA_BANCARIA_MAX:
+            return (
+                f"Cuenta bancaria no puede exceder "
+                f"{CUENTA_BANCARIA_MAX} dígitos"
+            )
+        return "Cuenta bancaria con formato inválido"
+    if cuenta_limpia == "0" * len(cuenta_limpia):
+        return "Cuenta bancaria no puede estar formada solo por ceros"
+    if cuenta_parece_clabe(cuenta_limpia):
+        return "Parece que capturó una CLABE; use este campo solo para número de cuenta"
+    return ""
+
+def validar_banco_empleado(banco: str) -> str:
+    """Valida nombre de banco opcional para formularios de empleado."""
+    banco_limpio = normalizar_nombre_banco(banco)
+    error = validar_texto_opcional(
+        banco_limpio,
+        "banco",
+        max_length=BANCO_MAX,
+    )
+    if error:
+        return error
+    if banco_limpio and not all(
+        caracter.isalpha() or caracter.isspace()
+        for caracter in banco_limpio
+    ):
+        return "Banco solo debe contener letras y espacios"
+    return ""
+
+
+def validar_clabe_empleado(clabe: str) -> str:
+    """Valida CLABE interbancaria opcional para formularios de empleado."""
+    if not clabe:
+        return ""
+
+    clabe_limpia = normalizar_clabe_interbancaria(clabe)
+    if not re.match(CLABE_PATTERN, clabe_limpia):
+        if not clabe_limpia.isdigit():
+            return "CLABE interbancaria debe contener solo números"
+        if len(clabe_limpia) != CLABE_LEN:
+            return f"CLABE interbancaria debe tener {CLABE_LEN} dígitos"
+        return "CLABE interbancaria con formato inválido"
+    if not verificar_clabe(clabe_limpia):
+        return "CLABE interbancaria inválida: verifique el dígito verificador"
+    return ""
+
+
 __all__ = [
     "validar_curp_empleado",
     "validar_rfc_empleado",
@@ -261,4 +335,7 @@ __all__ = [
     "validar_genero_empleado_requerido",
     "validar_contacto_emergencia_nombre",
     "validar_contacto_emergencia_telefono",
+    "validar_cuenta_bancaria_empleado",
+    "validar_banco_empleado",
+    "validar_clabe_empleado",
 ]

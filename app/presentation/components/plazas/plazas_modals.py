@@ -229,7 +229,8 @@ def modal_detalle_plaza() -> rx.Component:
                 rx.cond(
                     PlazasState.plaza_seleccionada,
                     rx.cond(
-                        PlazasState.plaza_seleccionada["estatus"] != "CANCELADA",
+                        PlazasState.puede_operar_plazas_en_contexto
+                        & (PlazasState.plaza_seleccionada["estatus"] != "CANCELADA"),
                         rx.button(
                             rx.icon("pencil", size=14),
                             "Editar",

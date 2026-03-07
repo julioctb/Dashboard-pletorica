@@ -11,7 +11,6 @@ from uuid import UUID
 
 from app.database import db_manager
 from app.core.enums import EstatusOnboarding
-from app.core.ui_helpers import es_filtro_activo
 from app.core.exceptions import (
     BusinessRuleError,
     DatabaseError,
@@ -218,59 +217,6 @@ class OnboardingService:
         except Exception as e:
             logger.error(f"Error obteniendo empleados onboarding empresa {empresa_id}: {e}")
             raise DatabaseError(f"Error obteniendo empleados en onboarding: {e}")
-
-    async def obtener_empleados_para_expedientes(
-        self, empresa_id: int, estatus_filtro: Optional[str] = None
-    ) -> List[dict]:
-        """
-        Obtiene todos los empleados activos de una empresa para expedientes.
-
-        A diferencia de obtener_empleados_onboarding(), incluye empleados
-        en cualquier estatus onboarding para que RRHH pueda gestionar
-        expedientes de personal existente.
-        """
-        try:
-            query = (
-                db_manager.get_client()
-                .table('empleados')
-                .select(
-                    'id, clave, curp, nombre, apellido_paterno, '
-                    'apellido_materno, estatus, estatus_onboarding, fecha_creacion'
-                )
-                .eq('empresa_id', empresa_id)
-                .neq('estatus', 'INACTIVO')
-            )
-
-            if es_filtro_activo(estatus_filtro or ""):
-                query = query.eq('estatus_onboarding', estatus_filtro)
-
-            result = query.order('nombre').execute()
-
-            if not result.data:
-                return []
-
-            empleados = []
-            for emp in result.data:
-                nombre_completo = f"{emp['nombre']} {emp['apellido_paterno']}"
-                if emp.get('apellido_materno'):
-                    nombre_completo += f" {emp['apellido_materno']}"
-
-                empleados.append({
-                    'id': emp['id'],
-                    'clave': emp['clave'],
-                    'curp': emp['curp'],
-                    'nombre_completo': nombre_completo,
-                    'estatus': emp['estatus'],
-                    'estatus_onboarding': emp.get('estatus_onboarding', 'REGISTRADO'),
-                    'fecha_creacion': emp.get('fecha_creacion'),
-                })
-
-            return empleados
-
-        except Exception as e:
-            logger.error(f"Error obteniendo empleados para expedientes: {e}")
-            raise DatabaseError(f"Error obteniendo empleados: {e}")
-
 
     async def completar_datos(
         self,

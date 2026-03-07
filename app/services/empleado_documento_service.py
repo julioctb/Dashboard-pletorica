@@ -35,6 +35,11 @@ class EmpleadoDocumentoService:
         self.supabase = db_manager.get_client()
         self.tabla = 'empleado_documentos'
 
+    @staticmethod
+    def _total_documentos_requeridos() -> int:
+        """Cuenta tipos de documento obligatorios del expediente."""
+        return sum(1 for t in TipoDocumentoEmpleado if t.es_obligatorio)
+
     async def subir_documento(
         self,
         datos: EmpleadoDocumentoCreate,
@@ -332,10 +337,7 @@ class EmpleadoDocumentoService:
         """
         try:
             # Documentos obligatorios definidos en el enum
-            total_requeridos = sum(
-                1 for t in TipoDocumentoEmpleado
-                if t.es_obligatorio
-            )
+            total_requeridos = self._total_documentos_requeridos()
 
             # Documentos vigentes del empleado
             result = (
@@ -366,6 +368,63 @@ class EmpleadoDocumentoService:
         except Exception as e:
             logger.error(f"Error contando documentos empleado {empleado_id}: {e}")
             raise DatabaseError(f"Error contando documentos: {e}")
+
+    async def contar_progreso_requerido_lote(
+        self,
+        empleado_ids: list[int],
+    ) -> dict[int, dict[str, int]]:
+        """
+        Cuenta documentos aprobados requeridos por empleado en una sola consulta.
+
+        Returns:
+            Dict por empleado_id con:
+            - aprobados_requeridos
+            - total_requeridos
+        """
+        empleado_ids_unicos = list(dict.fromkeys(empleado_ids))
+        if not empleado_ids_unicos:
+            return {}
+
+        tipos_requeridos = [
+            tipo.value
+            for tipo in TipoDocumentoEmpleado
+            if tipo.es_obligatorio
+        ]
+        total_requeridos = len(tipos_requeridos)
+        conteos = {
+            empleado_id: {
+                "aprobados_requeridos": 0,
+                "total_requeridos": total_requeridos,
+            }
+            for empleado_id in empleado_ids_unicos
+        }
+
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select("empleado_id, estatus, tipo_documento")
+                .in_("empleado_id", empleado_ids_unicos)
+                .in_("tipo_documento", tipos_requeridos)
+                .eq("es_vigente", True)
+                .execute()
+            )
+
+            for doc in result.data or []:
+                empleado_id = doc.get("empleado_id")
+                if empleado_id not in conteos:
+                    continue
+                if doc.get("estatus") == EstatusDocumento.APROBADO.value:
+                    conteos[empleado_id]["aprobados_requeridos"] += 1
+
+            return conteos
+
+        except Exception as e:
+            logger.error(
+                "Error contando progreso requerido de expediente para empleados %s: %s",
+                empleado_ids_unicos,
+                e,
+            )
+            raise DatabaseError(f"Error contando documentos de expediente: {e}")
 
 
 empleado_documento_service = EmpleadoDocumentoService()

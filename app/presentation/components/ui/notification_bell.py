@@ -23,7 +23,7 @@ from typing import Callable, List
 import reflex as rx
 
 from app.entities.notificacion import Notificacion
-from app.presentation.theme import Colors, Radius, Spacing, Typography
+from app.presentation.theme import Colors, Radius, Spacing, Transitions, Typography
 
 logger = logging.getLogger(__name__)
 
@@ -365,6 +365,31 @@ def _badge_conteo() -> rx.Component:
     )
 
 
+def _badge_conteo_inline() -> rx.Component:
+    """Badge inline para triggers tipo item de sidebar."""
+    return rx.cond(
+        NotificationBellState.tiene_notificaciones,
+        rx.flex(
+            rx.text(
+                NotificationBellState.texto_badge,
+                font_size=Typography.SIZE_XS,
+                font_weight="bold",
+                color=Colors.TEXT_INVERSE,
+                line_height="1",
+            ),
+            min_width="18px",
+            height="18px",
+            border_radius=Radius.FULL,
+            background=Colors.ERROR,
+            align="center",
+            justify="center",
+            padding_x=Spacing.XS,
+            flex_shrink="0",
+        ),
+        rx.fragment(),
+    )
+
+
 def _trigger_button() -> rx.Component:
     """Botón trigger de la campana con badge."""
     return rx.box(
@@ -377,6 +402,41 @@ def _trigger_button() -> rx.Component:
         ),
         _badge_conteo(),
         position="relative",
+    )
+
+
+def _sidebar_trigger_button(label: str = "Notificaciones") -> rx.Component:
+    """Trigger de notificaciones con apariencia de item del sidebar."""
+    return rx.hstack(
+        rx.icon(
+            "bell",
+            size=20,
+            color=Colors.TEXT_SECONDARY,
+            flex_shrink="0",
+        ),
+        rx.text(
+            label,
+            font_size=Typography.SIZE_SM,
+            font_weight=Typography.WEIGHT_MEDIUM,
+            color=Colors.TEXT_PRIMARY,
+            white_space="nowrap",
+        ),
+        rx.spacer(),
+        _badge_conteo_inline(),
+        width="100%",
+        padding_x=Spacing.MD,
+        padding_y=Spacing.SM,
+        align="center",
+        gap=Spacing.SM,
+        border_radius=Radius.LG,
+        transition=Transitions.FAST,
+        cursor="pointer",
+        style={
+            "background": "transparent",
+            "_hover": {
+                "background": Colors.SIDEBAR_ITEM_HOVER,
+            },
+        },
     )
 
 
@@ -466,13 +526,18 @@ def notification_bell() -> rx.Component:
     )
 
 
-def notification_bell_portal() -> rx.Component:
+def notification_bell_portal(trigger_variant: str = "icon") -> rx.Component:
     """
     Version del bell para el portal de cliente.
     Carga notificaciones por empresa_id al abrir.
     """
+    trigger_component = (
+        _sidebar_trigger_button()
+        if trigger_variant == "sidebar_item"
+        else _trigger_button()
+    )
     return rx.popover.root(
-        rx.popover.trigger(_trigger_button()),
+        rx.popover.trigger(trigger_component),
         _popover_content(
             on_marcar_todas=NotificationBellState.marcar_todas_leidas_empresa,
             item_renderer=lambda n: _notificacion_item(

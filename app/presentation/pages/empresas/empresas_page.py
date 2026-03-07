@@ -20,6 +20,7 @@ from app.presentation.components.ui import (
     switch_inactivos,
     tabla_action_button,
     indicador_filtros,
+    identifier_badge,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.empresas.empresa_modals import (
@@ -141,7 +142,7 @@ def card_empresa(empresa: dict) -> rx.Component:
             # Header con codigo y estatus
             rx.hstack(
                 rx.hstack(
-                    rx.badge(empresa["codigo_corto"], variant="outline", size="2"),
+                    identifier_badge(empresa["codigo_corto"]),
                     tipo_empresa_badge(empresa["tipo_empresa"]),
                     spacing="2",
                 ),

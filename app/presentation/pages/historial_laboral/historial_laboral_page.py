@@ -16,6 +16,7 @@ from app.presentation.components.ui import (
     table_shell,
     tabla_vacia,
     action_buttons_reactive,
+    identifier_badge,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.pages.historial_laboral.historial_laboral_modals import modal_detalle
@@ -152,7 +153,7 @@ def card_historial(registro: dict) -> rx.Component:
             # Header con empleado y tipo de movimiento
             rx.hstack(
                 rx.vstack(
-                    rx.badge(registro["empleado_clave"], variant="outline", size="2"),
+                    identifier_badge(registro["empleado_clave"]),
                     rx.text(registro["empleado_nombre"], font_weight=Typography.WEIGHT_BOLD, font_size=Typography.SIZE_BASE),
                     spacing="1",
                     align_items="start",

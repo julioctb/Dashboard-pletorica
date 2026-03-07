@@ -5,6 +5,7 @@ Este módulo es de SOLO LECTURA - solo tiene modal de detalle.
 """
 import reflex as rx
 from app.presentation.pages.historial_laboral.historial_laboral_state import HistorialLaboralState
+from app.presentation.components.ui import identifier_badge
 from app.presentation.theme import Colors
 
 
@@ -12,17 +13,17 @@ def tipo_movimiento_badge(tipo: str) -> rx.Component:
     """Badge para tipo de movimiento"""
     return rx.match(
         tipo,
-        ("Alta en sistema", rx.badge("Alta", color_scheme="blue", variant="soft")),
-        ("Asignación a plaza", rx.badge("Asignación", color_scheme="green", variant="soft")),
-        ("Cambio de plaza", rx.badge("Cambio", color_scheme="cyan", variant="soft")),
-        ("Suspensión", rx.badge("Suspensión", color_scheme="amber", variant="soft")),
-        ("Reactivación", rx.badge("Reactivación", color_scheme="teal", variant="soft")),
-        ("Baja del sistema", rx.badge("Baja", color_scheme="red", variant="soft")),
+        ("Alta en sistema", rx.badge("Alta", color_scheme="blue", variant="soft", size="1")),
+        ("Asignación a plaza", rx.badge("Asignación", color_scheme="green", variant="soft", size="1")),
+        ("Cambio de plaza", rx.badge("Cambio", color_scheme="cyan", variant="soft", size="1")),
+        ("Suspensión", rx.badge("Suspensión", color_scheme="amber", variant="soft", size="1")),
+        ("Reactivación", rx.badge("Reactivación", color_scheme="teal", variant="soft", size="1")),
+        ("Baja del sistema", rx.badge("Baja", color_scheme="red", variant="soft", size="1")),
         # Default: usar rx.cond en lugar de "or" para variables reactivas
         rx.cond(
             tipo,
-            rx.badge(tipo, color_scheme="gray", variant="soft"),
-            rx.badge("N/A", color_scheme="gray", variant="soft"),
+            rx.badge(tipo, color_scheme="gray", variant="soft", size="1"),
+            rx.badge("N/A", color_scheme="gray", variant="soft", size="1"),
         ),
     )
 
@@ -47,10 +48,7 @@ def modal_detalle() -> rx.Component:
                     rx.vstack(
                         rx.text("Empleado", size="1", color="gray"),
                         rx.hstack(
-                            rx.badge(
-                                HistorialLaboralState.registro_seleccionado["empleado_clave"],
-                                variant="outline",
-                            ),
+                            identifier_badge(HistorialLaboralState.registro_seleccionado["empleado_clave"]),
                             rx.text(
                                 HistorialLaboralState.registro_seleccionado["empleado_nombre"],
                                 weight="medium",

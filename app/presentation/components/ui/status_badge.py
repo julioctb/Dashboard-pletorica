@@ -86,6 +86,7 @@ def status_badge(
 def status_badge_reactive(
     status: rx.Var,
     show_icon: bool = False,
+    size: str = "1",
 ) -> rx.Component:
     """
     Versión reactiva del badge para usar con variables de estado.
@@ -94,145 +95,34 @@ def status_badge_reactive(
     Uso:
         status_badge_reactive(ContratosState.contrato_seleccionado["estatus"])
     """
+    def _badge(label: str, color_scheme: str, icon_name: str) -> rx.Component:
+        return rx.badge(
+            rx.hstack(
+                rx.icon(icon_name, size=12),
+                label,
+                spacing="1",
+            ) if show_icon else label,
+            color_scheme=color_scheme,
+            variant="soft",
+            size=size,
+        )
+
     return rx.match(
         status,
-        ("BORRADOR", rx.badge(
-            rx.hstack(
-                rx.icon("file-pen", size=12) if show_icon else rx.fragment(),
-                "BORRADOR",
-                spacing="1",
-            ) if show_icon else "BORRADOR",
-            color_scheme="gray",
-            variant="soft",
-        )),
-        ("ACTIVO", rx.badge(
-            rx.hstack(
-                rx.icon("circle-check", size=12) if show_icon else rx.fragment(),
-                "ACTIVO",
-                spacing="1",
-            ) if show_icon else "ACTIVO",
-            color_scheme="green",
-            variant="soft",
-        )),
-        ("SUSPENDIDO", rx.badge(
-            rx.hstack(
-                rx.icon("circle-pause", size=12) if show_icon else rx.fragment(),
-                "SUSPENDIDO",
-                spacing="1",
-            ) if show_icon else "SUSPENDIDO",
-            color_scheme="amber",
-            variant="soft",
-        )),
-        ("VENCIDO", rx.badge(
-            rx.hstack(
-                rx.icon("circle-alert", size=12) if show_icon else rx.fragment(),
-                "VENCIDO",
-                spacing="1",
-            ) if show_icon else "VENCIDO",
-            color_scheme="red",
-            variant="soft",
-        )),
-        ("CANCELADO", rx.badge(
-            rx.hstack(
-                rx.icon("circle-x", size=12) if show_icon else rx.fragment(),
-                "CANCELADO",
-                spacing="1",
-            ) if show_icon else "CANCELADO",
-            color_scheme="red",
-            variant="soft",
-        )),
-        ("CERRADO", rx.badge(
-            rx.hstack(
-                rx.icon("archive", size=12) if show_icon else rx.fragment(),
-                "CERRADO",
-                spacing="1",
-            ) if show_icon else "CERRADO",
-            color_scheme="blue",
-            variant="soft",
-        )),
-        ("INACTIVO", rx.badge(
-            rx.hstack(
-                rx.icon("circle-x", size=12) if show_icon else rx.fragment(),
-                "INACTIVO",
-                spacing="1",
-            ) if show_icon else "INACTIVO",
-            color_scheme="red",
-            variant="soft",
-        )),
-        # Estados de Plaza
-        ("VACANTE", rx.badge(
-            rx.hstack(
-                rx.icon("user-plus", size=12) if show_icon else rx.fragment(),
-                "VACANTE",
-                spacing="1",
-            ) if show_icon else "VACANTE",
-            color_scheme="sky",
-            variant="soft",
-        )),
-        ("OCUPADA", rx.badge(
-            rx.hstack(
-                rx.icon("user-check", size=12) if show_icon else rx.fragment(),
-                "OCUPADA",
-                spacing="1",
-            ) if show_icon else "OCUPADA",
-            color_scheme="green",
-            variant="soft",
-        )),
-        ("SUSPENDIDA", rx.badge(
-            rx.hstack(
-                rx.icon("user-x", size=12) if show_icon else rx.fragment(),
-                "SUSPENDIDA",
-                spacing="1",
-            ) if show_icon else "SUSPENDIDA",
-            color_scheme="amber",
-            variant="soft",
-        )),
-        # Estados de Entregable (facturacion)
-        ("PREFACTURA_ENVIADA", rx.badge(
-            rx.hstack(
-                rx.icon("file-search", size=12) if show_icon else rx.fragment(),
-                "PREFACTURA ENVIADA",
-                spacing="1",
-            ) if show_icon else "PREFACTURA ENVIADA",
-            color_scheme="sky",
-            variant="soft",
-        )),
-        ("PREFACTURA_RECHAZADA", rx.badge(
-            rx.hstack(
-                rx.icon("file-x", size=12) if show_icon else rx.fragment(),
-                "PREFACTURA RECHAZADA",
-                spacing="1",
-            ) if show_icon else "PREFACTURA RECHAZADA",
-            color_scheme="red",
-            variant="soft",
-        )),
-        ("PREFACTURA_APROBADA", rx.badge(
-            rx.hstack(
-                rx.icon("file-check", size=12) if show_icon else rx.fragment(),
-                "PREFACTURA APROBADA",
-                spacing="1",
-            ) if show_icon else "PREFACTURA APROBADA",
-            color_scheme="green",
-            variant="soft",
-        )),
-        ("FACTURADO", rx.badge(
-            rx.hstack(
-                rx.icon("receipt", size=12) if show_icon else rx.fragment(),
-                "FACTURADO",
-                spacing="1",
-            ) if show_icon else "FACTURADO",
-            color_scheme="amber",
-            variant="soft",
-        )),
-        ("PAGADO", rx.badge(
-            rx.hstack(
-                rx.icon("badge-check", size=12) if show_icon else rx.fragment(),
-                "PAGADO",
-                spacing="1",
-            ) if show_icon else "PAGADO",
-            color_scheme="green",
-            variant="soft",
-        )),
-        # Default
-        rx.badge(status, color_scheme="gray", variant="soft"),
+        ("BORRADOR", _badge("BORRADOR", "gray", "file-pen")),
+        ("ACTIVO", _badge("ACTIVO", "green", "circle-check")),
+        ("SUSPENDIDO", _badge("SUSPENDIDO", "amber", "circle-pause")),
+        ("VENCIDO", _badge("VENCIDO", "red", "circle-alert")),
+        ("CANCELADO", _badge("CANCELADO", "red", "circle-x")),
+        ("CERRADO", _badge("CERRADO", "blue", "archive")),
+        ("INACTIVO", _badge("INACTIVO", "red", "circle-x")),
+        ("VACANTE", _badge("VACANTE", "sky", "user-plus")),
+        ("OCUPADA", _badge("OCUPADA", "green", "user-check")),
+        ("SUSPENDIDA", _badge("SUSPENDIDA", "amber", "user-x")),
+        ("PREFACTURA_ENVIADA", _badge("PREFACTURA ENVIADA", "sky", "file-search")),
+        ("PREFACTURA_RECHAZADA", _badge("PREFACTURA RECHAZADA", "red", "file-x")),
+        ("PREFACTURA_APROBADA", _badge("PREFACTURA APROBADA", "green", "file-check")),
+        ("FACTURADO", _badge("FACTURADO", "amber", "receipt")),
+        ("PAGADO", _badge("PAGADO", "green", "badge-check")),
+        rx.badge(status, color_scheme="gray", variant="soft", size=size),
     )

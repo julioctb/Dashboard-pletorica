@@ -7,6 +7,8 @@ Esta interfaz garantiza consistencia entre implementaciones.
 import unicodedata
 from abc import ABC, abstractmethod
 
+from app.core.validation import verificar_clabe
+
 
 class LayoutBancario(ABC):
     """
@@ -101,7 +103,5 @@ class LayoutBancario(ABC):
 
     @staticmethod
     def validar_clabe(clabe: str | None) -> bool:
-        """Retorna True si la CLABE tiene exactamente 18 dígitos numéricos."""
-        if not clabe:
-            return False
-        return len(clabe) == 18 and clabe.isdigit()
+        """Retorna True si la CLABE pasa formato y dígito verificador."""
+        return verificar_clabe(clabe)

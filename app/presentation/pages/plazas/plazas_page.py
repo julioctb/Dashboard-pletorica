@@ -43,6 +43,7 @@ def acciones_plaza(plaza: dict) -> rx.Component:
     es_ocupada = plaza["estatus"] == "OCUPADA"
     es_suspendida = plaza["estatus"] == "SUSPENDIDA"
     es_cancelada = plaza["estatus"] == "CANCELADA"
+    puede_operar = PlazasState.puede_operar_plazas_en_contexto
 
     return tabla_action_buttons([
         # Ver detalle
@@ -57,7 +58,7 @@ def acciones_plaza(plaza: dict) -> rx.Component:
             tooltip="Editar",
             on_click=lambda: PlazasState.abrir_modal_editar(plaza),
             color_scheme="blue",
-            visible=~es_cancelada,
+            visible=puede_operar & ~es_cancelada,
         ),
         # Asignar empleado (solo si esta vacante)
         tabla_action_button(
@@ -65,7 +66,7 @@ def acciones_plaza(plaza: dict) -> rx.Component:
             tooltip="Asignar empleado",
             on_click=lambda: PlazasState.abrir_asignar_empleado(plaza),
             color_scheme="green",
-            visible=es_vacante,
+            visible=puede_operar & es_vacante,
         ),
         # Liberar plaza (solo si esta ocupada)
         tabla_action_button(
@@ -73,7 +74,7 @@ def acciones_plaza(plaza: dict) -> rx.Component:
             tooltip="Liberar plaza",
             on_click=lambda: PlazasState.liberar_plaza(plaza["id"]),
             color_scheme="orange",
-            visible=es_ocupada,
+            visible=puede_operar & es_ocupada,
         ),
         # Suspender (si esta vacante u ocupada)
         tabla_action_button(
@@ -81,7 +82,7 @@ def acciones_plaza(plaza: dict) -> rx.Component:
             tooltip="Suspender",
             on_click=lambda: PlazasState.suspender_plaza(plaza["id"]),
             color_scheme="amber",
-            visible=es_vacante | es_ocupada,
+            visible=puede_operar & (es_vacante | es_ocupada),
         ),
         # Reactivar (solo si esta suspendida)
         tabla_action_button(
@@ -89,7 +90,7 @@ def acciones_plaza(plaza: dict) -> rx.Component:
             tooltip="Reactivar",
             on_click=lambda: PlazasState.reactivar_plaza(plaza["id"]),
             color_scheme="green",
-            visible=es_suspendida,
+            visible=puede_operar & es_suspendida,
         ),
         # Cancelar (si no esta cancelada)
         tabla_action_button(
@@ -97,7 +98,7 @@ def acciones_plaza(plaza: dict) -> rx.Component:
             tooltip="Cancelar",
             on_click=lambda: PlazasState.abrir_confirmar_cancelar(plaza),
             color_scheme="red",
-            visible=~es_cancelada,
+            visible=puede_operar & ~es_cancelada,
         ),
     ])
 
@@ -554,7 +555,7 @@ def selector_contrato_categoria() -> rx.Component:
                         font_weight=Typography.WEIGHT_BOLD,
                     ),
                     rx.text(
-                        "Seleccione un contrato con personal para gestionar sus plazas",
+                        PlazasState.descripcion_selector_contrato,
                         font_size=Typography.SIZE_SM,
                         color=Colors.TEXT_SECONDARY,
                     ),
@@ -654,8 +655,7 @@ def selector_contrato_categoria() -> rx.Component:
             rx.cond(
                 PlazasState.contratos_disponibles.length() == 0,
                 rx.callout(
-                    "No hay contratos con personal disponibles. "
-                    "Primero debe crear un contrato con 'tiene_personal' activado.",
+                    PlazasState.mensaje_sin_contratos_disponibles,
                     icon="info",
                     color="blue",
                     size="1",
@@ -692,7 +692,7 @@ def plazas_page() -> rx.Component:
                 titulo="Plazas",
                 subtitulo=rx.cond(
                     PlazasState.mostrar_vista_inicial,
-                    "Asignación de Plazas a los Contratos",
+                    PlazasState.subtitulo_inicio,
                     "",  # Sin subtitulo en vista detalle (usamos breadcrumb)
                 ),
                 icono="briefcase",

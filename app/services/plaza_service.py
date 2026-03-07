@@ -228,32 +228,41 @@ class PlazaService:
             costo_total_mensual=totales['costo_total_mensual'],
         )
 
-    async def obtener_resumen_categorias_con_plazas(self) -> List[dict]:
+    async def obtener_resumen_categorias_con_plazas(
+        self,
+        empresa_id: Optional[int] = None,
+    ) -> List[dict]:
         """
         Obtiene un resumen de todas las categorías de contrato que tienen plazas.
 
         Returns:
             Lista de dicts con empresa, contrato, categoría y conteo de plazas
         """
-        return await self.repository.obtener_resumen_categorias_con_plazas()
+        return await self.repository.obtener_resumen_categorias_con_plazas(empresa_id)
 
-    async def obtener_contratos_con_plazas_pendientes(self) -> List[dict]:
+    async def obtener_contratos_con_plazas_pendientes(
+        self,
+        empresa_id: Optional[int] = None,
+    ) -> List[dict]:
         """
         Obtiene contratos que tienen categorías con plazas pendientes por crear.
 
         Returns:
             Lista de dicts con datos del contrato
         """
-        return await self.repository.obtener_contratos_con_plazas_pendientes()
+        return await self.repository.obtener_contratos_con_plazas_pendientes(empresa_id)
 
-    async def obtener_empleados_asignados(self) -> List[int]:
+    async def obtener_empleados_asignados(
+        self,
+        empresa_id: Optional[int] = None,
+    ) -> List[int]:
         """
         Obtiene los IDs de empleados que ya están asignados a una plaza ocupada.
 
         Returns:
             Lista de IDs de empleados asignados
         """
-        return await self.repository.obtener_empleados_asignados()
+        return await self.repository.obtener_empleados_asignados(empresa_id)
 
     async def calcular_totales_categoria(
         self,

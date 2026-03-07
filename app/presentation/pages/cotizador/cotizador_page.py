@@ -836,8 +836,8 @@ def _modal_crear_cotizacion() -> rx.Component:
                     "Nueva Cotización",
                     rx.cond(
                         CotizadorState.es_tipo_personal,
-                        rx.badge("Personal", color_scheme="blue", variant="soft"),
-                        rx.badge("Productos/Servicios", color_scheme="green", variant="soft"),
+                        rx.badge("Personal", color_scheme="blue", variant="soft", size="1"),
+                        rx.badge("Productos/Servicios", color_scheme="green", variant="soft", size="1"),
                     ),
                     spacing="2",
                     align="center",

@@ -19,7 +19,7 @@ from app.presentation.components.reusable import (
     employee_phone_email_row,
     employee_rfc_nss_row,
 )
-from app.presentation.components.ui import boton_cancelar, boton_guardar
+from app.presentation.components.ui import boton_cancelar, boton_guardar, identifier_badge
 from app.presentation.components.ui.form_input import select_items_from_options
 from .components import estatus_badge, restriccion_badge
 
@@ -203,11 +203,7 @@ def modal_detalle_empleado() -> rx.Component:
                     rx.vstack(
                         # Clave, estatus y badge de restriccion
                         rx.hstack(
-                            rx.badge(
-                                EmpleadosState.empleado_seleccionado["clave"],
-                                variant="outline",
-                                size="2",
-                            ),
+                            identifier_badge(EmpleadosState.empleado_seleccionado["clave"]),
                             estatus_badge(EmpleadosState.empleado_seleccionado["estatus"]),
                             restriccion_badge(EmpleadosState.empleado_esta_restringido),
                             spacing="2",

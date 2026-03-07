@@ -11,7 +11,7 @@ from app.core.config import Config
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.components.ui.notification_bell import notification_bell_portal, NotificationBellState
-from app.presentation.layout.primitives import nav_group, nav_item
+from app.presentation.layout.primitives import nav_group, nav_item, route_is_active
 from app.presentation.theme import (
     Colors,
     Radius,
@@ -26,15 +26,27 @@ from app.presentation.theme import (
 # =============================================================================
 
 
-def _cond_item(condition, text: str, icon: str, href: str) -> rx.Component:
+def _cond_item(
+    condition,
+    text: str,
+    icon: str,
+    href: str,
+    *,
+    active_paths: tuple[str, ...] | None = None,
+) -> rx.Component:
     """Renderiza un item de navegacion solo si la condicion es verdadera."""
+    rutas_activas = active_paths or (href,)
     return rx.cond(
         condition,
         nav_item(
             text=text,
             icon=icon,
             href=href,
-            is_active=PortalState.router.route_id == href,
+            is_active=route_is_active(
+                PortalState.router.route_id,
+                rutas_activas[0],
+                *rutas_activas[1:],
+            ),
         ),
         rx.fragment(),
     )
@@ -132,7 +144,14 @@ def _portal_navigation() -> rx.Component:
     """Navegación del portal alineada con las secciones funcionales."""
     return rx.vstack(
         # Dashboard (siempre visible)
-        nav_group(nav_item(text="Dashboard", icon="layout-dashboard", href="/portal")),
+        nav_group(
+            nav_item(
+                text="Dashboard",
+                icon="layout-dashboard",
+                href="/portal",
+                is_active=route_is_active(PortalState.router.route_id, "/portal"),
+            ),
+        ),
         # Comercial: cotizador, contratos, entregables, reportes
         _cond_group(
             PortalState.mostrar_seccion_contrato,
@@ -160,9 +179,18 @@ def _portal_navigation() -> rx.Component:
         _cond_group(
             PortalState.mostrar_seccion_rrhh,
             "RRHH",
-            _cond_item(AuthState.puede_gestionar_personal, "Empleados", "users", "/portal/empleados"),
+            _cond_item(
+                AuthState.puede_gestionar_personal,
+                "Empleados",
+                "users",
+                "/portal/empleados",
+                active_paths=(
+                    "/portal/empleados",
+                    "/portal/empleados/expedientes",
+                ),
+            ),
+            _cond_item(AuthState.es_rrhh, "Plazas", "briefcase", "/portal/plazas"),
             _cond_item(AuthState.puede_registrar_personal, "Contrataciones", "user-plus", "/portal/onboarding"),
-            _cond_item(AuthState.es_rrhh, "Expedientes", "folder-check", "/portal/expedientes"),
             _cond_item(AuthState.es_rrhh, "Bajas", "user-minus", "/portal/bajas"),
             _cond_item(
                 AuthState.es_operaciones | AuthState.es_rrhh | AuthState.es_admin_empresa,
@@ -310,12 +338,10 @@ def _portal_user_section() -> rx.Component:
 
 def _portal_notification_section() -> rx.Component:
     """Campana del portal ubicada sobre el bloque de usuario."""
-    return rx.hstack(
-        rx.spacer(),
-        notification_bell_portal(),
+    return rx.box(
+        notification_bell_portal(trigger_variant="sidebar_item"),
         width="100%",
-        align="center",
-        padding_x=Spacing.MD,
+        padding_x=Spacing.XS,
         padding_y=Spacing.SM,
     )
 

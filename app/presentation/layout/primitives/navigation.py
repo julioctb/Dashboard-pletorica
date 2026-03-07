@@ -5,6 +5,14 @@ import reflex as rx
 from app.presentation.theme import Colors, Radius, Spacing, Transitions, Typography
 
 
+def route_is_active(current_route, href: str, *aliases: str):
+    """Determina si una ruta actual coincide con el item o alguna ruta alias."""
+    is_active = current_route == href
+    for path in aliases:
+        is_active = is_active | (current_route == path)
+    return is_active
+
+
 def nav_item(
     *,
     text: str,

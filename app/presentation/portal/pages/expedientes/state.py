@@ -1,39 +1,25 @@
 """
-State para la pagina Expedientes del portal.
-
-Vista lista de empleados en onboarding + vista detalle de expediente.
+State para el detalle de expediente dentro de empleados del portal.
 """
-import reflex as rx
 from typing import List, Optional
 
-from app.presentation.constants import FILTRO_TODOS
-from app.presentation.portal.state.portal_state import PortalState
-from app.services.archivo_service import archivo_service
-from app.services.onboarding_service import onboarding_service
-from app.services.empleado_documento_service import empleado_documento_service
+import reflex as rx
+
 from app.core.exceptions import (
-    DatabaseError,
-    NotFoundError,
     BusinessRuleError,
+    NotFoundError,
     ValidationError,
 )
-from app.core.ui_options import OPCIONES_ESTATUS_ONBOARDING_EXPEDIENTES
+from app.presentation.portal.state.portal_state import PortalState
+from app.services import empleado_service
+from app.services.archivo_service import archivo_service
+from app.services.empleado_documento_service import empleado_documento_service
+from app.services.onboarding_service import onboarding_service
 
 
 class ExpedientesState(PortalState):
-    """State para la pagina de expedientes del portal."""
+    """State para el detalle de expediente de un empleado."""
 
-    # ========================
-    # LISTA DE EMPLEADOS
-    # ========================
-    empleados_expedientes: List[dict] = []
-    total_expedientes: int = 0
-    filtro_estatus_expediente: str = FILTRO_TODOS
-
-    # ========================
-    # DETALLE EXPEDIENTE
-    # ========================
-    mostrando_detalle: bool = False
     empleado_seleccionado: dict = {}
     documentos_empleado: List[dict] = []
     expediente_status: dict = {}
@@ -44,48 +30,16 @@ class ExpedientesState(PortalState):
     preview_tipo_mime: str = ""
     preview_nombre_archivo: str = ""
 
-    # ========================
-    # MODAL RECHAZO
-    # ========================
     mostrar_modal_rechazo: bool = False
     documento_rechazando_id: int = 0
     form_observacion_rechazo: str = ""
     error_observacion: str = ""
-
-    # ========================
-    # SETTERS
-    # ========================
-    def set_filtro_estatus_expediente(self, value: str):
-        self.filtro_estatus_expediente = value
 
     def set_form_observacion_rechazo(self, value: str):
         self.form_observacion_rechazo = value
 
     def set_tipo_documento_subiendo(self, value: str):
         self.tipo_documento_subiendo = value
-
-    # ========================
-    # COMPUTED VARS
-    # ========================
-    @rx.var
-    def empleados_expedientes_filtrados(self) -> List[dict]:
-        """Filtra empleados por estatus de onboarding."""
-        if not self.filtro_estatus_expediente or self.filtro_estatus_expediente == FILTRO_TODOS:
-            return self.empleados_expedientes
-        return [
-            e for e in self.empleados_expedientes
-            if e.get("estatus_onboarding") == self.filtro_estatus_expediente
-        ]
-
-    @rx.var
-    def total_expedientes_filtrados(self) -> int:
-        """Total visible en la tabla tras aplicar el filtro de estatus."""
-        return len(self.empleados_expedientes_filtrados)
-
-    @rx.var
-    def opciones_estatus_expediente(self) -> List[dict]:
-        """Opciones para filtro de estatus."""
-        return OPCIONES_ESTATUS_ONBOARDING_EXPEDIENTES
 
     @rx.var
     def tipos_documento_disponibles(self) -> list[dict]:
@@ -158,10 +112,62 @@ class ExpedientesState(PortalState):
     def total_docs_rechazados(self) -> int:
         return self.expediente_status.get("documentos_rechazados", 0)
 
-    # ========================
-    # MONTAJE
-    # ========================
+    def _obtener_empleado_id_query(self) -> Optional[int]:
+        """Obtiene el empleado_id de la URL si viene informado."""
+        query_params = self.router_data.get("query", {}) or {}
+        empleado_id = query_params.get("empleado_id")
+        if not empleado_id:
+            return None
+
+        try:
+            return int(empleado_id)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _serializar_empleado_detalle(empleado) -> dict:
+        """Convierte la entidad a un resumen serializable para el state."""
+        return {
+            "id": empleado.id,
+            "clave": empleado.clave,
+            "nombre_completo": empleado.nombre_completo(),
+            "empresa_id": empleado.empresa_id,
+        }
+
+    def _limpiar_detalle_expediente(self):
+        """Limpia el detalle del expediente."""
+        self.empleado_seleccionado = {}
+        self.documentos_empleado = []
+        self.expediente_status = {}
+        self.tipo_documento_subiendo = ""
+        self.subiendo_archivo = False
+        self.cerrar_modal_preview()
+
+    async def _cargar_expediente_desde_query(self):
+        """Carga el expediente usando el empleado_id en query params."""
+        empleado_id = self._obtener_empleado_id_query()
+        if not empleado_id:
+            self._limpiar_detalle_expediente()
+            return
+
+        try:
+            empleado = await empleado_service.obtener_por_id(empleado_id)
+        except NotFoundError:
+            self._limpiar_detalle_expediente()
+            return
+        except Exception as e:
+            self.mostrar_mensaje(f"Error cargando empleado: {e}", "error")
+            self._limpiar_detalle_expediente()
+            return
+
+        if not empleado.id or empleado.empresa_id != self.id_empresa_actual:
+            self._limpiar_detalle_expediente()
+            return
+
+        await self.ver_expediente(self._serializar_empleado_detalle(empleado))
+
     async def on_mount_expedientes(self):
+        """Monta el detalle de expediente bajo el modulo de empleados."""
         resultado = await self.on_mount_portal()
         if resultado:
             self.loading = False
@@ -170,78 +176,39 @@ class ExpedientesState(PortalState):
         if not self.mostrar_seccion_rrhh or not self.es_rrhh:
             yield rx.redirect("/portal")
             return
-        async for _ in self._montar_pagina(self._fetch_empleados_expedientes):
+
+        async for _ in self._montar_pagina(self._cargar_expediente_desde_query):
             yield
 
-    # ========================
-    # CARGA DE DATOS
-    # ========================
-    async def _fetch_empleados_expedientes(self):
-        """Carga empleados para gestion de expedientes."""
-        if not self.id_empresa_actual:
-            return
+        if not self.empleado_seleccionado:
+            yield rx.redirect("/portal/empleados", replace=True)
 
-        try:
-            empleados = await onboarding_service.obtener_empleados_para_expedientes(
-                empresa_id=self.id_empresa_actual,
-                estatus_filtro=(
-                    self.filtro_estatus_expediente
-                    if self.filtro_estatus_expediente != FILTRO_TODOS
-                    else None
-                ),
-            )
-            self.empleados_expedientes = empleados
-            self.total_expedientes = len(empleados)
-        except DatabaseError as e:
-            self.mostrar_mensaje(f"Error cargando expedientes: {e}", "error")
-            self.empleados_expedientes = []
-            self.total_expedientes = 0
-        except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {e}", "error")
-            self.empleados_expedientes = []
-            self.total_expedientes = 0
-
-    async def recargar_expedientes(self):
-        """Recarga con skeleton."""
-        async for _ in self._recargar_datos(self._fetch_empleados_expedientes):
-            yield
-
-    # ========================
-    # DETALLE EXPEDIENTE
-    # ========================
     async def ver_expediente(self, emp: dict):
-        """Abre el detalle del expediente de un empleado."""
+        """Carga el detalle del expediente de un empleado."""
         self.empleado_seleccionado = emp
-        self.mostrando_detalle = True
 
         try:
-            # Cargar documentos
             docs = await empleado_documento_service.obtener_documentos_empleado(
                 empleado_id=emp["id"],
                 solo_vigentes=True,
             )
             self.documentos_empleado = [
-                d.model_dump(mode='json') for d in docs
+                d.model_dump(mode="json") for d in docs
             ]
 
-            # Cargar status del expediente
             expediente = await onboarding_service.obtener_expediente(emp["id"])
-            self.expediente_status = expediente.model_dump(mode='json')
+            self.expediente_status = expediente.model_dump(mode="json")
 
         except Exception as e:
             self.mostrar_mensaje(f"Error cargando expediente: {e}", "error")
             self.documentos_empleado = []
             self.expediente_status = {}
 
-    def volver_a_lista(self):
-        """Vuelve a la lista de empleados."""
-        self.mostrando_detalle = False
-        self.empleado_seleccionado = {}
-        self.documentos_empleado = []
-        self.expediente_status = {}
-        self.tipo_documento_subiendo = ""
-        self.subiendo_archivo = False
-        self.cerrar_modal_preview()
+    @rx.event
+    def volver_a_empleados(self):
+        """Regresa al listado principal de empleados."""
+        self._limpiar_detalle_expediente()
+        return rx.redirect("/portal/empleados", replace=True)
 
     async def ver_documento(self, doc: dict):
         """Obtiene URL temporal del archivo y abre modal de vista previa."""
@@ -273,9 +240,6 @@ class ExpedientesState(PortalState):
         self.preview_tipo_mime = ""
         self.preview_nombre_archivo = ""
 
-    # ========================
-    # SUBIR DOCUMENTO
-    # ========================
     async def handle_upload_documento(self, files: list[rx.UploadFile]):
         """
         Sube un documento al expediente del empleado seleccionado.
@@ -328,9 +292,6 @@ class ExpedientesState(PortalState):
         finally:
             self.subiendo_archivo = False
 
-    # ========================
-    # APROBAR DOCUMENTO
-    # ========================
     async def aprobar_documento(self, doc: dict):
         """Aprueba un documento."""
         self.saving = True
@@ -344,7 +305,6 @@ class ExpedientesState(PortalState):
                 revisado_por=revisado_por,
             )
 
-            # Recargar expediente
             await self.ver_expediente(self.empleado_seleccionado)
             return rx.toast.success("Documento aprobado")
 
@@ -355,9 +315,6 @@ class ExpedientesState(PortalState):
         finally:
             self.saving = False
 
-    # ========================
-    # RECHAZAR DOCUMENTO
-    # ========================
     def abrir_modal_rechazo(self, doc: dict):
         """Abre el modal de rechazo para un documento."""
         self.documento_rechazando_id = doc["id"]
@@ -391,7 +348,6 @@ class ExpedientesState(PortalState):
             )
 
             self.cerrar_modal_rechazo()
-            # Recargar expediente
             await self.ver_expediente(self.empleado_seleccionado)
             return rx.toast.success("Documento rechazado")
 

@@ -17,14 +17,18 @@ def payroll_period_status_badge(estatus: rx.Var | str) -> rx.Component:
     )
 
 
-def employee_status_badge(estatus: str, variant: str = "soft") -> rx.Component:
+def employee_status_badge(
+    estatus: str,
+    variant: str = "soft",
+    size: str = "1",
+) -> rx.Component:
     """Badge de estatus de empleado con labels consistentes."""
     return rx.match(
         estatus,
-        ("ACTIVO", rx.badge("Activo", color_scheme="green", variant=variant, size="1")),
-        ("INACTIVO", rx.badge("Inactivo", color_scheme="red", variant=variant, size="1")),
-        ("SUSPENDIDO", rx.badge("Suspendido", color_scheme="orange", variant=variant, size="1")),
-        rx.badge(estatus, color_scheme="gray", variant=variant, size="1"),
+        ("ACTIVO", rx.badge("Activo", color_scheme="green", variant=variant, size=size)),
+        ("INACTIVO", rx.badge("Inactivo", color_scheme="red", variant=variant, size=size)),
+        ("SUSPENDIDO", rx.badge("Suspendido", color_scheme="orange", variant=variant, size=size)),
+        rx.badge(estatus, color_scheme="gray", variant=variant, size=size),
     )
 
 

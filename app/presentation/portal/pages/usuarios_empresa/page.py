@@ -53,6 +53,16 @@ def _badge_estado(usuario: dict) -> rx.Component:
     )
 
 
+def _celda_centrada(component: rx.Component) -> rx.Component:
+    """Centra contenido dentro de una celda de tabla."""
+    return rx.table.cell(
+        rx.center(
+            component,
+            width="100%",
+        ),
+    )
+
+
 # =============================================================================
 # TABLA DE USUARIOS
 # =============================================================================
@@ -78,11 +88,11 @@ def _fila_usuario(usuario: dict) -> rx.Component:
             ),
         ),
         # Rol
-        rx.table.cell(_badge_rol_usuario(usuario)),
+        _celda_centrada(_badge_rol_usuario(usuario)),
         # Estado
-        rx.table.cell(_badge_estado(usuario)),
+        _celda_centrada(_badge_estado(usuario)),
         # Acciones
-        rx.table.cell(
+        _celda_centrada(
             tabla_action_buttons([
                 tabla_action_button(
                     icon="pencil",
@@ -108,7 +118,6 @@ def _fila_usuario(usuario: dict) -> rx.Component:
                     disabled=UsuariosEmpresaState.saving,
                 ),
             ]),
-            text_align="right",
         ),
         align="center",
     )
@@ -124,9 +133,9 @@ def _tabla_usuarios() -> rx.Component:
                     rx.table.row(
                         rx.table.column_header_cell("Nombre"),
                         rx.table.column_header_cell("Email"),
-                        rx.table.column_header_cell("Rol"),
-                        rx.table.column_header_cell("Estado"),
-                        rx.table.column_header_cell("Acciones", text_align="right"),
+                        rx.table.column_header_cell("Rol", text_align="center"),
+                        rx.table.column_header_cell("Estado", text_align="center"),
+                        rx.table.column_header_cell("Acciones", text_align="center"),
                     )
                 ),
                 rx.table.body(

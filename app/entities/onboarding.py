@@ -25,6 +25,15 @@ from app.core.validation.constants import (
     ENTIDAD_NACIMIENTO_MAX,
     CONTACTO_EMERGENCIA_MAX,
 )
+from app.core.validation.employee_validators import (
+    validar_clabe_empleado,
+    validar_cuenta_bancaria_empleado,
+)
+from app.core.validation.bank_validators import (
+    normalizar_clabe_interbancaria,
+    normalizar_cuenta_bancaria,
+    normalizar_nombre_banco,
+)
 
 
 class AltaEmpleadoBuap(BaseModel):
@@ -114,9 +123,10 @@ class CompletarDatosEmpleado(BaseModel):
     def validar_clabe(cls, v: Optional[str]) -> Optional[str]:
         """Valida CLABE interbancaria (18 dígitos)."""
         if v:
-            v = v.strip()
-            if not re.match(r'^\d{18}$', v):
-                raise ValueError('CLABE interbancaria debe tener 18 dígitos numéricos')
+            v = normalizar_clabe_interbancaria(v)
+            error = validar_clabe_empleado(v)
+            if error:
+                raise ValueError(error)
         return v
 
     @field_validator('cuenta_bancaria', mode='before')
@@ -124,9 +134,18 @@ class CompletarDatosEmpleado(BaseModel):
     def validar_cuenta(cls, v: Optional[str]) -> Optional[str]:
         """Valida cuenta bancaria (10-18 dígitos)."""
         if v:
-            v = v.strip()
-            if not re.match(r'^\d{10,18}$', v):
-                raise ValueError('Cuenta bancaria debe tener entre 10 y 18 dígitos numéricos')
+            v = normalizar_cuenta_bancaria(v)
+            error = validar_cuenta_bancaria_empleado(v)
+            if error:
+                raise ValueError(error)
+        return v
+
+    @field_validator('banco', mode='before')
+    @classmethod
+    def normalizar_banco(cls, v: Optional[str]) -> Optional[str]:
+        """Normaliza banco a mayúsculas antes de persistir."""
+        if v:
+            return normalizar_nombre_banco(v)
         return v
 
 

@@ -53,6 +53,16 @@ from .user_validators import (
     normalizar_telefono_usuario,
 )
 
+# Validadores bancarios compartidos
+from .bank_validators import (
+    normalizar_cuenta_bancaria,
+    normalizar_clabe_interbancaria,
+    normalizar_nombre_banco,
+    calcular_digito_verificador_clabe,
+    verificar_clabe,
+    cuenta_parece_clabe,
+)
+
 # Validadores de empleados (UI)
 from .employee_validators import (
     validar_curp_empleado,
@@ -73,6 +83,9 @@ from .employee_validators import (
     validar_genero_empleado_requerido,
     validar_contacto_emergencia_nombre,
     validar_contacto_emergencia_telefono,
+    validar_cuenta_bancaria_empleado,
+    validar_banco_empleado,
+    validar_clabe_empleado,
 )
 
 # Validadores comunes reutilizables
@@ -300,6 +313,12 @@ __all__ = [
     "normalizar_email_usuario",
     "normalizar_nombre_completo_usuario",
     "normalizar_telefono_usuario",
+    "normalizar_cuenta_bancaria",
+    "normalizar_clabe_interbancaria",
+    "normalizar_nombre_banco",
+    "calcular_digito_verificador_clabe",
+    "verificar_clabe",
+    "cuenta_parece_clabe",
     "validar_curp_empleado",
     "validar_rfc_empleado",
     "validar_nss_empleado",
@@ -318,6 +337,9 @@ __all__ = [
     "validar_genero_empleado_requerido",
     "validar_contacto_emergencia_nombre",
     "validar_contacto_emergencia_telefono",
+    "validar_cuenta_bancaria_empleado",
+    "validar_banco_empleado",
+    "validar_clabe_empleado",
     # Validadores comunes
     "limpiar_moneda",
     "validar_select_requerido",

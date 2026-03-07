@@ -91,6 +91,8 @@ def formulario_datos_bancarios() -> rx.Component:
             placeholder="10-18 digitos",
             value=MisDatosState.form_cuenta_bancaria,
             on_change=MisDatosState.set_form_cuenta_bancaria,
+            on_blur=MisDatosState.validar_cuenta_bancaria_blur,
+            error=MisDatosState.error_cuenta_bancaria,
             max_length=18,
         ),
         form_input(
@@ -105,6 +107,8 @@ def formulario_datos_bancarios() -> rx.Component:
             placeholder="18 digitos",
             value=MisDatosState.form_clabe,
             on_change=MisDatosState.set_form_clabe,
+            on_blur=MisDatosState.validar_clabe_blur,
+            error=MisDatosState.error_clabe,
             max_length=18,
         ),
         width="100%",

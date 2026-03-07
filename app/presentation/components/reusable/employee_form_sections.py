@@ -316,6 +316,77 @@ def employee_notes_field(
     )
 
 
+def employee_bank_data_section(
+    *,
+    cuenta_value: Any,
+    cuenta_on_change,
+    cuenta_on_blur=None,
+    banco_value: Any,
+    banco_on_change,
+    banco_on_blur=None,
+    clabe_value: Any,
+    clabe_on_change,
+    clabe_on_blur=None,
+    cuenta_error: Any = None,
+    banco_error: Any = None,
+    clabe_error: Any = None,
+    cuenta_label: str = "Numero de cuenta",
+    banco_label: str = "Banco",
+    clabe_label: str = "CLABE interbancaria",
+    disabled: Any = False,
+    header_action: rx.Component | None = None,
+    helper_text: rx.Component | None = None,
+) -> rx.Component:
+    """Sección reusable de datos bancarios para formularios de empleado."""
+    return rx.vstack(
+        rx.hstack(
+            rx.text(
+                "Datos Bancarios",
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
+            rx.spacer(),
+            header_action if header_action is not None else rx.fragment(),
+            width="100%",
+            align="center",
+        ),
+        helper_text if helper_text is not None else rx.fragment(),
+        rx.hstack(
+            _field_stack(
+                label=cuenta_label,
+                value=cuenta_value,
+                on_change=cuenta_on_change,
+                on_blur=cuenta_on_blur,
+                error=cuenta_error,
+                placeholder="10-18 digitos",
+                disabled=disabled,
+            ),
+            _field_stack(
+                label=banco_label,
+                value=banco_value,
+                on_change=banco_on_change,
+                on_blur=banco_on_blur,
+                error=banco_error,
+                placeholder="Ej: BBVA, Banorte",
+                disabled=disabled,
+            ),
+            spacing="3",
+            width="100%",
+        ),
+        _field_stack(
+            label=clabe_label,
+            value=clabe_value,
+            on_change=clabe_on_change,
+            on_blur=clabe_on_blur,
+            error=clabe_error,
+            placeholder="18 digitos",
+            disabled=disabled,
+        ),
+        width="100%",
+        spacing="2",
+    )
+
+
 def employee_emergency_contact_section(
     *,
     mode: str = "simple",
@@ -446,6 +517,7 @@ def _field_stack(
     error: Any = None,
     on_blur=None,
     width: str = "100%",
+    disabled: Any = False,
 ) -> rx.Component:
     return rx.vstack(
         rx.text(
@@ -459,6 +531,7 @@ def _field_stack(
             on_blur=on_blur,
             placeholder=placeholder,
             width="100%",
+            disabled=disabled,
         ),
         rx.cond(
             (error is not None) & (error != ""),

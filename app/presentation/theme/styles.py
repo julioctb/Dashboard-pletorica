@@ -14,7 +14,7 @@ Uso en app.py:
     )
 """
 
-from .tokens import Typography, Colors, Transitions
+from .tokens import Typography, Colors, Spacing, Transitions
 
 
 # =============================================================================
@@ -149,6 +149,29 @@ CONTENT_AREA_STYLE = {
     "background_color": Colors.BG_APP,
     "overflow_y": "auto",
     "min_height": "calc(100vh - 140px)",
+}
+
+APP_SHELL_STYLE = {
+    "width": "100%",
+    "height": "100vh",
+    "overflow": "hidden",
+    "background_color": Colors.BG_APP,
+}
+
+APP_SHELL_CONTENT_VIEWPORT_STYLE = {
+    "width": "100%",
+    "flex": "1",
+    "min_width": "0",
+    "height": "100vh",
+    "overflow_y": "auto",
+    "overflow_x": "hidden",
+    "background_color": Colors.BACKGROUND,
+}
+
+APP_SHELL_CONTENT_INNER_STYLE = {
+    "width": "100%",
+    "min_height": "100%",
+    "padding": Spacing.XL,
 }
 
 

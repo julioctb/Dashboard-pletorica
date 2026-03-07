@@ -19,6 +19,7 @@ from app.presentation.components.ui import (
     switch_inactivos,
     tabla_action_button,
     tabla_action_buttons,
+    identifier_badge,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.tipo_servicio.tipo_servicio_modals import (
@@ -149,7 +150,7 @@ def card_tipo(tipo: dict) -> rx.Component:
         rx.vstack(
             # Header con clave y estatus
             rx.hstack(
-                rx.badge(tipo["clave"], variant="outline", size="2"),
+                identifier_badge(tipo["clave"]),
                 rx.spacer(),
                 status_badge_reactive(tipo["estatus"], show_icon=True),
                 width="100%",

@@ -449,11 +449,13 @@ def _header_detalle() -> rx.Component:
                         CotizadorDetalleState.version_cotizacion,
                         color_scheme="gray",
                         variant="soft",
+                        size="1",
                     ),
                     rx.badge(
                         CotizadorDetalleState.cantidad_partidas_texto,
                         color_scheme="blue",
                         variant="soft",
+                        size="1",
                     ),
                     spacing="2",
                     wrap="wrap",
@@ -1406,8 +1408,8 @@ def _fila_concepto(concepto: dict) -> rx.Component:
             rx.flex(
                 rx.cond(
                     concepto.get('es_autogenerado', False),
-                    rx.badge("Motor", color_scheme="green", variant="soft"),
-                    rx.badge("Manual", color_scheme="gray", variant="soft"),
+                    rx.badge("Motor", color_scheme="green", variant="soft", size="1"),
+                    rx.badge("Manual", color_scheme="gray", variant="soft", size="1"),
                 ),
                 justify="center",
             )

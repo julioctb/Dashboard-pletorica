@@ -9,7 +9,26 @@ Uso:
         modalidad_badge,
     )
 """
+from typing import Any
+
 import reflex as rx
+
+
+def identifier_badge(
+    value: Any,
+    *,
+    color_scheme: str | None = None,
+    variant: str = "outline",
+    size: str = "1",
+) -> rx.Component:
+    """Badge compacto para claves, codigos e identificadores cortos."""
+    props = {
+        "variant": variant,
+        "size": size,
+    }
+    if color_scheme is not None:
+        props["color_scheme"] = color_scheme
+    return rx.badge(value, **props)
 
 
 def estatus_badge(estatus: str) -> rx.Component:

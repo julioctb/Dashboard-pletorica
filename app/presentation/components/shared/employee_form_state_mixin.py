@@ -5,6 +5,12 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Callable, Sequence
 
+from app.core.validation import (
+    normalizar_clabe_interbancaria,
+    normalizar_cuenta_bancaria,
+    normalizar_nombre_banco,
+)
+
 
 class EmployeeFormStateMixin:
     """Lógica compartida para formulario/validación de empleados.
@@ -25,6 +31,9 @@ class EmployeeFormStateMixin:
         "form_telefono": "",
         "form_email": "",
         "form_direccion": "",
+        "form_cuenta_bancaria": "",
+        "form_banco": "",
+        "form_clabe": "",
         "form_notas": "",
     }
 
@@ -119,6 +128,16 @@ class EmployeeFormStateMixin:
         self.form_telefono = empleado.get("telefono", "") or ""
         self.form_email = empleado.get("email", "") or ""
         self.form_direccion = empleado.get("direccion", "") or ""
+        if hasattr(self, "form_cuenta_bancaria"):
+            self.form_cuenta_bancaria = normalizar_cuenta_bancaria(
+                empleado.get("cuenta_bancaria", "")
+            )
+        if hasattr(self, "form_banco"):
+            self.form_banco = normalizar_nombre_banco(empleado.get("banco", ""))
+        if hasattr(self, "form_clabe"):
+            self.form_clabe = normalizar_clabe_interbancaria(
+                empleado.get("clabe_interbancaria", "")
+            )
         self.form_notas = empleado.get("notas", "") or ""
 
         contacto = empleado.get("contacto_emergencia", "") or ""
@@ -133,7 +152,7 @@ class EmployeeFormStateMixin:
 
     def _payload_base_empleado(self) -> dict[str, Any]:
         """Construye el payload común para create/update de empleado."""
-        return {
+        payload = {
             "rfc": self.form_rfc or None,
             "nss": self.form_nss or None,
             "nombre": self.form_nombre or None,
@@ -151,6 +170,19 @@ class EmployeeFormStateMixin:
             "contacto_emergencia": self._construir_contacto_emergencia_compartido(),
             "notas": self.form_notas or None,
         }
+        if hasattr(self, "form_cuenta_bancaria"):
+            payload["cuenta_bancaria"] = normalizar_cuenta_bancaria(
+                getattr(self, "form_cuenta_bancaria", "")
+            ) or None
+        if hasattr(self, "form_banco"):
+            payload["banco"] = normalizar_nombre_banco(
+                getattr(self, "form_banco", "")
+            ) or None
+        if hasattr(self, "form_clabe"):
+            payload["clabe_interbancaria"] = normalizar_clabe_interbancaria(
+                getattr(self, "form_clabe", "")
+            ) or None
+        return payload
 
     def _validar_formulario_empleado_compartido(
         self,

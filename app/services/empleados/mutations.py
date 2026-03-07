@@ -65,6 +65,9 @@ class EmpleadoMutationService:
             contacto_emergencia=empleado_create.contacto_emergencia,
             fecha_ingreso=empleado_create.fecha_ingreso or date.today(),
             notas=empleado_create.notas,
+            cuenta_bancaria=empleado_create.cuenta_bancaria,
+            banco=empleado_create.banco,
+            clabe_interbancaria=empleado_create.clabe_interbancaria,
             estatus=EstatusEmpleado.ACTIVO,
         )
 

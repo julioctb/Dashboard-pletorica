@@ -75,12 +75,14 @@ def tipo_cotizacion_badge(tipo: rx.Var) -> rx.Component:
             "Personal",
             color_scheme='blue',
             variant='soft',
+            size="1",
         ),
         rx.badge(
             rx.icon("package", size=12),
             "Productos",
             color_scheme='green',
             variant='soft',
+            size="1",
         ),
     )
 
@@ -89,20 +91,20 @@ def badge_estatus_cotizacion(estatus: rx.Var) -> rx.Component:
     """Badge de estatus para cotizaciones."""
     return rx.cond(
         estatus == 'BORRADOR',
-        rx.badge("Borrador", color_scheme='gray', variant='soft'),
+        rx.badge("Borrador", color_scheme='gray', variant='soft', size="1"),
         rx.cond(
             estatus == 'PREPARADA',
-            rx.badge("Preparada", color_scheme='blue', variant='soft'),
+            rx.badge("Preparada", color_scheme='blue', variant='soft', size="1"),
             rx.cond(
                 estatus == 'ENVIADA',
-                rx.badge("Enviada", color_scheme='orange', variant='soft'),
+                rx.badge("Enviada", color_scheme='orange', variant='soft', size="1"),
                 rx.cond(
                     estatus == 'APROBADA',
-                    rx.badge("Aprobada", color_scheme='green', variant='soft'),
+                    rx.badge("Aprobada", color_scheme='green', variant='soft', size="1"),
                     rx.cond(
                         estatus == 'RECHAZADA',
-                        rx.badge("Rechazada", color_scheme='red', variant='soft'),
-                        rx.badge(estatus, color_scheme='gray', variant='soft'),
+                        rx.badge("Rechazada", color_scheme='red', variant='soft', size="1"),
+                        rx.badge(estatus, color_scheme='gray', variant='soft', size="1"),
                     ),
                 ),
             ),
@@ -114,17 +116,17 @@ def badge_estatus_partida(estatus: rx.Var) -> rx.Component:
     """Badge de estatus para partidas."""
     return rx.cond(
         estatus == 'PENDIENTE',
-        rx.badge("Pendiente", color_scheme='gray', variant='soft'),
+        rx.badge("Pendiente", color_scheme='gray', variant='soft', size="1"),
         rx.cond(
             estatus == 'ACEPTADA',
-            rx.badge("Aceptada", color_scheme='green', variant='soft'),
+            rx.badge("Aceptada", color_scheme='green', variant='soft', size="1"),
             rx.cond(
                 estatus == 'NO_ASIGNADA',
-                rx.badge("No asignada", color_scheme='orange', variant='soft'),
+                rx.badge("No asignada", color_scheme='orange', variant='soft', size="1"),
                 rx.cond(
                     estatus == 'CONVERTIDA',
-                    rx.badge("Convertida", color_scheme='blue', variant='soft'),
-                    rx.badge(estatus, color_scheme='gray', variant='soft'),
+                    rx.badge("Convertida", color_scheme='blue', variant='soft', size="1"),
+                    rx.badge(estatus, color_scheme='gray', variant='soft', size="1"),
                 ),
             ),
         ),
@@ -163,6 +165,7 @@ def fila_cotizacion(cotizacion: dict) -> rx.Component:
                     cotizacion.get('cantidad_partidas_texto', '0'),
                     color_scheme='blue',
                     variant='soft',
+                    size="1",
                 ),
                 justify="center",
             )
@@ -548,8 +551,8 @@ def _fila_matriz(concepto: dict) -> rx.Component:
             rx.vstack(
                 rx.cond(
                     concepto.get('tipo_concepto') == 'PATRONAL',
-                    rx.badge("Patronal", color_scheme="blue", variant="soft"),
-                    rx.badge("Indirecto", color_scheme="gray", variant="soft"),
+                    rx.badge("Patronal", color_scheme="blue", variant="soft", size="1"),
+                    rx.badge("Indirecto", color_scheme="gray", variant="soft", size="1"),
                 ),
                 rx.text(
                     concepto.get('tipo_valor_texto', ''),

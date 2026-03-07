@@ -29,7 +29,12 @@ from app.core.config import Config
 from app.presentation.components.ui.form_input import select_items_from_options
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.layout.sidebar_state import SidebarState
-from app.presentation.layout.primitives import collapsible_nav_item, nav_group, nav_group_label
+from app.presentation.layout.primitives import (
+    collapsible_nav_item,
+    nav_group,
+    nav_group_label,
+    route_is_active,
+)
 from app.presentation.components.ui.notification_bell import notification_bell, NotificationBellState
 from app.presentation.theme import (
     Colors,
@@ -163,7 +168,7 @@ def sidebar_item(text: str, icon: str, href: str, badge: rx.Component = None) ->
         icon=icon,
         href=href,
         is_collapsed=SidebarState.is_collapsed,
-        is_active=SidebarState.router.route_id == href,
+        is_active=route_is_active(SidebarState.router.route_id, href),
         badge=badge,
     )
 

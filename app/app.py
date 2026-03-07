@@ -51,6 +51,7 @@ from .presentation.pages.login.login_page import login_page
 
 # Layout
 from .presentation.layout.sidebar_layout import sidebar
+from .presentation.layout.shell_layout import authenticated_sidebar_shell
 from .presentation.components.shared.auth_state import AuthState
 
 # PORTAL — Layout
@@ -65,8 +66,10 @@ from .presentation.portal.pages.mi_empresa import mi_empresa_page
 from .presentation.portal.pages.configuracion_empresa import configuracion_empresa_page
 
 # PORTAL — RRHH
-from .presentation.portal.pages.mis_empleados import mis_empleados_page
-from .presentation.portal.pages.alta_masiva import alta_masiva_page
+from .presentation.portal.pages.mis_empleados import (
+    alta_masiva_redirect_page,
+    mis_empleados_page,
+)
 from .presentation.portal.pages.onboarding_alta import onboarding_alta_page
 from .presentation.portal.pages.expedientes import expedientes_page
 from .presentation.portal.pages.bajas import bajas_page
@@ -82,40 +85,9 @@ from .presentation.portal.pages.usuarios_empresa import usuarios_empresa_page
 
 def index(content: rx.Component) -> rx.Component:
     """Layout wrapper para todas las paginas del backoffice."""
-    return rx.box(
-        rx.cond(
-            ~AuthState.auth_contexto_listo,
-            rx.center(
-                rx.spinner(size="3"),
-                height="100vh",
-            ),
-            rx.cond(
-                AuthState.debe_redirigir_login,
-                # No autenticado: spinner mientras se redirige a /login
-                rx.center(
-                    rx.spinner(size="3"),
-                    height="100vh",
-                ),
-                # Autenticado (o SKIP_AUTH=true): layout normal
-                rx.hstack(
-                    sidebar(),
-                    rx.box(
-                        content,
-                        background_color='var(--gray-2)',
-                        width="100%",
-                        flex="1",
-                        overflow_y="auto",
-                        style={
-                            "minHeight": "calc(100vh - 140px)",
-                            "padding": "1.5rem"
-                        }
-                    ),
-                    width="100%",
-                    spacing="0"
-                ),
-            ),
-        ),
-        on_mount=AuthState.verificar_y_redirigir,
+    return authenticated_sidebar_shell(
+        sidebar_component=sidebar(),
+        content=content,
     )
 
 
@@ -222,9 +194,13 @@ app.add_page(lambda: portal_index(usuarios_empresa_page()), route="/portal/usuar
 # PORTAL — RRHH
 # =============================================================================
 app.add_page(lambda: portal_index(mis_empleados_page()), route="/portal/empleados")
-app.add_page(lambda: portal_index(alta_masiva_page()), route="/portal/alta-masiva")
+app.add_page(
+    lambda: portal_index(alta_masiva_redirect_page()),
+    route="/portal/alta-masiva",
+)
+app.add_page(lambda: portal_index(plazas_page()), route="/portal/plazas")
 app.add_page(lambda: portal_index(onboarding_alta_page()), route="/portal/onboarding")
-app.add_page(lambda: portal_index(expedientes_page()), route="/portal/expedientes")
+app.add_page(lambda: portal_index(expedientes_page()), route="/portal/empleados/expedientes")
 app.add_page(lambda: portal_index(bajas_page()), route="/portal/bajas")
 app.add_page(lambda: portal_index(periodos_nomina_page()), route="/portal/nominas")
 app.add_page(lambda: portal_index(preparacion_nomina_page()), route="/portal/nominas/preparacion")

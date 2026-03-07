@@ -17,6 +17,7 @@ from app.presentation.components.ui import (
     tabla_action_button,
     tabla_action_buttons,
     select_items_from_options,
+    identifier_badge,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.categorias_puesto.categorias_puesto_modals import (
@@ -143,7 +144,7 @@ def card_categoria(categoria: dict) -> rx.Component:
             # Header con clave y estatus
             rx.hstack(
                 rx.hstack(
-                    rx.badge(categoria["clave"], variant="outline", size="2"),
+                    identifier_badge(categoria["clave"]),
                     rx.badge(
                         rx.hstack(rx.icon("hash", size=12), categoria["orden"].to(str), spacing="1"),
                         variant="soft",

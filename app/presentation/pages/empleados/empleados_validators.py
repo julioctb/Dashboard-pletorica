@@ -1,5 +1,8 @@
 """Compatibilidad de validadores de empleados (wrapper sobre core.validation)."""
 from app.core.validation import (
+    normalizar_nombre_banco as normalizar_banco,
+    normalizar_cuenta_bancaria,
+    normalizar_clabe_interbancaria,
     validar_curp_empleado as validar_curp,
     validar_rfc_empleado as validar_rfc,
     validar_nss_empleado as validar_nss,
@@ -10,6 +13,9 @@ from app.core.validation import (
     validar_fecha_nacimiento_empleado as validar_fecha_nacimiento,
     validar_empresa_seleccionada_empleado as validar_empresa_seleccionada,
     validar_motivo_restriccion_empleado as validar_motivo_restriccion,
+    validar_cuenta_bancaria_empleado as validar_cuenta_bancaria,
+    validar_banco_empleado as validar_banco,
+    validar_clabe_empleado as validar_clabe,
 )
 
 __all__ = [
@@ -23,4 +29,10 @@ __all__ = [
     "validar_fecha_nacimiento",
     "validar_empresa_seleccionada",
     "validar_motivo_restriccion",
+    "normalizar_cuenta_bancaria",
+    "validar_cuenta_bancaria",
+    "normalizar_banco",
+    "validar_banco",
+    "normalizar_clabe_interbancaria",
+    "validar_clabe",
 ]

@@ -10,7 +10,7 @@ from .form_input import (
     select_items_from_options,
 )
 from .accumulating_select import accumulating_select
-from .badges import estatus_badge, badge_onboarding
+from .badges import estatus_badge, badge_onboarding, identifier_badge
 from .badges_domain import (
     employee_status_badge,
     document_status_badge,
@@ -105,6 +105,7 @@ __all__ = [
     'employee_status_badge',
     'document_status_badge',
     'badge_onboarding',
+    'identifier_badge',
     # tablas
     'tabla_vacia',
     'table_header_cells',

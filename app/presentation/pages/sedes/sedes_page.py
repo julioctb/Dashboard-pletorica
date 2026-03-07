@@ -18,6 +18,7 @@ from app.presentation.components.ui import (
     switch_inactivos,
     tabla_action_button,
     tabla_action_buttons,
+    identifier_badge,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
 from app.presentation.components.sedes.sedes_modals import (
@@ -151,7 +152,7 @@ def card_sede(sede: dict) -> rx.Component:
         rx.vstack(
             # Header con codigo y estatus
             rx.hstack(
-                rx.badge(sede["codigo"], variant="outline", size="2"),
+                identifier_badge(sede["codigo"]),
                 rx.spacer(),
                 status_badge_reactive(sede["estatus"], show_icon=True),
                 width="100%",

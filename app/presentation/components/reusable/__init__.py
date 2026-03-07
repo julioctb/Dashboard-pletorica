@@ -13,8 +13,10 @@ from .document_list_kit import (
 )
 from .employee_form_modal import employee_form_body, employee_form_modal
 from .employee_list import employee_filters_bar, employee_table
+from .employee_bulk_upload_kit import employee_bulk_upload_panel
 from .employee_form_sections import (
     employee_address_field,
+    employee_bank_data_section,
     employee_birth_gender_row,
     employee_curp_field,
     employee_emergency_contact_section,
@@ -38,7 +40,9 @@ __all__ = [
     "employee_form_body",
     "employee_filters_bar",
     "employee_table",
+    "employee_bulk_upload_panel",
     "employee_address_field",
+    "employee_bank_data_section",
     "employee_birth_gender_row",
     "employee_curp_field",
     "employee_emergency_contact_section",

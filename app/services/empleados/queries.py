@@ -103,7 +103,27 @@ class EmpleadoQueryService:
         except NotFoundError:
             empresa_nombre = None
 
-        return [EmpleadoResumen.from_empleado(emp, empresa_nombre) for emp in empleados]
+        from app.services.empleado_documento_service import empleado_documento_service
+
+        progreso_expediente = await empleado_documento_service.contar_progreso_requerido_lote(
+            [emp.id for emp in empleados if emp.id is not None]
+        )
+
+        return [
+            EmpleadoResumen.from_empleado(
+                emp,
+                empresa_nombre,
+                documentos_aprobados_expediente=progreso_expediente.get(
+                    emp.id,
+                    {},
+                ).get("aprobados_requeridos", 0),
+                documentos_requeridos_expediente=progreso_expediente.get(
+                    emp.id,
+                    {},
+                ).get("total_requeridos", 0),
+            )
+            for emp in empleados
+        ]
 
     async def buscar(
         self,

@@ -21,6 +21,7 @@ def table_header_cells(headers: list[dict], variant: str = "default") -> list[rx
                     text_transform="uppercase",
                 ),
                 width=col.get("ancho", "auto"),
+                text_align=col.get("header_align", "left"),
             )
             for col in headers
         ]
@@ -29,6 +30,7 @@ def table_header_cells(headers: list[dict], variant: str = "default") -> list[rx
         rx.table.column_header_cell(
             col["nombre"],
             width=col.get("ancho", "auto"),
+            text_align=col.get("header_align", "left"),
         )
         for col in headers
     ]

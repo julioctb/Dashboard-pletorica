@@ -102,6 +102,16 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
     ])
 
 
+def _celda_centrada(component: rx.Component) -> rx.Component:
+    """Centra contenido dentro de una celda de tabla."""
+    return rx.table.cell(
+        rx.center(
+            component,
+            width="100%",
+        ),
+    )
+
+
 # =============================================================================
 # FILTROS
 # =============================================================================
@@ -159,13 +169,9 @@ def _fila_usuario(usuario: dict) -> rx.Component:
         # Email
         table_cell_text(usuario["email"], fallback="-", tone="secondary", size="0.875rem"),
         # Rol
-        rx.table.cell(
-            _badge_rol(usuario["rol"]),
-        ),
+        _celda_centrada(_badge_rol(usuario["rol"])),
         # Estado
-        rx.table.cell(
-            _badge_estado(usuario["activo"]),
-        ),
+        _celda_centrada(_badge_estado(usuario["activo"])),
         # Empresas
         rx.table.cell(
             rx.hstack(
@@ -186,20 +192,18 @@ def _fila_usuario(usuario: dict) -> rx.Component:
         # Ultimo acceso
         table_cell_text(usuario["ultimo_acceso"], fallback="Nunca", tone="secondary", size="0.75rem"),
         # Acciones
-        rx.table.cell(
-            _acciones_usuario(usuario),
-        ),
+        _celda_centrada(_acciones_usuario(usuario)),
     )
 
 
 ENCABEZADOS_USUARIOS = [
     {"nombre": "Nombre", "ancho": "auto"},
     {"nombre": "Email", "ancho": "200px"},
-    {"nombre": "Rol", "ancho": "100px"},
-    {"nombre": "Estado", "ancho": "90px"},
+    {"nombre": "Rol", "ancho": "100px", "header_align": "center"},
+    {"nombre": "Estado", "ancho": "90px", "header_align": "center"},
     {"nombre": "Empresas", "ancho": "160px"},
     {"nombre": "Ultimo acceso", "ancho": "140px"},
-    {"nombre": "Acciones", "ancho": "120px"},
+    {"nombre": "Acciones", "ancho": "120px", "header_align": "center"},
 ]
 
 

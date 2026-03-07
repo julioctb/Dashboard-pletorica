@@ -616,7 +616,10 @@ class SupabasePlazaRepository:
             logger.error(f"Error calculando totales de contrato_categoria {contrato_categoria_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
-    async def obtener_resumen_categorias_con_plazas(self) -> List[dict]:
+    async def obtener_resumen_categorias_con_plazas(
+        self,
+        empresa_id: Optional[int] = None,
+    ) -> List[dict]:
         """
         Obtiene un resumen de todas las categorías de contrato que tienen plazas.
 
@@ -671,6 +674,8 @@ class SupabasePlazaRepository:
                     continue  # Saltar categorías sin plazas
 
                 contrato = cc.get('contratos') or {}
+                if empresa_id and contrato.get('empresa_id') != empresa_id:
+                    continue
                 empresa = contrato.get('empresas') or {}
                 categoria = cc.get('categorias_puesto') or {}
 
@@ -699,7 +704,10 @@ class SupabasePlazaRepository:
             logger.error(f"Error obteniendo resumen de categorías con plazas: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
-    async def obtener_contratos_con_plazas_pendientes(self) -> List[dict]:
+    async def obtener_contratos_con_plazas_pendientes(
+        self,
+        empresa_id: Optional[int] = None,
+    ) -> List[dict]:
         """
         Obtiene contratos que tienen categorías con plazas pendientes por crear.
         (donde cantidad_actual < cantidad_maxima)
@@ -737,8 +745,14 @@ class SupabasePlazaRepository:
             for cc in result_cc.data:
                 contrato = cc.get('contratos') or {}
 
-                # Solo contratos activos con personal
-                if not contrato.get('tiene_personal') or contrato.get('estatus') != 'ACTIVO':
+                if empresa_id and contrato.get('empresa_id') != empresa_id:
+                    continue
+
+                # Solo contratos que aún permiten dimensionar personal.
+                if not contrato.get('tiene_personal') or contrato.get('estatus') not in {
+                    'BORRADOR',
+                    'ACTIVO',
+                }:
                     continue
 
                 cc_id = cc['id']
@@ -768,7 +782,10 @@ class SupabasePlazaRepository:
             logger.error(f"Error obteniendo contratos con plazas pendientes: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
-    async def obtener_empleados_asignados(self) -> List[int]:
+    async def obtener_empleados_asignados(
+        self,
+        empresa_id: Optional[int] = None,
+    ) -> List[int]:
         """
         Obtiene los IDs de empleados que están asignados a plazas ocupadas.
 
@@ -776,11 +793,37 @@ class SupabasePlazaRepository:
             Lista de IDs de empleados únicos
         """
         try:
-            result = self.supabase.table(self.tabla)\
-                .select('empleado_id')\
-                .eq('estatus', EstatusPlaza.OCUPADA.value)\
-                .not_.is_('empleado_id', 'null')\
-                .execute()
+            if empresa_id:
+                result_contratos = self.supabase.table('contratos')\
+                    .select('id')\
+                    .eq('empresa_id', empresa_id)\
+                    .execute()
+
+                contrato_ids = [item['id'] for item in (result_contratos.data or [])]
+                if not contrato_ids:
+                    return []
+
+                result_cc = self.supabase.table('contrato_categorias')\
+                    .select('id')\
+                    .in_('contrato_id', contrato_ids)\
+                    .execute()
+
+                contrato_categoria_ids = [item['id'] for item in (result_cc.data or [])]
+                if not contrato_categoria_ids:
+                    return []
+
+                result = self.supabase.table(self.tabla)\
+                    .select('empleado_id')\
+                    .in_('contrato_categoria_id', contrato_categoria_ids)\
+                    .eq('estatus', EstatusPlaza.OCUPADA.value)\
+                    .not_.is_('empleado_id', 'null')\
+                    .execute()
+            else:
+                result = self.supabase.table(self.tabla)\
+                    .select('empleado_id')\
+                    .eq('estatus', EstatusPlaza.OCUPADA.value)\
+                    .not_.is_('empleado_id', 'null')\
+                    .execute()
 
             # Extraer IDs únicos
             empleado_ids = list(set(

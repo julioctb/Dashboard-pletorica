@@ -5,6 +5,28 @@ Todas las versiones notables del proyecto se documentan en este archivo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 versionamiento basado en [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.8.0] - 2026-03-07
+
+### Added
+- Alta masiva inline de empleados dentro de `Mis Empleados`, con kit reusable, mixin compartido, plantillas/reportes y ruta legacy `/portal/alta-masiva` redirigida
+- Modal de detalle de empleado en portal con resumen operativo, progreso de expediente e historial bancario
+- Registro automatico de historial bancario al crear o editar empleados desde el portal
+- Shell autenticado compartido para pantallas con sidebar fijo en backoffice y portal
+- Seccion reusable de datos bancarios en formularios de empleado
+
+### Changed
+- Modulo Expedientes del portal ahora funciona como detalle por empleado bajo `/portal/empleados/expedientes`
+- Listados de empleados enriquecidos con progreso de expediente (documentos aprobados vs requeridos)
+- Validacion y payload de empleados ahora incluyen banco, cuenta bancaria y CLABE interbancaria
+- Sidebars admin y portal usan deteccion de ruta activa con aliases para subrutas
+- Campana de notificaciones del portal integrada como item del sidebar
+- Ajustes de layout, estilos, filtros y tablas para un shell de navegacion mas consistente
+
+### Fixed
+- Version visible del sistema alineada nuevamente con `APP_VERSION`
+- Resaltado de navegacion para rutas hijas como empleados/expedientes
+- Compatibilidad de navegacion para accesos existentes a `/portal/alta-masiva`
+
 ## [0.7.0] - 2026-03-02
 
 ### Added

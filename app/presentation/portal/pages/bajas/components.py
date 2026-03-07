@@ -64,6 +64,16 @@ def _sustitucion_badge(baja: dict) -> rx.Component:
     )
 
 
+def _celda_centrada(component: rx.Component) -> rx.Component:
+    """Centra contenido dentro de una celda de tabla."""
+    return rx.table.cell(
+        rx.center(
+            component,
+            width="100%",
+        ),
+    )
+
+
 def _accion_primaria_baja(baja: dict) -> rx.Component:
     estatus = baja.get("estatus", "")
     return rx.match(
@@ -127,9 +137,7 @@ def fila_baja(baja: dict) -> rx.Component:
                 align="start",
             ),
         ),
-        rx.table.cell(
-            _motivo_text(baja.get("motivo", "")),
-        ),
+        _celda_centrada(_motivo_text(baja.get("motivo", ""))),
         rx.table.cell(
             rx.text(
                 baja.get("fecha_efectiva_fmt", baja.get("fecha_efectiva", "-")),
@@ -137,12 +145,12 @@ def fila_baja(baja: dict) -> rx.Component:
                 color=Colors.TEXT_SECONDARY,
             ),
         ),
-        rx.table.cell(_badge_estatus_baja(estatus)),
-        rx.table.cell(
+        _celda_centrada(_badge_estatus_baja(estatus)),
+        _celda_centrada(
             _badge_liquidacion(baja.get("badge_liquidacion", "pendiente")),
         ),
-        rx.table.cell(_sustitucion_badge(baja)),
-        rx.table.cell(
+        _celda_centrada(_sustitucion_badge(baja)),
+        _celda_centrada(
             rx.hstack(
                 _accion_primaria_baja(baja),
                 tabla_action_button(
@@ -160,12 +168,12 @@ def fila_baja(baja: dict) -> rx.Component:
 
 ENCABEZADOS_BAJAS = [
     {"nombre": "Empleado", "ancho": "220px"},
-    {"nombre": "Motivo", "ancho": "140px"},
+    {"nombre": "Motivo", "ancho": "140px", "header_align": "center"},
     {"nombre": "Fec. Efectiva", "ancho": "120px"},
-    {"nombre": "Estatus", "ancho": "120px"},
-    {"nombre": "Liquidacion", "ancho": "120px"},
-    {"nombre": "Sustitucion", "ancho": "130px"},
-    {"nombre": "Acciones", "ancho": "240px"},
+    {"nombre": "Estatus", "ancho": "120px", "header_align": "center"},
+    {"nombre": "Liquidacion", "ancho": "120px", "header_align": "center"},
+    {"nombre": "Sustitucion", "ancho": "130px", "header_align": "center"},
+    {"nombre": "Acciones", "ancho": "240px", "header_align": "center"},
 ]
 
 

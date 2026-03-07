@@ -8,6 +8,13 @@ import reflex as rx
 import logging
 from typing import List
 
+from app.core.validation import (
+    normalizar_clabe_interbancaria,
+    normalizar_cuenta_bancaria,
+    normalizar_nombre_banco,
+    validar_clabe_empleado,
+    validar_cuenta_bancaria_empleado,
+)
 from app.presentation.portal.state.portal_state import PortalState
 from app.services.onboarding_service import onboarding_service
 from app.services.empleado_documento_service import empleado_documento_service
@@ -44,6 +51,12 @@ class MisDatosState(PortalState):
     form_clabe: str = ""
 
     # ========================
+    # ERRORES INLINE
+    # ========================
+    error_cuenta_bancaria: str = ""
+    error_clabe: str = ""
+
+    # ========================
     # UPLOAD
     # ========================
     tipo_documento_subiendo: str = ""
@@ -65,16 +78,35 @@ class MisDatosState(PortalState):
         self.form_entidad_nacimiento = value
 
     def set_form_cuenta_bancaria(self, value: str):
-        self.form_cuenta_bancaria = value
+        self.form_cuenta_bancaria = normalizar_cuenta_bancaria(value)
+        self.error_cuenta_bancaria = ""
 
     def set_form_banco(self, value: str):
-        self.form_banco = value
+        self.form_banco = normalizar_nombre_banco(value)
 
     def set_form_clabe(self, value: str):
-        self.form_clabe = value
+        self.form_clabe = normalizar_clabe_interbancaria(value)
+        self.error_clabe = ""
 
     def set_tipo_documento_subiendo(self, value: str):
         self.tipo_documento_subiendo = value
+
+    # ========================
+    # VALIDACIONES INLINE
+    # ========================
+    def validar_cuenta_bancaria_blur(self):
+        self.validar_y_asignar_error(
+            valor=self.form_cuenta_bancaria,
+            validador=validar_cuenta_bancaria_empleado,
+            error_attr="error_cuenta_bancaria",
+        )
+
+    def validar_clabe_blur(self):
+        self.validar_y_asignar_error(
+            valor=self.form_clabe,
+            validador=validar_clabe_empleado,
+            error_attr="error_clabe",
+        )
 
     # ========================
     # COMPUTED VARS
@@ -204,9 +236,10 @@ class MisDatosState(PortalState):
             self.form_direccion = empleado.direccion or ""
             self.form_contacto_emergencia = empleado.contacto_emergencia or ""
             self.form_entidad_nacimiento = empleado.entidad_nacimiento if hasattr(empleado, 'entidad_nacimiento') and empleado.entidad_nacimiento else ""
-            self.form_cuenta_bancaria = empleado.cuenta_bancaria or ""
-            self.form_banco = empleado.banco or ""
-            self.form_clabe = empleado.clabe_interbancaria or ""
+            self.form_cuenta_bancaria = normalizar_cuenta_bancaria(empleado.cuenta_bancaria)
+            self.form_banco = normalizar_nombre_banco(empleado.banco)
+            self.form_clabe = normalizar_clabe_interbancaria(empleado.clabe_interbancaria)
+            self.limpiar_errores_campos(["error_cuenta_bancaria", "error_clabe"])
 
             # Cargar documentos y expediente status
             await self._fetch_documentos(empleado.id)
@@ -235,8 +268,26 @@ class MisDatosState(PortalState):
     # ========================
     # GUARDAR DATOS PERSONALES
     # ========================
+    def _validar_datos_bancarios(self) -> bool:
+        """Ejecuta validación inline de cuenta y CLABE antes de persistir."""
+        return all([
+            self.validar_y_asignar_error(
+                valor=self.form_cuenta_bancaria,
+                validador=validar_cuenta_bancaria_empleado,
+                error_attr="error_cuenta_bancaria",
+            ),
+            self.validar_y_asignar_error(
+                valor=self.form_clabe,
+                validador=validar_clabe_empleado,
+                error_attr="error_clabe",
+            ),
+        ])
+
     async def guardar_datos_personales(self):
         """Guarda datos personales/bancarios y transiciona estatus."""
+        if not self._validar_datos_bancarios():
+            return
+
         self.saving = True
         try:
             from app.entities.onboarding import CompletarDatosEmpleado
@@ -250,9 +301,9 @@ class MisDatosState(PortalState):
                 direccion=self.form_direccion or None,
                 contacto_emergencia=self.form_contacto_emergencia or None,
                 entidad_nacimiento=self.form_entidad_nacimiento or None,
-                cuenta_bancaria=self.form_cuenta_bancaria or None,
-                banco=self.form_banco or None,
-                clabe_interbancaria=self.form_clabe or None,
+                cuenta_bancaria=normalizar_cuenta_bancaria(self.form_cuenta_bancaria) or None,
+                banco=normalizar_nombre_banco(self.form_banco) or None,
+                clabe_interbancaria=normalizar_clabe_interbancaria(self.form_clabe) or None,
             )
 
             empleado = await onboarding_service.completar_datos(

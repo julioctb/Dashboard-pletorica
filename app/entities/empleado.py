@@ -32,6 +32,18 @@ from app.core.validation import (
     EMAIL_MAX,
     TELEFONO_DIGITOS,
     DIRECCION_MAX,
+    CUENTA_BANCARIA_MAX,
+    BANCO_MAX,
+    CLABE_LEN,
+)
+from app.core.validation.employee_validators import (
+    validar_clabe_empleado,
+    validar_cuenta_bancaria_empleado,
+)
+from app.core.validation.bank_validators import (
+    normalizar_clabe_interbancaria,
+    normalizar_cuenta_bancaria,
+    normalizar_nombre_banco,
 )
 
 
@@ -351,6 +363,9 @@ class EmpleadoCreate(BaseModel):
     contacto_emergencia: Optional[str] = Field(None, max_length=CONTACTO_EMERGENCIA_MAX)
     fecha_ingreso: Optional[date] = None
     notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
+    cuenta_bancaria: Optional[str] = Field(None, max_length=CUENTA_BANCARIA_MAX)
+    banco: Optional[str] = Field(None, max_length=BANCO_MAX)
+    clabe_interbancaria: Optional[str] = Field(None, max_length=CLABE_LEN)
 
     # Validadores reutilizados
     validar_curp = field_validator('curp', mode='before')(Empleado.validar_curp.__func__)
@@ -361,6 +376,36 @@ class EmpleadoCreate(BaseModel):
     )
     validar_email_create = field_validator('email', mode='before')(Empleado.validar_email.__func__)
     validar_telefono_create = field_validator('telefono', mode='before')(Empleado.validar_telefono.__func__)
+
+    @field_validator('clabe_interbancaria', mode='before')
+    @classmethod
+    def validar_clabe_create(cls, v: Optional[str]) -> Optional[str]:
+        """Valida CLABE interbancaria (18 dígitos)."""
+        if v:
+            v = normalizar_clabe_interbancaria(v)
+            error = validar_clabe_empleado(v)
+            if error:
+                raise ValueError(error)
+        return v
+
+    @field_validator('cuenta_bancaria', mode='before')
+    @classmethod
+    def validar_cuenta_create(cls, v: Optional[str]) -> Optional[str]:
+        """Valida cuenta bancaria (10-18 dígitos)."""
+        if v:
+            v = normalizar_cuenta_bancaria(v)
+            error = validar_cuenta_bancaria_empleado(v)
+            if error:
+                raise ValueError(error)
+        return v
+
+    @field_validator('banco', mode='before')
+    @classmethod
+    def normalizar_banco_create(cls, v: Optional[str]) -> Optional[str]:
+        """Normaliza banco a mayúsculas antes de persistir."""
+        if v:
+            return normalizar_nombre_banco(v)
+        return v
 
 
 class EmpleadoUpdate(BaseModel):
@@ -424,6 +469,36 @@ class EmpleadoUpdate(BaseModel):
     validar_email_update = field_validator('email', mode='before')(Empleado.validar_email.__func__)
     validar_telefono_update = field_validator('telefono', mode='before')(Empleado.validar_telefono.__func__)
 
+    @field_validator('clabe_interbancaria', mode='before')
+    @classmethod
+    def validar_clabe_update(cls, v: Optional[str]) -> Optional[str]:
+        """Valida CLABE interbancaria (18 dígitos)."""
+        if v:
+            v = normalizar_clabe_interbancaria(v)
+            error = validar_clabe_empleado(v)
+            if error:
+                raise ValueError(error)
+        return v
+
+    @field_validator('cuenta_bancaria', mode='before')
+    @classmethod
+    def validar_cuenta_update(cls, v: Optional[str]) -> Optional[str]:
+        """Valida cuenta bancaria (10-18 dígitos)."""
+        if v:
+            v = normalizar_cuenta_bancaria(v)
+            error = validar_cuenta_bancaria_empleado(v)
+            if error:
+                raise ValueError(error)
+        return v
+
+    @field_validator('banco', mode='before')
+    @classmethod
+    def normalizar_banco_update(cls, v: Optional[str]) -> Optional[str]:
+        """Normaliza banco a mayúsculas antes de persistir."""
+        if v:
+            return normalizar_nombre_banco(v)
+        return v
+
 
 class EmpleadoResumen(BaseModel):
     """
@@ -448,9 +523,18 @@ class EmpleadoResumen(BaseModel):
     telefono: Optional[str] = None
     email: Optional[str] = None
     estatus_onboarding: Optional[str] = None
+    documentos_aprobados_expediente: int = 0
+    documentos_requeridos_expediente: int = 0
 
     @classmethod
-    def from_empleado(cls, empleado: Empleado, empresa_nombre: Optional[str] = None) -> 'EmpleadoResumen':
+    def from_empleado(
+        cls,
+        empleado: Empleado,
+        empresa_nombre: Optional[str] = None,
+        *,
+        documentos_aprobados_expediente: int = 0,
+        documentos_requeridos_expediente: int = 0,
+    ) -> 'EmpleadoResumen':
         """Factory method para crear desde un empleado completo."""
         return cls(
             id=empleado.id,
@@ -464,10 +548,20 @@ class EmpleadoResumen(BaseModel):
             fecha_ingreso=empleado.fecha_ingreso,
             telefono=empleado.telefono,
             email=empleado.email,
+            estatus_onboarding=empleado.estatus_onboarding,
+            documentos_aprobados_expediente=documentos_aprobados_expediente,
+            documentos_requeridos_expediente=documentos_requeridos_expediente,
         )
 
     @classmethod
-    def from_empleado_dict(cls, data: dict, empresa_nombre: Optional[str] = None) -> 'EmpleadoResumen':
+    def from_empleado_dict(
+        cls,
+        data: dict,
+        empresa_nombre: Optional[str] = None,
+        *,
+        documentos_aprobados_expediente: int = 0,
+        documentos_requeridos_expediente: int = 0,
+    ) -> 'EmpleadoResumen':
         """Factory method para crear desde un diccionario de BD."""
         # Construir nombre completo
         nombre = data.get('nombre', '')
@@ -489,4 +583,7 @@ class EmpleadoResumen(BaseModel):
             fecha_ingreso=data['fecha_ingreso'],
             telefono=data.get('telefono'),
             email=data.get('email'),
+            estatus_onboarding=data.get('estatus_onboarding'),
+            documentos_aprobados_expediente=documentos_aprobados_expediente,
+            documentos_requeridos_expediente=documentos_requeridos_expediente,
         )
