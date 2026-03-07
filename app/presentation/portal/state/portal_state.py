@@ -267,7 +267,11 @@ class PortalState(AuthState):
 
     @rx.var
     def mostrar_seccion_nominas(self) -> bool:
-        return self.es_usuario_empresa_portal and self.puede_acceder_nomina
+        return self.es_usuario_empresa_portal and self.es_rrhh
+
+    @rx.var
+    def mostrar_seccion_contabilidad(self) -> bool:
+        return self.es_usuario_empresa_portal and self.es_contabilidad
 
     @rx.var
     def mostrar_seccion_empresa(self) -> bool:

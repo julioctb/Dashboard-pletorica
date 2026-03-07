@@ -131,20 +131,24 @@ def _portal_header() -> rx.Component:
 def _portal_navigation() -> rx.Component:
     """Navegación del portal alineada con las secciones funcionales."""
     return rx.vstack(
+        # Dashboard (siempre visible)
         nav_group(nav_item(text="Dashboard", icon="layout-dashboard", href="/portal")),
+        # Comercial: cotizador, contratos, entregables, reportes
         _cond_group(
             PortalState.mostrar_seccion_contrato,
-            "Contrato",
+            "Comercial",
+            _cond_item(
+                AuthState.es_admin_empresa,
+                "Cotizador",
+                "file-spreadsheet",
+                "/portal/cotizador",
+            ),
             _cond_item(
                 PortalState.mostrar_seccion_contrato,
                 "Contratos",
                 "file-text",
                 "/portal/contratos",
             ),
-        ),
-        _cond_group(
-            PortalState.mostrar_seccion_entregables,
-            "Entregables",
             _cond_item(
                 PortalState.mostrar_seccion_entregables,
                 "Entregables",
@@ -152,6 +156,7 @@ def _portal_navigation() -> rx.Component:
                 "/portal/entregables",
             ),
         ),
+        # RRHH: empleados, asistencias
         _cond_group(
             PortalState.mostrar_seccion_rrhh,
             "RRHH",
@@ -167,22 +172,21 @@ def _portal_navigation() -> rx.Component:
                 "/portal/asistencias",
             ),
         ),
+        # Nóminas (RRHH)
         _cond_group(
             PortalState.mostrar_seccion_nominas,
-            "Nominas",
-            _cond_item(
-                PortalState.mostrar_seccion_nominas,
-                "Nominas",
-                "calculator",
-                "/portal/nominas",
-            ),
-            _cond_item(
-                PortalState.mostrar_seccion_nominas,
-                "Dashboard",
-                "layout-dashboard",
-                "/portal/nominas/dashboard",
-            ),
+            "Nóminas",
+            _cond_item(PortalState.mostrar_seccion_nominas, "Períodos", "calculator", "/portal/nominas"),
+            _cond_item(PortalState.mostrar_seccion_nominas, "Preparación", "folder-open", "/portal/nominas/preparacion"),
         ),
+        # Contabilidad
+        _cond_group(
+            PortalState.mostrar_seccion_contabilidad,
+            "Contabilidad",
+            _cond_item(PortalState.mostrar_seccion_contabilidad, "Cálculo", "calculator", "/portal/nominas/calculo"),
+            _cond_item(PortalState.mostrar_seccion_contabilidad, "Conciliación", "file-check", "/portal/nominas/conciliacion"),
+        ),
+        # Empresa: datos, usuarios, configuracion
         _cond_group(
             PortalState.mostrar_seccion_empresa,
             "Empresa",
@@ -192,9 +196,10 @@ def _portal_navigation() -> rx.Component:
                 "building-2",
                 "/portal/mi-empresa",
             ),
-            _cond_item(AuthState.puede_configurar_empresa, "Configuracion", "settings", "/portal/configuracion-empresa"),
             _cond_item(AuthState.es_admin_empresa, "Usuarios", "users-round", "/portal/usuarios"),
+            _cond_item(AuthState.puede_configurar_empresa, "Configuracion", "settings", "/portal/configuracion-empresa"),
         ),
+        # Auto servicio (empleados)
         _cond_group(
             PortalState.mostrar_seccion_autoservicio,
             "Auto servicio",
