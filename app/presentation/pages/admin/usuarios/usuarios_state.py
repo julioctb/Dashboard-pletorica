@@ -682,7 +682,7 @@ class UsuariosAdminState(AuthState):
                 incluir_inactivos=self.incluir_inactivos,
                 rol=None,  # filtro local para compatibilidad provider/client
             )
-            items = [u.model_dump(mode='json') for u in usuarios]
+            items = self.serializar_lista_state(usuarios)
 
             # Filtro local por rol (compat provider/client)
             items = [u for u in items if self._rol_matches_filtro(str(u.get("rol", "")))]
@@ -766,7 +766,7 @@ class UsuariosAdminState(AuthState):
         """Carga las empresas asignadas a un usuario."""
         try:
             empresas = await user_service.obtener_empresas_usuario(UUID(user_id))
-            self.empresas_usuario = [e.model_dump(mode='json') for e in empresas]
+            self.empresas_usuario = self.serializar_lista_state(empresas)
         except Exception:
             self.empresas_usuario = []
 

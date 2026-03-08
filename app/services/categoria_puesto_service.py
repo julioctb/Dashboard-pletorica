@@ -183,15 +183,16 @@ class CategoriaPuestoService(BaseService):
         """
         Valida si una categoria puede ser eliminada.
         """
-        from app.services.contrato_categoria_service import contrato_categoria_service
+        from app.repositories.plaza_repository import SupabasePlazaRepository
 
-        contratos_asociados = await contrato_categoria_service.contar_contratos_con_categoria(
-            categoria.id
+        plazas_asociadas = await SupabasePlazaRepository().contar_por_categoria_puesto(
+            categoria.id,
+            incluir_canceladas=False,
         )
-        if contratos_asociados > 0:
+        if plazas_asociadas > 0:
             raise BusinessRuleError(
                 f"No se puede eliminar '{categoria.nombre}' porque está asociada a "
-                f"{contratos_asociados} contrato(s)"
+                f"{plazas_asociadas} plaza(s)"
             )
 
     async def existe_clave_en_tipo(

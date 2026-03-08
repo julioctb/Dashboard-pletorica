@@ -308,12 +308,11 @@ class EntregableDetalleState(AuthState):
                     "categoria_nombre": d.categoria_nombre,
                     "cantidad_reportada": d.cantidad_reportada,
                     "cantidad_validada": d.cantidad_validada,
-                    "cantidad_minima": d.cantidad_minima,
-                    "cantidad_maxima": d.cantidad_maxima,
+                    "cantidad_esperada": d.cantidad_esperada,
                     "tarifa_unitaria": str(d.tarifa_unitaria),
                     "subtotal": str(d.subtotal),
-                    "cumple_minimo": d.cumple_minimo,
-                    "excede_maximo": d.excede_maximo,
+                    "cumple_esperado": d.cumple_esperado,
+                    "excede_esperado": d.excede_esperado,
                 }
                 for d in detalles
             ]

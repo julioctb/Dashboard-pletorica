@@ -1695,6 +1695,13 @@ class CotizacionService:
                 cotizacion.fecha_inicio_periodo.year,
             )
 
+            cats = await self.obtener_categorias_partida(
+                partida_id,
+                empresa_id=empresa_id,
+            )
+            cantidad_plazas_minima = sum(int(cat.cantidad_minima or 0) for cat in cats)
+            cantidad_plazas_maxima = sum(int(cat.cantidad_maxima or 0) for cat in cats)
+
             # Crear contrato
             contrato_payload = {
                 'empresa_id': cotizacion.empresa_id,
@@ -1708,6 +1715,9 @@ class CotizacionService:
                 'monto_maximo': totales['total_maximo'],
                 'incluye_iva': True,
                 'descripcion_objeto': cotizacion.notas,
+                'tiene_personal': cantidad_plazas_maxima > 0,
+                'cantidad_plazas_minima': cantidad_plazas_minima,
+                'cantidad_plazas_maxima': cantidad_plazas_maxima,
                 'notas': f"Generado desde cotización {cotizacion.codigo}, partida {partida_data['numero_partida']}",
             }
             contrato_result = (
@@ -1720,19 +1730,14 @@ class CotizacionService:
 
             contrato_id = contrato_result.data[0]['id']
 
-            # Crear ContratoCategoria por cada categoría
-            cats = await self.obtener_categorias_partida(
-                partida_id,
-                empresa_id=empresa_id,
-            )
-            for cat in cats:
-                self.supabase.table('contrato_categorias').insert({
-                    'contrato_id': contrato_id,
-                    'categoria_puesto_id': cat.categoria_puesto_id,
-                    'cantidad_minima': cat.cantidad_minima,
-                    'cantidad_maxima': cat.cantidad_maxima,
-                    'costo_unitario': float(cat.precio_unitario_final),
-                }).execute()
+            if cantidad_plazas_maxima > 0:
+                from app.services import plaza_service
+
+                await plaza_service.sincronizar_plazas_contrato(
+                    contrato_id=contrato_id,
+                    cantidad_plazas_maxima=cantidad_plazas_maxima,
+                    fecha_inicio=cotizacion.fecha_inicio_periodo,
+                )
 
             # Actualizar partida
             self.supabase.table('cotizacion_partidas').update({

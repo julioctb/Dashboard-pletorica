@@ -791,31 +791,26 @@ class SupabaseEntregableRepository:
             result = self.supabase.table(self.tabla_detalle)\
                 .select(
                     '*, '
-                    'contrato_categorias!inner('
-                    '   categoria_puesto_id, cantidad_minima, cantidad_maxima, '
-                    '   categorias_puesto!inner(clave, nombre)'
-                    ')'
+                    'categorias_puesto:categoria_puesto_id!inner(clave, nombre)'
                 )\
                 .eq('entregable_id', entregable_id)\
                 .execute()
             
             detalles = []
             for data in result.data:
-                cc = data.pop('contrato_categorias', {})
-                cat = cc.pop('categorias_puesto', {}) if cc else {}
+                cat = data.pop('categorias_puesto', {}) or {}
                 
                 detalle = EntregableDetallePersonalResumen(
                     id=data['id'],
                     entregable_id=data['entregable_id'],
-                    contrato_categoria_id=data['contrato_categoria_id'],
+                    categoria_puesto_id=data['categoria_puesto_id'],
                     cantidad_reportada=data['cantidad_reportada'],
                     cantidad_validada=data['cantidad_validada'],
                     tarifa_unitaria=Decimal(str(data['tarifa_unitaria'])),
                     subtotal=Decimal(str(data['subtotal'])),
                     categoria_clave=cat.get('clave', ''),
                     categoria_nombre=cat.get('nombre', ''),
-                    cantidad_minima=cc.get('cantidad_minima', 0),
-                    cantidad_maxima=cc.get('cantidad_maxima', 0),
+                    cantidad_esperada=0,
                 )
                 detalles.append(detalle)
             

@@ -231,7 +231,7 @@ class CategoriasPuestoState(BaseState):
         """Cargar tipos de servicio para el dropdown"""
         try:
             tipos = await tipo_servicio_service.obtener_activas()
-            self.tipos_servicio = [t.model_dump() for t in tipos]
+            self.tipos_servicio = self.serializar_lista_state(tipos)
         except Exception as e:
             self.mostrar_mensaje(f"Error al cargar tipos de servicio: {str(e)}", "error")
             self.tipos_servicio = []
@@ -258,7 +258,7 @@ class CategoriasPuestoState(BaseState):
                     if termino in c.clave.upper() or termino in c.nombre.upper()
                 ]
 
-            self.categorias = [cat.model_dump() for cat in categorias]
+            self.categorias = self.serializar_lista_state(categorias)
             self.total_categorias = len(self.categorias)
 
         except DatabaseError as e:

@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any, Generic, Iterable, Optional, TypeVar
 
 from app.database import db_manager
+from app.repositories.shared import apply_eq_filters
+from app.services.shared import merge_update_model
 
 TEntity = TypeVar("TEntity")
 TCreate = TypeVar("TCreate")
@@ -23,9 +25,7 @@ class DirectSupabaseService:
 
     @staticmethod
     def _apply_filters(query, filters: dict[str, Any] | None = None):
-        for campo, valor in (filters or {}).items():
-            query = query.eq(campo, valor)
-        return query
+        return apply_eq_filters(query, filters)
 
     @staticmethod
     def _build_entity(entity_cls, data: dict[str, Any]):
@@ -54,10 +54,7 @@ class DirectSupabaseService:
 
     @staticmethod
     def _merge_update_model(entity, update_model):
-        for campo, valor in update_model.model_dump(exclude_unset=True).items():
-            if valor is not None:
-                setattr(entity, campo, valor)
-        return entity
+        return merge_update_model(entity, update_model)
 
     def _insert_row(self, payload: dict[str, Any]):
         return self.supabase.table(self.tabla).insert(payload).execute()

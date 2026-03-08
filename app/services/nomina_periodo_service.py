@@ -13,6 +13,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 from app.database import db_manager
+from app.core.enums import EstatusPlaza
 from app.core.exceptions import DatabaseError, NotFoundError, BusinessRuleError
 from app.entities.periodo_nomina import PeriodoNomina
 
@@ -59,57 +60,59 @@ class NominaPeriodoService:
         ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return float(diario)
 
-    def _mapear_salario_diario_por_empleado(self, empleado_ids: list[int]) -> dict[int, float]:
+    def _mapear_salario_diario_por_empleado(
+        self,
+        empresa_id: int,
+        fecha_referencia: object,
+    ) -> dict[int, float]:
         """
-        Resuelve salario diario vigente por empleado desde su asignación activa.
+        Resuelve salario diario vigente por empleado desde plazas ocupadas vigentes.
 
         Fuente de verdad:
-        - `historial_laboral` determina la asignación vigente del empleado
-          mediante `fecha_fin IS NULL`.
+        - `plazas` define la relación empleado-plaza vigente para nómina.
+        - Solo cuentan plazas `OCUPADA` con `empleado_id` asignado.
         - `plazas.salario_mensual` define el salario vigente de esa asignación.
         """
-        if not empleado_ids:
-            return {}
-
-        res_historial = (
-            self.supabase.table("historial_laboral")
-            .select("empleado_id, plaza_id, fecha_inicio")
-            .in_("empleado_id", empleado_ids)
-            .is_("fecha_fin", "null")
-            .order("fecha_inicio", desc=True)
-            .execute()
+        fecha_corte = (
+            fecha_referencia.isoformat()
+            if isinstance(fecha_referencia, date)
+            else str(fecha_referencia)
         )
 
-        historial_activo = res_historial.data or []
-        plaza_ids = list({
-            item["plaza_id"]
-            for item in historial_activo
-            if item.get("plaza_id") is not None
-        })
-        if not plaza_ids:
+        res_contratos = (
+            self.supabase.table("contratos")
+            .select("id")
+            .eq("empresa_id", empresa_id)
+            .execute()
+        )
+        contrato_ids = [
+            item["id"]
+            for item in (res_contratos.data or [])
+            if item.get("id") is not None
+        ]
+        if not contrato_ids:
             return {}
 
         res_plazas = (
             self.supabase.table("plazas")
-            .select("id, salario_mensual")
-            .in_("id", plaza_ids)
+            .select("id, empleado_id, salario_mensual, fecha_inicio")
+            .in_("contrato_id", contrato_ids)
+            .eq("estatus", EstatusPlaza.OCUPADA.value)
+            .lte("fecha_inicio", fecha_corte)
+            .or_(f"fecha_fin.is.null,fecha_fin.gte.{fecha_corte}")
+            .order("fecha_inicio", desc=True)
             .execute()
         )
-        salario_mensual_por_plaza = {
-            item["id"]: item.get("salario_mensual")
-            for item in (res_plazas.data or [])
-            if item.get("id") is not None
-        }
+        plazas_ocupadas = res_plazas.data or []
 
         salario_diario_por_empleado: dict[int, float] = {}
-        for item in historial_activo:
+        for item in plazas_ocupadas:
             empleado_id = item.get("empleado_id")
-            plaza_id = item.get("plaza_id")
-            if empleado_id is None or plaza_id is None:
+            if empleado_id is None:
                 continue
             if empleado_id in salario_diario_por_empleado:
                 continue
-            salario_mensual = salario_mensual_por_plaza.get(plaza_id)
+            salario_mensual = item.get("salario_mensual")
             salario_diario_por_empleado[empleado_id] = self._salario_diario_desde_mensual(
                 salario_mensual
             )
@@ -218,21 +221,47 @@ class NominaPeriodoService:
         fecha_fin = periodo['fecha_fin']
 
         try:
-            # 1. Empleados ACTIVOS de la empresa
+            salario_diario_por_empleado = self._mapear_salario_diario_por_empleado(
+                empresa_id=empresa_id,
+                fecha_referencia=fecha_fin,
+            )
+            empleado_ids_con_plaza = list(salario_diario_por_empleado.keys())
+            if not empleado_ids_con_plaza:
+                logger.warning(
+                    "No hay empleados con plaza ocupada vigente para empresa %s en período %s",
+                    empresa_id,
+                    periodo_id,
+                )
+                self._actualizar_total_empleados_periodo(periodo_id, 0)
+                return 0
+
+            # 1. Empleados ACTIVOS de la empresa con plaza vigente
             res_emp = (
                 self.supabase.table('empleados')
                 .select('id, nombre, apellido_paterno, banco, clabe_interbancaria')
                 .eq('empresa_id', empresa_id)
                 .eq('estatus', 'ACTIVO')
+                .in_('id', empleado_ids_con_plaza)
                 .execute()
             )
             empleados = res_emp.data or []
             if not empleados:
-                logger.warning(f"No hay empleados ACTIVOS para empresa {empresa_id}")
+                logger.warning(
+                    "No hay empleados ACTIVOS con plaza vigente para empresa %s",
+                    empresa_id,
+                )
+                self._actualizar_total_empleados_periodo(periodo_id, 0)
                 return 0
 
             empleado_ids = [emp['id'] for emp in empleados if emp.get('id') is not None]
-            salario_diario_por_empleado = self._mapear_salario_diario_por_empleado(empleado_ids)
+            empleados_con_plaza_inactivos = sorted(set(empleado_ids_con_plaza) - set(empleado_ids))
+            if empleados_con_plaza_inactivos:
+                logger.warning(
+                    "Período %s: %s empleado(s) con plaza vigente no están ACTIVO en empleados: %s",
+                    periodo_id,
+                    len(empleados_con_plaza_inactivos),
+                    empleados_con_plaza_inactivos,
+                )
             empleados_sin_salario = [
                 emp_id for emp_id in empleado_ids if salario_diario_por_empleado.get(emp_id, 0.0) <= 0
             ]

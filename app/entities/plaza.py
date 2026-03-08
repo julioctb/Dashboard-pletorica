@@ -1,15 +1,9 @@
 """
 Entidades de dominio para Plaza.
 
-Una Plaza representa un puesto de trabajo específico dentro de un ContratoCategoría.
-Por ejemplo, si un contrato tiene asignados 50-70 Jardineros A, existirán 50-70
-plazas individuales que pueden ser ocupadas por empleados.
-
-Ejemplo:
-    Contrato MAN-JAR-25001 tiene:
-        ContratoCategoria: Jardinero A (JARA), cantidad_maxima=70
-        → 70 Plazas individuales (PZ-001 a PZ-070)
-        → Cada plaza puede estar: VACANTE, OCUPADA, SUSPENDIDA, CANCELADA
+Una Plaza representa un puesto de trabajo específico dentro de un contrato.
+El contrato materializa la cantidad total de plazas y cada plaza puede quedar
+sin categoría al inicio; la categoría se asigna después desde el módulo de plazas.
 """
 from datetime import date, datetime
 from decimal import Decimal
@@ -21,12 +15,7 @@ from app.core.validation.decimal_converters import convertir_a_decimal, converti
 
 
 class Plaza(BaseModel):
-    """
-    Entidad principal que representa un puesto de trabajo dentro de un ContratoCategoría.
-
-    Una plaza es una instancia individual de trabajo. Por ejemplo, si un contrato
-    requiere 50 jardineros, habrá 50 plazas diferentes.
-    """
+    """Entidad principal que representa una plaza materializada de un contrato."""
 
     model_config = ConfigDict(
         str_strip_whitespace=True,
@@ -36,11 +25,15 @@ class Plaza(BaseModel):
 
     # Identificación
     id: Optional[int] = None
-    contrato_categoria_id: int = Field(..., description="FK a contrato_categorias")
+    contrato_id: int = Field(..., description="FK a contratos")
+    categoria_puesto_id: Optional[int] = Field(
+        default=None,
+        description="FK a categorias_puesto; NULL mientras la plaza no esté categorizada"
+    )
     numero_plaza: int = Field(
         ...,
         ge=1,
-        description="Número secuencial de la plaza dentro de la categoría (1, 2, 3...)"
+        description="Número secuencial de la plaza dentro del contrato (1, 2, 3...)"
     )
     codigo: str = Field(
         default="",
@@ -118,7 +111,7 @@ class Plaza(BaseModel):
 
     def puede_asignar_empleado(self) -> bool:
         """Verifica si se puede asignar un empleado a esta plaza"""
-        return self.estatus.es_asignable
+        return self.categoria_puesto_id is not None and self.estatus.es_asignable
 
     def esta_vigente(self, fecha_referencia: Optional[date] = None) -> bool:
         """Verifica si la plaza está vigente en una fecha"""
@@ -131,7 +124,7 @@ class Plaza(BaseModel):
 
     def puede_ocupar(self) -> bool:
         """Verifica si la plaza puede pasar a estado OCUPADA"""
-        return self.estatus == EstatusPlaza.VACANTE
+        return self.estatus == EstatusPlaza.VACANTE and self.categoria_puesto_id is not None
 
     def puede_suspender(self) -> bool:
         """Verifica si la plaza puede ser suspendida"""
@@ -157,7 +150,8 @@ class PlazaCreate(BaseModel):
         validate_assignment=True
     )
 
-    contrato_categoria_id: int = Field(..., description="FK a contrato_categorias")
+    contrato_id: int = Field(..., description="FK a contratos")
+    categoria_puesto_id: Optional[int] = Field(default=None, description="FK a categorias_puesto")
     numero_plaza: int = Field(..., ge=1)
     codigo: str = Field(default="", max_length=50)
     empleado_id: Optional[int] = Field(default=None)
@@ -191,6 +185,7 @@ class PlazaUpdate(BaseModel):
     )
 
     codigo: Optional[str] = Field(default=None, max_length=50)
+    categoria_puesto_id: Optional[int] = Field(default=None)
     empleado_id: Optional[int] = Field(default=None)
     fecha_inicio: Optional[date] = Field(default=None)
     fecha_fin: Optional[date] = Field(default=None)
@@ -228,7 +223,8 @@ class PlazaResumen(BaseModel):
 
     # Datos de la plaza
     id: int
-    contrato_categoria_id: int
+    contrato_id: int
+    categoria_puesto_id: Optional[int] = None
     numero_plaza: int
     codigo: str = ""
     empleado_id: Optional[int] = None
@@ -238,14 +234,11 @@ class PlazaResumen(BaseModel):
     estatus: EstatusPlaza
     notas: Optional[str] = None
 
-    # Datos enriquecidos del contrato
-    contrato_id: int = 0
     contrato_codigo: str = ""
 
     # Datos enriquecidos de la categoría
-    categoria_puesto_id: int = 0
     categoria_clave: str = ""
-    categoria_nombre: str = ""
+    categoria_nombre: str = "Sin categoría"
 
     # Datos enriquecidos del empleado (si está ocupada)
     empleado_nombre: str = ""
@@ -257,7 +250,7 @@ class PlazaResumen(BaseModel):
         plaza: Plaza,
         contrato_id: int = 0,
         contrato_codigo: str = "",
-        categoria_puesto_id: int = 0,
+        categoria_puesto_id: Optional[int] = None,
         categoria_clave: str = "",
         categoria_nombre: str = "",
         empleado_nombre: str = "",
@@ -266,7 +259,10 @@ class PlazaResumen(BaseModel):
         """Crea un resumen desde una entidad Plaza"""
         return cls(
             id=plaza.id,
-            contrato_categoria_id=plaza.contrato_categoria_id,
+            contrato_id=contrato_id or plaza.contrato_id,
+            categoria_puesto_id=(
+                categoria_puesto_id if categoria_puesto_id is not None else plaza.categoria_puesto_id
+            ),
             numero_plaza=plaza.numero_plaza,
             codigo=plaza.codigo,
             empleado_id=plaza.empleado_id,
@@ -275,9 +271,7 @@ class PlazaResumen(BaseModel):
             salario_mensual=plaza.salario_mensual,
             estatus=plaza.estatus,
             notas=plaza.notas,
-            contrato_id=contrato_id,
             contrato_codigo=contrato_codigo,
-            categoria_puesto_id=categoria_puesto_id,
             categoria_clave=categoria_clave,
             categoria_nombre=categoria_nombre,
             empleado_nombre=empleado_nombre,
@@ -296,6 +290,11 @@ class ResumenPlazasContrato(BaseModel):
     plazas_ocupadas: int = 0
     plazas_suspendidas: int = 0
     plazas_canceladas: int = 0
+    plazas_categorizadas: int = 0
+    plazas_sin_categoria: int = 0
+    cantidad_plazas_minima: int = 0
+    cantidad_plazas_maxima: int = 0
+    plazas_desfase: int = 0
     costo_total_mensual: Decimal = Decimal('0')
 
     @property
@@ -308,15 +307,15 @@ class ResumenPlazasContrato(BaseModel):
 
 
 class ResumenPlazasCategoria(BaseModel):
-    """Resumen de totales de plazas para una ContratoCategoria"""
+    """Resumen de totales de plazas agrupadas por categoría dentro de un contrato."""
 
     model_config = ConfigDict(from_attributes=True)
 
-    contrato_categoria_id: int
+    contrato_id: int
+    categoria_puesto_id: Optional[int] = None
     categoria_clave: str = ""
     categoria_nombre: str = ""
-    cantidad_minima: int = 0
-    cantidad_maxima: int = 0
+    cantidad_esperada: int = 0
     total_plazas: int = 0
     plazas_vacantes: int = 0
     plazas_ocupadas: int = 0
@@ -324,12 +323,12 @@ class ResumenPlazasCategoria(BaseModel):
     costo_total_mensual: Decimal = Decimal('0')
 
     @property
-    def cumple_minimo(self) -> bool:
-        """Verifica si se cumple el mínimo de plazas ocupadas"""
-        return self.plazas_ocupadas >= self.cantidad_minima
+    def cumple_esperado(self) -> bool:
+        """Verifica si se cumple la cantidad esperada de plazas ocupadas."""
+        return self.plazas_ocupadas >= self.cantidad_esperada
 
     @property
     def plazas_faltantes(self) -> int:
-        """Calcula cuántas plazas faltan para el mínimo"""
-        faltantes = self.cantidad_minima - self.plazas_ocupadas
+        """Calcula cuántas plazas faltan para cubrir la cantidad esperada."""
+        faltantes = self.cantidad_esperada - self.plazas_ocupadas
         return max(0, faltantes)

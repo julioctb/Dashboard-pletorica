@@ -27,11 +27,12 @@ from app.repositories import (
 )
 from app.core.exceptions import DatabaseError, BusinessRuleError
 from app.core.utils import generar_candidatos_codigo
+from app.services.base_service import BaseService
 
 logger = logging.getLogger(__name__)
 
 
-class EmpresaService:
+class EmpresaService(BaseService):
     """
     Servicio de aplicacion para empresas.
     Orquesta las operaciones de negocio delegando acceso a datos al repositorio.
@@ -160,15 +161,11 @@ class EmpresaService:
             ValidationError: Si los datos no son validos
             DatabaseError: Si hay error de BD
         """
-        empresa_actual = await self.repository.obtener_por_id(empresa_id)
-
-        datos_actualizados = empresa_actual.model_dump()
-        for campo, valor in empresa_update.model_dump(exclude_unset=True).items():
-            if valor is not None:
-                datos_actualizados[campo] = valor
-
-        empresa_modificada = Empresa(**datos_actualizados)
-
+        empresa_modificada = await self._merge_y_actualizar(
+            empresa_id,
+            empresa_update,
+            self.repository,
+        )
         return await self.repository.actualizar(empresa_modificada)
 
     async def cambiar_estatus(self, empresa_id: int, nuevo_estatus) -> bool:

@@ -1,33 +1,30 @@
-"""
-Estado de Reflex para el módulo de Plazas.
-Maneja el estado de la UI y las operaciones del módulo.
-"""
-import reflex as rx
-from typing import List, Optional
-from decimal import Decimal
-from datetime import date
+"""Estado de Reflex para el módulo de plazas bajo el modelo plazas-first."""
 
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+from typing import List, Optional
+
+import reflex as rx
+
+from app.core.exceptions import BusinessRuleError, DuplicateError
+from app.core.text_utils import formatear_fecha, formatear_moneda
+from app.entities import EstatusPlaza, PlazaUpdate
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.constants import FILTRO_TODOS
-from app.services import plaza_service, contrato_categoria_service, contrato_service
-from app.core.text_utils import formatear_moneda, formatear_fecha
-
-from app.entities import (
-    PlazaCreate,
-    PlazaUpdate,
-    EstatusPlaza,
+from app.services import (
+    categoria_puesto_service,
+    contrato_service,
+    plaza_service,
 )
 
-from app.core.exceptions import (
-    DuplicateError,
-    BusinessRuleError,
-)
+PORTAL_PLAZAS_ROUTE = "/portal/plazas"
+SIN_CATEGORIA_VALUE = "__SIN_CATEGORIA__"
 
-# Campos con sus valores por defecto para limpiar formulario
 FORM_DEFAULTS = {
-    "numero_plaza": "",
     "codigo": "",
-    "empleado_id": "",
+    "categoria_puesto_id": "",
     "fecha_inicio": "",
     "fecha_fin": "",
     "salario_mensual": "",
@@ -38,147 +35,131 @@ FORM_DEFAULTS = {
 }
 
 
-PORTAL_PLAZAS_ROUTE = "/portal/plazas"
-
-
 class PlazasState(AuthState):
-    """Estado para el módulo de Plazas con toggle de vista"""
+    """State del módulo de plazas centrado en contrato y categorización."""
 
-    # ========================
-    # ESTADO DE VISTA
-    # ========================
-    view_mode: str = "table"  # "table" o "cards"
+    # =========================================================================
+    # VISTA
+    # =========================================================================
+    view_mode: str = "table"
 
-    # ========================
-    # ESTADO DE DATOS
-    # ========================
+    # =========================================================================
+    # DATOS
+    # =========================================================================
     plazas: List[dict] = []
     plaza_seleccionada: Optional[dict] = None
-    total_plazas: int = 0
+    resumen_categorias: List[dict] = []
+    contratos_disponibles: List[dict] = []
+    categorias_catalogo: List[dict] = []
 
-    # Contexto del contrato/categoría
     contrato_id: int = 0
     contrato_codigo: str = ""
-    contrato_categoria_id: int = 0
-    categoria_nombre: str = ""
+    contrato_estatus: str = ""
+    contrato_seleccionado_id: str = ""
+    categoria_filtro_id: str = FILTRO_TODOS
 
-    # Vista inicial: resumen de categorías con plazas
-    resumen_categorias: List[dict] = []
-
-    # Selector de contratos (para crear nuevas plazas)
-    contratos_disponibles: List[dict] = []
-    categorias_contrato: List[dict] = []
-    contrato_seleccionado_id: str = ""  # String para el select
-    categoria_seleccionada_id: str = ""  # String para el select
-    cargando_contratos: bool = False
-    cargando_categorias: bool = False
-
-    # Resumen de plazas
+    total_plazas: int = 0
     plazas_vacantes: int = 0
     plazas_ocupadas: int = 0
     plazas_suspendidas: int = 0
+    plazas_canceladas: int = 0
+    plazas_categorizadas: int = 0
+    plazas_sin_categoria: int = 0
+    cantidad_plazas_minima: int = 0
+    cantidad_plazas_maxima: int = 0
+    plazas_desfase: int = 0
 
-    # ========================
-    # ESTADO DE UI
-    # ========================
+    # =========================================================================
+    # UI
+    # =========================================================================
     mostrar_modal_plaza: bool = False
     mostrar_modal_detalle: bool = False
     mostrar_modal_confirmar_cancelar: bool = False
     mostrar_modal_crear_lote: bool = False
     mostrar_modal_asignar_empleado: bool = False
-    es_edicion: bool = False
 
-    # Estado para asignación de empleado
-    empleados_disponibles: List[dict] = []
-    empleado_seleccionado_id: str = ""
+    cargando_contratos: bool = False
+    cargando_categorias: bool = False
     cargando_empleados: bool = False
 
-    # ========================
-    # FILTROS
-    # ========================
-    filtro_estatus: str = FILTRO_TODOS
-    # filtro_busqueda heredado de BaseState
+    # =========================================================================
+    # ASIGNACIÓN DE EMPLEADO
+    # =========================================================================
+    empleados_disponibles: List[dict] = []
+    empleado_seleccionado_id: str = ""
 
-    # ========================
-    # ESTADO DEL FORMULARIO
-    # ========================
-    form_numero_plaza: str = ""
+    # =========================================================================
+    # FILTROS
+    # =========================================================================
+    filtro_estatus: str = FILTRO_TODOS
+
+    # =========================================================================
+    # FORMULARIO
+    # =========================================================================
     form_codigo: str = ""
-    form_empleado_id: str = ""
+    form_categoria_puesto_id: str = ""
     form_fecha_inicio: str = ""
     form_fecha_fin: str = ""
     form_salario_mensual: str = ""
     form_estatus: str = EstatusPlaza.VACANTE.value
     form_notas: str = ""
-
-    # Formulario de creación en lote
     form_cantidad: str = "1"
     form_prefijo_codigo: str = ""
 
-    # ========================
-    # ERRORES DE VALIDACIÓN
-    # ========================
-    error_numero_plaza: str = ""
+    # =========================================================================
+    # ERRORES
+    # =========================================================================
     error_codigo: str = ""
+    error_categoria_puesto_id: str = ""
     error_fecha_inicio: str = ""
     error_salario_mensual: str = ""
     error_cantidad: str = ""
 
-    # View toggle heredado de BaseState
-
+    # =========================================================================
+    # COMPUTED VARS
+    # =========================================================================
     @rx.var
     def mostrar_vista_inicial(self) -> bool:
-        """True si estamos en vista inicial (sin categoría seleccionada)."""
-        return self.contrato_categoria_id == 0 and self.contrato_id == 0
+        return self.contrato_id == 0
 
     @rx.var
     def tiene_resumen(self) -> bool:
-        """True si hay datos en el resumen inicial."""
         return len(self.resumen_categorias) > 0
 
     @rx.var
     def es_contexto_portal(self) -> bool:
-        """True cuando la vista de plazas corre dentro del portal."""
         ruta_actual = self.router.route_id or ""
         return ruta_actual.startswith("/portal/")
 
     @rx.var
     def plazas_base_path(self) -> str:
-        """Ruta base del módulo según el contexto actual."""
         return PORTAL_PLAZAS_ROUTE if self.es_contexto_portal else "/plazas"
 
     @rx.var
     def subtitulo_inicio(self) -> str:
-        """Subtítulo contextual del módulo."""
         if self.es_contexto_portal:
             return "Gestión de plazas de la empresa activa"
-        return "Asignación de Plazas a los Contratos"
+        return "Categorización y operación de plazas por contrato"
 
     @rx.var
     def descripcion_selector_contrato(self) -> str:
-        """Descripción contextual del selector de contratos."""
         if self.es_contexto_portal:
-            return "Seleccione un contrato de la empresa activa para gestionar sus plazas"
-        return "Seleccione un contrato con personal para gestionar sus plazas"
+            return "Seleccione un contrato activo con personal para gestionar sus plazas"
+        return "Seleccione un contrato con personal para revisar, categorizar y operar sus plazas"
 
     @rx.var
     def mensaje_sin_contratos_disponibles(self) -> str:
-        """Ayuda contextual cuando no hay contratos disponibles."""
         if self.es_contexto_portal:
-            return (
-                "No hay contratos de la empresa activa con personal y plazas pendientes. "
-                "Crea o activa un contrato con personal primero."
-            )
+            return "No hay contratos activos con personal asignado."
         return (
-            "No hay contratos con personal disponibles. "
-            "Primero debe crear un contrato con 'tiene_personal' activado."
+            "No hay contratos disponibles con personal habilitado. "
+            "Primero configure un contrato de servicios con plazas."
         )
 
     @rx.var
     def puede_operar_plazas_en_contexto(self) -> bool:
-        """Permiso efectivo para crear y operar plazas según el contexto."""
         if self.es_contexto_portal:
-            return bool(self.id_empresa_actual) and self.es_rrhh
+            return bool(self.id_empresa_actual) and (self.es_rrhh or self.es_admin_empresa)
         return bool(
             self.es_superadmin
             or self.es_institucion
@@ -187,91 +168,31 @@ class PlazasState(AuthState):
             or self.puede_operar_empleados
         )
 
-    # ========================
-    # SETTERS
-    # ========================
-    def set_filtro_estatus(self, value):
-        self.filtro_estatus = value if value else ""
-        return PlazasState.filtrar_plazas
+    @rx.var
+    def tiene_contexto(self) -> bool:
+        return self.contrato_id > 0
 
-    def set_form_numero_plaza(self, value):
-        self.form_numero_plaza = value if value else ""
+    @rx.var
+    def vacantes_sin_categoria_disponibles(self) -> int:
+        return len(
+            [
+                plaza
+                for plaza in self.plazas
+                if plaza.get("estatus") == EstatusPlaza.VACANTE.value
+                and not plaza.get("categoria_puesto_id")
+            ]
+        )
 
-    def set_form_codigo(self, value):
-        self.form_codigo = value.upper() if value else ""
+    @rx.var
+    def puede_categorizar_lote(self) -> bool:
+        return (
+            self.puede_operar_plazas_en_contexto
+            and self.tiene_contexto
+            and self.vacantes_sin_categoria_disponibles > 0
+        )
 
-    def set_form_empleado_id(self, value):
-        self.form_empleado_id = value if value else ""
-
-    def set_form_fecha_inicio(self, value):
-        self.form_fecha_inicio = value if value else ""
-
-    def set_form_fecha_fin(self, value):
-        self.form_fecha_fin = value if value else ""
-
-    def set_form_salario_mensual(self, value):
-        self.form_salario_mensual = formatear_moneda(value) if value else ""
-
-    def set_form_estatus(self, value):
-        self.form_estatus = value if value else ""
-
-    def set_form_notas(self, value):
-        self.form_notas = value if value else ""
-
-    def set_form_cantidad(self, value):
-        self.form_cantidad = value if value else ""
-
-    def set_form_prefijo_codigo(self, value):
-        self.form_prefijo_codigo = value.upper() if value else ""
-
-    def set_empleado_seleccionado_id(self, value):
-        self.empleado_seleccionado_id = value if value else ""
-
-    def set_contrato_seleccionado_id(self, value):
-        """Al seleccionar un contrato, limpiar y disparar carga de categorías"""
-        self.contrato_seleccionado_id = value if value else ""
-        self.categoria_seleccionada_id = ""
-        self.categorias_contrato = []
-        self.contrato_categoria_id = 0
-        self.plazas = []
-        self.total_plazas = 0
-
-        if value:
-            return PlazasState.cargar_categorias_de_contrato(int(value))
-
-    def set_categoria_seleccionada_id(self, value):
-        """Al seleccionar una categoría, abrir modal de creación de plazas"""
-        self.categoria_seleccionada_id = value if value else ""
-
-        if value:
-            self.contrato_categoria_id = int(value)
-            # Obtener datos de la categoría
-            categoria = next(
-                (c for c in self.categorias_contrato if str(c.get("id")) == value),
-                None
-            )
-            if categoria:
-                self.categoria_nombre = categoria.get("categoria_nombre", "")
-                # Pre-llenar formulario
-                self.form_cantidad = str(categoria.get("plazas_pendientes", 1))
-                self.form_prefijo_codigo = categoria.get("categoria_clave", "")
-                self.form_fecha_inicio = date.today().isoformat()
-                self.form_salario_mensual = ""
-                self.form_fecha_fin = ""
-                # Abrir modal de creación
-                self.mostrar_modal_crear_lote = True
-        else:
-            self.contrato_categoria_id = 0
-            self.categoria_nombre = ""
-            self.plazas = []
-            self.total_plazas = 0
-
-    # ========================
-    # COMPUTED VARS
-    # ========================
     @rx.var
     def opciones_estatus(self) -> List[dict]:
-        """Opciones para el select de estatus"""
         return [
             {"value": FILTRO_TODOS, "label": "Todos"},
             {"value": EstatusPlaza.VACANTE.value, "label": "Vacante"},
@@ -282,29 +203,144 @@ class PlazasState(AuthState):
 
     @rx.var
     def opciones_estatus_form(self) -> List[dict]:
-        """Opciones para el select de estatus en formulario (sin TODOS)"""
         return [
             {"value": EstatusPlaza.VACANTE.value, "label": "Vacante"},
-            {"value": EstatusPlaza.OCUPADA.value, "label": "Ocupada"},
             {"value": EstatusPlaza.SUSPENDIDA.value, "label": "Suspendida"},
+            {"value": EstatusPlaza.CANCELADA.value, "label": "Cancelada"},
         ]
 
     @rx.var
-    def plazas_filtradas(self) -> List[dict]:
-        """Plazas filtradas por estatus y búsqueda"""
-        resultado = self.plazas
+    def opciones_contratos(self) -> List[dict]:
+        opciones = []
+        for contrato in self.contratos_disponibles:
+            codigo = contrato.get("codigo", "")
+            estatus = contrato.get("estatus", "")
+            maximo = int(contrato.get("cantidad_plazas_maxima") or 0)
+            opciones.append(
+                {
+                    "value": str(contrato.get("id")),
+                    "label": f"{codigo} ({estatus}) · máx {maximo}",
+                }
+            )
+        return opciones
 
-        # Filtrar por estatus
-        if self.filtro_estatus and self.filtro_estatus != FILTRO_TODOS:
+    @rx.var
+    def opciones_categorias_contrato(self) -> List[dict]:
+        agrupados: dict[str, dict] = {}
+        for plaza in self.plazas:
+            categoria_id = plaza.get("categoria_puesto_id")
+            if categoria_id:
+                key = str(categoria_id)
+                if key not in agrupados:
+                    agrupados[key] = {
+                        "value": key,
+                        "label": (
+                            f"{plaza.get('categoria_clave', '')} - "
+                            f"{plaza.get('categoria_nombre', 'Sin categoría')}"
+                        ).strip(" -"),
+                        "total": 0,
+                    }
+                agrupados[key]["total"] += 1
+            else:
+                if SIN_CATEGORIA_VALUE not in agrupados:
+                    agrupados[SIN_CATEGORIA_VALUE] = {
+                        "value": SIN_CATEGORIA_VALUE,
+                        "label": "Sin categoría",
+                        "total": 0,
+                    }
+                agrupados[SIN_CATEGORIA_VALUE]["total"] += 1
+
+        opciones = [{"value": FILTRO_TODOS, "label": "Todas las categorías"}]
+        opciones.extend(
+            {
+                "value": item["value"],
+                "label": f"{item['label']} ({item['total']})",
+            }
+            for item in sorted(
+                agrupados.values(),
+                key=lambda item: (
+                    item["value"] != SIN_CATEGORIA_VALUE,
+                    item["label"],
+                ),
+            )
+        )
+        return opciones
+
+    @rx.var
+    def opciones_categorias_catalogo(self) -> List[dict]:
+        return [
+            {
+                "value": str(categoria.get("id")),
+                "label": (
+                    f"{categoria.get('clave', '')} - {categoria.get('nombre', '')}"
+                ).strip(" -"),
+            }
+            for categoria in self.categorias_catalogo
+        ]
+
+    @rx.var
+    def opciones_empleados(self) -> List[dict]:
+        return [
+            {
+                "value": str(empleado.get("id")),
+                "label": f"{empleado.get('clave', '')} - {empleado.get('nombre_completo', '')}",
+            }
+            for empleado in self.empleados_disponibles
+        ]
+
+    @rx.var
+    def nombre_categoria_filtro(self) -> str:
+        if self.categoria_filtro_id == FILTRO_TODOS:
+            return ""
+        if self.categoria_filtro_id == SIN_CATEGORIA_VALUE:
+            return "Sin categoría"
+        for opcion in self.opciones_categorias_contrato:
+            if opcion["value"] == self.categoria_filtro_id:
+                return opcion["label"]
+        return ""
+
+    @rx.var
+    def titulo_contexto(self) -> str:
+        if not self.contrato_codigo:
+            return "Plazas"
+        if self.nombre_categoria_filtro:
+            return f"{self.contrato_codigo} - {self.nombre_categoria_filtro}"
+        return self.contrato_codigo
+
+    @rx.var
+    def breadcrumb_items(self) -> List[dict]:
+        items = [{"texto": "Plazas", "href": self.plazas_base_path}]
+        if self.contrato_codigo:
+            items.append({"texto": self.contrato_codigo, "href": ""})
+        if self.nombre_categoria_filtro:
+            items.append({"texto": self.nombre_categoria_filtro, "href": ""})
+        return items
+
+    @rx.var
+    def plazas_filtradas(self) -> List[dict]:
+        resultado = list(self.plazas)
+
+        if self.categoria_filtro_id != FILTRO_TODOS:
+            if self.categoria_filtro_id == SIN_CATEGORIA_VALUE:
+                resultado = [p for p in resultado if not p.get("categoria_puesto_id")]
+            else:
+                resultado = [
+                    p
+                    for p in resultado
+                    if str(p.get("categoria_puesto_id") or "") == self.categoria_filtro_id
+                ]
+
+        if self.filtro_estatus != FILTRO_TODOS:
             resultado = [p for p in resultado if p.get("estatus") == self.filtro_estatus]
 
-        # Filtrar por búsqueda
         if self.filtro_busqueda:
-            termino = self.filtro_busqueda.lower()
+            termino = self.filtro_busqueda.lower().strip()
             resultado = [
-                p for p in resultado
-                if termino in p.get("codigo", "").lower()
-                or termino in str(p.get("numero_plaza", ""))
+                p
+                for p in resultado
+                if termino in str(p.get("numero_plaza", "")).lower()
+                or termino in p.get("codigo", "").lower()
+                or termino in p.get("categoria_nombre", "").lower()
                 or termino in p.get("empleado_nombre", "").lower()
             ]
 
@@ -312,102 +348,126 @@ class PlazasState(AuthState):
 
     @rx.var
     def total_plazas_filtradas(self) -> int:
-        """Total visible en la UI tras aplicar filtros locales."""
         return len(self.plazas_filtradas)
 
     @rx.var
     def tiene_filtros_activos(self) -> bool:
-        """Indica si hay algún filtro aplicado"""
-        return self.filtro_estatus != FILTRO_TODOS or bool(self.filtro_busqueda.strip())
+        return (
+            self.filtro_estatus != FILTRO_TODOS
+            or self.categoria_filtro_id != FILTRO_TODOS
+            or bool(self.filtro_busqueda.strip())
+        )
 
     @rx.var
     def puede_guardar(self) -> bool:
-        """Verifica si se puede guardar el formulario"""
-        tiene_requeridos = bool(
-            self.form_fecha_inicio and
-            self.form_salario_mensual
+        return (
+            bool(self.form_fecha_inicio)
+            and bool(self.form_salario_mensual)
+            and not self.tiene_errores_en_campos(
+                [
+                    "codigo",
+                    "categoria_puesto_id",
+                    "fecha_inicio",
+                    "salario_mensual",
+                ]
+            )
+            and not self.saving
         )
-        sin_errores = not bool(
-            self.error_numero_plaza or
-            self.error_codigo or
-            self.error_fecha_inicio or
-            self.error_salario_mensual
+
+    @rx.var
+    def puede_guardar_categorizacion_lote(self) -> bool:
+        return (
+            bool(self.form_categoria_puesto_id)
+            and bool(self.form_cantidad)
+            and not self.tiene_errores_en_campos(
+                ["categoria_puesto_id", "cantidad", "salario_mensual"]
+            )
+            and not self.saving
         )
-        return tiene_requeridos and sin_errores and not self.saving
-
-    @rx.var
-    def titulo_contexto(self) -> str:
-        """Título con el contexto del contrato/categoría"""
-        if self.contrato_codigo and self.categoria_nombre:
-            return f"{self.contrato_codigo} - {self.categoria_nombre}"
-        return "Plazas"
-
-    @rx.var
-    def breadcrumb_items(self) -> List[dict]:
-        """Items para el breadcrumb en vista detalle"""
-        items = [{"texto": "Plazas", "href": self.plazas_base_path}]
-        if self.contrato_codigo:
-            items.append({"texto": self.contrato_codigo, "href": ""})
-        if self.categoria_nombre:
-            items.append({"texto": self.categoria_nombre, "href": ""})
-        return items
-
-    @rx.var
-    def mostrar_selector_contrato(self) -> bool:
-        """True si debemos mostrar el selector de contratos"""
-        return self.contrato_categoria_id == 0 and not self.loading
-
-    @rx.var
-    def tiene_contexto(self) -> bool:
-        """True si ya tenemos un contrato_categoria_id definido"""
-        return self.contrato_categoria_id > 0 or self.contrato_id > 0
-
-    @rx.var
-    def opciones_contratos(self) -> List[dict]:
-        """Opciones para el select de contratos (con plazas pendientes)"""
-        return [
-            {
-                "value": str(c.get("id")),
-                "label": f"{c.get('codigo')} - {c.get('empresa_nombre', '')} ({c.get('total_pendientes', 0)} pendientes)"
-            }
-            for c in self.contratos_disponibles
-        ]
-
-    @rx.var
-    def opciones_categorias(self) -> List[dict]:
-        """Opciones para el select de categorías (con plazas pendientes)"""
-        return [
-            {
-                "value": str(c.get("id")),
-                "label": f"{c.get('categoria_clave', '')} - {c.get('categoria_nombre', '')} ({c.get('plazas_pendientes', 0)} pendientes)"
-            }
-            for c in self.categorias_contrato
-        ]
-
-    @rx.var
-    def opciones_empleados(self) -> List[dict]:
-        """Opciones para el select de empleados disponibles"""
-        return [
-            {
-                "value": str(e.get("id")),
-                "label": f"{e.get('clave', '')} - {e.get('nombre_completo', '')}"
-            }
-            for e in self.empleados_disponibles
-        ]
 
     @rx.var
     def puede_asignar_empleado(self) -> bool:
-        """Verifica si se puede asignar el empleado seleccionado"""
         return bool(self.empleado_seleccionado_id) and not self.saving
 
+    @rx.var
+    def mensaje_tabla_vacia(self) -> str:
+        if self.total_plazas == 0:
+            return "Este contrato no tiene plazas materializadas"
+        if self.tiene_filtros_activos:
+            return "No hay plazas que coincidan con los filtros"
+        return "No hay plazas disponibles para mostrar"
+
+    @rx.var
+    def submensaje_tabla_vacia(self) -> str:
+        if self.total_plazas == 0:
+            return (
+                "Ajuste la cantidad máxima de plazas en el contrato para "
+                "materializar nuevas plazas."
+            )
+        if self.tiene_filtros_activos:
+            return "Limpie los filtros o seleccione otra categoría."
+        return ""
+
+    # =========================================================================
+    # SETTERS
+    # =========================================================================
+    def set_filtro_estatus(self, value: str):
+        self.filtro_estatus = value or FILTRO_TODOS
+
+    def set_categoria_filtro_id(self, value: str):
+        self.categoria_filtro_id = value or FILTRO_TODOS
+
+    def set_form_codigo(self, value: str):
+        self.form_codigo = value.upper() if value else ""
+
+    def set_form_categoria_puesto_id(self, value: str):
+        self.form_categoria_puesto_id = value or ""
+        self.error_categoria_puesto_id = ""
+
+    def set_form_fecha_inicio(self, value: str):
+        self.form_fecha_inicio = value or ""
+        self.error_fecha_inicio = ""
+
+    def set_form_fecha_fin(self, value: str):
+        self.form_fecha_fin = value or ""
+
+    def set_form_salario_mensual(self, value: str):
+        self.form_salario_mensual = formatear_moneda(value) if value else ""
+        self.error_salario_mensual = ""
+
+    def set_form_estatus(self, value: str):
+        self.form_estatus = value or EstatusPlaza.VACANTE.value
+
+    def set_form_notas(self, value: str):
+        self.form_notas = value or ""
+
+    def set_form_cantidad(self, value: str):
+        self.form_cantidad = "".join(c for c in str(value) if c.isdigit()) if value else ""
+        self._validar_cantidad_lote()
+
+    def set_form_prefijo_codigo(self, value: str):
+        self.form_prefijo_codigo = value.upper() if value else ""
+
+    def set_empleado_seleccionado_id(self, value: str):
+        self.empleado_seleccionado_id = value or ""
+
+    def set_contrato_seleccionado_id(self, value: str):
+        self.contrato_seleccionado_id = value or ""
+        if value:
+            self.categoria_filtro_id = FILTRO_TODOS
+            return PlazasState.seleccionar_contrato(int(value))
+        self._limpiar_contexto_contrato()
+        return PlazasState.cargar_resumen_inicial
+
+    # =========================================================================
+    # HELPERS
+    # =========================================================================
     def _empresa_filtro_actual(self) -> Optional[int]:
-        """Empresa a usar en queries cuando el contexto es portal."""
         if self.es_contexto_portal:
             return self.id_empresa_actual or None
         return None
 
     def _asegurar_permiso_operar_plazas(self) -> None:
-        """Valida que el usuario pueda crear u operar plazas en el contexto actual."""
         if not self.puede_operar_plazas_en_contexto:
             if self.es_contexto_portal:
                 raise BusinessRuleError(
@@ -416,9 +476,7 @@ class PlazasState(AuthState):
             raise BusinessRuleError("No tienes permisos para operar plazas")
 
     async def _asegurar_acceso_contrato(self, contrato_id: int):
-        """Valida acceso al contrato cuando el flujo viene desde portal."""
         contrato = await contrato_service.obtener_por_id(contrato_id)
-
         if (
             self.es_contexto_portal
             and (
@@ -429,141 +487,152 @@ class PlazasState(AuthState):
             raise BusinessRuleError(
                 "Solo puedes gestionar plazas de contratos de la empresa activa"
             )
-
         return contrato
 
-    async def _asegurar_acceso_contrato_categoria(self, contrato_categoria_id: int):
-        """Valida acceso al contrato-categoría actual cuando aplica."""
-        contrato_categoria = await contrato_categoria_service.obtener_por_id(
-            contrato_categoria_id
-        )
-        contrato = await self._asegurar_acceso_contrato(contrato_categoria.contrato_id)
-        return contrato_categoria, contrato
-
     async def _asegurar_acceso_plaza(self, plaza_id: int):
-        """Valida acceso a una plaza concreta en portal antes de operar."""
-        if not self.es_contexto_portal:
-            return None
-
         plaza = await plaza_service.obtener_por_id(plaza_id)
-        await self._asegurar_acceso_contrato_categoria(plaza.contrato_categoria_id)
+        await self._asegurar_acceso_contrato(plaza.contrato_id)
         return plaza
 
     def _serializar_plaza_resumen(self, plaza) -> dict:
-        """Normaliza una plaza de servicio al formato que consume la UI."""
-        plaza_dict = plaza.model_dump(mode='json')
+        plaza_dict = plaza.model_dump(mode="json")
         plaza_dict["fecha_inicio_fmt"] = formatear_fecha(plaza.fecha_inicio)
         plaza_dict["fecha_fin_fmt"] = (
             formatear_fecha(plaza.fecha_fin) if plaza.fecha_fin else "-"
         )
         plaza_dict["salario_fmt"] = formatear_moneda(str(plaza.salario_mensual))
+        plaza_dict["categoria_nombre"] = plaza_dict.get("categoria_nombre") or "Sin categoría"
+        plaza_dict["categoria_clave"] = plaza_dict.get("categoria_clave") or ""
+        plaza_dict["tiene_categoria"] = bool(plaza_dict.get("categoria_puesto_id"))
         return plaza_dict
 
-    def _asignar_plazas_cargadas(self, plazas_resumen: List) -> None:
-        """Guarda las plazas cargadas y recalcula contadores derivados."""
-        self.plazas = [self._serializar_plaza_resumen(plaza) for plaza in plazas_resumen]
-        self.total_plazas = len(self.plazas)
-        self._actualizar_contadores()
+    def _cargar_plaza_en_formulario(self, plaza: dict) -> None:
+        self.form_codigo = plaza.get("codigo", "") or ""
+        self.form_categoria_puesto_id = (
+            str(plaza.get("categoria_puesto_id"))
+            if plaza.get("categoria_puesto_id")
+            else ""
+        )
+        self.form_fecha_inicio = str(plaza.get("fecha_inicio") or "")
+        self.form_fecha_fin = str(plaza.get("fecha_fin") or "")
+        self.form_salario_mensual = str(plaza.get("salario_mensual", "") or "0")
+        self.form_estatus = plaza.get("estatus", EstatusPlaza.VACANTE.value)
+        self.form_notas = plaza.get("notas", "") or ""
 
-    # ========================
-    # OPERACIONES PRINCIPALES
-    # ========================
-    async def cargar_plazas_de_contrato(self, contrato_id: int):
-        """Cargar todas las plazas de un contrato"""
-        self.loading = True
-        self.contrato_id = contrato_id
-        self.contrato_categoria_id = 0
-
+    def _parse_decimal(self, value: str) -> Decimal:
+        if not value or value.strip() == "":
+            return Decimal("0")
         try:
-            contrato = await self._asegurar_acceso_contrato(contrato_id)
-            # Obtener resumen de plazas con datos enriquecidos
-            plazas_resumen = await plaza_service.obtener_resumen_de_contrato(contrato_id)
-            self._asignar_plazas_cargadas(plazas_resumen)
-            self.contrato_codigo = contrato.codigo
-            self.categoria_nombre = ""
+            return Decimal(value.replace(",", "").replace("$", "").strip())
+        except Exception:
+            return Decimal("0")
 
-        except Exception as e:
-            self.manejar_error(e, "cargar plazas")
-            self.plazas = []
-            self.total_plazas = 0
-            return rx.toast.error(f"Error al cargar plazas: {e}")
-        finally:
-            self.loading = False
-
-    async def cargar_plazas_de_categoria(self, contrato_categoria_id: int):
-        """Cargar plazas de una categoría específica con datos del empleado"""
-        self.loading = True
-        self.contrato_categoria_id = contrato_categoria_id
-
-        try:
-            contrato_categoria, contrato = await self._asegurar_acceso_contrato_categoria(
-                contrato_categoria_id
+    def _validar_cantidad_lote(self) -> None:
+        self.error_cantidad = ""
+        if not self.form_cantidad:
+            return
+        cantidad = int(self.form_cantidad)
+        if cantidad <= 0:
+            self.error_cantidad = "La cantidad debe ser mayor a cero"
+            return
+        if cantidad > self.vacantes_sin_categoria_disponibles:
+            self.error_cantidad = (
+                "La cantidad excede las vacantes sin categoría disponibles"
             )
-            # Usar obtener_resumen_de_categoria que incluye datos del empleado
-            plazas_resumen = await plaza_service.obtener_resumen_de_categoria(
-                contrato_categoria_id,
-                incluir_canceladas=True
-            )
-            self._asignar_plazas_cargadas(plazas_resumen)
-            self.contrato_id = int(contrato.id or 0)
-            self.contrato_codigo = contrato.codigo
-            if not self.categoria_nombre:
-                categoria = next(
-                    (
-                        item for item in self.categorias_contrato
-                        if item.get("id") == contrato_categoria_id
-                    ),
-                    None,
-                )
-                self.categoria_nombre = (
-                    categoria.get("categoria_nombre", "") if categoria else self.categoria_nombre
-                )
-            if not self.categoria_nombre:
-                categoria = next(
-                    (plaza for plaza in self.plazas if plaza.get("categoria_nombre")),
-                    None,
-                )
-                if categoria:
-                    self.categoria_nombre = categoria.get("categoria_nombre", "")
-            if not self.categoria_nombre:
-                self.categoria_nombre = f"Categoría #{contrato_categoria.id}"
 
-        except Exception as e:
-            self.manejar_error(e, "cargar plazas de categoría")
-            self.plazas = []
-            self.total_plazas = 0
-            return rx.toast.error(f"Error al cargar plazas: {e}")
-        finally:
-            self.loading = False
+    async def _cargar_totales_contrato(self, contrato_id: int) -> None:
+        resumen = await plaza_service.calcular_totales_contrato(contrato_id)
+        self.total_plazas = resumen.total_plazas
+        self.plazas_vacantes = resumen.plazas_vacantes
+        self.plazas_ocupadas = resumen.plazas_ocupadas
+        self.plazas_suspendidas = resumen.plazas_suspendidas
+        self.plazas_canceladas = resumen.plazas_canceladas
+        self.plazas_categorizadas = resumen.plazas_categorizadas
+        self.plazas_sin_categoria = resumen.plazas_sin_categoria
+        self.cantidad_plazas_minima = resumen.cantidad_plazas_minima
+        self.cantidad_plazas_maxima = resumen.cantidad_plazas_maxima
+        self.plazas_desfase = resumen.plazas_desfase
 
-    def _actualizar_contadores(self):
-        """Actualiza los contadores de plazas por estatus"""
-        self.plazas_vacantes = len([p for p in self.plazas if p.get("estatus") == "VACANTE"])
-        self.plazas_ocupadas = len([p for p in self.plazas if p.get("estatus") == "OCUPADA"])
-        self.plazas_suspendidas = len([p for p in self.plazas if p.get("estatus") == "SUSPENDIDA"])
+    async def _recargar_contexto_actual(self) -> None:
+        contrato_id = self.contrato_id
+        if contrato_id:
+            await self.cargar_plazas_de_contrato(contrato_id)
+        await self.cargar_resumen_inicial()
+        await self.cargar_contratos_con_personal()
 
-    def filtrar_plazas(self):
-        """Método dummy para trigger de filtrado (el filtrado real es computed)"""
-        pass
-
-    def limpiar_filtros(self):
-        """Limpia todos los filtros"""
+    def _limpiar_contexto_contrato(self) -> None:
+        self.plazas = []
+        self.plaza_seleccionada = None
+        self.contrato_id = 0
+        self.contrato_codigo = ""
+        self.contrato_estatus = ""
+        self.contrato_seleccionado_id = ""
+        self.categoria_filtro_id = FILTRO_TODOS
+        self.total_plazas = 0
+        self.plazas_vacantes = 0
+        self.plazas_ocupadas = 0
+        self.plazas_suspendidas = 0
+        self.plazas_canceladas = 0
+        self.plazas_categorizadas = 0
+        self.plazas_sin_categoria = 0
+        self.cantidad_plazas_minima = 0
+        self.cantidad_plazas_maxima = 0
+        self.plazas_desfase = 0
         self.filtro_estatus = FILTRO_TODOS
         self.filtro_busqueda = ""
 
-    # ========================
-    # CARGA DE CONTRATOS Y CATEGORÍAS
-    # ========================
+    def _limpiar_formulario(self) -> None:
+        for campo, default in FORM_DEFAULTS.items():
+            setattr(self, f"form_{campo}", default)
+        self.limpiar_errores_campos(
+            [
+                "codigo",
+                "categoria_puesto_id",
+                "fecha_inicio",
+                "salario_mensual",
+                "cantidad",
+            ]
+        )
+        self.plaza_seleccionada = None
+
+    # =========================================================================
+    # CARGA DE DATOS
+    # =========================================================================
     async def cargar_contratos_con_personal(self):
-        """Carga contratos que tienen plazas pendientes por asignar"""
         self.cargando_contratos = True
         try:
-            # Solo contratos con categorías que tienen plazas pendientes
-            contratos = await plaza_service.obtener_contratos_con_plazas_pendientes(
-                empresa_id=self._empresa_filtro_actual(),
-            )
-            self.contratos_disponibles = contratos
+            contratos_disponibles: list[dict] = []
+            if self.es_contexto_portal and self.id_empresa_actual:
+                contratos = await contrato_service.obtener_por_empresa(
+                    self.id_empresa_actual,
+                    incluir_inactivos=False,
+                )
+                for contrato in contratos:
+                    estatus = str(getattr(contrato.estatus, "value", contrato.estatus))
+                    if contrato.tiene_personal and estatus == "ACTIVO":
+                        contratos_disponibles.append(
+                            {
+                                "id": contrato.id,
+                                "codigo": contrato.codigo,
+                                "estatus": estatus,
+                                "cantidad_plazas_minima": contrato.cantidad_plazas_minima,
+                                "cantidad_plazas_maxima": contrato.cantidad_plazas_maxima,
+                            }
+                        )
+            else:
+                contratos = await contrato_service.obtener_con_personal(
+                    solo_activos=False,
+                    limite=200,
+                )
+                for contrato in contratos:
+                    estatus = str(getattr(contrato.estatus, "value", contrato.estatus))
+                    if estatus in {"BORRADOR", "ACTIVO", "SUSPENDIDO"}:
+                        contratos_disponibles.append(contrato.model_dump(mode="json"))
 
+            self.contratos_disponibles = sorted(
+                contratos_disponibles,
+                key=lambda item: (item.get("codigo", ""), item.get("estatus", "")),
+            )
         except Exception as e:
             self.manejar_error(e, "cargar contratos")
             self.contratos_disponibles = []
@@ -571,102 +640,94 @@ class PlazasState(AuthState):
         finally:
             self.cargando_contratos = False
 
-    async def cargar_categorias_de_contrato(self, contrato_id: int):
-        """Carga las categorías con plazas pendientes de un contrato (para el selector)"""
+    async def cargar_categorias_catalogo(self):
         self.cargando_categorias = True
-        # NO establecer self.contrato_id aquí - solo se usa para cargar opciones del selector
-
         try:
-            contrato_entidad = await self._asegurar_acceso_contrato(contrato_id)
-            categorias_resumen = await contrato_categoria_service.obtener_resumen_de_contrato(
-                contrato_id
+            categorias = await categoria_puesto_service.obtener_todas(
+                incluir_inactivas=False,
+                limite=500,
             )
-
-            # Obtener conteo de plazas por categoría
-            from app.repositories.plaza_repository import SupabasePlazaRepository
-            repo = SupabasePlazaRepository()
-
-            categorias_con_pendientes = []
-            for c in categorias_resumen:
-                plazas_actuales = await repo.contar_por_contrato_categoria(c.id)
-                plazas_pendientes = c.cantidad_maxima - plazas_actuales
-
-                if plazas_pendientes > 0:
-                    categorias_con_pendientes.append({
-                        "id": c.id,
-                        "categoria_puesto_id": c.categoria_puesto_id,
-                        "categoria_clave": c.categoria_clave,
-                        "categoria_nombre": c.categoria_nombre,
-                        "cantidad_minima": c.cantidad_minima,
-                        "cantidad_maxima": c.cantidad_maxima,
-                        "plazas_actuales": plazas_actuales,
-                        "plazas_pendientes": plazas_pendientes,
-                    })
-
-            self.categorias_contrato = categorias_con_pendientes
-
-            # Obtener código del contrato
-            contrato_item = next(
-                (c for c in self.contratos_disponibles if c.get("id") == contrato_id),
-                None
-            )
-            if contrato_item:
-                self.contrato_codigo = contrato_item.get("codigo", "")
-            else:
-                self.contrato_codigo = contrato_entidad.codigo
-
+            self.categorias_catalogo = [
+                categoria.model_dump(mode="json") for categoria in categorias
+            ]
         except Exception as e:
+            self.categorias_catalogo = []
             self.manejar_error(e, "cargar categorías")
-            self.categorias_contrato = []
-            return rx.toast.error(f"Error al cargar categorías: {e}")
         finally:
             self.cargando_categorias = False
 
-    # ========================
-    # CARGA INICIAL
-    # ========================
     async def cargar_resumen_inicial(self):
-        """Carga el resumen de categorías que tienen plazas creadas (con skeleton)."""
-        self.loading = True
         try:
-            resumen = await plaza_service.obtener_resumen_categorias_con_plazas(
+            self.resumen_categorias = await plaza_service.obtener_resumen_categorias_con_plazas(
                 empresa_id=self._empresa_filtro_actual(),
             )
-            self.resumen_categorias = resumen
-
         except Exception as e:
             self.manejar_error(e, "cargar resumen")
             self.resumen_categorias = []
             return rx.toast.error(f"Error al cargar resumen: {e}")
+
+    async def cargar_plazas_de_contrato(self, contrato_id: int):
+        self.loading = True
+        try:
+            contrato = await self._asegurar_acceso_contrato(contrato_id)
+            plazas_resumen = await plaza_service.obtener_resumen_de_contrato(contrato_id)
+            self.plazas = [
+                self._serializar_plaza_resumen(plaza) for plaza in plazas_resumen
+            ]
+            self.contrato_id = contrato_id
+            self.contrato_codigo = contrato.codigo
+            self.contrato_estatus = str(
+                getattr(contrato.estatus, "value", contrato.estatus) or ""
+            )
+            self.contrato_seleccionado_id = str(contrato_id)
+
+            await self._cargar_totales_contrato(contrato_id)
+
+            opciones_validas = {item["value"] for item in self.opciones_categorias_contrato}
+            if self.categoria_filtro_id not in opciones_validas:
+                self.categoria_filtro_id = FILTRO_TODOS
+        except Exception as e:
+            self.manejar_error(e, "cargar plazas")
+            self._limpiar_contexto_contrato()
+            return rx.toast.error(f"Error al cargar plazas: {e}")
         finally:
             self.loading = False
 
+    async def seleccionar_contrato(self, contrato_id: int):
+        self.categoria_filtro_id = FILTRO_TODOS
+        await self.cargar_plazas_de_contrato(contrato_id)
+
+    async def seleccionar_resumen(self, item: dict):
+        categoria_id = item.get("categoria_puesto_id")
+        self.categoria_filtro_id = (
+            str(categoria_id) if categoria_id is not None else SIN_CATEGORIA_VALUE
+        )
+        await self.cargar_plazas_de_contrato(int(item["contrato_id"]))
+
+    def volver_a_resumen(self):
+        self._limpiar_contexto_contrato()
+        return PlazasState.cargar_resumen_inicial
+
     async def _fetch_desde_url(self):
-        """Fetch datos según query params de la URL (sin manejo de loading)."""
-        contrato_categoria_id = self.router.url.query_parameters.get("contrato_categoria_id", "")
+        await self.cargar_categorias_catalogo()
+        await self.cargar_contratos_con_personal()
+
         contrato_id = self.router.url.query_parameters.get("contrato_id", "")
+        categoria_puesto_id = self.router.url.query_parameters.get("categoria_puesto_id", "")
 
-        if not contrato_categoria_id and not contrato_id:
-            self._limpiar_estado()
+        if contrato_id:
+            try:
+                self.categoria_filtro_id = (
+                    categoria_puesto_id if categoria_puesto_id else FILTRO_TODOS
+                )
+                await self.cargar_plazas_de_contrato(int(contrato_id))
+                return
+            except ValueError:
+                self.categoria_filtro_id = FILTRO_TODOS
 
-        if contrato_categoria_id:
-            try:
-                cc_id = int(contrato_categoria_id)
-                await self.cargar_plazas_de_categoria(cc_id)
-            except ValueError:
-                pass
-        elif contrato_id:
-            try:
-                c_id = int(contrato_id)
-                await self.cargar_plazas_de_contrato(c_id)
-            except ValueError:
-                pass
-        else:
-            await self.cargar_resumen_inicial()
-            await self.cargar_contratos_con_personal()
+        await self.cargar_resumen_inicial()
 
     async def on_mount_plazas(self):
-        """Montaje de la página con skeleton centralizado."""
         if self.es_contexto_portal:
             resultado = await self.verificar_y_redirigir()
             if resultado:
@@ -689,138 +750,78 @@ class PlazasState(AuthState):
         async for _ in self._montar_pagina_auth(self._fetch_desde_url):
             yield
 
-    async def seleccionar_categoria_resumen(self, item: dict):
-        """Navega a las plazas de una categoría desde el resumen inicial"""
-        cc_id = item.get("contrato_categoria_id")
-        if cc_id:
-            self.contrato_categoria_id = cc_id
-            self.contrato_id = item.get("contrato_id", 0)
-            self.contrato_codigo = item.get("contrato_codigo", "")
-            self.categoria_nombre = item.get("categoria_nombre", "")
-            await self.cargar_plazas_de_categoria(cc_id)
-
-    def volver_a_resumen(self):
-        """Vuelve a la vista de resumen inicial"""
-        self._limpiar_estado()
-        return PlazasState.cargar_resumen_inicial
-
-    # ========================
-    # OPERACIONES CRUD
-    # ========================
-    async def abrir_modal_crear(self):
-        """Abrir modal para crear nueva plaza"""
-        try:
-            self._asegurar_permiso_operar_plazas()
-        except BusinessRuleError as e:
-            return rx.toast.error(str(e))
-
-        # Validar que tenemos contexto
-        if not self.contrato_categoria_id:
-            return rx.toast.error(
-                "Selecciona una categoría de contrato primero"
-            )
-
-        self._limpiar_formulario()
-        self.es_edicion = False
-        self.form_fecha_inicio = date.today().isoformat()
-
-        # Auto-generar el siguiente número de plaza
-        try:
-            from app.repositories.plaza_repository import SupabasePlazaRepository
-            repo = SupabasePlazaRepository()
-            siguiente_numero = await repo.obtener_siguiente_numero_plaza(
-                self.contrato_categoria_id
-            )
-            self.form_numero_plaza = str(siguiente_numero)
-        except Exception as e:
-            self.form_numero_plaza = "1"
-
-        self.mostrar_modal_plaza = True
-
+    # =========================================================================
+    # MODALES
+    # =========================================================================
     def abrir_modal_editar(self, plaza: dict):
-        """Abrir modal para editar plaza"""
         try:
             self._asegurar_permiso_operar_plazas()
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
 
         self._limpiar_formulario()
-        self.es_edicion = True
         self.plaza_seleccionada = plaza
         self._cargar_plaza_en_formulario(plaza)
         self.mostrar_modal_plaza = True
 
     def cerrar_modal_plaza(self):
-        """Cerrar modal de crear/editar"""
         self.mostrar_modal_plaza = False
         self._limpiar_formulario()
 
+    def abrir_modal_detalle(self, plaza: dict):
+        self.plaza_seleccionada = plaza
+        self.mostrar_modal_detalle = True
+
+    def cerrar_modal_detalle(self):
+        self.mostrar_modal_detalle = False
+        self.plaza_seleccionada = None
+
+    def abrir_confirmar_cancelar(self, plaza: dict):
+        self.plaza_seleccionada = plaza
+        self.mostrar_modal_confirmar_cancelar = True
+
+    def cerrar_confirmar_cancelar(self):
+        self.mostrar_modal_confirmar_cancelar = False
+        self.plaza_seleccionada = None
+
     def abrir_modal_crear_lote(self):
-        """Abrir modal para crear plazas en lote"""
         try:
             self._asegurar_permiso_operar_plazas()
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
 
-        # Validar que tenemos contexto
-        if not self.contrato_categoria_id:
-            return rx.toast.error(
-                "Selecciona una categoría de contrato primero"
-            )
+        if not self.tiene_contexto:
+            return rx.toast.error("Seleccione un contrato primero")
+        if self.vacantes_sin_categoria_disponibles == 0:
+            return rx.toast.error("No hay plazas vacantes sin categoría para operar")
 
         self._limpiar_formulario()
-        self.form_fecha_inicio = date.today().isoformat()
-        self.form_cantidad = "1"
+        self.form_cantidad = str(self.vacantes_sin_categoria_disponibles)
         self.mostrar_modal_crear_lote = True
 
     def cerrar_modal_crear_lote(self):
-        """Cerrar modal de crear en lote y limpiar selectores"""
         self.mostrar_modal_crear_lote = False
         self._limpiar_formulario()
-        # Limpiar selectores completamente
-        self.contrato_seleccionado_id = ""
-        self.categoria_seleccionada_id = ""
-        self.contrato_categoria_id = 0
-        self.contrato_id = 0
-        self.contrato_codigo = ""
-        self.categoria_nombre = ""
-        self.categorias_contrato = []
-
-    def abrir_modal_detalle(self, plaza: dict):
-        """Abrir modal de detalles"""
-        self.plaza_seleccionada = plaza
-        self.mostrar_modal_detalle = True
-
-    def cerrar_modal_detalle(self):
-        """Cerrar modal de detalles"""
-        self.mostrar_modal_detalle = False
-        self.plaza_seleccionada = None
-
-    def abrir_confirmar_cancelar(self, plaza: dict):
-        """Abrir modal de confirmación para cancelar"""
-        self.plaza_seleccionada = plaza
-        self.mostrar_modal_confirmar_cancelar = True
-
-    def cerrar_confirmar_cancelar(self):
-        """Cerrar modal de confirmación"""
-        self.mostrar_modal_confirmar_cancelar = False
-        self.plaza_seleccionada = None
 
     async def abrir_asignar_empleado(self, plaza: dict):
-        """Abrir modal para asignar empleado a una plaza"""
         try:
             self._asegurar_permiso_operar_plazas()
+            if not plaza.get("categoria_puesto_id"):
+                raise BusinessRuleError(
+                    "La plaza debe tener categoría antes de asignar un empleado"
+                )
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
 
         self.plaza_seleccionada = plaza
         self.empleado_seleccionado_id = ""
+        self.empleados_disponibles = []
         self.cargando_empleados = True
         self.mostrar_modal_asignar_empleado = True
 
         try:
-            # Cargar empleados activos
             from app.services import empleado_service
+
             if self.es_contexto_portal and self.id_empresa_actual:
                 empleados = await empleado_service.obtener_resumen_por_empresa(
                     empresa_id=self.id_empresa_actual,
@@ -832,21 +833,19 @@ class PlazasState(AuthState):
                     incluir_inactivos=False
                 )
 
-            # Obtener IDs de empleados ya asignados a plazas ocupadas
             empleados_asignados = await plaza_service.obtener_empleados_asignados(
                 empresa_id=self._empresa_filtro_actual(),
             )
             empleados_asignados_set = set(empleados_asignados)
 
-            # Filtrar solo empleados disponibles (no asignados a otra plaza)
             self.empleados_disponibles = [
                 {
-                    "id": e.id,
-                    "clave": e.clave,
-                    "nombre_completo": e.nombre_completo,
+                    "id": empleado.id,
+                    "clave": empleado.clave,
+                    "nombre_completo": empleado.nombre_completo,
                 }
-                for e in empleados
-                if e.id not in empleados_asignados_set
+                for empleado in empleados
+                if empleado.id not in empleados_asignados_set
             ]
         except Exception as e:
             self.manejar_error(e, "cargar empleados")
@@ -856,36 +855,31 @@ class PlazasState(AuthState):
             self.cargando_empleados = False
 
     def cerrar_modal_asignar_empleado(self):
-        """Cerrar modal de asignación de empleado"""
         self.mostrar_modal_asignar_empleado = False
         self.plaza_seleccionada = None
         self.empleado_seleccionado_id = ""
         self.empleados_disponibles = []
 
+    # =========================================================================
+    # OPERACIONES
+    # =========================================================================
     async def confirmar_asignar_empleado(self):
-        """Confirmar y ejecutar la asignación del empleado a la plaza"""
         if not self.plaza_seleccionada or not self.empleado_seleccionado_id:
             return rx.toast.error("Seleccione un empleado")
 
         self.saving = True
         try:
             self._asegurar_permiso_operar_plazas()
-            plaza_id = self.plaza_seleccionada["id"]
+            plaza_id = int(self.plaza_seleccionada["id"])
             await self._asegurar_acceso_plaza(plaza_id)
             empleado_id = self.parse_id(self.empleado_seleccionado_id)
+            if empleado_id is None:
+                raise BusinessRuleError("Seleccione un empleado válido")
 
             await plaza_service.asignar_empleado(plaza_id, empleado_id)
-
             self.cerrar_modal_asignar_empleado()
-
-            # Recargar plazas
-            if self.contrato_categoria_id:
-                await self.cargar_plazas_de_categoria(self.contrato_categoria_id)
-            elif self.contrato_id:
-                await self.cargar_plazas_de_contrato(self.contrato_id)
-
+            await self._recargar_contexto_actual()
             return rx.toast.success("Empleado asignado a la plaza")
-
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
         except Exception as e:
@@ -894,28 +888,40 @@ class PlazasState(AuthState):
             self.saving = False
 
     async def guardar_plaza(self):
-        """Guardar plaza (crear o actualizar)"""
+        if not self.plaza_seleccionada:
+            return rx.toast.error("No hay plaza seleccionada")
         if not self.puede_guardar:
             return rx.toast.error("Complete los campos requeridos")
 
         self.saving = True
         try:
             self._asegurar_permiso_operar_plazas()
-            if self.es_edicion:
-                mensaje = await self._actualizar_plaza()
-            else:
-                mensaje = await self._crear_plaza()
+            plaza_id = int(self.plaza_seleccionada["id"])
+            await self._asegurar_acceso_plaza(plaza_id)
 
+            plaza_update = PlazaUpdate(
+                codigo=self.form_codigo.strip() or None,
+                categoria_puesto_id=self.parse_id(self.form_categoria_puesto_id),
+                fecha_inicio=(
+                    date.fromisoformat(self.form_fecha_inicio)
+                    if self.form_fecha_inicio
+                    else None
+                ),
+                fecha_fin=(
+                    date.fromisoformat(self.form_fecha_fin)
+                    if self.form_fecha_fin
+                    else None
+                ),
+                salario_mensual=self._parse_decimal(self.form_salario_mensual),
+                estatus=EstatusPlaza(self.form_estatus) if self.form_estatus else None,
+                notas=self.form_notas.strip() or None,
+            )
+
+            await plaza_service.actualizar(plaza_id, plaza_update)
+            numero = self.plaza_seleccionada.get("numero_plaza")
             self.cerrar_modal_plaza()
-
-            # Recargar según contexto
-            if self.contrato_categoria_id:
-                await self.cargar_plazas_de_categoria(self.contrato_categoria_id)
-            elif self.contrato_id:
-                await self.cargar_plazas_de_contrato(self.contrato_id)
-
-            return rx.toast.success(mensaje)
-
+            await self._recargar_contexto_actual()
+            return rx.toast.success(f"Plaza #{numero} actualizada")
         except DuplicateError as e:
             return rx.toast.error(f"Número de plaza duplicado: {e}")
         except BusinessRuleError as e:
@@ -925,117 +931,62 @@ class PlazasState(AuthState):
         finally:
             self.saving = False
 
-    async def _crear_plaza(self) -> str:
-        """Crear nueva plaza"""
-        # Validar contexto
-        if not self.contrato_categoria_id:
-            raise BusinessRuleError("No hay categoría de contrato seleccionada")
-
-        await self._asegurar_acceso_contrato_categoria(self.contrato_categoria_id)
-
-        # Obtener el siguiente número si no está definido
-        numero_plaza = int(self.form_numero_plaza) if self.form_numero_plaza else 1
-
-        plaza_create = PlazaCreate(
-            contrato_categoria_id=self.contrato_categoria_id,
-            numero_plaza=numero_plaza,
-            codigo=self.form_codigo.strip(),
-            fecha_inicio=date.fromisoformat(self.form_fecha_inicio),
-            fecha_fin=date.fromisoformat(self.form_fecha_fin) if self.form_fecha_fin else None,
-            salario_mensual=self._parse_decimal(self.form_salario_mensual),
-            estatus=EstatusPlaza(self.form_estatus),
-            notas=self.form_notas.strip() or None,
-        )
-
-        plaza = await plaza_service.crear(plaza_create)
-        return f"Plaza #{plaza.numero_plaza} creada exitosamente"
-
-    async def _actualizar_plaza(self) -> str:
-        """Actualizar plaza existente"""
-        if not self.plaza_seleccionada:
-            raise BusinessRuleError("No hay plaza seleccionada")
-
-        await self._asegurar_acceso_plaza(self.plaza_seleccionada["id"])
-
-        plaza_update = PlazaUpdate(
-            codigo=self.form_codigo.strip() or None,
-            fecha_inicio=date.fromisoformat(self.form_fecha_inicio) if self.form_fecha_inicio else None,
-            fecha_fin=date.fromisoformat(self.form_fecha_fin) if self.form_fecha_fin else None,
-            salario_mensual=self._parse_decimal(self.form_salario_mensual),
-            estatus=EstatusPlaza(self.form_estatus) if self.form_estatus else None,
-            notas=self.form_notas.strip() or None,
-        )
-
-        await plaza_service.actualizar(
-            self.plaza_seleccionada["id"],
-            plaza_update
-        )
-
-        return f"Plaza #{self.plaza_seleccionada.get('numero_plaza')} actualizada"
-
     async def crear_plazas_lote(self):
-        """Crear múltiples plazas"""
-        if not self.contrato_categoria_id:
-            return rx.toast.error("No hay categoría seleccionada")
+        if not self.tiene_contexto:
+            return rx.toast.error("Seleccione un contrato primero")
 
-        if not self.form_salario_mensual:
-            return rx.toast.error("El salario es requerido")
+        self._validar_cantidad_lote()
+        if not self.puede_guardar_categorizacion_lote:
+            return rx.toast.error("Complete los campos requeridos")
 
         self.saving = True
         try:
             self._asegurar_permiso_operar_plazas()
-            await self._asegurar_acceso_contrato_categoria(self.contrato_categoria_id)
-            cantidad = int(self.form_cantidad) if self.form_cantidad else 1
-            salario = self._parse_decimal(self.form_salario_mensual)
-            fecha_inicio = date.fromisoformat(self.form_fecha_inicio) if self.form_fecha_inicio else date.today()
-            fecha_fin = date.fromisoformat(self.form_fecha_fin) if self.form_fecha_fin else None
+            await self._asegurar_acceso_contrato(self.contrato_id)
 
-            plazas = await plaza_service.crear_plazas_para_categoria(
-                contrato_categoria_id=self.contrato_categoria_id,
+            categoria_puesto_id = self.parse_id(self.form_categoria_puesto_id)
+            if categoria_puesto_id is None:
+                raise BusinessRuleError("Seleccione una categoría")
+
+            cantidad = int(self.form_cantidad or "0")
+            salario = (
+                self._parse_decimal(self.form_salario_mensual)
+                if self.form_salario_mensual
+                else None
+            )
+
+            plazas = await plaza_service.asignar_categoria_en_lote(
+                contrato_id=self.contrato_id,
+                categoria_puesto_id=categoria_puesto_id,
                 cantidad=cantidad,
                 salario_mensual=salario,
-                fecha_inicio=fecha_inicio,
-                fecha_fin=fecha_fin,
                 prefijo_codigo=self.form_prefijo_codigo.strip(),
             )
 
             self.cerrar_modal_crear_lote()
-
-            # Recargar datos
-            await self.cargar_resumen_inicial()
-            await self.cargar_contratos_con_personal()
-
-            return rx.toast.success(f"{len(plazas)} plazas creadas exitosamente")
-
+            await self._recargar_contexto_actual()
+            return rx.toast.success(f"{len(plazas)} plaza(s) categorizadas")
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
         except Exception as e:
-            return self.manejar_error_con_toast(e, "crear plazas en lote")
+            return self.manejar_error_con_toast(e, "categorizar plazas")
         finally:
             self.saving = False
 
     async def cancelar_plaza(self):
-        """Cancelar (soft delete) una plaza"""
         if not self.plaza_seleccionada:
-            return
+            return rx.toast.error("No hay plaza seleccionada")
 
         self.saving = True
         try:
             self._asegurar_permiso_operar_plazas()
-            await self._asegurar_acceso_plaza(self.plaza_seleccionada["id"])
-            await plaza_service.cancelar(self.plaza_seleccionada["id"])
+            plaza_id = int(self.plaza_seleccionada["id"])
+            await self._asegurar_acceso_plaza(plaza_id)
+            await plaza_service.cancelar(plaza_id)
+            numero = self.plaza_seleccionada.get("numero_plaza")
             self.cerrar_confirmar_cancelar()
-
-            # Recargar
-            if self.contrato_categoria_id:
-                await self.cargar_plazas_de_categoria(self.contrato_categoria_id)
-            elif self.contrato_id:
-                await self.cargar_plazas_de_contrato(self.contrato_id)
-
-            return rx.toast.success(
-                f"Plaza #{self.plaza_seleccionada.get('numero_plaza')} cancelada"
-            )
-
+            await self._recargar_contexto_actual()
+            return rx.toast.success(f"Plaza #{numero} cancelada")
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
         except Exception as e:
@@ -1043,166 +994,38 @@ class PlazasState(AuthState):
         finally:
             self.saving = False
 
-    # ========================
-    # OPERACIONES DE ESTADO
-    # ========================
-    async def asignar_empleado(self, plaza_id: int, empleado_id: int):
-        """Asignar empleado a una plaza"""
-        try:
-            self._asegurar_permiso_operar_plazas()
-            await self._asegurar_acceso_plaza(plaza_id)
-            await plaza_service.asignar_empleado(plaza_id, empleado_id)
-
-            if self.contrato_categoria_id:
-                await self.cargar_plazas_de_categoria(self.contrato_categoria_id)
-
-            return rx.toast.success("Empleado asignado a la plaza")
-
-        except BusinessRuleError as e:
-            return rx.toast.error(str(e))
-        except Exception as e:
-            return self.manejar_error_con_toast(e, "asignar empleado")
-
     async def liberar_plaza(self, plaza_id: int):
-        """Liberar una plaza ocupada"""
         try:
             self._asegurar_permiso_operar_plazas()
             await self._asegurar_acceso_plaza(plaza_id)
             await plaza_service.liberar_plaza(plaza_id)
-
-            if self.contrato_categoria_id:
-                await self.cargar_plazas_de_categoria(self.contrato_categoria_id)
-
+            await self._recargar_contexto_actual()
             return rx.toast.success("Plaza liberada")
-
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
         except Exception as e:
             return self.manejar_error_con_toast(e, "liberar plaza")
 
     async def suspender_plaza(self, plaza_id: int):
-        """Suspender una plaza"""
         try:
             self._asegurar_permiso_operar_plazas()
             await self._asegurar_acceso_plaza(plaza_id)
             await plaza_service.suspender_plaza(plaza_id)
-
-            if self.contrato_categoria_id:
-                await self.cargar_plazas_de_categoria(self.contrato_categoria_id)
-
+            await self._recargar_contexto_actual()
             return rx.toast.success("Plaza suspendida")
-
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
         except Exception as e:
             return self.manejar_error_con_toast(e, "suspender plaza")
 
     async def reactivar_plaza(self, plaza_id: int):
-        """Reactivar una plaza suspendida"""
         try:
             self._asegurar_permiso_operar_plazas()
             await self._asegurar_acceso_plaza(plaza_id)
             await plaza_service.reactivar_plaza(plaza_id)
-
-            if self.contrato_categoria_id:
-                await self.cargar_plazas_de_categoria(self.contrato_categoria_id)
-
+            await self._recargar_contexto_actual()
             return rx.toast.success("Plaza reactivada")
-
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
         except Exception as e:
             return self.manejar_error_con_toast(e, "reactivar plaza")
-
-    # ========================
-    # HELPERS
-    # ========================
-    def _limpiar_estado(self):
-        """Resetea todo el estado a valores iniciales"""
-        # Datos
-        self.plazas = []
-        self.plaza_seleccionada = None
-        self.total_plazas = 0
-
-        # Contexto
-        self.contrato_id = 0
-        self.contrato_codigo = ""
-        self.contrato_categoria_id = 0
-        self.categoria_nombre = ""
-
-        # Resumen inicial
-        self.resumen_categorias = []
-
-        # Selectores
-        self.contratos_disponibles = []
-        self.categorias_contrato = []
-        self.contrato_seleccionado_id = ""
-        self.categoria_seleccionada_id = ""
-        self.cargando_contratos = False
-        self.cargando_categorias = False
-
-        # Asignación de empleado
-        self.empleados_disponibles = []
-        self.empleado_seleccionado_id = ""
-        self.cargando_empleados = False
-
-        # Contadores
-        self.plazas_vacantes = 0
-        self.plazas_ocupadas = 0
-        self.plazas_suspendidas = 0
-
-        # Filtros
-        self.filtro_estatus = FILTRO_TODOS
-        self.filtro_busqueda = ""
-
-        # UI
-        self.mostrar_modal_plaza = False
-        self.mostrar_modal_detalle = False
-        self.mostrar_modal_confirmar_cancelar = False
-        self.mostrar_modal_crear_lote = False
-        self.mostrar_modal_asignar_empleado = False
-
-        # Formulario
-        self._limpiar_formulario()
-
-    def _limpiar_formulario(self):
-        """Limpia campos del formulario"""
-        for campo, default in FORM_DEFAULTS.items():
-            setattr(self, f"form_{campo}", default)
-        self._limpiar_errores()
-        self.plaza_seleccionada = None
-        self.es_edicion = False
-
-    def _limpiar_errores(self):
-        """Limpia todos los errores de validación"""
-        self.limpiar_errores_campos(
-            [
-                "numero_plaza",
-                "codigo",
-                "fecha_inicio",
-                "salario_mensual",
-                "cantidad",
-            ]
-        )
-
-    def _cargar_plaza_en_formulario(self, plaza: dict):
-        """Carga datos de plaza en el formulario"""
-        self.form_numero_plaza = str(plaza.get("numero_plaza", ""))
-        self.form_codigo = plaza.get("codigo", "")
-        self.form_empleado_id = str(plaza.get("empleado_id", "")) if plaza.get("empleado_id") else ""
-        fecha_inicio = plaza.get("fecha_inicio")
-        self.form_fecha_inicio = str(fecha_inicio) if fecha_inicio else ""
-        fecha_fin = plaza.get("fecha_fin")
-        self.form_fecha_fin = str(fecha_fin) if fecha_fin else ""
-        self.form_salario_mensual = str(plaza.get("salario_mensual", ""))
-        self.form_estatus = plaza.get("estatus", EstatusPlaza.VACANTE.value)
-        self.form_notas = plaza.get("notas", "") or ""
-
-    def _parse_decimal(self, value: str) -> Decimal:
-        """Parsea string a Decimal"""
-        if not value or value.strip() == "":
-            return Decimal("0")
-        try:
-            return Decimal(value.replace(",", "").replace("$", "").strip())
-        except:
-            return Decimal("0")

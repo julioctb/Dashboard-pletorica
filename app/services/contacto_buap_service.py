@@ -87,19 +87,14 @@ class ContactoBuapService(DirectSupabaseService):
             DatabaseError: Si hay error de BD
         """
         try:
-            result = self.supabase.table(self.tabla)\
-                .select('*')\
-                .eq('sede_id', sede_id)\
-                .eq('es_principal', True)\
-                .eq('estatus', 'ACTIVO')\
-                .limit(1)\
-                .execute()
-
-            if not result.data:
-                return None
-
-            return ContactoBuap(**result.data[0])
-
+            return self._fetch_one(
+                ContactoBuap,
+                filters={
+                    "sede_id": sede_id,
+                    "es_principal": True,
+                    "estatus": "ACTIVO",
+                },
+            )
         except Exception as e:
             logger.error(f"Error obteniendo contacto principal de sede {sede_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
@@ -209,10 +204,13 @@ class ContactoBuapService(DirectSupabaseService):
     async def _desmarcar_principal(self, sede_id: int, excluir_id: Optional[int] = None) -> None:
         """Desmarca el contacto principal actual de una sede."""
         try:
-            query = self.supabase.table(self.tabla)\
-                .update({'es_principal': False})\
-                .eq('sede_id', sede_id)\
-                .eq('es_principal', True)
+            query = self._apply_filters(
+                self.supabase.table(self.tabla).update({'es_principal': False}),
+                {
+                    "sede_id": sede_id,
+                    "es_principal": True,
+                },
+            )
 
             if excluir_id:
                 query = query.neq('id', excluir_id)

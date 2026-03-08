@@ -184,6 +184,22 @@ class SedesState(BaseState):
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
+    def _transformar_sede_state(self, sede: dict, mapa_nombres: dict[int, str]) -> dict:
+        data = self.serializar_item_state(sede)
+        if sede.sede_padre_id and sede.sede_padre_id in mapa_nombres:
+            data["sede_padre_nombre"] = mapa_nombres[sede.sede_padre_id]
+        else:
+            data["sede_padre_nombre"] = ""
+        if sede.ubicacion_fisica_id and sede.ubicacion_fisica_id in mapa_nombres:
+            data["ubicacion_fisica_nombre"] = mapa_nombres[sede.ubicacion_fisica_id]
+        else:
+            data["ubicacion_fisica_nombre"] = ""
+        try:
+            data["tipo_descripcion"] = TipoSede(data["tipo_sede"]).descripcion
+        except (ValueError, KeyError):
+            data["tipo_descripcion"] = data.get("tipo_sede", "")
+        return data
+
     async def _fetch_sedes(self):
         """Carga sedes desde BD (sin manejo de loading)."""
         try:
@@ -204,26 +220,13 @@ class SedesState(BaseState):
             # Crear mapa de nombres para resolver padre/ubicacion
             mapa_nombres = {s.id: s.nombre_corto or s.nombre for s in sedes}
 
-            # Convertir a dict con campos enriquecidos
-            self.sedes = []
-            for s in sedes:
-                d = s.model_dump(mode='json')
-                # Resolver nombres de relaciones
-                if s.sede_padre_id and s.sede_padre_id in mapa_nombres:
-                    d["sede_padre_nombre"] = mapa_nombres[s.sede_padre_id]
-                else:
-                    d["sede_padre_nombre"] = ""
-                if s.ubicacion_fisica_id and s.ubicacion_fisica_id in mapa_nombres:
-                    d["ubicacion_fisica_nombre"] = mapa_nombres[s.ubicacion_fisica_id]
-                else:
-                    d["ubicacion_fisica_nombre"] = ""
-                # Descripcion del tipo
-                try:
-                    d["tipo_descripcion"] = TipoSede(d["tipo_sede"]).descripcion
-                except (ValueError, KeyError):
-                    d["tipo_descripcion"] = d.get("tipo_sede", "")
-                self.sedes.append(d)
-
+            self.sedes = self.serializar_lista_state(
+                sedes,
+                transformar=lambda sede: self._transformar_sede_state(
+                    sede,
+                    mapa_nombres,
+                ),
+            )
             self.total_sedes = len(self.sedes)
 
         except Exception as e:

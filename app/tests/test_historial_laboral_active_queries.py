@@ -33,8 +33,20 @@ class FakeSupabaseTable:
         self._client.calls.append((self._table_name, "eq", field, value))
         return self
 
+    def not_(self):
+        self._client.calls.append((self._table_name, "not_"))
+        return self
+
     def is_(self, field, value):
         self._client.calls.append((self._table_name, "is_", field, value))
+        return self
+
+    def lte(self, field, value):
+        self._client.calls.append((self._table_name, "lte", field, value))
+        return self
+
+    def or_(self, value):
+        self._client.calls.append((self._table_name, "or_", value))
         return self
 
     def order(self, field, desc=False):
@@ -79,18 +91,21 @@ def _historial_calls(client: FakeSupabaseClient) -> list[tuple]:
 class TestHistorialLaboralActiveQueries:
     """Protege el criterio de vigencia basado en `fecha_fin`."""
 
-    def test_nomina_resuelve_salario_con_historial_vigente(self):
+    def test_nomina_resuelve_salario_desde_plazas_ocupadas_vigentes(self):
         client = FakeSupabaseClient(
             {
-                "historial_laboral": [
+                "contratos": [
+                    FakeResult([{"id": 101}]),
+                ],
+                "plazas": [
                     FakeResult(
                         [
-                            {"empleado_id": 1, "plaza_id": 10, "fecha_inicio": "2026-01-15"},
-                            {"empleado_id": 2, "plaza_id": None, "fecha_inicio": "2026-01-20"},
+                            {"id": 10, "empleado_id": 1, "salario_mensual": "9000", "fecha_inicio": "2026-01-15"},
+                            {"id": 11, "empleado_id": 2, "salario_mensual": None, "fecha_inicio": "2026-01-20"},
+                            {"id": 12, "empleado_id": 1, "salario_mensual": "8500", "fecha_inicio": "2025-12-01"},
                         ]
                     )
-                ],
-                "plazas": [FakeResult([{"id": 10, "salario_mensual": "9000"}])],
+                ]
             }
         )
         service = object.__new__(NominaPeriodoService)
@@ -98,15 +113,25 @@ class TestHistorialLaboralActiveQueries:
         service.tabla = "periodos_nomina"
         service.tabla_nom_emp = "nominas_empleado"
 
-        result = service._mapear_salario_diario_por_empleado([1, 2])
+        result = service._mapear_salario_diario_por_empleado(
+            empresa_id=7,
+            fecha_referencia="2026-01-31",
+        )
 
-        assert result == {1: 300.0}
-        historial_calls = _historial_calls(client)
-        assert ("historial_laboral", "is_", "fecha_fin", "null") in historial_calls
-        assert ("historial_laboral", "order", "fecha_inicio", True) in historial_calls
+        assert result == {1: 300.0, 2: 0.0}
+        plaza_calls = [call for call in client.calls if call[0] == "plazas"]
+        assert ("plazas", "in_", "contrato_id", [101]) in plaza_calls
+        assert ("plazas", "eq", "estatus", "OCUPADA") in plaza_calls
+        assert ("plazas", "lte", "fecha_inicio", "2026-01-31") in plaza_calls
+        assert (
+            "plazas",
+            "or_",
+            "fecha_fin.is.null,fecha_fin.gte.2026-01-31",
+        ) in plaza_calls
+        assert ("plazas", "order", "fecha_inicio", True) in plaza_calls
         assert not any(
             call[1] == "eq" and call[2] == "estatus"
-            for call in historial_calls
+            for call in _historial_calls(client)
         )
 
     def test_empleados_disponibles_ignora_historial_abierto_sin_plaza(self):

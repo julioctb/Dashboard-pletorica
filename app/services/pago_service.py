@@ -17,11 +17,13 @@ from app.entities import (
 )
 from app.repositories import SupabaseContratoRepository, SupabasePagoRepository
 from app.core.exceptions import NotFoundError, BusinessRuleError
+from app.services.base_service import BaseService
+from app.services.shared import merge_update_model
 
 logger = logging.getLogger(__name__)
 
 
-class PagoService:
+class PagoService(BaseService):
     """
     Servicio de aplicacion para pagos.
     Orquesta las operaciones de negocio delegando acceso a datos a los repositorios.
@@ -139,12 +141,7 @@ class PagoService:
             accion="modificar pagos de",
         )
 
-        datos_actualizados = pago_actual.model_dump()
-        for campo, valor in pago_update.model_dump(exclude_unset=True).items():
-            if valor is not None:
-                datos_actualizados[campo] = valor
-
-        pago_modificado = Pago(**datos_actualizados)
+        pago_modificado = merge_update_model(pago_actual, pago_update)
         return await self.repository.actualizar(pago_modificado)
 
     async def eliminar(self, pago_id: int) -> bool:

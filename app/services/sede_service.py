@@ -15,6 +15,7 @@ from app.entities import (
 )
 from app.core.enums import Estatus
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
+from app.repositories.shared import apply_pagination
 from app.services.direct_service import DirectSupabaseService
 
 logger = logging.getLogger(__name__)
@@ -82,17 +83,12 @@ class SedeService(DirectSupabaseService):
             DatabaseError: Si hay error de BD
         """
         try:
-            query = self._query()
-
-            if not incluir_inactivas:
-                query = query.eq('estatus', Estatus.ACTIVO.value)
-
+            query = self._apply_filters(
+                self._query(),
+                {"estatus": None if incluir_inactivas else Estatus.ACTIVO.value},
+            )
             query = query.order('nombre', desc=False)
-
-            if limite is None:
-                limite = 100
-
-            query = query.range(offset, offset + limite - 1)
+            query = apply_pagination(query, limite or 100, offset)
             return self._fetch_many(Sede, query)
 
         except Exception as e:
@@ -107,10 +103,13 @@ class SedeService(DirectSupabaseService):
             DatabaseError: Si hay error de BD
         """
         try:
-            query = self._query()\
-                .eq('sede_padre_id', sede_padre_id)\
-                .eq('estatus', Estatus.ACTIVO.value)\
-                .order('nombre')
+            query = self._apply_filters(
+                self._query(),
+                {
+                    "sede_padre_id": sede_padre_id,
+                    "estatus": Estatus.ACTIVO.value,
+                },
+            ).order('nombre')
             return self._fetch_many(Sede, query)
 
         except Exception as e:
@@ -188,11 +187,10 @@ class SedeService(DirectSupabaseService):
             DatabaseError: Si hay error de BD
         """
         try:
-            query = self.supabase.table(self.tabla).select('id', count='exact')
-
-            if not incluir_inactivas:
-                query = query.eq('estatus', Estatus.ACTIVO.value)
-
+            query = self._apply_filters(
+                self.supabase.table(self.tabla).select('id', count='exact'),
+                {"estatus": None if incluir_inactivas else Estatus.ACTIVO.value},
+            )
             result = query.execute()
             return result.count if result.count else 0
 
@@ -413,7 +411,10 @@ class SedeService(DirectSupabaseService):
     async def existe_codigo(self, codigo: str, excluir_id: Optional[int] = None) -> bool:
         """Verifica si un código ya existe."""
         try:
-            query = self.supabase.table(self.tabla).select('id').eq('codigo', codigo.upper())
+            query = self._apply_filters(
+                self.supabase.table(self.tabla).select('id'),
+                {"codigo": codigo.upper()},
+            )
 
             if excluir_id:
                 query = query.neq('id', excluir_id)

@@ -53,6 +53,15 @@ class TestQueryHelpers:
         assert result is query
         assert query.calls == [("eq", "estatus", "ACTIVO")]
 
+    def test_apply_eq_filters_conserva_false_y_cero(self):
+        query = FakeQuery()
+        result = apply_eq_filters(query, {"activo": False, "intentos": 0})
+        assert result is query
+        assert query.calls == [
+            ("eq", "activo", False),
+            ("eq", "intentos", 0),
+        ]
+
     def test_apply_eq_filters_sin_filters_regresa_query(self):
         query = FakeQuery()
         assert apply_eq_filters(query, None) is query

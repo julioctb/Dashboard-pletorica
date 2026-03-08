@@ -376,7 +376,7 @@ class EntregableDetallePersonal(BaseModel):
     
     id: Optional[int] = None
     entregable_id: int = Field(..., description="FK al entregable")
-    contrato_categoria_id: int = Field(..., description="FK a contrato_categorias")
+    categoria_puesto_id: int = Field(..., description="FK a categorias_puesto")
     
     cantidad_reportada: int = Field(default=0, ge=0)
     cantidad_validada: int = Field(default=0, ge=0)
@@ -407,7 +407,7 @@ class EntregableDetallePersonalCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
     
     entregable_id: int
-    contrato_categoria_id: int
+    categoria_puesto_id: int
     cantidad_reportada: int = Field(default=0, ge=0)
     cantidad_validada: int = Field(default=0, ge=0)
     tarifa_unitaria: Decimal = Field(..., ge=0)
@@ -421,7 +421,7 @@ class EntregableDetallePersonalResumen(BaseModel):
     
     id: int
     entregable_id: int
-    contrato_categoria_id: int
+    categoria_puesto_id: int
     cantidad_reportada: int
     cantidad_validada: int
     tarifa_unitaria: Decimal
@@ -429,16 +429,15 @@ class EntregableDetallePersonalResumen(BaseModel):
     
     categoria_clave: str = ""
     categoria_nombre: str = ""
-    cantidad_minima: int = 0
-    cantidad_maxima: int = 0
+    cantidad_esperada: int = 0
     
     @property
-    def cumple_minimo(self) -> bool:
-        return self.cantidad_validada >= self.cantidad_minima
+    def cumple_esperado(self) -> bool:
+        return self.cantidad_validada >= self.cantidad_esperada
     
     @property
-    def excede_maximo(self) -> bool:
-        return self.cantidad_validada > self.cantidad_maxima
+    def excede_esperado(self) -> bool:
+        return self.cantidad_validada > self.cantidad_esperada
 
 
 # =============================================================================

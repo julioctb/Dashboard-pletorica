@@ -177,11 +177,8 @@ class SupabaseHistorialLaboralRepository:
             result = self.supabase.table('plazas')\
                 .select('''
                     id, numero_plaza,
-                    contrato_categorias!inner(
-                        id,
-                        categorias_puesto!inner(nombre),
-                        contratos!inner(codigo, empresas!inner(nombre_comercial))
-                    )
+                    categorias_puesto:categoria_puesto_id(nombre),
+                    contratos!inner(codigo, empresas!inner(nombre_comercial))
                 ''')\
                 .eq('id', plaza_id)\
                 .execute()
@@ -190,9 +187,8 @@ class SupabaseHistorialLaboralRepository:
                 return None
 
             data = result.data[0]
-            cc = data.get('contrato_categorias', {})
-            cat = cc.get('categorias_puesto', {})
-            contrato = cc.get('contratos', {})
+            cat = data.get('categorias_puesto', {}) or {}
+            contrato = data.get('contratos', {}) or {}
             empresa = contrato.get('empresas', {})
 
             return {

@@ -65,11 +65,10 @@ class InstitucionService(DirectSupabaseService):
     ) -> List[InstitucionResumen]:
         """Lista todas las instituciones con conteo de empresas."""
         try:
-            query = self.supabase.table(self.tabla).select('*')
-
-            if solo_activas:
-                query = query.eq('activo', True)
-
+            query = self._apply_filters(
+                self._query(),
+                {"activo": True if solo_activas else None},
+            )
             result = query.order('nombre').execute()
 
             asignaciones = self.supabase.table(self.tabla_empresas)\

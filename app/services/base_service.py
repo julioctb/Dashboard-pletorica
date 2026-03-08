@@ -8,6 +8,7 @@ Proporciona:
 import logging
 
 from app.core.exceptions import BusinessRuleError
+from app.services.shared import merge_update_model
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +32,7 @@ class BaseService:
             Entidad con campos mergeados (sin persistir aun)
         """
         entidad = await repo.obtener_por_id(entity_id)
-        datos = update_model.model_dump(exclude_unset=True)
-        for campo, valor in datos.items():
-            if valor is not None:
-                setattr(entidad, campo, valor)
-        return entidad
+        return merge_update_model(entidad, update_model)
 
     async def _cambiar_estatus(self, entity_id, nuevo_estatus, repo, nombre_entidad):
         """

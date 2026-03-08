@@ -154,6 +154,16 @@ class Contrato(BaseModel):
         default=True,
         description="Si el contrato incluye asignación de personal"
     )
+    cantidad_plazas_minima: int = Field(
+        default=0,
+        ge=0,
+        description="Cantidad mínima de plazas requerida por el contrato"
+    )
+    cantidad_plazas_maxima: int = Field(
+        default=0,
+        ge=0,
+        description="Cantidad máxima de plazas materializadas/autorizadas para el contrato"
+    )
     
     # Estado
     estatus: EstatusContrato = Field(
@@ -209,6 +219,18 @@ class Contrato(BaseModel):
         if self.monto_minimo is not None and self.monto_maximo is not None:
             if self.monto_maximo < self.monto_minimo:
                 raise ValueError(MSG_MONTO_MAX_MENOR_MIN)
+
+        if self.cantidad_plazas_maxima < self.cantidad_plazas_minima:
+            raise ValueError(
+                "La cantidad máxima de plazas debe ser mayor o igual a la cantidad mínima"
+            )
+
+        if not self.tiene_personal and (
+            self.cantidad_plazas_minima != 0 or self.cantidad_plazas_maxima != 0
+        ):
+            raise ValueError(
+                "Los contratos sin personal no pueden tener cantidades de plazas configuradas"
+            )
 
         # Validaciones según tipo de contrato
         es_servicios = self.tipo_contrato == TipoContrato.SERVICIOS
@@ -353,6 +375,8 @@ class ContratoCreate(BaseModel):
     requiere_poliza: bool = False
     poliza_detalle: Optional[str] = Field(None, max_length=POLIZA_DETALLE_MAX)
     tiene_personal: bool = True
+    cantidad_plazas_minima: int = Field(default=0, ge=0)
+    cantidad_plazas_maxima: int = Field(default=0, ge=0)
     estatus: EstatusContrato = Field(default=EstatusContrato.BORRADOR)
     notas: Optional[str] = None
 
@@ -385,6 +409,8 @@ class ContratoUpdate(BaseModel):
     requiere_poliza: Optional[bool] = None
     poliza_detalle: Optional[str] = Field(None, max_length=POLIZA_DETALLE_MAX)
     tiene_personal: Optional[bool] = None
+    cantidad_plazas_minima: Optional[int] = Field(None, ge=0)
+    cantidad_plazas_maxima: Optional[int] = Field(None, ge=0)
     estatus: Optional[EstatusContrato] = None
     notas: Optional[str] = None
 
@@ -410,6 +436,8 @@ class ContratoResumen(BaseModel):
     monto_minimo: Optional[Decimal]
     monto_maximo: Optional[Decimal]
     tiene_personal: bool
+    cantidad_plazas_minima: int = 0
+    cantidad_plazas_maxima: int = 0
     estatus: EstatusContrato
     fecha_creacion: Optional[datetime]
     descripcion_objeto: Optional[str] = None
@@ -439,6 +467,8 @@ class ContratoResumen(BaseModel):
             monto_minimo=contrato.monto_minimo,
             monto_maximo=contrato.monto_maximo,
             tiene_personal=contrato.tiene_personal,
+            cantidad_plazas_minima=contrato.cantidad_plazas_minima,
+            cantidad_plazas_maxima=contrato.cantidad_plazas_maxima,
             estatus=contrato.estatus,
             fecha_creacion=contrato.fecha_creacion,
             descripcion_objeto=contrato.descripcion_objeto,

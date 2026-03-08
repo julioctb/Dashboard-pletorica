@@ -1,675 +1,328 @@
 """
 Servicio de aplicación para gestión de Plazas.
 
-Una Plaza es una instancia individual de un puesto dentro de un ContratoCategoría.
-Maneja la creación, asignación de empleados, y cambios de estado.
-
-Patrón de manejo de errores:
-- Las excepciones del repository se propagan (NotFoundError, DuplicateError, DatabaseError)
-- El servicio agrega validaciones de reglas de negocio (BusinessRuleError)
+Modelo plazas-first:
+- el contrato define cuántas plazas existen
+- cada plaza puede nacer sin categoría
+- la categoría se asigna desde el módulo de plazas
 """
-import logging
-from typing import List, Optional
-from decimal import Decimal
-from datetime import date
+from __future__ import annotations
 
+import logging
+from datetime import date
+from decimal import Decimal
+from typing import Optional
+
+from app.core.enums import EstatusPlaza
+from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.entities.plaza import (
     Plaza,
     PlazaCreate,
-    PlazaUpdate,
     PlazaResumen,
-    ResumenPlazasContrato,
+    PlazaUpdate,
     ResumenPlazasCategoria,
+    ResumenPlazasContrato,
 )
 from app.repositories.plaza_repository import SupabasePlazaRepository
-from app.core.enums import EstatusPlaza
-from app.core.exceptions import BusinessRuleError, NotFoundError
 
 logger = logging.getLogger(__name__)
 
 
 class PlazaService:
-    """
-    Servicio de aplicación para Plaza.
-    Orquesta las operaciones de negocio.
-    """
+    """Orquesta validaciones y operaciones de negocio sobre plazas."""
 
     def __init__(self, repository=None):
         if repository is None:
             repository = SupabasePlazaRepository()
         self.repository = repository
 
-    # ==========================================
-    # OPERACIONES DE LECTURA
-    # ==========================================
-
     async def obtener_por_id(self, id: int) -> Plaza:
-        """
-        Obtiene una plaza por su ID.
-
-        Raises:
-            NotFoundError: Si la plaza no existe
-            DatabaseError: Si hay error de BD
-        """
         return await self.repository.obtener_por_id(id)
-
-    async def obtener_por_contrato_categoria(
-        self,
-        contrato_categoria_id: int,
-        incluir_canceladas: bool = False
-    ) -> List[Plaza]:
-        """
-        Obtiene todas las plazas de una ContratoCategoria.
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        return await self.repository.obtener_por_contrato_categoria(
-            contrato_categoria_id,
-            incluir_canceladas
-        )
 
     async def obtener_por_contrato(
         self,
         contrato_id: int,
-        incluir_canceladas: bool = False
-    ) -> List[Plaza]:
-        """
-        Obtiene todas las plazas de un contrato.
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
-        return await self.repository.obtener_por_contrato(
-            contrato_id,
-            incluir_canceladas
-        )
+        incluir_canceladas: bool = False,
+    ) -> list[Plaza]:
+        return await self.repository.obtener_por_contrato(contrato_id, incluir_canceladas)
 
     async def obtener_por_estatus(
         self,
         estatus: EstatusPlaza,
-        limite: int = 100
-    ) -> List[PlazaResumen]:
-        """
-        Obtiene plazas por su estatus con datos enriquecidos.
-
-        Args:
-            estatus: Estatus de las plazas a buscar
-            limite: Máximo de resultados
-
-        Returns:
-            Lista de PlazaResumen con datos de categoría y contrato
-
-        Raises:
-            DatabaseError: Si hay error de BD
-        """
+        limite: int = 100,
+    ) -> list[PlazaResumen]:
         resumen_data = await self.repository.obtener_resumen_por_estatus(estatus, limite)
+        return [self._map_resumen(item) for item in resumen_data]
 
-        return [
-            PlazaResumen(
-                id=item['id'],
-                contrato_categoria_id=item['contrato_categoria_id'],
-                numero_plaza=item['numero_plaza'],
-                codigo=item.get('codigo', ''),
-                empleado_id=item.get('empleado_id'),
-                fecha_inicio=item['fecha_inicio'],
-                fecha_fin=item.get('fecha_fin'),
-                salario_mensual=Decimal(str(item['salario_mensual'])),
-                estatus=EstatusPlaza(item['estatus']),
-                notas=item.get('notas'),
-                contrato_id=item.get('contrato_id', 0),
-                contrato_codigo=item.get('contrato_codigo', ''),
-                categoria_puesto_id=item.get('categoria_puesto_id', 0),
-                categoria_clave=item.get('categoria_clave', ''),
-                categoria_nombre=item.get('categoria_nombre', ''),
-                empleado_nombre=item.get('empleado_nombre', ''),
-                empleado_curp=item.get('empleado_curp', ''),
-            )
-            for item in resumen_data
-        ]
-
-    async def obtener_vacantes_por_contrato_categoria(
-        self,
-        contrato_categoria_id: int
-    ) -> List[Plaza]:
-        """
-        Obtiene las plazas vacantes de una ContratoCategoria.
-        Útil para el dropdown de asignación de empleados.
-        """
-        return await self.repository.obtener_vacantes_por_contrato_categoria(
-            contrato_categoria_id
-        )
-
-    async def obtener_resumen_de_contrato(
-        self,
-        contrato_id: int
-    ) -> List[PlazaResumen]:
-        """
-        Obtiene resumen de plazas con datos enriquecidos.
-
-        Returns:
-            Lista de PlazaResumen ordenada por categoría y número de plaza
-        """
+    async def obtener_resumen_de_contrato(self, contrato_id: int) -> list[PlazaResumen]:
         resumen_data = await self.repository.obtener_resumen_por_contrato(contrato_id)
-
-        return [
-            PlazaResumen(
-                id=item['id'],
-                contrato_categoria_id=item['contrato_categoria_id'],
-                numero_plaza=item['numero_plaza'],
-                codigo=item.get('codigo', ''),
-                empleado_id=item.get('empleado_id'),
-                fecha_inicio=item['fecha_inicio'],
-                fecha_fin=item.get('fecha_fin'),
-                salario_mensual=Decimal(str(item['salario_mensual'])),
-                estatus=EstatusPlaza(item['estatus']),
-                notas=item.get('notas'),
-                contrato_id=item.get('contrato_id', 0),
-                contrato_codigo=item.get('contrato_codigo', ''),
-                categoria_puesto_id=item.get('categoria_puesto_id', 0),
-                categoria_clave=item.get('categoria_clave', ''),
-                categoria_nombre=item.get('categoria_nombre', ''),
-                empleado_nombre=item.get('empleado_nombre', ''),
-                empleado_curp=item.get('empleado_curp', ''),
-            )
-            for item in resumen_data
-        ]
+        return [self._map_resumen(item) for item in resumen_data]
 
     async def obtener_resumen_de_categoria(
         self,
-        contrato_categoria_id: int,
-        incluir_canceladas: bool = False
-    ) -> List[PlazaResumen]:
-        """
-        Obtiene resumen de plazas de una categoría con datos del empleado.
-
-        Returns:
-            Lista de PlazaResumen ordenada por número de plaza
-        """
-        resumen_data = await self.repository.obtener_resumen_por_contrato_categoria(
-            contrato_categoria_id,
-            incluir_canceladas
+        contrato_id: int,
+        categoria_puesto_id: int,
+        incluir_canceladas: bool = False,
+    ) -> list[PlazaResumen]:
+        resumen_data = await self.repository.obtener_resumen_por_categoria(
+            contrato_id,
+            categoria_puesto_id,
+            incluir_canceladas,
         )
-
-        return [
-            PlazaResumen(
-                id=item['id'],
-                contrato_categoria_id=item['contrato_categoria_id'],
-                numero_plaza=item['numero_plaza'],
-                codigo=item.get('codigo', ''),
-                empleado_id=item.get('empleado_id'),
-                fecha_inicio=item['fecha_inicio'],
-                fecha_fin=item.get('fecha_fin'),
-                salario_mensual=Decimal(str(item['salario_mensual'])),
-                estatus=EstatusPlaza(item['estatus']),
-                notas=item.get('notas'),
-                empleado_nombre=item.get('empleado_nombre', ''),
-                empleado_curp=item.get('empleado_curp', ''),
-            )
-            for item in resumen_data
-        ]
+        return [self._map_resumen(item) for item in resumen_data]
 
     async def calcular_totales_contrato(self, contrato_id: int) -> ResumenPlazasContrato:
-        """
-        Calcula los totales de plazas para un contrato.
-
-        Returns:
-            ResumenPlazasContrato con totales por estatus
-        """
         totales = await self.repository.obtener_totales_por_contrato(contrato_id)
-
         return ResumenPlazasContrato(
             contrato_id=contrato_id,
-            total_plazas=totales['total_plazas'],
-            plazas_vacantes=totales['plazas_vacantes'],
-            plazas_ocupadas=totales['plazas_ocupadas'],
-            plazas_suspendidas=totales['plazas_suspendidas'],
-            plazas_canceladas=totales['plazas_canceladas'],
-            costo_total_mensual=totales['costo_total_mensual'],
+            total_plazas=totales["total_plazas"],
+            plazas_vacantes=totales["plazas_vacantes"],
+            plazas_ocupadas=totales["plazas_ocupadas"],
+            plazas_suspendidas=totales["plazas_suspendidas"],
+            plazas_canceladas=totales["plazas_canceladas"],
+            plazas_categorizadas=totales["plazas_categorizadas"],
+            plazas_sin_categoria=totales["plazas_sin_categoria"],
+            cantidad_plazas_minima=totales["cantidad_plazas_minima"],
+            cantidad_plazas_maxima=totales["cantidad_plazas_maxima"],
+            plazas_desfase=totales["plazas_desfase"],
+            costo_total_mensual=totales["costo_total_mensual"],
         )
 
     async def obtener_resumen_categorias_con_plazas(
         self,
         empresa_id: Optional[int] = None,
-    ) -> List[dict]:
-        """
-        Obtiene un resumen de todas las categorías de contrato que tienen plazas.
-
-        Returns:
-            Lista de dicts con empresa, contrato, categoría y conteo de plazas
-        """
+    ) -> list[dict]:
         return await self.repository.obtener_resumen_categorias_con_plazas(empresa_id)
-
-    async def obtener_contratos_con_plazas_pendientes(
-        self,
-        empresa_id: Optional[int] = None,
-    ) -> List[dict]:
-        """
-        Obtiene contratos que tienen categorías con plazas pendientes por crear.
-
-        Returns:
-            Lista de dicts con datos del contrato
-        """
-        return await self.repository.obtener_contratos_con_plazas_pendientes(empresa_id)
 
     async def obtener_empleados_asignados(
         self,
         empresa_id: Optional[int] = None,
-    ) -> List[int]:
-        """
-        Obtiene los IDs de empleados que ya están asignados a una plaza ocupada.
-
-        Returns:
-            Lista de IDs de empleados asignados
-        """
+    ) -> list[int]:
         return await self.repository.obtener_empleados_asignados(empresa_id)
 
-    async def calcular_totales_categoria(
+    async def obtener_cantidad_esperada_por_categoria(
         self,
-        contrato_categoria_id: int
-    ) -> ResumenPlazasCategoria:
-        """
-        Calcula los totales de plazas para una ContratoCategoria.
+        contrato_id: int,
+        fecha_referencia: Optional[date] = None,
+    ) -> dict[int, int]:
+        return await self.repository.contar_vigentes_por_categoria(contrato_id, fecha_referencia)
 
-        Returns:
-            ResumenPlazasCategoria con totales y datos de la categoría
-        """
-        # Importar dentro del método para evitar imports circulares
-        from app.services import contrato_categoria_service
+    async def sincronizar_plazas_contrato(
+        self,
+        contrato_id: int,
+        cantidad_plazas_maxima: int,
+        fecha_inicio: date,
+    ) -> int:
+        """Materializa plazas vacantes sin categoría hasta alcanzar el máximo contractual."""
+        plazas_existentes = await self.repository.contar_por_contrato(contrato_id, incluir_canceladas=True)
+        faltantes = max(0, cantidad_plazas_maxima - plazas_existentes)
+        if faltantes == 0:
+            return 0
 
-        # Obtener datos de la contrato_categoria
-        cc = await contrato_categoria_service.obtener_por_id(contrato_categoria_id)
-        resumen_cc = await contrato_categoria_service.obtener_resumen_de_contrato(cc.contrato_id)
+        siguiente_numero = await self.repository.obtener_siguiente_numero_plaza(contrato_id)
+        creadas = 0
+        for offset in range(faltantes):
+            plaza = Plaza(
+                contrato_id=contrato_id,
+                categoria_puesto_id=None,
+                numero_plaza=siguiente_numero + offset,
+                codigo="",
+                empleado_id=None,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=None,
+                salario_mensual=Decimal("0"),
+                estatus=EstatusPlaza.VACANTE,
+                notas="Generada automáticamente desde el contrato",
+            )
+            await self.repository.crear(plaza)
+            creadas += 1
 
-        # Buscar la categoría específica en el resumen
-        categoria_data = next(
-            (r for r in resumen_cc if r.id == contrato_categoria_id),
-            None
-        )
-
-        # Calcular totales de plazas
-        totales = await self.repository.obtener_totales_por_contrato_categoria(
-            contrato_categoria_id
-        )
-
-        return ResumenPlazasCategoria(
-            contrato_categoria_id=contrato_categoria_id,
-            categoria_clave=categoria_data.categoria_clave if categoria_data else '',
-            categoria_nombre=categoria_data.categoria_nombre if categoria_data else '',
-            cantidad_minima=cc.cantidad_minima,
-            cantidad_maxima=cc.cantidad_maxima,
-            total_plazas=totales['total_plazas'],
-            plazas_vacantes=totales['plazas_vacantes'],
-            plazas_ocupadas=totales['plazas_ocupadas'],
-            plazas_suspendidas=totales['plazas_suspendidas'],
-            costo_total_mensual=totales['costo_total_mensual'],
-        )
-
-    # ==========================================
-    # OPERACIONES DE ESCRITURA
-    # ==========================================
+        logger.info(f"Sincronizadas {creadas} plazas para contrato {contrato_id}")
+        return creadas
 
     async def crear(self, plaza_create: PlazaCreate) -> Plaza:
-        """
-        Crea una nueva plaza.
-
-        Validaciones:
-        - La ContratoCategoria debe existir
-        - El número de plaza no puede exceder cantidad_maxima
-        - El código debe ser único si se proporciona
-
-        Raises:
-            BusinessRuleError: Si no cumple reglas de negocio
-            DuplicateError: Si el número de plaza ya existe
-            DatabaseError: Si hay error de BD
-        """
-        await self._validar_creacion_plaza(plaza_create)
-
+        await self._validar_limite_contrato(plaza_create.contrato_id, nueva_cantidad=1)
+        if plaza_create.categoria_puesto_id is not None:
+            await self._validar_categoria_activa(plaza_create.categoria_puesto_id)
         plaza = Plaza(**plaza_create.model_dump())
-
-        logger.info(
-            f"Creando plaza: contrato_categoria={plaza.contrato_categoria_id}, "
-            f"numero={plaza.numero_plaza}"
-        )
-
         return await self.repository.crear(plaza)
 
-    async def actualizar(
-        self,
-        id: int,
-        plaza_update: PlazaUpdate
-    ) -> Plaza:
-        """
-        Actualiza una plaza existente.
-
-        No permite cambiar contrato_categoria_id ni numero_plaza.
-
-        Raises:
-            NotFoundError: Si la plaza no existe
-            BusinessRuleError: Si la operación no es válida
-            DatabaseError: Si hay error de BD
-        """
-        plaza_actual = await self.repository.obtener_por_id(id)
-
-        datos_actualizados = plaza_update.model_dump(exclude_unset=True)
-
-        # Validar cambio de estatus si se incluye
-        if 'estatus' in datos_actualizados and datos_actualizados['estatus'] is not None:
-            nuevo_estatus = datos_actualizados['estatus']
-            self._validar_transicion_estatus(plaza_actual.estatus, nuevo_estatus)
-
-        for campo, valor in datos_actualizados.items():
-            if valor is not None:
-                setattr(plaza_actual, campo, valor)
-
-        logger.info(f"Actualizando plaza ID {id}")
-
-        return await self.repository.actualizar(plaza_actual)
-
-    async def cancelar(self, id: int) -> Plaza:
-        """
-        Cancela una plaza (Soft Delete).
-
-        Libera el empleado asociado si existe.
-
-        Raises:
-            NotFoundError: Si la plaza no existe
-            BusinessRuleError: Si la plaza ya está cancelada
-            DatabaseError: Si hay error de BD
-        """
+    async def actualizar(self, id: int, plaza_update: PlazaUpdate) -> Plaza:
         plaza = await self.repository.obtener_por_id(id)
+        cambios = plaza_update.model_dump(exclude_unset=True)
+        categoria_final = cambios.get("categoria_puesto_id", plaza.categoria_puesto_id)
+        if categoria_final is not None:
+            await self._validar_categoria_activa(categoria_final)
 
-        if not plaza.puede_cancelar():
-            raise BusinessRuleError("La plaza ya está cancelada")
+        for campo, valor in cambios.items():
+            setattr(plaza, campo, valor)
 
-        logger.info(
-            f"Cancelando plaza: id={id}, contrato_categoria={plaza.contrato_categoria_id}"
-        )
-
-        return await self.repository.cancelar(id)
-
-    # ==========================================
-    # OPERACIONES DE ESTADO
-    # ==========================================
-
-    async def asignar_empleado(
-        self,
-        plaza_id: int,
-        empleado_id: int
-    ) -> Plaza:
-        """
-        Asigna un empleado a una plaza vacante.
-
-        Raises:
-            NotFoundError: Si la plaza no existe
-            BusinessRuleError: Si la plaza no está vacante
-        """
-        plaza = await self.repository.obtener_por_id(plaza_id)
-
-        if not plaza.puede_ocupar():
+        if plaza.categoria_puesto_id is None and plaza.empleado_id is not None:
             raise BusinessRuleError(
-                f"La plaza no está vacante (estatus actual: {plaza.estatus.descripcion})"
+                "No se puede dejar una plaza ocupada sin categoría asignada"
             )
 
+        if plaza.estatus == EstatusPlaza.OCUPADA and plaza.empleado_id is None:
+            raise BusinessRuleError(
+                "No se puede marcar una plaza como ocupada sin empleado asignado"
+            )
+
+        if plaza.empleado_id is not None and plaza.estatus != EstatusPlaza.OCUPADA:
+            raise BusinessRuleError(
+                "Una plaza con empleado asignado debe permanecer en estatus OCUPADA"
+            )
+
+        return await self.repository.actualizar(plaza)
+
+    async def cancelar(self, id: int) -> Plaza:
+        plaza = await self.repository.obtener_por_id(id)
+        if plaza.estatus == EstatusPlaza.CANCELADA:
+            raise BusinessRuleError("La plaza ya está cancelada")
+        plaza.estatus = EstatusPlaza.CANCELADA
+        plaza.empleado_id = None
+        return await self.repository.actualizar(plaza)
+
+    async def asignar_categoria_en_lote(
+        self,
+        contrato_id: int,
+        categoria_puesto_id: int,
+        cantidad: int,
+        salario_mensual: Optional[Decimal] = None,
+        prefijo_codigo: str = "",
+    ) -> list[Plaza]:
+        if cantidad <= 0:
+            raise BusinessRuleError("La cantidad debe ser mayor a cero")
+        await self._validar_categoria_activa(categoria_puesto_id)
+
+        vacantes = await self.repository.obtener_vacantes_sin_categoria(contrato_id)
+        if len(vacantes) < cantidad:
+            raise BusinessRuleError(
+                f"No hay suficientes plazas vacantes sin categoría. Disponibles: {len(vacantes)}"
+            )
+
+        actualizadas: list[Plaza] = []
+        prefijo_normalizado = prefijo_codigo.strip().upper()
+        for plaza in vacantes[:cantidad]:
+            plaza.categoria_puesto_id = categoria_puesto_id
+            if salario_mensual is not None:
+                plaza.salario_mensual = salario_mensual
+            if prefijo_normalizado:
+                plaza.codigo = f"{prefijo_normalizado}-{plaza.numero_plaza:03d}"
+            actualizadas.append(await self.repository.actualizar(plaza))
+
+        return actualizadas
+
+    async def asignar_empleado(self, plaza_id: int, empleado_id: int) -> Plaza:
+        plaza = await self.repository.obtener_por_id(plaza_id)
+        if plaza.categoria_puesto_id is None:
+            raise BusinessRuleError("La plaza debe tener categoría antes de asignar un empleado")
+        if not plaza.puede_asignar_empleado():
+            raise BusinessRuleError("La plaza no está disponible para asignación")
         plaza.empleado_id = empleado_id
         plaza.estatus = EstatusPlaza.OCUPADA
-
-        logger.info(f"Asignando empleado {empleado_id} a plaza {plaza_id}")
-
         return await self.repository.actualizar(plaza)
 
     async def liberar_plaza(self, plaza_id: int) -> Plaza:
-        """
-        Libera una plaza ocupada (la vuelve vacante).
-
-        Raises:
-            NotFoundError: Si la plaza no existe
-            BusinessRuleError: Si la plaza no está ocupada
-        """
         plaza = await self.repository.obtener_por_id(plaza_id)
-
-        if not plaza.esta_ocupada():
-            raise BusinessRuleError(
-                f"La plaza no está ocupada (estatus actual: {plaza.estatus.descripcion})"
-            )
-
+        if plaza.estatus != EstatusPlaza.OCUPADA:
+            raise BusinessRuleError("Solo se pueden liberar plazas ocupadas")
         plaza.empleado_id = None
         plaza.estatus = EstatusPlaza.VACANTE
-
-        logger.info(f"Liberando plaza {plaza_id}")
-
         return await self.repository.actualizar(plaza)
 
     async def suspender_plaza(self, plaza_id: int) -> Plaza:
-        """
-        Suspende una plaza.
-
-        Libera el empleado si está ocupada.
-
-        Raises:
-            NotFoundError: Si la plaza no existe
-            BusinessRuleError: Si la plaza no puede ser suspendida
-        """
         plaza = await self.repository.obtener_por_id(plaza_id)
-
         if not plaza.puede_suspender():
-            raise BusinessRuleError(
-                f"No se puede suspender una plaza en estatus {plaza.estatus.descripcion}"
-            )
-
-        plaza.empleado_id = None
+            raise BusinessRuleError("La plaza no se puede suspender en su estatus actual")
         plaza.estatus = EstatusPlaza.SUSPENDIDA
-
-        logger.info(f"Suspendiendo plaza {plaza_id}")
-
         return await self.repository.actualizar(plaza)
 
     async def reactivar_plaza(self, plaza_id: int) -> Plaza:
-        """
-        Reactiva una plaza suspendida (la vuelve vacante).
-
-        Raises:
-            NotFoundError: Si la plaza no existe
-            BusinessRuleError: Si la plaza no puede ser reactivada
-        """
         plaza = await self.repository.obtener_por_id(plaza_id)
-
         if not plaza.puede_reactivar():
-            raise BusinessRuleError(
-                f"Solo se pueden reactivar plazas suspendidas "
-                f"(estatus actual: {plaza.estatus.descripcion})"
-            )
-
+            raise BusinessRuleError("Solo se pueden reactivar plazas suspendidas")
         plaza.estatus = EstatusPlaza.VACANTE
-
-        logger.info(f"Reactivando plaza {plaza_id}")
-
         return await self.repository.actualizar(plaza)
 
-    # ==========================================
-    # OPERACIONES EN LOTE
-    # ==========================================
-
-    async def crear_plazas_para_categoria(
+    async def obtener_resumen_categoria(
         self,
-        contrato_categoria_id: int,
-        cantidad: int,
-        salario_mensual: Decimal,
-        fecha_inicio: date,
-        fecha_fin: Optional[date] = None,
-        prefijo_codigo: str = ""
-    ) -> List[Plaza]:
-        """
-        Crea múltiples plazas para una ContratoCategoria.
+        contrato_id: int,
+        categoria_puesto_id: int,
+        fecha_referencia: Optional[date] = None,
+    ) -> ResumenPlazasCategoria:
+        plazas = await self.obtener_resumen_de_categoria(contrato_id, categoria_puesto_id)
+        cantidades = await self.obtener_cantidad_esperada_por_categoria(contrato_id, fecha_referencia)
+        cantidad_esperada = cantidades.get(categoria_puesto_id, 0)
 
-        Args:
-            contrato_categoria_id: ID de la ContratoCategoria
-            cantidad: Número de plazas a crear
-            salario_mensual: Salario para todas las plazas
-            fecha_inicio: Fecha de inicio de las plazas
-            fecha_fin: Fecha de fin (opcional)
-            prefijo_codigo: Prefijo para generar códigos (ej: "JAR" → JAR-001)
-
-        Returns:
-            Lista de plazas creadas
-
-        Raises:
-            BusinessRuleError: Si la cantidad excede el máximo permitido
-        """
-        # Importar dentro del método para evitar imports circulares
-        from app.services import contrato_categoria_service
-
-        # Validar que la ContratoCategoria existe
-        cc = await contrato_categoria_service.obtener_por_id(contrato_categoria_id)
-
-        # Validar cantidad máxima
-        plazas_existentes = await self.repository.contar_por_contrato_categoria(
-            contrato_categoria_id
-        )
-
-        if plazas_existentes + cantidad > cc.cantidad_maxima:
-            raise BusinessRuleError(
-                f"No se pueden crear {cantidad} plazas. "
-                f"Ya existen {plazas_existentes} y el máximo es {cc.cantidad_maxima}"
-            )
-
-        # Obtener siguiente número de plaza
-        siguiente_numero = await self.repository.obtener_siguiente_numero_plaza(
-            contrato_categoria_id
-        )
-
-        plazas_creadas = []
-
-        for i in range(cantidad):
-            numero_plaza = siguiente_numero + i
-            codigo = f"{prefijo_codigo}-{numero_plaza:03d}" if prefijo_codigo else ""
-
-            plaza_create = PlazaCreate(
-                contrato_categoria_id=contrato_categoria_id,
-                numero_plaza=numero_plaza,
-                codigo=codigo,
-                fecha_inicio=fecha_inicio,
-                fecha_fin=fecha_fin,
-                salario_mensual=salario_mensual,
-                estatus=EstatusPlaza.VACANTE,
-            )
-
-            plaza = Plaza(**plaza_create.model_dump())
-            plaza_creada = await self.repository.crear(plaza)
-            plazas_creadas.append(plaza_creada)
-
-        logger.info(
-            f"Creadas {len(plazas_creadas)} plazas para contrato_categoria {contrato_categoria_id}"
-        )
-
-        return plazas_creadas
-
-    async def cancelar_plazas_de_categoria(
-        self,
-        contrato_categoria_id: int
-    ) -> int:
-        """
-        Cancela todas las plazas de una ContratoCategoria.
-
-        Returns:
-            Cantidad de plazas canceladas
-        """
-        plazas = await self.repository.obtener_por_contrato_categoria(
-            contrato_categoria_id,
-            incluir_canceladas=False
-        )
-
-        canceladas = 0
+        categoria_clave = ""
+        categoria_nombre = ""
+        total_plazas = len(plazas)
+        vacantes = 0
+        ocupadas = 0
+        suspendidas = 0
+        costo_total = Decimal("0")
         for plaza in plazas:
-            if plaza.puede_cancelar():
-                await self.repository.cancelar(plaza.id)
-                canceladas += 1
+            categoria_clave = plaza.categoria_clave or categoria_clave
+            categoria_nombre = plaza.categoria_nombre or categoria_nombre
+            if plaza.estatus == EstatusPlaza.VACANTE:
+                vacantes += 1
+            elif plaza.estatus == EstatusPlaza.OCUPADA:
+                ocupadas += 1
+            elif plaza.estatus == EstatusPlaza.SUSPENDIDA:
+                suspendidas += 1
+            costo_total += plaza.salario_mensual
 
-        logger.info(
-            f"Canceladas {canceladas} plazas de contrato_categoria {contrato_categoria_id}"
+        return ResumenPlazasCategoria(
+            contrato_id=contrato_id,
+            categoria_puesto_id=categoria_puesto_id,
+            categoria_clave=categoria_clave,
+            categoria_nombre=categoria_nombre,
+            cantidad_esperada=cantidad_esperada,
+            total_plazas=total_plazas,
+            plazas_vacantes=vacantes,
+            plazas_ocupadas=ocupadas,
+            plazas_suspendidas=suspendidas,
+            costo_total_mensual=costo_total,
         )
 
-        return canceladas
+    async def _validar_limite_contrato(self, contrato_id: int, nueva_cantidad: int = 0) -> None:
+        from app.services import contrato_service
 
-    # ==========================================
-    # VALIDACIONES DE NEGOCIO (privadas)
-    # ==========================================
-
-    async def _validar_creacion_plaza(self, plaza_create: PlazaCreate) -> None:
-        """
-        Valida que se puede crear la plaza.
-
-        Reglas:
-        - La ContratoCategoria debe existir
-        - El número de plaza no puede exceder cantidad_maxima
-        """
-        # Importar dentro del método para evitar imports circulares
-        from app.services import contrato_categoria_service
-
-        # Validar que la ContratoCategoria existe
-        try:
-            cc = await contrato_categoria_service.obtener_por_id(
-                plaza_create.contrato_categoria_id
-            )
-        except NotFoundError:
+        contrato = await contrato_service.obtener_por_id(contrato_id)
+        plazas_existentes = await self.repository.contar_por_contrato(contrato_id, incluir_canceladas=True)
+        if contrato.cantidad_plazas_maxima and plazas_existentes + nueva_cantidad > contrato.cantidad_plazas_maxima:
             raise BusinessRuleError(
-                f"La ContratoCategoria con ID {plaza_create.contrato_categoria_id} no existe"
+                f"Ya se alcanzó el máximo contractual de plazas ({contrato.cantidad_plazas_maxima})"
             )
 
-        # Validar que no excede el máximo
-        plazas_existentes = await self.repository.contar_por_contrato_categoria(
-            plaza_create.contrato_categoria_id
+    async def _validar_categoria_activa(self, categoria_puesto_id: int) -> None:
+        from app.services import categoria_puesto_service
+
+        categoria = await categoria_puesto_service.obtener_por_id(categoria_puesto_id)
+        if not categoria.esta_activo():
+            raise BusinessRuleError(
+                f"La categoría '{categoria.nombre}' no está activa"
+            )
+
+    def _map_resumen(self, item: dict) -> PlazaResumen:
+        return PlazaResumen(
+            id=item["id"],
+            contrato_id=item["contrato_id"],
+            categoria_puesto_id=item.get("categoria_puesto_id"),
+            numero_plaza=item["numero_plaza"],
+            codigo=item.get("codigo", ""),
+            empleado_id=item.get("empleado_id"),
+            fecha_inicio=item["fecha_inicio"],
+            fecha_fin=item.get("fecha_fin"),
+            salario_mensual=Decimal(str(item["salario_mensual"])),
+            estatus=EstatusPlaza(item["estatus"]),
+            notas=item.get("notas"),
+            contrato_codigo=item.get("contrato_codigo", ""),
+            categoria_clave=item.get("categoria_clave", ""),
+            categoria_nombre=item.get("categoria_nombre", "Sin categoría"),
+            empleado_nombre=item.get("empleado_nombre", ""),
+            empleado_curp=item.get("empleado_curp", ""),
         )
 
-        if plazas_existentes >= cc.cantidad_maxima:
-            raise BusinessRuleError(
-                f"Ya se alcanzó el máximo de plazas ({cc.cantidad_maxima}) "
-                f"para esta categoría"
-            )
-
-    def _validar_transicion_estatus(
-        self,
-        estatus_actual: EstatusPlaza,
-        nuevo_estatus: EstatusPlaza
-    ) -> None:
-        """
-        Valida que la transición de estatus es válida.
-
-        Transiciones permitidas:
-        - VACANTE → OCUPADA, SUSPENDIDA, CANCELADA
-        - OCUPADA → VACANTE, SUSPENDIDA, CANCELADA
-        - SUSPENDIDA → VACANTE, CANCELADA
-        - CANCELADA → (ninguna, es estado final)
-        """
-        transiciones_validas = {
-            EstatusPlaza.VACANTE: {
-                EstatusPlaza.OCUPADA,
-                EstatusPlaza.SUSPENDIDA,
-                EstatusPlaza.CANCELADA
-            },
-            EstatusPlaza.OCUPADA: {
-                EstatusPlaza.VACANTE,
-                EstatusPlaza.SUSPENDIDA,
-                EstatusPlaza.CANCELADA
-            },
-            EstatusPlaza.SUSPENDIDA: {
-                EstatusPlaza.VACANTE,
-                EstatusPlaza.CANCELADA
-            },
-            EstatusPlaza.CANCELADA: set(),  # No se puede salir de CANCELADA
-        }
-
-        permitidas = transiciones_validas.get(estatus_actual, set())
-
-        if nuevo_estatus not in permitidas:
-            raise BusinessRuleError(
-                f"No se puede cambiar de {estatus_actual.descripcion} "
-                f"a {nuevo_estatus.descripcion}"
-            )
-
-
-# ==========================================
-# SINGLETON
-# ==========================================
 
 plaza_service = PlazaService()

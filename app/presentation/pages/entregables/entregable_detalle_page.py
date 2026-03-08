@@ -305,9 +305,9 @@ def _fila_detalle_personal(detalle: dict) -> rx.Component:
             rx.hstack(
                 rx.text(detalle["cantidad_validada"], weight="medium"),
                 rx.cond(
-                    detalle["cumple_minimo"],
+                    detalle["cumple_esperado"],
                     rx.cond(
-                        detalle["excede_maximo"],
+                        detalle["excede_esperado"],
                         rx.icon("triangle-alert", size=14, color=Colors.WARNING),
                         rx.icon("check", size=14, color=Colors.SUCCESS),
                     ),
@@ -318,7 +318,7 @@ def _fila_detalle_personal(detalle: dict) -> rx.Component:
             ),
         ),
         rx.table.cell(
-            rx.text(f"({detalle['cantidad_minima']} - {detalle['cantidad_maxima']})", size="1", color=Colors.TEXT_MUTED),
+            rx.text(f"Esperado: {detalle['cantidad_esperada']}", size="1", color=Colors.TEXT_MUTED),
         ),
         rx.table.cell(rx.text(f"${detalle['tarifa_unitaria']}")),
         rx.table.cell(rx.text(f"${detalle['subtotal']}", weight="medium")),

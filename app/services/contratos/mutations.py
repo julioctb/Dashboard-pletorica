@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from app.core.exceptions import BusinessRuleError
 from app.entities import Contrato, ContratoCreate, ContratoUpdate, EstatusContrato
+from app.services.shared import merge_update_model
 
 if TYPE_CHECKING:
     from app.services.contrato_service import ContratoService
@@ -19,7 +20,9 @@ class ContratoMutationService:
 
     async def crear(self, contrato_create: ContratoCreate) -> Contrato:
         contrato = Contrato(**contrato_create.model_dump())
-        return await self.root.repository.crear(contrato)
+        creado = await self.root.repository.crear(contrato)
+        await self._sincronizar_plazas(creado)
+        return creado
 
     async def crear_con_codigo_auto(
         self,
@@ -35,7 +38,9 @@ class ContratoMutationService:
         datos = contrato_create.model_dump()
         datos["codigo"] = codigo
         contrato = Contrato(**datos)
-        return await self.root.repository.crear(contrato)
+        creado = await self.root.repository.crear(contrato)
+        await self._sincronizar_plazas(creado)
+        return creado
 
     async def generar_codigo_contrato(
         self,
@@ -57,13 +62,10 @@ class ContratoMutationService:
                 f"No se puede modificar un contrato en estado {contrato_actual.estatus}"
             )
 
-        datos_actualizados = contrato_actual.model_dump()
-        for campo, valor in contrato_update.model_dump(exclude_unset=True).items():
-            if valor is not None:
-                datos_actualizados[campo] = valor
-
-        contrato_modificado = Contrato(**datos_actualizados)
-        return await self.root.repository.actualizar(contrato_modificado)
+        contrato_modificado = merge_update_model(contrato_actual, contrato_update)
+        actualizado = await self.root.repository.actualizar(contrato_modificado)
+        await self._sincronizar_plazas(actualizado)
+        return actualizado
 
     async def activar(self, contrato_id: int) -> Contrato:
         contrato = await self.root.repository.obtener_por_id(contrato_id)
@@ -99,3 +101,15 @@ class ContratoMutationService:
 
     async def eliminar(self, contrato_id: int) -> bool:
         return await self.root.repository.eliminar(contrato_id)
+
+    async def _sincronizar_plazas(self, contrato: Contrato) -> None:
+        if not contrato.tiene_personal:
+            return
+
+        from app.services import plaza_service
+
+        await plaza_service.sincronizar_plazas_contrato(
+            contrato.id,
+            contrato.cantidad_plazas_maxima,
+            contrato.fecha_inicio,
+        )

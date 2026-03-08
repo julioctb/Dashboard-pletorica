@@ -7,14 +7,23 @@ from typing import Any
 # HELPERS INTERNOS
 # =============================================================================
 
-def _render_label(label: str, required: bool = False, error: Any = None) -> rx.Component:
+def _render_label(label: str, required: Any = False, error: Any = None) -> rx.Component:
     """Renderiza label encima del input. Cambia a rojo si hay error."""
     if not label:
         return rx.fragment()
 
     parts = [label]
-    if required:
-        parts.append(rx.text.span(" *", color="var(--red-9)"))
+    if isinstance(required, bool):
+        if required:
+            parts.append(rx.text.span(" *", color="var(--red-9)"))
+    else:
+        parts.append(
+            rx.cond(
+                required,
+                rx.text.span(" *", color="var(--red-9)"),
+                rx.fragment(),
+            )
+        )
 
     color = "var(--gray-11)"
     if error is not None:
@@ -75,7 +84,7 @@ def form_input(
     error: Any = None,
     max_length: int = None,
     label: str = "",
-    required: bool = False,
+    required: Any = False,
     hint: str = "",
     **props
 ) -> rx.Component:
@@ -121,7 +130,7 @@ def form_textarea(
     max_length: int = None,
     rows: str = "3",
     label: str = "",
-    required: bool = False,
+    required: Any = False,
     hint: str = "",
     **props
 ) -> rx.Component:
@@ -166,7 +175,7 @@ def form_select(
     options: list = None,
     error: Any = None,
     label: str = "",
-    required: bool = False,
+    required: Any = False,
     hint: str = "",
     **props
 ) -> rx.Component:
@@ -208,7 +217,7 @@ def form_date(
     on_change: callable = None,
     on_blur: callable = None,
     error: Any = None,
-    required: bool = False,
+    required: Any = False,
     hint: str = "",
     **props
 ) -> rx.Component:

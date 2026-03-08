@@ -18,7 +18,7 @@ from app.core.ui_helpers import (
     FILTRO_SIN_SELECCION,
     opciones_desde_enum,
 )
-from app.services import contrato_service, empresa_service, tipo_servicio_service, categoria_puesto_service, entregable_service, requisicion_service, contrato_categoria_service
+from app.services import contrato_service, empresa_service, tipo_servicio_service, categoria_puesto_service, entregable_service, requisicion_service
 from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
 
 from app.entities import (
@@ -97,6 +97,8 @@ FORM_DEFAULTS = {
     "requiere_poliza": False,
     "poliza_detalle": "",
     "tiene_personal": True,
+    "cantidad_plazas_minima": "0",
+    "cantidad_plazas_maxima": "0",
     "estatus": EstatusContrato.BORRADOR.value,
     "notas": "",
     "requisicion_id": "",
@@ -119,7 +121,8 @@ class ContratosState(AuthState, CRUDStateMixin):
         "tipo_contrato", "modalidad_adjudicacion", "tipo_duracion",
         "fecha_inicio", "fecha_fin", "descripcion_objeto",
         "monto_minimo", "monto_maximo", "origen_recurso",
-        "segmento_asignacion", "sede_campus", "poliza_detalle"
+        "segmento_asignacion", "sede_campus", "poliza_detalle",
+        "cantidad_plazas_minima", "cantidad_plazas_maxima",
     ]
     _campos_error_basicos: List[str] = [
         "empresa_id",
@@ -199,6 +202,8 @@ class ContratosState(AuthState, CRUDStateMixin):
     form_requiere_poliza: bool = False
     form_poliza_detalle: str = ""
     form_tiene_personal: bool = True
+    form_cantidad_plazas_minima: str = "0"
+    form_cantidad_plazas_maxima: str = "0"
     form_estatus: str = EstatusContrato.BORRADOR.value
     form_notas: str = ""
 
@@ -236,6 +241,8 @@ class ContratosState(AuthState, CRUDStateMixin):
     error_segmento_asignacion: str = ""
     error_sede_campus: str = ""
     error_poliza_detalle: str = ""
+    error_cantidad_plazas_minima: str = ""
+    error_cantidad_plazas_maxima: str = ""
 
     # ========================
     # SETTERS (Reflex 0.8.9+)
@@ -351,6 +358,16 @@ class ContratosState(AuthState, CRUDStateMixin):
         if not self.form_tiene_personal:
             self.form_categoria_puesto_id = ""
             self.form_categoria_puesto_ids = []
+            self.form_cantidad_plazas_minima = "0"
+            self.form_cantidad_plazas_maxima = "0"
+            self.error_cantidad_plazas_minima = ""
+            self.error_cantidad_plazas_maxima = ""
+
+    def set_form_cantidad_plazas_minima(self, value):
+        self.form_cantidad_plazas_minima = ''.join(c for c in str(value) if c.isdigit()) if value else ""
+
+    def set_form_cantidad_plazas_maxima(self, value):
+        self.form_cantidad_plazas_maxima = ''.join(c for c in str(value) if c.isdigit()) if value else ""
 
     def set_form_estatus(self, value):
         self.form_estatus = value if value else ""
@@ -383,6 +400,8 @@ class ContratosState(AuthState, CRUDStateMixin):
             self.form_tipo_servicio_id = ""
             self.form_tipo_duracion = ""
             self.form_tiene_personal = False
+            self.form_cantidad_plazas_minima = "0"
+            self.form_cantidad_plazas_maxima = "0"
             self.form_monto_minimo = ""  # Solo monto máximo
             self.form_fecha_fin = ""  # No aplica fecha fin
             # Limpiar errores relacionados
@@ -390,9 +409,34 @@ class ContratosState(AuthState, CRUDStateMixin):
             self.error_tipo_duracion = ""
             self.error_fecha_fin = ""
             self.error_monto_minimo = ""
+            self.error_cantidad_plazas_minima = ""
+            self.error_cantidad_plazas_maxima = ""
         elif value == TipoContrato.SERVICIOS.value:
             # SERVICIOS: restaurar defaults
             self.form_tiene_personal = True
+
+    def validar_cantidad_plazas_minima_campo(self):
+        if not self.form_tiene_personal:
+            self.error_cantidad_plazas_minima = ""
+            return
+        if self.form_cantidad_plazas_minima == "":
+            self.error_cantidad_plazas_minima = "La cantidad mínima de plazas es obligatoria"
+            return
+        self.error_cantidad_plazas_minima = ""
+
+    def validar_cantidad_plazas_maxima_campo(self):
+        if not self.form_tiene_personal:
+            self.error_cantidad_plazas_maxima = ""
+            return
+        if self.form_cantidad_plazas_maxima == "":
+            self.error_cantidad_plazas_maxima = "La cantidad máxima de plazas es obligatoria"
+            return
+        minimo = int(self.form_cantidad_plazas_minima or "0")
+        maximo = int(self.form_cantidad_plazas_maxima or "0")
+        if maximo < minimo:
+            self.error_cantidad_plazas_maxima = "La cantidad máxima debe ser mayor o igual a la mínima"
+            return
+        self.error_cantidad_plazas_maxima = ""
 
     def set_form_tipo_duracion(self, value):
         self.form_tipo_duracion = value if value else ""
@@ -582,6 +626,10 @@ class ContratosState(AuthState, CRUDStateMixin):
         for campo in ["folio_buap", "origen_recurso", "segmento_asignacion", "sede_campus", "poliza_detalle"]:
             self._validar_campo(campo)
 
+        if es_servicios and self.form_tiene_personal:
+            self.validar_cantidad_plazas_minima_campo()
+            self.validar_cantidad_plazas_maxima_campo()
+
     @rx.var
     def tiene_errores_formulario(self) -> bool:
         """Verifica si hay errores de validación (considera condicionales)"""
@@ -599,7 +647,16 @@ class ContratosState(AuthState, CRUDStateMixin):
             self._campos_error_servicios
         )
 
-        return errores_campos or errores_basicos or errores_servicios
+        errores_plazas = (
+            es_servicios and
+            self.form_tiene_personal and
+            self.tiene_errores_en_campos([
+                "cantidad_plazas_minima",
+                "cantidad_plazas_maxima",
+            ])
+        )
+
+        return errores_campos or errores_basicos or errores_servicios or errores_plazas
 
     @rx.var
     def puede_guardar(self) -> bool:
@@ -626,7 +683,20 @@ class ContratosState(AuthState, CRUDStateMixin):
             # ADQUISICION no requiere tipo_servicio ni tipo_duracion
             tiene_servicios = True
 
-        return tiene_basicos and tiene_servicios and not self.tiene_errores_formulario and not self.saving
+        tiene_plazas = True
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value and self.form_tiene_personal:
+            tiene_plazas = bool(
+                self.form_cantidad_plazas_minima != "" and
+                self.form_cantidad_plazas_maxima != ""
+            )
+
+        return (
+            tiene_basicos and
+            tiene_servicios and
+            tiene_plazas and
+            not self.tiene_errores_formulario and
+            not self.saving
+        )
 
     @rx.var
     def tiene_filtros_activos(self) -> bool:
@@ -1147,7 +1217,6 @@ class ContratosState(AuthState, CRUDStateMixin):
             clave_servicio
         )
 
-        await self._guardar_categorias_iniciales_contrato(contrato_creado.id)
         await self._guardar_entregables_configurados(contrato_creado.id)
 
         return f"Contrato '{contrato_creado.codigo}' creado exitosamente"
@@ -1172,6 +1241,11 @@ class ContratosState(AuthState, CRUDStateMixin):
 
         # tiene_personal: False para ADQUISICION
         tiene_personal = False if es_adquisicion else self.form_tiene_personal
+        cantidad_plazas_minima = 0
+        cantidad_plazas_maxima = 0
+        if tiene_personal:
+            cantidad_plazas_minima = int(self.form_cantidad_plazas_minima or "0")
+            cantidad_plazas_maxima = int(self.form_cantidad_plazas_maxima or "0")
 
         contrato_update = ContratoUpdate(
             empresa_id=self.parse_id(self.form_empresa_id),
@@ -1192,6 +1266,8 @@ class ContratosState(AuthState, CRUDStateMixin):
             requiere_poliza=self.form_requiere_poliza,
             poliza_detalle=self.form_poliza_detalle.strip() or None,
             tiene_personal=tiene_personal,
+            cantidad_plazas_minima=cantidad_plazas_minima,
+            cantidad_plazas_maxima=cantidad_plazas_maxima,
             estatus=EstatusContrato(self.form_estatus) if self.form_estatus else None,
             notas=self.form_notas.strip() or None,
         )
@@ -1319,7 +1395,6 @@ class ContratosState(AuthState, CRUDStateMixin):
             items_contrato=items_contrato,
         )
 
-        await self._guardar_categorias_iniciales_contrato(contrato_creado.id)
         await self._guardar_entregables_configurados(contrato_creado.id)
 
         return f"Contrato '{contrato_creado.codigo}' creado desde requisición"
@@ -1500,6 +1575,8 @@ class ContratosState(AuthState, CRUDStateMixin):
         self.form_requiere_poliza = contrato.get("requiere_poliza", False)
         self.form_poliza_detalle = contrato.get("poliza_detalle", "") or ""
         self.form_tiene_personal = contrato.get("tiene_personal", True)
+        self.form_cantidad_plazas_minima = str(contrato.get("cantidad_plazas_minima", 0) or 0)
+        self.form_cantidad_plazas_maxima = str(contrato.get("cantidad_plazas_maxima", 0) or 0)
         self.form_estatus = contrato.get("estatus", EstatusContrato.BORRADOR.value)
         self.form_notas = contrato.get("notas", "") or ""
 
@@ -1540,6 +1617,11 @@ class ContratosState(AuthState, CRUDStateMixin):
 
         # tiene_personal: False para ADQUISICION, configurable para SERVICIOS
         tiene_personal = False if es_adquisicion else self.form_tiene_personal
+        cantidad_plazas_minima = 0
+        cantidad_plazas_maxima = 0
+        if tiene_personal:
+            cantidad_plazas_minima = int(self.form_cantidad_plazas_minima or "0")
+            cantidad_plazas_maxima = int(self.form_cantidad_plazas_maxima or "0")
 
         # requisicion_id (si viene del flujo Requisicion -> Contrato)
         requisicion_id = None
@@ -1567,6 +1649,8 @@ class ContratosState(AuthState, CRUDStateMixin):
             requiere_poliza=self.form_requiere_poliza,
             poliza_detalle=self.form_poliza_detalle.strip() or None,
             tiene_personal=tiene_personal,
+            cantidad_plazas_minima=cantidad_plazas_minima,
+            cantidad_plazas_maxima=cantidad_plazas_maxima,
             estatus=EstatusContrato(self.form_estatus) if self.form_estatus else EstatusContrato.BORRADOR,
             notas=self.form_notas.strip() or None,
         )
@@ -1588,23 +1672,6 @@ class ContratosState(AuthState, CRUDStateMixin):
         """Fija empresa del formulario a la empresa activa cuando aplica."""
         if self.empresa_fijada_en_contexto:
             self.form_empresa_id = str(self.id_empresa_actual)
-
-    async def _guardar_categorias_iniciales_contrato(self, contrato_id: int):
-        """Crea asignaciones iniciales para las categorías seleccionadas al crear el contrato."""
-        if self.form_tipo_contrato != TipoContrato.SERVICIOS.value:
-            return
-        if not self.form_tiene_personal or not self.form_categoria_puesto_ids:
-            return
-
-        categorias = [
-            {
-                "categoria_puesto_id": self.parse_id(categoria_id),
-                "cantidad_minima": 0,
-                "cantidad_maxima": 0,
-            }
-            for categoria_id in self.form_categoria_puesto_ids
-        ]
-        await contrato_categoria_service.asignar_categorias(contrato_id, categorias)
 
     async def _guardar_entregables_configurados(self, contrato_id: int):
         """Persistir tipos de entregable configurados desde el formulario."""

@@ -699,7 +699,20 @@ class EntregableService:
         entregable_id: int,
     ) -> List[EntregableDetallePersonalResumen]:
         """Obtiene el detalle de personal de un entregable."""
-        return await self.repository.obtener_detalle_personal(entregable_id)
+        detalles = await self.repository.obtener_detalle_personal(entregable_id)
+        entregable = await self.repository.obtener_por_id(entregable_id)
+
+        from app.services import plaza_service
+
+        esperadas = await plaza_service.obtener_cantidad_esperada_por_categoria(
+            entregable.contrato_id,
+            entregable.periodo_fin,
+        )
+
+        for detalle in detalles:
+            detalle.cantidad_esperada = esperadas.get(detalle.categoria_puesto_id, 0)
+
+        return detalles
     
     async def guardar_detalle_personal(
         self,
@@ -729,7 +742,7 @@ class EntregableService:
             
             detalle = EntregableDetallePersonal(
                 entregable_id=entregable_id,
-                contrato_categoria_id=detalle_create.contrato_categoria_id,
+                categoria_puesto_id=detalle_create.categoria_puesto_id,
                 cantidad_reportada=detalle_create.cantidad_reportada,
                 cantidad_validada=detalle_create.cantidad_validada,
                 tarifa_unitaria=detalle_create.tarifa_unitaria,

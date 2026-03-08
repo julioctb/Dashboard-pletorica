@@ -19,6 +19,12 @@ from abc import ABC
 
 from app.database import db_manager
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError
+from app.repositories.shared import (
+    apply_eq_filters,
+    apply_order,
+    apply_pagination,
+    build_ilike_or,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -124,19 +130,9 @@ class BaseRepository(Generic[T], ABC):
     ) -> List[T]:
         """Ejecuta query de listado. Override para filtros personalizados."""
         query = self.supabase.table(self.tabla).select('*')
-
-        # Aplicar filtros
-        if filtros:
-            for campo, valor in filtros.items():
-                if valor is not None:
-                    query = query.eq(campo, valor)
-
-        # Ordenar
-        query = query.order(orden_campo, desc=orden_desc)
-
-        # Paginar
-        if limite:
-            query = query.range(offset, offset + limite - 1)
+        query = apply_eq_filters(query, filtros)
+        query = apply_order(query, orden_campo, desc=orden_desc)
+        query = apply_pagination(query, limite, offset)
 
         result = query.execute()
         return [self.entidad_class(**data) for data in result.data]
@@ -163,11 +159,7 @@ class BaseRepository(Generic[T], ABC):
     def _query_contar(self, filtros: Optional[Dict[str, Any]]) -> int:
         """Ejecuta query de conteo."""
         query = self.supabase.table(self.tabla).select('id', count='exact')
-
-        if filtros:
-            for campo, valor in filtros.items():
-                if valor is not None:
-                    query = query.eq(campo, valor)
+        query = apply_eq_filters(query, filtros)
 
         result = query.execute()
         return result.count or 0
@@ -305,9 +297,9 @@ class BaseRepository(Generic[T], ABC):
     def _query_buscar(self, texto: str, campos: List[str], limite: int) -> List[T]:
         """Ejecuta búsqueda por texto."""
         texto_limpio = texto.strip()
-
-        # Construir OR de ilike para cada campo
-        or_conditions = ",".join([f"{campo}.ilike.%{texto_limpio}%" for campo in campos])
+        or_conditions = build_ilike_or(texto_limpio, campos)
+        if not or_conditions:
+            return []
 
         result = self.supabase.table(self.tabla)\
             .select('*')\
@@ -392,9 +384,7 @@ class BaseRepository(Generic[T], ABC):
 
     def _aplicar_paginacion(self, query, limite: Optional[int], offset: int):
         """Aplica paginación a la query."""
-        if limite:
-            return query.range(offset, offset + limite - 1)
-        return query
+        return apply_pagination(query, limite, offset)
 
     async def existe_campo(
         self,

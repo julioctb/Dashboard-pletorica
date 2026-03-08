@@ -31,12 +31,6 @@ from app.presentation.pages.contratos.pagos_modals import (
     modal_pago_form,
     modal_confirmar_eliminar_pago,
 )
-from app.presentation.pages.contratos.contrato_categorias_state import ContratoCategoriaState
-from app.presentation.pages.contratos.contrato_categorias_modals import (
-    modal_categorias,
-    modal_categoria_form,
-    modal_confirmar_eliminar_categoria,
-)
 
 
 # =============================================================================
@@ -72,14 +66,6 @@ def acciones_contrato(contrato: dict) -> rx.Component:
             icon="eye",
             tooltip="Ver detalle",
             on_click=lambda: ContratosState.abrir_modal_detalle(contrato["id"]),
-        ),
-        # Personal/Categorías
-        tabla_action_button(
-            icon="users",
-            tooltip="Personal",
-            on_click=lambda: ContratoCategoriaState.abrir_modal_categorias(contrato),
-            color_scheme="teal",
-            visible=contrato["tiene_personal"] & ~es_cancelado,
         ),
         # Pagos
         tabla_action_button(
@@ -441,11 +427,6 @@ def contratos_page() -> rx.Component:
                 modal_pagos(),
                 modal_pago_form(),
                 modal_confirmar_eliminar_pago(),
-
-                # Modales de categorías de personal
-                modal_categorias(),
-                modal_categoria_form(),
-                modal_confirmar_eliminar_categoria(),
 
                 spacing="4",
                 width="100%",
