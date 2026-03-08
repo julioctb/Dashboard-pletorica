@@ -61,7 +61,7 @@ def onboarding_table(
     loading_rows: int = 5,
     total_caption: Any = None,
     footer_component: rx.Component | None = None,
-    header_variant: str = "default",
+    header_variant: str = "uppercase_muted",
 ) -> rx.Component:
     """Tabla reusable de onboarding con skeleton y empty state."""
     return table_shell(
@@ -78,5 +78,5 @@ def onboarding_table(
         total_caption=total_caption,
         footer_component=footer_component,
         loading_rows=loading_rows,
-        header_variant="uppercase_muted" if header_variant == "admin" else "default",
+        header_variant="uppercase_muted" if header_variant == "admin" else header_variant,
     )

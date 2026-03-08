@@ -2,8 +2,9 @@
 Entidades de dominio para Plaza.
 
 Una Plaza representa un puesto de trabajo específico dentro de un contrato.
-El contrato materializa la cantidad total de plazas y cada plaza puede quedar
-sin categoría al inicio; la categoría se asigna después desde el módulo de plazas.
+El contrato materializa la cantidad total de plazas y puede también definir
+su categoría de puesto. La operación posterior de sede, salario y asignación
+de personal ocurre desde el módulo de plazas.
 """
 from datetime import date, datetime
 from decimal import Decimal

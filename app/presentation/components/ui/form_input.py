@@ -37,9 +37,12 @@ def _render_label(label: str, required: Any = False, error: Any = None) -> rx.Co
     )
 
 
-def _render_footer(error: Any = None, hint: str = "") -> rx.Component:
+def _render_footer(error: Any = None, hint: Any = "") -> rx.Component:
     """Renderiza error (prioridad) o hint debajo del input sin swap de nodos DOM."""
-    if error is not None and hint:
+    has_static_hint = isinstance(hint, str) and hint != ""
+    has_dynamic_hint = hint is not None and not isinstance(hint, str)
+
+    if error is not None and (has_static_hint or has_dynamic_hint):
         return rx.text(
             rx.cond(error != "", error, hint),
             color=rx.cond(error != "", "var(--red-9)", "var(--gray-9)"),
@@ -54,7 +57,7 @@ def _render_footer(error: Any = None, hint: str = "") -> rx.Component:
             min_height="1em",
             visibility=rx.cond(error != "", "visible", "hidden"),
         )
-    elif hint:
+    elif has_static_hint or has_dynamic_hint:
         return rx.text(hint, size="1", color="var(--gray-9)", min_height="1em")
     else:
         return rx.text("", size="1", min_height="1em", visibility="hidden")
@@ -76,6 +79,29 @@ def select_items_from_options(options: Any) -> rx.Component:
 # COMPONENTES DE FORMULARIO
 # =============================================================================
 
+def form_field(
+    control: Any,
+    label: str = "",
+    required: Any = False,
+    error: Any = None,
+    hint: Any = "",
+    spacing: str = "1",
+    **layout_props,
+) -> rx.Component:
+    """Wrapper base para campos con label, control y footer consistente."""
+    props = {
+        "spacing": spacing,
+        "width": "100%",
+        "align_items": "stretch",
+        **layout_props,
+    }
+    return rx.vstack(
+        _render_label(label, required, error),
+        control,
+        _render_footer(error, hint),
+        **props,
+    )
+
 def form_input(
     placeholder: str = "",
     value: Any = "",
@@ -85,7 +111,7 @@ def form_input(
     max_length: int = None,
     label: str = "",
     required: Any = False,
-    hint: str = "",
+    hint: Any = "",
     **props
 ) -> rx.Component:
     """
@@ -103,9 +129,8 @@ def form_input(
         hint: Texto de ayuda debajo del input (error tiene prioridad)
         **props: Props adicionales para rx.input (type, disabled, step, min, etc.)
     """
-    return rx.vstack(
-        _render_label(label, required, error),
-        rx.input(
+    return form_field(
+        control=rx.input(
             placeholder=placeholder,
             value=value,
             on_change=on_change,
@@ -114,10 +139,10 @@ def form_input(
             width="100%",
             **props
         ),
-        _render_footer(error, hint),
-        spacing="1",
-        width="100%",
-        align_items="stretch",
+        label=label,
+        required=required,
+        error=error,
+        hint=hint,
     )
 
 
@@ -131,7 +156,7 @@ def form_textarea(
     rows: str = "3",
     label: str = "",
     required: Any = False,
-    hint: str = "",
+    hint: Any = "",
     **props
 ) -> rx.Component:
     """
@@ -149,9 +174,8 @@ def form_textarea(
         required: Si True, muestra asterisco rojo en el label
         hint: Texto de ayuda debajo del textarea
     """
-    return rx.vstack(
-        _render_label(label, required, error),
-        rx.text_area(
+    return form_field(
+        control=rx.text_area(
             placeholder=placeholder,
             value=value,
             on_change=on_change,
@@ -161,10 +185,10 @@ def form_textarea(
             rows=rows,
             **props
         ),
-        _render_footer(error, hint),
-        spacing="1",
-        width="100%",
-        align_items="stretch",
+        label=label,
+        required=required,
+        error=error,
+        hint=hint,
     )
 
 
@@ -176,7 +200,7 @@ def form_select(
     error: Any = None,
     label: str = "",
     required: Any = False,
-    hint: str = "",
+    hint: Any = "",
     **props
 ) -> rx.Component:
     """
@@ -195,19 +219,18 @@ def form_select(
     if options is None:
         options = []
 
-    return rx.vstack(
-        _render_label(label, required, error),
-        rx.select.root(
+    return form_field(
+        control=rx.select.root(
             rx.select.trigger(placeholder=placeholder, width="100%"),
             rx.select.content(select_items_from_options(options)),
             value=value,
             on_change=on_change,
             **props
         ),
-        _render_footer(error, hint),
-        spacing="1",
-        width="100%",
-        align_items="stretch",
+        label=label,
+        required=required,
+        error=error,
+        hint=hint,
     )
 
 
@@ -218,7 +241,7 @@ def form_date(
     on_blur: callable = None,
     error: Any = None,
     required: Any = False,
-    hint: str = "",
+    hint: Any = "",
     **props
 ) -> rx.Component:
     """
@@ -232,9 +255,8 @@ def form_date(
         required: Si True, muestra asterisco rojo en el label
         hint: Texto de ayuda debajo del input
     """
-    return rx.vstack(
-        _render_label(label, required, error),
-        rx.input(
+    return form_field(
+        control=rx.input(
             type="date",
             value=value,
             on_change=on_change,
@@ -243,10 +265,10 @@ def form_date(
             size="2",
             **props
         ),
-        _render_footer(error, hint),
-        spacing="1",
-        width="100%",
-        align_items="stretch",
+        label=label,
+        required=required,
+        error=error,
+        hint=hint,
     )
 
 

@@ -27,6 +27,17 @@ class SupabaseContratoCategoriaRepository:
         self.supabase = db_manager.get_client()
         self.tabla = 'contrato_categorias'
 
+    def _es_error_tabla_faltante(self, error: Exception) -> bool:
+        mensaje = str(error)
+        return "PGRST205" in mensaje and self.tabla in mensaje
+
+    def _database_error_tabla_faltante(self) -> DatabaseError:
+        return DatabaseError(
+            "La tabla 'contrato_categorias' no existe en la base de datos actual. "
+            "Aplique la migracion '050_restore_contrato_categorias_planning.sql' "
+            "antes de usar categorias por contrato."
+        )
+
     async def obtener_por_id(self, id: int) -> ContratoCategoria:
         """
         Obtiene una asignacion por su ID.
@@ -47,6 +58,8 @@ class SupabaseContratoCategoriaRepository:
             raise
         except Exception as e:
             logger.error(f"Error obteniendo asignacion {id}: {e}")
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_por_contrato(self, contrato_id: int) -> List[ContratoCategoria]:
@@ -67,6 +80,8 @@ class SupabaseContratoCategoriaRepository:
 
         except Exception as e:
             logger.error(f"Error obteniendo categorias del contrato {contrato_id}: {e}")
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_por_contrato_y_categoria(
@@ -94,6 +109,8 @@ class SupabaseContratoCategoriaRepository:
 
         except Exception as e:
             logger.error(f"Error buscando asignacion contrato={contrato_id}, categoria={categoria_puesto_id}: {e}")
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def crear(self, contrato_categoria: ContratoCategoria) -> ContratoCategoria:
@@ -134,6 +151,8 @@ class SupabaseContratoCategoriaRepository:
             raise
         except Exception as e:
             logger.error(f"Error creando asignacion: {e}")
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def actualizar(self, contrato_categoria: ContratoCategoria) -> ContratoCategoria:
@@ -169,6 +188,8 @@ class SupabaseContratoCategoriaRepository:
             raise
         except Exception as e:
             logger.error(f"Error actualizando asignacion {contrato_categoria.id}: {e}")
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def eliminar(self, id: int) -> bool:
@@ -190,6 +211,8 @@ class SupabaseContratoCategoriaRepository:
             raise
         except Exception as e:
             logger.error(f"Error eliminando asignacion {id}: {e}")
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def eliminar_por_contrato(self, contrato_id: int) -> int:
@@ -209,6 +232,8 @@ class SupabaseContratoCategoriaRepository:
 
         except Exception as e:
             logger.error(f"Error eliminando asignaciones del contrato {contrato_id}: {e}")
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def existe_asignacion(
@@ -232,6 +257,8 @@ class SupabaseContratoCategoriaRepository:
 
         except Exception as e:
             logger.error(f"Error verificando asignacion: {e}")
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def contar_por_contrato(self, contrato_id: int) -> int:
@@ -246,6 +273,8 @@ class SupabaseContratoCategoriaRepository:
 
         except Exception as e:
             logger.error(f"Error contando categorias del contrato {contrato_id}: {e}")
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def contar_por_categoria(self, categoria_puesto_id: int) -> int:
@@ -260,6 +289,8 @@ class SupabaseContratoCategoriaRepository:
 
         except Exception as e:
             logger.error(f"Error contando contratos de la categoria {categoria_puesto_id}: {e}")
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_resumen_por_contrato(self, contrato_id: int) -> List[dict]:

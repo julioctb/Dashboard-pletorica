@@ -13,6 +13,7 @@ from app.presentation.layout import page_layout, page_header, page_toolbar
 from app.presentation.components.ui import form_input, form_textarea, form_row, botones_modal
 from app.presentation.pages.cotizador.cotizador_state import CotizadorState
 from app.presentation.pages.cotizador.cotizador_components import (
+    _header_label,
     tabla_cotizaciones,
     tipo_cotizacion_badge,
 )
@@ -178,20 +179,16 @@ def _partida_form_row(partida: dict) -> rx.Component:
                     rx.table.header(
                         rx.table.row(
                             rx.table.column_header_cell(
-                                "Puesto",
-                                font_size=Typography.SIZE_XS,
+                                _header_label("Puesto"),
                             ),
                             rx.table.column_header_cell(
-                                "Salario",
-                                font_size=Typography.SIZE_XS,
+                                _header_label("Salario"),
                             ),
                             rx.table.column_header_cell(
-                                "Mín",
-                                font_size=Typography.SIZE_XS,
+                                _header_label("Mín"),
                             ),
                             rx.table.column_header_cell(
-                                "Máx",
-                                font_size=Typography.SIZE_XS,
+                                _header_label("Máx"),
                             ),
                             rx.table.column_header_cell(
                                 "",
@@ -498,11 +495,11 @@ def _partida_items_form(partida: dict) -> rx.Component:
                 rx.table.root(
                     rx.table.header(
                         rx.table.row(
-                            rx.table.column_header_cell("#", font_size=Typography.SIZE_XS),
-                            rx.table.column_header_cell("Cantidad", font_size=Typography.SIZE_XS),
-                            rx.table.column_header_cell("Concepto", font_size=Typography.SIZE_XS),
-                            rx.table.column_header_cell("Unitario", font_size=Typography.SIZE_XS),
-                            rx.table.column_header_cell("Importe", font_size=Typography.SIZE_XS),
+                            rx.table.column_header_cell(_header_label("#", align="center")),
+                            rx.table.column_header_cell(_header_label("Cantidad")),
+                            rx.table.column_header_cell(_header_label("Concepto")),
+                            rx.table.column_header_cell(_header_label("Unitario")),
+                            rx.table.column_header_cell(_header_label("Importe")),
                             rx.table.column_header_cell("", width="40px"),
                         ),
                     ),
@@ -735,11 +732,11 @@ def _paso_resumen() -> rx.Component:
                 rx.table.root(
                     rx.table.header(
                         rx.table.row(
-                            rx.table.column_header_cell("#", font_size=Typography.SIZE_XS),
-                            rx.table.column_header_cell("Cantidad", font_size=Typography.SIZE_XS),
-                            rx.table.column_header_cell("Concepto", font_size=Typography.SIZE_XS),
-                            rx.table.column_header_cell("Unitario", font_size=Typography.SIZE_XS),
-                            rx.table.column_header_cell("Importe", font_size=Typography.SIZE_XS),
+                            rx.table.column_header_cell(_header_label("#", align="center")),
+                            rx.table.column_header_cell(_header_label("Cantidad")),
+                            rx.table.column_header_cell(_header_label("Concepto")),
+                            rx.table.column_header_cell(_header_label("Unitario")),
+                            rx.table.column_header_cell(_header_label("Importe")),
                             rx.table.column_header_cell("", width="40px"),
                         ),
                     ),

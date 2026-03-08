@@ -8,7 +8,7 @@ from app.presentation.components.ui.skeletons import skeleton_tabla
 from app.presentation.theme import Colors, Spacing, Typography
 
 
-def table_header_cells(headers: list[dict], variant: str = "default") -> list[rx.Component]:
+def table_header_cells(headers: list[dict], variant: str = "uppercase_muted") -> list[rx.Component]:
     """Construye celdas de encabezado con variantes visuales consistentes."""
     if variant == "uppercase_muted":
         return [
@@ -204,7 +204,7 @@ def table_shell(
     total_caption: Any | None = None,
     footer_component: rx.Component | None = None,
     loading_rows: int = 5,
-    header_variant: str = "default",
+    header_variant: str = "uppercase_muted",
     table_variant: str = "surface",
     header_cells: list[rx.Component] | None = None,
     body_component: rx.Component | None = None,

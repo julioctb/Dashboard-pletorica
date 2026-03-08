@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from app.presentation.components.plazas.plazas_modals import (
+from app.presentation.components.plazas import (
     modal_asignar_empleado,
     modal_confirmar_cancelar,
     modal_crear_lote,
@@ -20,7 +20,9 @@ from app.presentation.components.ui import (
     tabla_vacia,
     table_cell_actions,
     table_cell_badge,
+    table_cell_text_sm,
     table_shell,
+    table_text_sm,
 )
 from app.presentation.layout import page_header, page_layout, page_toolbar
 from app.presentation.pages.plazas.plazas_state import PlazasState
@@ -97,7 +99,7 @@ def accion_categorizar_plazas() -> rx.Component:
             "Asignar plazas",
             on_click=PlazasState.abrir_modal_crear_lote,
             color_scheme="blue",
-            disabled=~PlazasState.puede_categorizar_lote,
+            disabled=~PlazasState.puede_asignar_lote,
         ),
         rx.fragment(),
     )
@@ -165,9 +167,45 @@ def acciones_plaza(plaza: dict) -> rx.Component:
     )
 
 
+def _celda_centrada(content: rx.Component) -> rx.Component:
+    return rx.table.cell(
+        rx.center(content, width="100%"),
+        align="center",
+    )
+
+
+def _celda_dos_lineas(principal, secundario="", *, fallback: str) -> rx.Component:
+    return rx.table.cell(
+        rx.cond(
+            principal != "",
+            rx.vstack(
+                table_text_sm(
+                    principal,
+                    weight=Typography.WEIGHT_MEDIUM,
+                ),
+                rx.cond(
+                    secundario != "",
+                    table_text_sm(
+                        secundario,
+                        tone="muted",
+                    ),
+                    rx.fragment(),
+                ),
+                spacing="0",
+                align="start",
+                width="100%",
+            ),
+            table_text_sm(
+                fallback,
+                tone="muted",
+            ),
+        ),
+    )
+
+
 def fila_plaza(plaza: dict) -> rx.Component:
     return rx.table.row(
-        rx.table.cell(
+        _celda_centrada(
             rx.text(
                 "#",
                 plaza["numero_plaza"],
@@ -175,66 +213,59 @@ def fila_plaza(plaza: dict) -> rx.Component:
                 font_weight=Typography.WEIGHT_BOLD,
             ),
         ),
-        rx.table.cell(
-            rx.cond(
-                plaza["codigo"],
-                rx.text(plaza["codigo"], font_size=Typography.SIZE_SM),
-                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
-            ),
+        table_cell_text_sm(
+            plaza["codigo"],
+            fallback="-",
+            tone="secondary",
+            weight=Typography.WEIGHT_MEDIUM,
         ),
-        rx.table.cell(
-            rx.cond(
-                plaza["sede_id"] != None,
-                rx.hstack(
-                    rx.cond(
-                        plaza["sede_codigo"],
-                        rx.badge(plaza["sede_codigo"], variant="outline", size="1"),
-                        rx.fragment(),
-                    ),
-                    rx.text(plaza["sede_nombre"], font_size=Typography.SIZE_SM),
-                    spacing="2",
-                    align="center",
-                    wrap="wrap",
-                ),
-                rx.badge("Sin sede", color_scheme="gray", variant="soft"),
-            ),
+        _celda_dos_lineas(
+            plaza["sede_nombre"],
+            plaza["sede_codigo"],
+            fallback="Sin sede",
         ),
-        rx.table.cell(
-            rx.cond(
-                plaza["categoria_puesto_id"] != None,
-                rx.hstack(
-                    rx.badge(plaza["categoria_clave"], variant="outline", size="1"),
-                    rx.text(plaza["categoria_nombre"], font_size=Typography.SIZE_SM),
-                    spacing="2",
-                    align="center",
-                ),
-                rx.badge("Sin categoría", color_scheme="gray", variant="soft"),
-            ),
+        _celda_dos_lineas(
+            plaza["categoria_nombre"],
+            plaza["categoria_clave"],
+            fallback="Sin categoría",
         ),
-        rx.table.cell(rx.text(plaza["fecha_inicio_fmt"], font_size=Typography.SIZE_SM)),
-        rx.table.cell(rx.text(plaza["salario_fmt"], font_size=Typography.SIZE_SM)),
-        rx.table.cell(
-            rx.cond(
-                plaza["empleado_nombre"],
-                rx.text(plaza["empleado_nombre"], font_size=Typography.SIZE_SM),
-                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
-            ),
+        _celda_centrada(table_text_sm(plaza["fecha_inicio_fmt"], tone="secondary")),
+        _celda_centrada(
+            table_text_sm(
+                plaza["salario_fmt"],
+                weight=Typography.WEIGHT_MEDIUM,
+            )
         ),
-        table_cell_badge(status_badge_reactive(plaza["estatus"], show_icon=True)),
-        table_cell_actions(acciones_plaza(plaza)),
+        _celda_dos_lineas(
+            plaza["empleado_nombre"],
+            plaza.get("empleado_clave", ""),
+            fallback="-",
+        ),
+        table_cell_badge(
+            rx.center(
+                status_badge_reactive(plaza["estatus"], show_icon=True),
+                width="100%",
+            )
+        ),
+        table_cell_actions(
+            rx.center(
+                acciones_plaza(plaza),
+                width="100%",
+            )
+        ),
     )
 
 
 ENCABEZADOS_PLAZAS = [
-    {"nombre": "#", "ancho": "70px"},
-    {"nombre": "Código", "ancho": "110px"},
-    {"nombre": "Sede", "ancho": "220px"},
-    {"nombre": "Categoría", "ancho": "220px"},
-    {"nombre": "Inicio", "ancho": "110px"},
-    {"nombre": "Salario", "ancho": "130px"},
-    {"nombre": "Empleado", "ancho": "170px"},
-    {"nombre": "Estatus", "ancho": "120px"},
-    {"nombre": "Acciones", "ancho": "160px"},
+    {"nombre": "#", "ancho": "72px", "header_align": "center"},
+    {"nombre": "Código", "ancho": "120px"},
+    {"nombre": "Sede", "ancho": "230px"},
+    {"nombre": "Categoría", "ancho": "230px"},
+    {"nombre": "Inicio", "ancho": "110px", "header_align": "center"},
+    {"nombre": "Salario", "ancho": "140px", "header_align": "center"},
+    {"nombre": "Empleado", "ancho": "190px"},
+    {"nombre": "Estatus", "ancho": "120px", "header_align": "center"},
+    {"nombre": "Acciones", "ancho": "150px", "header_align": "center"},
 ]
 
 
@@ -637,7 +668,7 @@ def selector_contrato() -> rx.Component:
                 on_change=PlazasState.set_contrato_seleccionado_id,
             ),
             rx.callout(
-                "Las plazas se materializan desde el contrato. Aquí solo se categorizan y operan.",
+                "Las plazas se materializan desde el contrato. Aquí se completa su operación: sede, salario y personal.",
                 icon="info",
                 color_scheme="blue",
                 size="1",
@@ -797,9 +828,19 @@ def detalle_portal_plazas() -> rx.Component:
 def alertas_contrato() -> rx.Component:
     return rx.vstack(
         rx.cond(
-            PlazasState.plazas_sin_sede_total > 0,
+            PlazasState.plazas_vacantes_sin_sede_total > 0,
             rx.callout(
                 "Hay plazas sin sede. Use 'Asignar plazas' o edite cada plaza antes de ocuparlas o asignarles personal.",
+                icon="triangle-alert",
+                color_scheme="amber",
+                size="1",
+            ),
+            rx.fragment(),
+        ),
+        rx.cond(
+            PlazasState.plazas_ocupadas_sin_sede_total > 0,
+            rx.callout(
+                "Hay plazas ocupadas sin sede. Edite cada plaza individualmente para corregirla.",
                 icon="triangle-alert",
                 color_scheme="amber",
                 size="1",

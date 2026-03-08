@@ -26,6 +26,13 @@ Uso:
 import reflex as rx
 from typing import Optional, Union
 
+from app.presentation.components.ui.buttons import botones_modal
+from app.presentation.theme import Spacing
+
+
+MODAL_CONTENT_PADDING = Spacing.XL
+MODAL_SECTION_GAP = Spacing.BASE
+
 
 def modal_confirmar_eliminar(
     open: Union[bool, rx.Var],
@@ -37,6 +44,7 @@ def modal_confirmar_eliminar(
     on_cancelar: callable = None,
     loading: Union[bool, rx.Var] = False,
     texto_confirmar: str = "Eliminar",
+    texto_eliminando: str = "Eliminando...",
     texto_cancelar: str = "Cancelar",
     max_width: str = "400px",
 ) -> rx.Component:
@@ -53,6 +61,7 @@ def modal_confirmar_eliminar(
         on_cancelar: Evento al cancelar
         loading: Estado de carga
         texto_confirmar: Texto del botón de confirmar
+        texto_eliminando: Texto mostrado mientras se elimina
         texto_cancelar: Texto del botón de cancelar
         max_width: Ancho máximo del modal
 
@@ -87,24 +96,21 @@ def modal_confirmar_eliminar(
                     spacing="3",
                 ),
             ),
-            rx.hstack(
-                rx.button(
-                    texto_cancelar,
-                    variant="soft",
-                    color_scheme="gray",
-                    on_click=on_cancelar,
+            rx.box(
+                botones_modal(
+                    on_guardar=on_confirmar,
+                    on_cancelar=on_cancelar,
+                    saving=loading,
+                    texto_guardar=texto_confirmar,
+                    texto_guardando=texto_eliminando,
+                    texto_cancelar=texto_cancelar,
+                    color_guardar="red",
                 ),
-                rx.button(
-                    texto_confirmar,
-                    color_scheme="red",
-                    on_click=on_confirmar,
-                    loading=loading,
-                ),
-                justify="end",
-                spacing="3",
-                margin_top="4",
+                width="100%",
+                margin_top=MODAL_SECTION_GAP,
             ),
             max_width=max_width,
+            padding=MODAL_CONTENT_PADDING,
         ),
         open=open,
         # No cerrar al hacer click fuera - solo con botones
@@ -122,6 +128,7 @@ def modal_confirmar_accion(
     on_cancelar: callable = None,
     loading: Union[bool, rx.Var] = False,
     texto_confirmar: str = "Confirmar",
+    texto_confirmando: str = "Procesando...",
     texto_cancelar: str = "Cancelar",
     color_confirmar: str = "blue",
     icono_detalle: str = "info",
@@ -144,6 +151,7 @@ def modal_confirmar_accion(
         on_cancelar: Evento al cancelar
         loading: Estado de carga
         texto_confirmar: Texto del botón confirmar
+        texto_confirmando: Texto mostrado mientras se confirma
         texto_cancelar: Texto del botón cancelar
         color_confirmar: Color del botón confirmar
         icono_detalle: Icono del callout de detalle
@@ -179,24 +187,21 @@ def modal_confirmar_accion(
                     spacing="3",
                 ),
             ),
-            rx.hstack(
-                rx.button(
-                    texto_cancelar,
-                    variant="soft",
-                    color_scheme="gray",
-                    on_click=on_cancelar,
+            rx.box(
+                botones_modal(
+                    on_guardar=on_confirmar,
+                    on_cancelar=on_cancelar,
+                    saving=loading,
+                    texto_guardar=texto_confirmar,
+                    texto_guardando=texto_confirmando,
+                    texto_cancelar=texto_cancelar,
+                    color_guardar=color_confirmar,
                 ),
-                rx.button(
-                    texto_confirmar,
-                    color_scheme=color_confirmar,
-                    on_click=on_confirmar,
-                    loading=loading,
-                ),
-                justify="end",
-                spacing="3",
-                margin_top="4",
+                width="100%",
+                margin_top=MODAL_SECTION_GAP,
             ),
             max_width=max_width,
+            padding=MODAL_CONTENT_PADDING,
         ),
         open=open,
         # No cerrar al hacer click fuera - solo con botones
@@ -214,6 +219,7 @@ def modal_formulario(
     puede_guardar: Union[bool, rx.Var] = True,
     loading: Union[bool, rx.Var] = False,
     texto_guardar: str = "Guardar",
+    texto_guardando: str = "Guardando...",
     texto_cancelar: str = "Cancelar",
     max_width: str = "500px",
 ) -> rx.Component:
@@ -230,6 +236,7 @@ def modal_formulario(
         puede_guardar: Si el botón guardar está habilitado
         loading: Estado de carga
         texto_guardar: Texto del botón guardar
+        texto_guardando: Texto mostrado mientras guarda
         texto_cancelar: Texto del botón cancelar
         max_width: Ancho máximo del modal
 
@@ -241,29 +248,26 @@ def modal_formulario(
             rx.dialog.title(titulo),
             rx.dialog.description(
                 descripcion,
-                margin_bottom="16px",
+                margin_bottom=MODAL_SECTION_GAP,
             ),
             contenido,
-            rx.hstack(
-                rx.button(
-                    texto_cancelar,
-                    variant="soft",
-                    color_scheme="gray",
-                    on_click=on_cancelar,
+            rx.box(
+                botones_modal(
+                    on_guardar=on_guardar,
+                    on_cancelar=on_cancelar,
+                    saving=loading,
+                    disabled=(
+                        ~puede_guardar if isinstance(puede_guardar, rx.Var) else not puede_guardar
+                    ),
+                    texto_guardar=texto_guardar,
+                    texto_guardando=texto_guardando,
+                    texto_cancelar=texto_cancelar,
                 ),
-                rx.button(
-                    texto_guardar,
-                    on_click=on_guardar,
-                    disabled=~puede_guardar if isinstance(puede_guardar, rx.Var) else not puede_guardar,
-                    loading=loading,
-                    color_scheme="blue",
-                ),
-                justify="end",
-                spacing="3",
-                margin_top="4",
+                width="100%",
+                margin_top=MODAL_SECTION_GAP,
             ),
             max_width=max_width,
-            padding="6",
+            padding=MODAL_CONTENT_PADDING,
         ),
         open=open,
         # No cerrar al hacer click fuera - solo con botones
@@ -313,10 +317,10 @@ def modal_detalle(
                 *botones,
                 justify="end",
                 spacing="3",
-                margin_top="4",
+                margin_top=MODAL_SECTION_GAP,
             ),
             max_width=max_width,
-            padding="6",
+            padding=MODAL_CONTENT_PADDING,
         ),
         open=open,
         # No cerrar al hacer click fuera - solo con botones

@@ -12,12 +12,18 @@ from app.presentation.components.ui.action_buttons import (
     tabla_action_button,
     tabla_action_buttons,
 )
+from app.presentation.components.ui import (
+    table_cell_actions,
+    table_cell_badge,
+    table_cell_text_sm,
+    table_shell,
+    table_text_sm,
+)
 from app.presentation.theme import (
     Colors,
     Spacing,
     Typography,
     TABLE_CONTAINER_STYLE,
-    TABLE_HEADER_STYLE,
 )
 
 
@@ -36,11 +42,11 @@ def _header_label(texto: str, align: str = "left") -> rx.Component:
     """Label de encabezado consistente con el sistema visual."""
     return rx.text(
         texto,
-        font_size=TABLE_HEADER_STYLE["font_size"],
-        font_weight=TABLE_HEADER_STYLE["font_weight"],
-        color=TABLE_HEADER_STYLE["color"],
-        text_transform="none",
-        letter_spacing=Typography.LETTER_SPACING_NORMAL,
+        font_size=Typography.SIZE_XS,
+        font_weight=Typography.WEIGHT_SEMIBOLD,
+        color=Colors.TEXT_MUTED,
+        text_transform="uppercase",
+        letter_spacing=Typography.LETTER_SPACING_WIDE,
         text_align=align,
         width="100%",
         white_space="nowrap",
@@ -63,6 +69,33 @@ def _money_text(
         width="100%",
         text_align="right",
         white_space="nowrap",
+    )
+
+
+def _celda_centrada(content: rx.Component) -> rx.Component:
+    """Celda centrada para badges, conteos y acciones."""
+    return rx.table.cell(
+        rx.center(content, width="100%"),
+        align="center",
+    )
+
+
+def _celda_dos_lineas(
+    principal: rx.Component,
+    secundario: rx.Component | None = None,
+) -> rx.Component:
+    """Celda compuesta de dos líneas con el mismo patrón del sistema."""
+    children = [principal]
+    if secundario is not None:
+        children.append(secundario)
+
+    return rx.table.cell(
+        rx.vstack(
+            *children,
+            spacing="0",
+            align="start",
+            width="100%",
+        )
     )
 
 
@@ -136,44 +169,56 @@ def badge_estatus_partida(estatus: rx.Var) -> rx.Component:
 def fila_cotizacion(cotizacion: dict) -> rx.Component:
     """Fila de la tabla de cotizaciones."""
     from app.presentation.pages.cotizador.cotizador_state import CotizadorState
+
     return rx.table.row(
-        rx.table.cell(
+        _celda_dos_lineas(
             rx.link(
-                rx.text(
-                    cotizacion['codigo'],
+                table_text_sm(
+                    cotizacion["codigo"],
                     color=Colors.PRIMARY,
-                    font_weight="600",
-                    font_size=Typography.SIZE_SM,
+                    weight=Typography.WEIGHT_SEMIBOLD,
                     white_space="nowrap",
                 ),
                 href="/portal/cotizador/" + cotizacion["codigo"].to(str),
-            )
-        ),
-        rx.table.cell(
-            tipo_cotizacion_badge(cotizacion.get('tipo', 'PERSONAL'))
-        ),
-        rx.table.cell(
-            rx.text(
-                cotizacion.get('nombre_empresa', ''),
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_PRIMARY,
-            )
-        ),
-        rx.table.cell(
-            rx.flex(
-                rx.badge(
-                    cotizacion.get('cantidad_partidas_texto', '0'),
-                    color_scheme='blue',
-                    variant='soft',
-                    size="1",
+            ),
+            rx.cond(
+                cotizacion.get("periodo_texto", "") != "",
+                table_text_sm(
+                    cotizacion["periodo_texto"],
+                    tone="muted",
+                    white_space="nowrap",
                 ),
-                justify="center",
+                rx.fragment(),
+            ),
+        ),
+        _celda_centrada(
+            tipo_cotizacion_badge(cotizacion.get("tipo", "PERSONAL"))
+        ),
+        _celda_dos_lineas(
+            table_text_sm(
+                cotizacion.get("nombre_empresa", ""),
+                fallback="-",
+            ),
+            rx.cond(
+                cotizacion.get("destinatario_nombre", "") != "",
+                table_text_sm(
+                    cotizacion["destinatario_nombre"],
+                    tone="muted",
+                ),
+                rx.fragment(),
             )
         ),
-        rx.table.cell(
-            badge_estatus_cotizacion(cotizacion.get('estatus', 'BORRADOR'))
+        table_cell_text_sm(
+            cotizacion.get("cantidad_partidas_texto", "0"),
+            tone="secondary",
+            weight=Typography.WEIGHT_MEDIUM,
+            text_align="center",
+            width="100%",
         ),
-        rx.table.cell(
+        table_cell_badge(
+            badge_estatus_cotizacion(cotizacion.get("estatus", "BORRADOR"))
+        ),
+        table_cell_actions(
             tabla_action_buttons(
                 [
                     rx.tooltip(
@@ -191,9 +236,9 @@ def fila_cotizacion(cotizacion: dict) -> rx.Component:
                     tabla_action_button(
                         icon="copy",
                         tooltip="Crear nueva versión",
-                        on_click=CotizadorState.crear_nueva_version(cotizacion['id']),
+                        on_click=CotizadorState.crear_nueva_version(cotizacion["id"]),
                         color_scheme="gray",
-                        visible=cotizacion.get('estatus') != 'APROBADA',
+                        visible=cotizacion.get("estatus") != "APROBADA",
                     ),
                 ],
                 spacing="1",
@@ -205,12 +250,23 @@ def fila_cotizacion(cotizacion: dict) -> rx.Component:
 
 def tabla_cotizaciones(cotizaciones: rx.Var, loading: rx.Var) -> rx.Component:
     """Tabla principal del listado de cotizaciones."""
-    return rx.cond(
-        loading,
-        rx.center(rx.spinner(size="3"), padding=Spacing.XL),
-        rx.cond(
-            cotizaciones.length() == 0,
-            rx.center(
+    headers = [
+        {"nombre": "Código"},
+        {"nombre": "Tipo", "header_align": "center"},
+        {"nombre": "Empresa"},
+        {"nombre": "Partidas", "header_align": "center"},
+        {"nombre": "Estatus"},
+        {"nombre": "Acciones", "header_align": "center"},
+    ]
+
+    return _table_shell(
+        table_shell(
+            loading=loading,
+            headers=headers,
+            rows=cotizaciones,
+            row_renderer=fila_cotizacion,
+            has_rows=cotizaciones.length() > 0,
+            empty_component=rx.center(
                 rx.vstack(
                     rx.icon("file-text", size=48, color=Colors.TEXT_MUTED),
                     rx.text(
@@ -223,28 +279,10 @@ def tabla_cotizaciones(cotizaciones: rx.Var, loading: rx.Var) -> rx.Component:
                 ),
                 padding=Spacing.XXL,
             ),
-            _table_shell(
-                rx.table.root(
-                    rx.table.header(
-                        rx.table.row(
-                            rx.table.column_header_cell(_header_label("Código")),
-                            rx.table.column_header_cell(_header_label("Tipo")),
-                            rx.table.column_header_cell(_header_label("Empresa")),
-                            rx.table.column_header_cell(_header_label("Partidas", align="center")),
-                            rx.table.column_header_cell(_header_label("Estatus")),
-                            rx.table.column_header_cell(_header_label("Acciones", align="center")),
-                        )
-                    ),
-                    rx.table.body(
-                        rx.foreach(cotizaciones, fila_cotizacion)
-                    ),
-                    width="100%",
-                    variant="surface",
-                    size="2",
-                ),
-                min_width="860px",
-            ),
+            loading_rows=5,
+            table_size="1",
         ),
+        min_width="860px",
     )
 
 

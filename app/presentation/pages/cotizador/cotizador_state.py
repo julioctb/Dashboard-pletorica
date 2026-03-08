@@ -118,6 +118,12 @@ class CotizadorState(PortalState):
         """Normaliza fechas para el listado evitando render crudo en la UI."""
         return formatear_fecha(valor)
 
+    def _formatear_periodo_resumen(self, fecha_inicio_texto: str, fecha_fin_texto: str) -> str:
+        """Construye el período visible para la tabla desde valores ya serializados."""
+        if fecha_inicio_texto and fecha_fin_texto:
+            return f"{fecha_inicio_texto} - {fecha_fin_texto}"
+        return fecha_inicio_texto or fecha_fin_texto or ""
+
     def _serializar_resumen_cotizacion(self, cotizacion) -> dict:
         """Prepara un resumen serializable y listo para render en tabla."""
         data = cotizacion.model_dump(mode='json')
@@ -126,6 +132,10 @@ class CotizadorState(PortalState):
         )
         data["fecha_fin_texto"] = self._formatear_fecha_resumen(
             data.get("fecha_fin_periodo")
+        )
+        data["periodo_texto"] = self._formatear_periodo_resumen(
+            data["fecha_inicio_texto"],
+            data["fecha_fin_texto"],
         )
         data["cantidad_partidas_texto"] = str(int(data.get("cantidad_partidas") or 0))
         return data

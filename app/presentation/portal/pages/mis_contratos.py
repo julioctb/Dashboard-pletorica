@@ -15,17 +15,24 @@ from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.layout import page_layout, page_header, page_toolbar
 from app.presentation.components.ui import (
     acciones_filtros,
+    empty_state_card,
     entity_card,
     entity_grid,
     boton_cancelar,
     boton_eliminar,
     contador_registros,
     filtros_inline,
+    metric_card,
+    status_badge_reactive,
+    table_shell,
 )
 from app.presentation.theme import Colors, Typography, Spacing
-from app.services import contrato_service
+from app.services import contrato_service, contrato_categoria_service
 from app.core.exceptions import DatabaseError, BusinessRuleError
-from app.core.text_utils import formatear_fecha
+from app.presentation.pages.contratos.contrato_presentacion import (
+    enriquecer_contrato_presentacion,
+    serializar_categoria_contrato_detalle,
+)
 
 
 # =============================================================================
@@ -40,10 +47,11 @@ class MisContratosState(PortalState):
 
     # Filtros
     filtro_busqueda_cto: str = ""
-    filtro_estatus_cto: str = "ACTIVO"
+    filtro_estatus_cto: str = FILTRO_TODOS
 
     # Detalle
     contrato_detalle: dict = {}
+    categorias_detalle_contrato: List[dict] = []
     modal_detalle_abierto: bool = False
     mostrar_modal_confirmar_cancelar: bool = False
     saving_accion_contrato: bool = False
@@ -53,7 +61,7 @@ class MisContratosState(PortalState):
         self.filtro_busqueda_cto = value
 
     def set_filtro_estatus_cto(self, value: str):
-        self.filtro_estatus_cto = value if value else "ACTIVO"
+        self.filtro_estatus_cto = value if value else FILTRO_TODOS
 
     async def on_mount_contratos(self):
         resultado = await self.on_mount_portal()
@@ -105,18 +113,23 @@ class MisContratosState(PortalState):
 
     async def limpiar_filtros_cto(self):
         self.filtro_busqueda_cto = ""
-        self.filtro_estatus_cto = "ACTIVO"
+        self.filtro_estatus_cto = FILTRO_TODOS
         async for _ in self.cargar_contratos():
             yield
 
-    def abrir_detalle(self, contrato: dict):
+    async def abrir_detalle(self, contrato: dict):
         """Abre el modal de detalle de un contrato."""
         self.contrato_detalle = self._enriquecer_contrato(contrato)
+        self.categorias_detalle_contrato = []
+        contrato_id = int(contrato.get("id") or 0)
+        if contrato_id:
+            await self._cargar_categorias_detalle_contrato(contrato_id)
         self.modal_detalle_abierto = True
 
     def cerrar_detalle(self):
         self.modal_detalle_abierto = False
         self.contrato_detalle = {}
+        self.categorias_detalle_contrato = []
 
     def abrir_confirmar_cancelar(self):
         """Abre la confirmación de cancelación para el contrato en detalle."""
@@ -146,7 +159,7 @@ class MisContratosState(PortalState):
         await contratos_state.cargar_tipos_servicio()
 
         self.cerrar_detalle()
-        return contratos_state.abrir_modal_editar(contrato)
+        return await contratos_state.abrir_modal_editar(contrato)
 
     def _asegurar_permiso_operar_contrato(self, contrato: dict):
         """Valida que el contrato pertenezca a la empresa activa del portal."""
@@ -270,12 +283,28 @@ class MisContratosState(PortalState):
         contrato = self.contrato_detalle
         return bool(self.es_admin_empresa and contrato and contrato.get("estatus") != "CANCELADO")
 
+    @rx.var
+    def tiene_categorias_detalle_contrato(self) -> bool:
+        return len(self.categorias_detalle_contrato) > 0
+
+    @rx.var
+    def total_categorias_detalle_contrato(self) -> int:
+        return len(self.categorias_detalle_contrato)
+
+    async def _cargar_categorias_detalle_contrato(self, contrato_id: int):
+        """Carga el desglose de categorías del contrato para el modal resumen."""
+        try:
+            resumen = await contrato_categoria_service.obtener_resumen_de_contrato(contrato_id)
+            self.categorias_detalle_contrato = [
+                serializar_categoria_contrato_detalle(item)
+                for item in resumen
+            ]
+        except Exception:
+            self.categorias_detalle_contrato = []
+
     def _enriquecer_contrato(self, contrato: dict) -> dict:
         """Agrega campos de presentacion para mantener la UI del portal consistente."""
-        data = dict(contrato)
-        data["fecha_inicio_fmt"] = formatear_fecha(data.get("fecha_inicio"))
-        data["fecha_fin_fmt"] = formatear_fecha(data.get("fecha_fin"))
-        return data
+        return enriquecer_contrato_presentacion(contrato)
 
 
 # =============================================================================
@@ -355,8 +384,8 @@ def _filtros_contratos() -> rx.Component:
         rx.select.root(
             rx.select.trigger(placeholder="Estatus"),
             rx.select.content(
-                rx.select.item("Activos", value="ACTIVO"),
                 rx.select.item("Todos", value=FILTRO_TODOS),
+                rx.select.item("Activos", value="ACTIVO"),
             ),
             value=MisContratosState.filtro_estatus_cto,
             on_change=MisContratosState.set_filtro_estatus_cto,
@@ -367,14 +396,14 @@ def _filtros_contratos() -> rx.Component:
             on_clear=MisContratosState.limpiar_filtros_cto,
             show_clear=(
                 (MisContratosState.filtro_busqueda_cto != "")
-                | (MisContratosState.filtro_estatus_cto != "ACTIVO")
+                | (MisContratosState.filtro_estatus_cto != FILTRO_TODOS)
             ),
         ),
         contador_registros(
             total=MisContratosState.total_contratos_filtrados,
             tiene_filtros=(
                 (MisContratosState.filtro_busqueda_cto != "")
-                | (MisContratosState.filtro_estatus_cto != "ACTIVO")
+                | (MisContratosState.filtro_estatus_cto != FILTRO_TODOS)
             ),
             texto_entidad="contrato",
         ),
@@ -385,7 +414,37 @@ def _filtros_contratos() -> rx.Component:
 # MODAL DE DETALLE
 # =============================================================================
 
-def _campo_detalle(label: str, valor: rx.Var) -> rx.Component:
+def _texto_detalle(
+    valor,
+    *,
+    fallback: str = "No disponible",
+    weight: str | None = None,
+    color: str = Colors.TEXT_PRIMARY,
+    white_space: str | None = None,
+) -> rx.Component:
+    """Texto consistente para campos de detalle."""
+    text_props = {
+        "font_size": Typography.SIZE_SM,
+        "color": color,
+    }
+    if weight is not None:
+        text_props["font_weight"] = weight
+    if white_space is not None:
+        text_props["white_space"] = white_space
+
+    return rx.cond(
+        valor,
+        rx.text(valor, **text_props),
+        rx.text(
+            fallback,
+            font_size=Typography.SIZE_SM,
+            color=Colors.TEXT_MUTED,
+            font_style="italic",
+        ),
+    )
+
+
+def _campo_detalle(label: str, contenido: rx.Component) -> rx.Component:
     """Campo de detalle en modo solo lectura."""
     return rx.vstack(
         rx.text(
@@ -396,22 +455,71 @@ def _campo_detalle(label: str, valor: rx.Var) -> rx.Component:
             text_transform="uppercase",
             letter_spacing=Typography.LETTER_SPACING_WIDE,
         ),
-        rx.cond(
-            valor,
-            rx.text(
-                valor,
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_PRIMARY,
-            ),
-            rx.text(
-                "No disponible",
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_MUTED,
-                font_style="italic",
-            ),
-        ),
+        contenido,
         spacing="1",
         width="100%",
+        align="start",
+    )
+
+
+def _fila_categoria_detalle(categoria: dict) -> rx.Component:
+    """Fila del resumen de categorías configuradas en el contrato."""
+    return rx.table.row(
+        rx.table.cell(
+            rx.cond(
+                categoria["categoria_clave"],
+                rx.badge(
+                    categoria["categoria_clave"],
+                    color_scheme="blue",
+                    variant="soft",
+                    size="1",
+                ),
+                rx.text("-", size="2", color=Colors.TEXT_MUTED),
+            ),
+        ),
+        rx.table.cell(
+            rx.text(
+                categoria["categoria_nombre"],
+                size="2",
+                color=Colors.TEXT_PRIMARY,
+            ),
+        ),
+        rx.table.cell(
+            rx.text(
+                categoria["cantidad_minima"],
+                size="2",
+                color=Colors.TEXT_PRIMARY,
+            ),
+        ),
+        rx.table.cell(
+            rx.text(
+                categoria["cantidad_maxima"],
+                size="2",
+                color=Colors.TEXT_PRIMARY,
+            ),
+        ),
+        rx.table.cell(
+            rx.text(
+                categoria["costo_unitario_fmt"],
+                size="2",
+                weight="medium",
+                color=Colors.TEXT_PRIMARY,
+            ),
+        ),
+        rx.table.cell(
+            rx.text(
+                categoria["costo_minimo_fmt"],
+                size="2",
+                color=Colors.TEXT_SECONDARY,
+            ),
+        ),
+        rx.table.cell(
+            rx.text(
+                categoria["costo_maximo_fmt"],
+                size="2",
+                color=Colors.TEXT_SECONDARY,
+            ),
+        ),
     )
 
 
@@ -421,137 +529,324 @@ def _modal_detalle_contrato() -> rx.Component:
 
     return rx.dialog.root(
         rx.dialog.content(
-            rx.dialog.title(
-                rx.hstack(
-                    rx.icon("file-text", size=20, color=Colors.PORTAL_PRIMARY),
-                    rx.text("Detalle del Contrato"),
-                    spacing="2",
-                    align="center",
-                ),
-            ),
-            rx.dialog.description(
-                rx.text(
-                    datos["codigo"],
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_SECONDARY,
-                ),
-            ),
-            rx.separator(),
-            rx.vstack(
-                # Identificacion
-                rx.grid(
-                    _campo_detalle("Codigo", datos["codigo"]),
-                    _campo_detalle("Folio BUAP", datos["numero_folio_buap"]),
-                    _campo_detalle("Tipo Contrato", datos["tipo_contrato"]),
-                    _campo_detalle("Estatus", datos["estatus"]),
-                    columns=rx.breakpoints(initial="1", sm="2"),
-                    spacing="4",
-                    width="100%",
-                ),
-                rx.separator(),
-                # Descripcion
-                _campo_detalle("Descripcion del Objeto", datos["descripcion_objeto"]),
-                rx.separator(),
-                # Vigencia
-                rx.grid(
-                    _campo_detalle("Inicio", datos["fecha_inicio_fmt"]),
-                    _campo_detalle("Fin", rx.cond(datos["fecha_fin"], datos["fecha_fin_fmt"], "Indefinido")),
-                    columns=rx.breakpoints(initial="1", sm="2"),
-                    spacing="4",
-                    width="100%",
-                ),
-                rx.separator(),
-                # Montos
-                rx.grid(
-                    _campo_detalle("Monto Minimo", datos["monto_minimo"]),
-                    _campo_detalle("Monto Maximo", datos["monto_maximo"]),
-                    columns=rx.breakpoints(initial="1", sm="2"),
-                    spacing="4",
-                    width="100%",
-                ),
-                spacing="4",
-                width="100%",
-                padding_y=Spacing.BASE,
-            ),
-            rx.vstack(
-                rx.hstack(
-                    rx.cond(
-                        MisContratosState.puede_editar_detalle,
-                        rx.button(
-                            rx.icon("pencil", size=16),
-                            "Editar contrato",
-                            on_click=MisContratosState.abrir_edicion_contrato,
-                            color_scheme="teal",
-                            variant="soft",
-                            disabled=MisContratosState.saving_accion_contrato,
+            rx.cond(
+                datos,
+                rx.vstack(
+                    rx.hstack(
+                        rx.vstack(
+                            rx.dialog.title(
+                                rx.hstack(
+                                    rx.icon("file-text", size=20, color=Colors.PORTAL_PRIMARY),
+                                    rx.text("Resumen del Contrato"),
+                                    spacing="2",
+                                    align="center",
+                                ),
+                            ),
+                            rx.hstack(
+                                rx.badge(
+                                    datos["tipo_contrato"],
+                                    color_scheme="teal",
+                                    variant="soft",
+                                    size="1",
+                                ),
+                                _texto_detalle(
+                                    datos["codigo"],
+                                    fallback="Sin código",
+                                    color=Colors.TEXT_SECONDARY,
+                                ),
+                                spacing="2",
+                                wrap="wrap",
+                                width="100%",
+                            ),
+                            spacing="2",
+                            align="start",
                         ),
-                        rx.fragment(),
+                        rx.spacer(),
+                        status_badge_reactive(
+                            datos["estatus"],
+                            show_icon=True,
+                        ),
+                        width="100%",
+                        align="start",
                     ),
-                    rx.cond(
-                        MisContratosState.puede_activar_detalle,
-                        rx.button(
-                            rx.icon("check", size=16),
-                            "Activar",
-                            on_click=MisContratosState.activar_contrato,
+                    rx.card(
+                        rx.vstack(
+                            rx.grid(
+                                _campo_detalle(
+                                    "Código",
+                                    _texto_detalle(datos["codigo"], fallback="Sin código"),
+                                ),
+                                _campo_detalle(
+                                    "Folio BUAP",
+                                    _texto_detalle(datos["numero_folio_buap"], fallback="Sin folio"),
+                                ),
+                                _campo_detalle(
+                                    "Tipo de contrato",
+                                    _texto_detalle(datos["tipo_contrato"]),
+                                ),
+                                _campo_detalle(
+                                    "Vigencia",
+                                    rx.badge(
+                                        datos["vigencia_label"],
+                                        color_scheme=datos["vigencia_color_scheme"],
+                                        variant="soft",
+                                        size="1",
+                                    ),
+                                ),
+                                _campo_detalle(
+                                    "Inicio",
+                                    _texto_detalle(datos["fecha_inicio_fmt"]),
+                                ),
+                                _campo_detalle(
+                                    "Fin",
+                                    _texto_detalle(
+                                        rx.cond(
+                                            datos["fecha_fin"],
+                                            datos["fecha_fin_fmt"],
+                                            "Indefinido",
+                                        ),
+                                        fallback="Indefinido",
+                                    ),
+                                ),
+                                columns=rx.breakpoints(initial="1", sm="2", lg="3"),
+                                spacing="4",
+                                width="100%",
+                            ),
+                            spacing="3",
+                            width="100%",
+                        ),
+                        width="100%",
+                        variant="surface",
+                    ),
+                    rx.grid(
+                        metric_card(
+                            titulo="Plazas mínimas",
+                            valor=datos["cantidad_plazas_minima"],
+                            icono="users",
+                            color_scheme="blue",
+                            descripcion="Cobertura mínima comprometida",
+                        ),
+                        metric_card(
+                            titulo="Plazas máximas",
+                            valor=datos["cantidad_plazas_maxima"],
+                            icono="briefcase",
                             color_scheme="green",
-                            variant="soft",
-                            disabled=MisContratosState.saving_accion_contrato,
+                            descripcion="Capacidad máxima del contrato",
                         ),
-                        rx.fragment(),
-                    ),
-                    rx.cond(
-                        MisContratosState.puede_suspender_detalle,
-                        rx.button(
-                            rx.icon("pause", size=16),
-                            "Suspender",
-                            on_click=MisContratosState.suspender_contrato,
-                            color_scheme="orange",
-                            variant="soft",
-                            disabled=MisContratosState.saving_accion_contrato,
+                        metric_card(
+                            titulo="Categorías",
+                            valor=MisContratosState.total_categorias_detalle_contrato,
+                            icono="tags",
+                            color_scheme="amber",
+                            descripcion="Perfiles configurados en la planeación",
                         ),
-                        rx.fragment(),
+                        columns=rx.breakpoints(initial="1", sm="2", lg="3"),
+                        spacing="3",
+                        width="100%",
                     ),
-                    rx.cond(
-                        MisContratosState.puede_reactivar_detalle,
-                        rx.button(
-                            rx.icon("play", size=16),
-                            "Reactivar",
-                            on_click=MisContratosState.reactivar_contrato,
-                            color_scheme="green",
-                            variant="soft",
-                            disabled=MisContratosState.saving_accion_contrato,
+                    rx.card(
+                        rx.vstack(
+                            rx.hstack(
+                                rx.text(
+                                    "Montos del contrato",
+                                    size="4",
+                                    weight="bold",
+                                    color=Colors.TEXT_PRIMARY,
+                                ),
+                                rx.spacer(),
+                                rx.cond(
+                                    datos["incluye_iva"],
+                                    rx.badge(
+                                        "Incluye IVA",
+                                        color_scheme="green",
+                                        variant="soft",
+                                        size="1",
+                                    ),
+                                    rx.badge(
+                                        "Sin IVA",
+                                        color_scheme="gray",
+                                        variant="soft",
+                                        size="1",
+                                    ),
+                                ),
+                                width="100%",
+                                align="center",
+                            ),
+                            rx.grid(
+                                metric_card(
+                                    titulo="Monto mínimo",
+                                    valor=datos["monto_minimo_fmt"],
+                                    icono="banknote",
+                                    color_scheme="blue",
+                                    descripcion="Suma de costo por categoría x plazas mínimas",
+                                ),
+                                metric_card(
+                                    titulo="Monto máximo",
+                                    valor=datos["monto_maximo_fmt"],
+                                    icono="wallet",
+                                    color_scheme="green",
+                                    descripcion="Suma de costo por categoría x plazas máximas",
+                                ),
+                                columns=rx.breakpoints(initial="1", sm="2"),
+                                spacing="3",
+                                width="100%",
+                            ),
+                            spacing="3",
+                            width="100%",
                         ),
-                        rx.fragment(),
+                        width="100%",
+                        variant="surface",
                     ),
-                    rx.cond(
-                        MisContratosState.puede_cancelar_detalle,
-                        rx.button(
-                            rx.icon("x", size=16),
-                            "Cancelar contrato",
-                            on_click=MisContratosState.abrir_confirmar_cancelar,
-                            color_scheme="red",
-                            variant="soft",
-                            disabled=MisContratosState.saving_accion_contrato,
+                    rx.card(
+                        rx.vstack(
+                            rx.hstack(
+                                rx.text(
+                                    "Categorías configuradas",
+                                    size="4",
+                                    weight="bold",
+                                    color=Colors.TEXT_PRIMARY,
+                                ),
+                                rx.spacer(),
+                                rx.cond(
+                                    MisContratosState.tiene_categorias_detalle_contrato,
+                                    rx.badge(
+                                        MisContratosState.total_categorias_detalle_contrato,
+                                        color_scheme="blue",
+                                        variant="soft",
+                                        size="1",
+                                    ),
+                                    rx.fragment(),
+                                ),
+                                width="100%",
+                                align="center",
+                            ),
+                            rx.cond(
+                                MisContratosState.tiene_categorias_detalle_contrato,
+                                rx.box(
+                                    table_shell(
+                                        loading=False,
+                                        has_rows=True,
+                                        empty_component=rx.fragment(),
+                                        header_cells=[
+                                            rx.table.column_header_cell("Clave", width="90px"),
+                                            rx.table.column_header_cell("Categoría"),
+                                            rx.table.column_header_cell("Mín.", width="70px"),
+                                            rx.table.column_header_cell("Máx.", width="70px"),
+                                            rx.table.column_header_cell("Costo", width="120px"),
+                                            rx.table.column_header_cell("Monto mín.", width="120px"),
+                                            rx.table.column_header_cell("Monto máx.", width="120px"),
+                                        ],
+                                        body_component=rx.foreach(
+                                            MisContratosState.categorias_detalle_contrato,
+                                            _fila_categoria_detalle,
+                                        ),
+                                    ),
+                                    overflow_x="auto",
+                                    width="100%",
+                                ),
+                                empty_state_card(
+                                    title="Sin categorías configuradas",
+                                    description="Este contrato no tiene un desglose de plazas por categoría capturado.",
+                                    icon="tags",
+                                ),
+                            ),
+                            spacing="3",
+                            width="100%",
                         ),
-                        rx.fragment(),
+                        width="100%",
+                        variant="surface",
                     ),
-                    spacing="2",
-                    wrap="wrap",
+                    _campo_detalle(
+                        "Descripción del objeto",
+                        _texto_detalle(
+                            datos["descripcion_objeto"],
+                            white_space="pre-wrap",
+                        ),
+                    ),
+                    rx.vstack(
+                        rx.hstack(
+                            rx.cond(
+                                MisContratosState.puede_editar_detalle,
+                                rx.button(
+                                    rx.icon("pencil", size=16),
+                                    "Editar contrato",
+                                    on_click=MisContratosState.abrir_edicion_contrato,
+                                    color_scheme="teal",
+                                    variant="soft",
+                                    disabled=MisContratosState.saving_accion_contrato,
+                                ),
+                                rx.fragment(),
+                            ),
+                            rx.cond(
+                                MisContratosState.puede_activar_detalle,
+                                rx.button(
+                                    rx.icon("check", size=16),
+                                    "Activar",
+                                    on_click=MisContratosState.activar_contrato,
+                                    color_scheme="green",
+                                    variant="soft",
+                                    disabled=MisContratosState.saving_accion_contrato,
+                                ),
+                                rx.fragment(),
+                            ),
+                            rx.cond(
+                                MisContratosState.puede_suspender_detalle,
+                                rx.button(
+                                    rx.icon("pause", size=16),
+                                    "Suspender",
+                                    on_click=MisContratosState.suspender_contrato,
+                                    color_scheme="orange",
+                                    variant="soft",
+                                    disabled=MisContratosState.saving_accion_contrato,
+                                ),
+                                rx.fragment(),
+                            ),
+                            rx.cond(
+                                MisContratosState.puede_reactivar_detalle,
+                                rx.button(
+                                    rx.icon("play", size=16),
+                                    "Reactivar",
+                                    on_click=MisContratosState.reactivar_contrato,
+                                    color_scheme="green",
+                                    variant="soft",
+                                    disabled=MisContratosState.saving_accion_contrato,
+                                ),
+                                rx.fragment(),
+                            ),
+                            rx.cond(
+                                MisContratosState.puede_cancelar_detalle,
+                                rx.button(
+                                    rx.icon("x", size=16),
+                                    "Cancelar contrato",
+                                    on_click=MisContratosState.abrir_confirmar_cancelar,
+                                    color_scheme="red",
+                                    variant="soft",
+                                    disabled=MisContratosState.saving_accion_contrato,
+                                ),
+                                rx.fragment(),
+                            ),
+                            spacing="2",
+                            wrap="wrap",
+                            width="100%",
+                        ),
+                        rx.hstack(
+                            rx.spacer(),
+                            boton_cancelar(
+                                texto="Cerrar",
+                                on_click=MisContratosState.cerrar_detalle,
+                            ),
+                            width="100%",
+                            align="center",
+                        ),
+                        spacing="3",
+                        width="100%",
+                    ),
+                    spacing="4",
                     width="100%",
                 ),
-                rx.hstack(
-                    rx.spacer(),
-                    boton_cancelar(
-                        texto="Cerrar",
-                        on_click=MisContratosState.cerrar_detalle,
-                    ),
-                    width="100%",
-                    align="center",
-                ),
-                spacing="3",
-                width="100%",
+                rx.fragment(),
             ),
-            max_width="600px",
+            max_width="960px",
         ),
         open=MisContratosState.modal_detalle_abierto,
         # No cerrar al hacer click fuera - solo con botones

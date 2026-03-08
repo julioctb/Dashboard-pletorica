@@ -2,6 +2,7 @@
 Componentes para el modulo de Plazas.
 """
 from .plazas_modals import (
+    modal_asignar_empleado,
     modal_plaza,
     modal_detalle_plaza,
     modal_confirmar_cancelar,
@@ -9,6 +10,7 @@ from .plazas_modals import (
 )
 
 __all__ = [
+    "modal_asignar_empleado",
     "modal_plaza",
     "modal_detalle_plaza",
     "modal_confirmar_cancelar",

@@ -41,7 +41,7 @@ FORM_DEFAULTS = {
 
 
 class PlazasState(AuthState):
-    """State del módulo de plazas centrado en contrato y categorización."""
+    """State del módulo de plazas centrado en contrato y operación de plazas."""
 
     # =========================================================================
     # VISTA
@@ -157,13 +157,13 @@ class PlazasState(AuthState):
     def subtitulo_inicio(self) -> str:
         if self.es_contexto_portal:
             return "Asignación de plazas"
-        return "Categorización y operación de plazas por contrato"
+        return "Operación de plazas por contrato"
 
     @rx.var
     def descripcion_selector_contrato(self) -> str:
         if self.es_contexto_portal:
             return "Seleccione un contrato vigente con personal para asignar y gestionar sus plazas"
-        return "Seleccione un contrato con personal para revisar, categorizar y operar sus plazas"
+        return "Seleccione un contrato con personal para revisar, completar y operar sus plazas"
 
     @rx.var
     def mensaje_sin_contratos_disponibles(self) -> str:
@@ -206,11 +206,54 @@ class PlazasState(AuthState):
         )
 
     @rx.var
-    def puede_categorizar_lote(self) -> bool:
+    def vacantes_sin_sede_con_categoria_disponibles(self) -> int:
+        return len(
+            [
+                plaza
+                for plaza in self.plazas
+                if plaza.get("estatus") == EstatusPlaza.VACANTE.value
+                and plaza.get("categoria_puesto_id")
+                and not plaza.get("sede_id")
+            ]
+        )
+
+    @rx.var
+    def plazas_ocupadas_sin_sede_total(self) -> int:
+        return len(
+            [
+                plaza
+                for plaza in self.plazas
+                if plaza.get("estatus") == EstatusPlaza.OCUPADA.value
+                and not plaza.get("sede_id")
+            ]
+        )
+
+    @rx.var
+    def mostrar_tabs_asignacion_lote(self) -> bool:
+        return (
+            self.vacantes_sin_categoria_disponibles > 0
+            and self.vacantes_sin_sede_con_categoria_disponibles > 0
+        )
+
+    @rx.var
+    def es_modo_sede_categoria_lote(self) -> bool:
+        return self.modo_asignacion_lote != MODO_ASIGNACION_SOLO_SEDE
+
+    @rx.var
+    def disponibles_asignacion_lote(self) -> int:
+        if self.es_modo_sede_categoria_lote:
+            return self.vacantes_sin_categoria_disponibles
+        return self.vacantes_sin_sede_con_categoria_disponibles
+
+    @rx.var
+    def puede_asignar_lote(self) -> bool:
         return (
             self.puede_operar_plazas_en_contexto
             and self.tiene_contexto
-            and self.vacantes_sin_categoria_disponibles > 0
+            and (
+                self.vacantes_sin_categoria_disponibles > 0
+                or self.vacantes_sin_sede_con_categoria_disponibles > 0
+            )
         )
 
     @rx.var
@@ -413,14 +456,18 @@ class PlazasState(AuthState):
         )
 
     @rx.var
-    def puede_guardar_categorizacion_lote(self) -> bool:
+    def puede_guardar_asignacion_lote(self) -> bool:
+        errores = ["sede_id", "cantidad"]
+        if self.es_modo_sede_categoria_lote:
+            errores.append("categoria_puesto_id")
         return (
             bool(self.form_sede_id)
-            and bool(self.form_categoria_puesto_id)
             and bool(self.form_cantidad)
-            and not self.tiene_errores_en_campos(
-                ["sede_id", "categoria_puesto_id", "cantidad", "salario_mensual"]
+            and (
+                not self.es_modo_sede_categoria_lote
+                or bool(self.form_categoria_puesto_id)
             )
+            and not self.tiene_errores_en_campos(errores)
             and not self.saving
         )
 
@@ -450,6 +497,41 @@ class PlazasState(AuthState):
     @rx.var
     def plazas_sin_sede_total(self) -> int:
         return len([plaza for plaza in self.plazas if not plaza.get("sede_id")])
+
+    @rx.var
+    def plazas_vacantes_sin_sede_total(self) -> int:
+        return len(
+            [
+                plaza
+                for plaza in self.plazas
+                if plaza.get("estatus") == EstatusPlaza.VACANTE.value
+                and not plaza.get("sede_id")
+            ]
+        )
+
+    @rx.var
+    def titulo_modo_asignacion_lote(self) -> str:
+        if self.es_modo_sede_categoria_lote:
+            return "Sede + categoría"
+        return "Solo sede"
+
+    @rx.var
+    def descripcion_modo_asignacion_lote(self) -> str:
+        if self.es_modo_sede_categoria_lote:
+            return (
+                "Asigne categoría a plazas vacantes sin categoría y complete la sede "
+                "solo donde haga falta."
+            )
+        return "Asigne sede a plazas vacantes que ya tienen categoría."
+
+    @rx.var
+    def hint_sede_asignacion_lote(self) -> str:
+        if self.es_modo_sede_categoria_lote:
+            return (
+                "La sede seleccionada se aplicará solo a las plazas del lote que aún no "
+                "tengan sede."
+            )
+        return "La sede se asignará a todas las plazas del lote."
 
     # =========================================================================
     # SETTERS
@@ -499,6 +581,15 @@ class PlazasState(AuthState):
 
     def set_form_prefijo_codigo(self, value: str):
         self.form_prefijo_codigo = value.upper() if value else ""
+
+    def set_modo_asignacion_lote(self, value: str):
+        if value not in {MODO_ASIGNACION_SEDE_CATEGORIA, MODO_ASIGNACION_SOLO_SEDE}:
+            value = MODO_ASIGNACION_SEDE_CATEGORIA
+        self.modo_asignacion_lote = value
+        disponibles = self.disponibles_asignacion_lote
+        self.form_cantidad = str(disponibles) if disponibles > 0 else "1"
+        self.error_cantidad = ""
+        self._validar_cantidad_lote()
 
     def set_empleado_seleccionado_id(self, value: str):
         self.empleado_seleccionado_id = value or ""
@@ -608,10 +699,15 @@ class PlazasState(AuthState):
         if cantidad <= 0:
             self.error_cantidad = "La cantidad debe ser mayor a cero"
             return
-        if cantidad > self.vacantes_sin_categoria_disponibles:
-            self.error_cantidad = (
-                "La cantidad excede las vacantes sin categoría disponibles"
-            )
+        if cantidad > self.disponibles_asignacion_lote:
+            if self.es_modo_sede_categoria_lote:
+                self.error_cantidad = (
+                    "La cantidad excede las vacantes sin categoría disponibles"
+                )
+            else:
+                self.error_cantidad = (
+                    "La cantidad excede las vacantes con categoría y sin sede disponibles"
+                )
 
     async def _cargar_totales_contrato(self, contrato_id: int) -> None:
         resumen = await plaza_service.calcular_totales_contrato(contrato_id)
@@ -682,6 +778,7 @@ class PlazasState(AuthState):
     def _limpiar_formulario(self) -> None:
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
+        self.modo_asignacion_lote = MODO_ASIGNACION_SEDE_CATEGORIA
         self.limpiar_errores_campos(
             [
                 "codigo",
@@ -929,11 +1026,19 @@ class PlazasState(AuthState):
 
         if not self.tiene_contexto:
             return rx.toast.error("Seleccione un contrato primero")
-        if self.vacantes_sin_categoria_disponibles == 0:
-            return rx.toast.error("No hay plazas vacantes sin categoría para operar")
+        if not self.puede_asignar_lote:
+            return rx.toast.error("No hay plazas vacantes disponibles para asignar en lote")
 
         self._limpiar_formulario()
-        self.form_cantidad = str(self.vacantes_sin_categoria_disponibles)
+        if (
+            self.vacantes_sin_categoria_disponibles == 0
+            and self.vacantes_sin_sede_con_categoria_disponibles > 0
+        ):
+            self.modo_asignacion_lote = MODO_ASIGNACION_SOLO_SEDE
+        else:
+            self.modo_asignacion_lote = MODO_ASIGNACION_SEDE_CATEGORIA
+        self.form_cantidad = str(self.disponibles_asignacion_lote)
+        self._validar_cantidad_lote()
         self.mostrar_modal_crear_lote = True
 
     def cerrar_modal_crear_lote(self):
@@ -1006,9 +1111,11 @@ class PlazasState(AuthState):
     # =========================================================================
     async def confirmar_asignar_empleado(self):
         if not self.plaza_seleccionada or not self.empleado_seleccionado_id:
-            return rx.toast.error("Seleccione un empleado")
+            yield rx.toast.error("Seleccione un empleado")
+            return
 
         self.saving = True
+        yield
         try:
             self._asegurar_permiso_operar_plazas()
             plaza_id = int(self.plaza_seleccionada["id"])
@@ -1020,21 +1127,24 @@ class PlazasState(AuthState):
             await plaza_service.asignar_empleado(plaza_id, empleado_id)
             self.cerrar_modal_asignar_empleado()
             await self._recargar_contexto_actual()
-            return rx.toast.success("Empleado asignado a la plaza")
+            yield rx.toast.success("Empleado asignado a la plaza")
         except BusinessRuleError as e:
-            return rx.toast.error(str(e))
+            yield rx.toast.error(str(e))
         except Exception as e:
-            return self.manejar_error_con_toast(e, "asignar empleado")
+            yield self.manejar_error_con_toast(e, "asignar empleado")
         finally:
             self.saving = False
 
     async def guardar_plaza(self):
         if not self.plaza_seleccionada:
-            return rx.toast.error("No hay plaza seleccionada")
+            yield rx.toast.error("No hay plaza seleccionada")
+            return
         if not self.puede_guardar:
-            return rx.toast.error("Complete los campos requeridos")
+            yield rx.toast.error("Complete los campos requeridos")
+            return
 
         self.saving = True
+        yield
         try:
             self._asegurar_permiso_operar_plazas()
             plaza_id = int(self.plaza_seleccionada["id"])
@@ -1063,67 +1173,82 @@ class PlazasState(AuthState):
             numero = self.plaza_seleccionada.get("numero_plaza")
             self.cerrar_modal_plaza()
             await self._recargar_contexto_actual()
-            return rx.toast.success(f"Plaza #{numero} actualizada")
+            yield rx.toast.success(f"Plaza #{numero} actualizada")
         except DuplicateError as e:
-            return rx.toast.error(f"Número de plaza duplicado: {e}")
+            yield rx.toast.error(f"Número de plaza duplicado: {e}")
         except BusinessRuleError as e:
-            return rx.toast.error(str(e))
+            yield rx.toast.error(str(e))
         except Exception as e:
-            return self.manejar_error_con_toast(e, "guardar plaza")
+            yield self.manejar_error_con_toast(e, "guardar plaza")
         finally:
             self.saving = False
 
     async def crear_plazas_lote(self):
         if not self.tiene_contexto:
-            return rx.toast.error("Seleccione un contrato primero")
+            yield rx.toast.error("Seleccione un contrato primero")
+            return
 
         self._validar_cantidad_lote()
-        if not self.puede_guardar_categorizacion_lote:
-            return rx.toast.error("Complete los campos requeridos")
+        if not self.puede_guardar_asignacion_lote:
+            yield rx.toast.error("Complete los campos requeridos")
+            return
 
         self.saving = True
+        yield
         try:
             self._asegurar_permiso_operar_plazas()
             await self._asegurar_acceso_contrato(self.contrato_id)
 
-            categoria_puesto_id = self.parse_id(self.form_categoria_puesto_id)
             sede_id = self.parse_id(self.form_sede_id)
-            if categoria_puesto_id is None:
-                raise BusinessRuleError("Seleccione una categoría")
             if sede_id is None:
                 raise BusinessRuleError("Seleccione una sede")
 
             cantidad = int(self.form_cantidad or "0")
-            salario = (
-                self._parse_decimal(self.form_salario_mensual)
-                if self.form_salario_mensual
-                else None
-            )
+            if self.es_modo_sede_categoria_lote:
+                categoria_puesto_id = self.parse_id(self.form_categoria_puesto_id)
+                if categoria_puesto_id is None:
+                    raise BusinessRuleError("Seleccione una categoría")
 
-            plazas = await plaza_service.asignar_categoria_en_lote(
-                contrato_id=self.contrato_id,
-                categoria_puesto_id=categoria_puesto_id,
-                cantidad=cantidad,
-                sede_id=sede_id,
-                salario_mensual=salario,
-                prefijo_codigo=self.form_prefijo_codigo.strip(),
-            )
+                salario = (
+                    self._parse_decimal(self.form_salario_mensual)
+                    if self.form_salario_mensual
+                    else None
+                )
+
+                plazas = await plaza_service.asignar_categoria_en_lote(
+                    contrato_id=self.contrato_id,
+                    categoria_puesto_id=categoria_puesto_id,
+                    cantidad=cantidad,
+                    sede_id=sede_id,
+                    salario_mensual=salario,
+                    prefijo_codigo=self.form_prefijo_codigo.strip(),
+                )
+                mensaje = f"{len(plazas)} plaza(s) asignadas a sede y categoría"
+            else:
+                plazas = await plaza_service.asignar_sede_en_lote(
+                    contrato_id=self.contrato_id,
+                    sede_id=sede_id,
+                    cantidad=cantidad,
+                )
+                mensaje = f"{len(plazas)} plaza(s) asignadas a sede"
 
             self.cerrar_modal_crear_lote()
             await self._recargar_contexto_actual()
-            return rx.toast.success(f"{len(plazas)} plaza(s) asignadas a sede y categoría")
+            yield rx.toast.success(mensaje)
         except BusinessRuleError as e:
-            return rx.toast.error(str(e))
+            yield rx.toast.error(str(e))
         except Exception as e:
-            return self.manejar_error_con_toast(e, "asignar plazas")
+            yield self.manejar_error_con_toast(e, "asignar plazas")
         finally:
             self.saving = False
 
     async def cancelar_plaza(self):
         if not self.plaza_seleccionada:
-            return rx.toast.error("No hay plaza seleccionada")
+            yield rx.toast.error("No hay plaza seleccionada")
+            return
 
         self.saving = True
+        yield
         try:
             self._asegurar_permiso_operar_plazas()
             plaza_id = int(self.plaza_seleccionada["id"])
@@ -1132,11 +1257,11 @@ class PlazasState(AuthState):
             numero = self.plaza_seleccionada.get("numero_plaza")
             self.cerrar_confirmar_cancelar()
             await self._recargar_contexto_actual()
-            return rx.toast.success(f"Plaza #{numero} cancelada")
+            yield rx.toast.success(f"Plaza #{numero} cancelada")
         except BusinessRuleError as e:
-            return rx.toast.error(str(e))
+            yield rx.toast.error(str(e))
         except Exception as e:
-            return self.manejar_error_con_toast(e, "cancelar plaza")
+            yield self.manejar_error_con_toast(e, "cancelar plaza")
         finally:
             self.saving = False
 

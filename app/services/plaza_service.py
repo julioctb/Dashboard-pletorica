@@ -3,8 +3,8 @@ Servicio de aplicación para gestión de Plazas.
 
 Modelo plazas-first:
 - el contrato define cuántas plazas existen
-- cada plaza puede nacer sin categoría
-- la categoría se asigna desde el módulo de plazas
+- si el contrato desglosa categorías, la plaza se materializa o sincroniza con ellas
+- la sede, el salario operativo y la asignación de personal se gestionan desde plazas
 """
 from __future__ import annotations
 
@@ -123,7 +123,7 @@ class PlazaService:
         cantidad_plazas_maxima: int,
         fecha_inicio: date,
     ) -> int:
-        """Materializa plazas vacantes sin categoría hasta alcanzar el máximo contractual."""
+        """Materializa plazas vacantes hasta alcanzar el máximo contractual."""
         plazas_existentes = await self.repository.contar_por_contrato(contrato_id, incluir_canceladas=True)
         faltantes = max(0, cantidad_plazas_maxima - plazas_existentes)
         if faltantes == 0:
@@ -150,6 +150,106 @@ class PlazaService:
 
         logger.info(f"Sincronizadas {creadas} plazas para contrato {contrato_id}")
         return creadas
+
+    async def sincronizar_categorias_desde_contrato(self, contrato_id: int) -> int:
+        """
+        Aplica el desglose por categoría del contrato a las plazas materializadas.
+
+        Regla de negocio:
+        - el contrato define la categoría y el costo contractual por categoría
+        - la plaza conserva su salario operativo propio; este método no lo modifica
+        - solo se reasignan plazas vacantes/libres cuando hace falta cubrir el máximo
+          configurado por categoría
+        """
+        from app.services import contrato_categoria_service
+
+        categorias_contrato = await contrato_categoria_service.obtener_categorias_de_contrato(contrato_id)
+        if not categorias_contrato:
+            return 0
+
+        plazas = await self.repository.obtener_por_contrato(contrato_id, incluir_canceladas=True)
+        if not plazas:
+            return 0
+
+        objetivos = {
+            item.categoria_puesto_id: int(item.cantidad_maxima or 0)
+            for item in categorias_contrato
+            if int(item.cantidad_maxima or 0) > 0
+        }
+        if not objetivos:
+            return 0
+
+        conteo_actual: dict[int, int] = {}
+        vacantes_sin_categoria: list[Plaza] = []
+        vacantes_reasignables_por_categoria: dict[int, list[Plaza]] = {}
+
+        for plaza in sorted(plazas, key=lambda item: item.numero_plaza):
+            if plaza.estatus == EstatusPlaza.CANCELADA:
+                continue
+
+            categoria_id = plaza.categoria_puesto_id
+            if categoria_id is not None:
+                conteo_actual[categoria_id] = conteo_actual.get(categoria_id, 0) + 1
+                if plaza.estatus == EstatusPlaza.VACANTE and plaza.empleado_id is None:
+                    vacantes_reasignables_por_categoria.setdefault(categoria_id, []).append(plaza)
+                continue
+
+            if plaza.estatus == EstatusPlaza.VACANTE and plaza.empleado_id is None:
+                vacantes_sin_categoria.append(plaza)
+
+        pool_reasignable: list[Plaza] = list(vacantes_sin_categoria)
+
+        for categoria_id, vacantes_categoria in vacantes_reasignables_por_categoria.items():
+            objetivo = objetivos.get(categoria_id, 0)
+            actual = conteo_actual.get(categoria_id, 0)
+            excedente = max(0, actual - objetivo)
+            if categoria_id not in objetivos:
+                excedente = len(vacantes_categoria)
+
+            if excedente <= 0:
+                continue
+
+            seleccionadas = vacantes_categoria[:excedente]
+            pool_reasignable.extend(seleccionadas)
+            conteo_actual[categoria_id] = max(0, actual - len(seleccionadas))
+
+        actualizadas = 0
+        for categoria_contrato in categorias_contrato:
+            categoria_id = categoria_contrato.categoria_puesto_id
+            objetivo = objetivos.get(categoria_id, 0)
+            if objetivo <= 0:
+                continue
+
+            faltantes = max(0, objetivo - conteo_actual.get(categoria_id, 0))
+            while faltantes > 0 and pool_reasignable:
+                plaza = pool_reasignable.pop(0)
+                if plaza.categoria_puesto_id == categoria_id:
+                    conteo_actual[categoria_id] = conteo_actual.get(categoria_id, 0) + 1
+                    faltantes -= 1
+                    continue
+
+                plaza.categoria_puesto_id = categoria_id
+                await self.repository.actualizar(plaza)
+                conteo_actual[categoria_id] = conteo_actual.get(categoria_id, 0) + 1
+                actualizadas += 1
+                faltantes -= 1
+
+            if faltantes > 0:
+                logger.warning(
+                    "No fue posible cubrir el maximo por categoria contrato=%s categoria=%s faltantes=%s",
+                    contrato_id,
+                    categoria_id,
+                    faltantes,
+                )
+
+        if actualizadas:
+            logger.info(
+                "Sincronizadas %s plaza(s) por categoria para contrato %s",
+                actualizadas,
+                contrato_id,
+            )
+
+        return actualizadas
 
     async def crear(self, plaza_create: PlazaCreate) -> Plaza:
         await self._validar_limite_contrato(plaza_create.contrato_id, nueva_cantidad=1)

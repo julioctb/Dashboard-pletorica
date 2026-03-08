@@ -218,12 +218,13 @@ def acciones_filtros(
 
 def filtros_inline(*children) -> rx.Component:
     """Contenedor unico para barras de filtros inline en listados."""
-    return rx.hstack(
+    return rx.flex(
         *children,
-        spacing="3",
         align="center",
         wrap="wrap",
-        width="100%",
+        column_gap=Spacing.SM,
+        row_gap=Spacing.XS,
+        flex_shrink="0",
     )
 
 
