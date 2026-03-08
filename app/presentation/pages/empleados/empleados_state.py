@@ -16,11 +16,10 @@ from app.presentation.components.shared.crud_state_mixin import CRUDStateMixin
 from app.presentation.components.shared.employee_form_state_mixin import EmployeeFormStateMixin
 from app.core.ui_helpers import (
     FILTRO_TODOS,
-    FILTRO_TODAS,
     opciones_desde_enum,
 )
 from app.services import empleado_service, empresa_service
-from app.core.text_utils import formatear_fecha
+from app.core.text_utils import formatear_fecha, formatear_fecha_hora
 from app.core.enums import EstatusEmpleado, GeneroEmpleado, MotivoBaja
 
 from app.entities import (
@@ -104,7 +103,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     # ========================
     # FILTROS
     # ========================
-    filtro_empresa_id: str = FILTRO_TODAS  # String para el select
+    filtro_empresa_id: str = FILTRO_TODOS  # String para el select
     filtro_estatus: str = FILTRO_TODOS
     # filtro_busqueda heredado de BaseState
 
@@ -172,7 +171,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         if not self.es_admin:
             self.filtro_empresa_id = self._filtro_empresa_restringido()
             return
-        self.filtro_empresa_id = value if value else FILTRO_TODAS
+        self.filtro_empresa_id = value if value else FILTRO_TODOS
 
     def set_filtro_estatus(self, value: str):
         self.filtro_estatus = value if value else FILTRO_TODOS
@@ -468,14 +467,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         fecha = self.empleado_seleccionado.get("restricted_at", "")
         if not fecha:
             return ""
-        try:
-            from datetime import datetime
-            if isinstance(fecha, str):
-                dt = datetime.fromisoformat(fecha.replace('Z', '+00:00'))
-                return dt.strftime("%d/%m/%Y %H:%M")
-            return str(fecha)
-        except Exception:
-            return str(fecha)
+        return formatear_fecha_hora(fecha, valor_vacio="")
 
     @rx.var
     def tiene_historial_restricciones(self) -> bool:
@@ -547,7 +539,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
             empresa_restringida = self._filtro_empresa_restringido()
             self.filtro_empresa_id = empresa_restringida
             self.form_empresa_id = (
-                empresa_restringida if empresa_restringida != FILTRO_TODAS else ""
+                empresa_restringida if empresa_restringida != FILTRO_TODOS else ""
             )
 
     async def cargar_detalle(self, empleado_id: int):
@@ -737,7 +729,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                     "id": h.id,
                     "accion": h.accion,
                     "motivo": h.motivo,
-                    "fecha": h.fecha.strftime("%d/%m/%Y %H:%M") if h.fecha else "",
+                    "fecha": formatear_fecha_hora(h.fecha, valor_vacio=""),
                     "ejecutado_por_nombre": h.ejecutado_por_nombre,
                     "notas": h.notas or "",
                     "es_restriccion": h.accion == "RESTRICCION",
@@ -1165,7 +1157,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     def _filtro_empresa_restringido(self) -> str:
         """Retorna el filtro forzado para usuarios no admin."""
         empresa_id = self.id_empresa_actual
-        return str(empresa_id) if empresa_id else FILTRO_TODAS
+        return str(empresa_id) if empresa_id else FILTRO_TODOS
 
     def _filtro_empresa_restringido_value(self) -> str:
         """Retorna el valor de formulario para usuarios no admin."""
@@ -1176,7 +1168,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         """Obtiene el empresa_id efectivo para consultas del listado."""
         if not self.es_admin:
             return self.id_empresa_actual or None
-        if self.filtro_empresa_id and self.filtro_empresa_id not in ("", FILTRO_TODAS):
+        if self.filtro_empresa_id and self.filtro_empresa_id not in ("", FILTRO_TODOS):
             return int(self.filtro_empresa_id)
         return None
 

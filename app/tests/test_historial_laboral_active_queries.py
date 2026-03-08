@@ -91,6 +91,20 @@ def _historial_calls(client: FakeSupabaseClient) -> list[tuple]:
 class TestHistorialLaboralActiveQueries:
     """Protege el criterio de vigencia basado en `fecha_fin`."""
 
+    def test_nomina_calcula_dias_pagables_desde_periodo_completo(self):
+        service = object.__new__(NominaPeriodoService)
+
+        assert service._calcular_dias_trabajados_nomina(
+            dias_periodo=15,
+            dias_faltas=2,
+            dias_incapacidad=1,
+        ) == 12
+        assert service._calcular_dias_trabajados_nomina(
+            dias_periodo=15,
+            dias_faltas=0,
+            dias_incapacidad=0,
+        ) == 15
+
     def test_nomina_resuelve_salario_desde_plazas_ocupadas_vigentes(self):
         client = FakeSupabaseClient(
             {

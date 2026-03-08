@@ -6,8 +6,16 @@ Cards de estadísticas son clickeables para filtrar.
 
 import reflex as rx
 
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.portal.pages.mis_entregables_state import MisEntregablesState
-from app.presentation.components.ui import status_badge_reactive, tabla_vacia, select_items_from_options
+from app.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
+    input_busqueda,
+    select_items_from_options,
+    status_badge_reactive,
+    tabla_vacia,
+)
 from app.presentation.theme import Colors, Spacing, Typography, Radius, Shadows
 
 
@@ -137,7 +145,7 @@ def _seccion_estadisticas() -> rx.Component:
 # BARRA DE FILTROS
 # =============================================================================
 def _barra_filtros() -> rx.Component:
-    return rx.hstack(
+    return filtros_inline(
         rx.text(
             MisEntregablesState.titulo_filtro_actual,
             size="4",
@@ -145,10 +153,11 @@ def _barra_filtros() -> rx.Component:
             color=Colors.TEXT_PRIMARY,
         ),
         rx.spacer(),
-        rx.input(
-            placeholder="Buscar período o contrato...",
+        input_busqueda(
             value=MisEntregablesState.filtro_busqueda,
             on_change=MisEntregablesState.set_filtro_busqueda,
+            on_clear=lambda: MisEntregablesState.set_filtro_busqueda(""),
+            placeholder="Buscar período o contrato...",
             width="220px",
         ),
         rx.select.root(
@@ -156,11 +165,16 @@ def _barra_filtros() -> rx.Component:
             rx.select.content(select_items_from_options(MisEntregablesState.opciones_contratos)),
             value=MisEntregablesState.filtro_contrato_id,
             on_change=MisEntregablesState.set_filtro_contrato,
+            size="2",
         ),
-        spacing="3",
-        width="100%",
-        align="center",
-        padding_y=Spacing.SM,
+        acciones_filtros(
+            on_apply=MisEntregablesState.aplicar_filtros,
+            on_clear=MisEntregablesState.limpiar_filtros,
+            show_clear=(
+                (MisEntregablesState.filtro_busqueda != "")
+                | (MisEntregablesState.filtro_contrato_id != FILTRO_TODOS)
+            ),
+        ),
     )
 
 

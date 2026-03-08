@@ -9,21 +9,26 @@ from typing import List, Optional
 import reflex as rx
 
 from app.core.exceptions import BusinessRuleError, DuplicateError
+from app.core.ui_helpers import FILTRO_TODOS
 from app.core.text_utils import formatear_fecha, formatear_moneda
 from app.entities import EstatusPlaza, PlazaUpdate
 from app.presentation.components.shared.auth_state import AuthState
-from app.presentation.constants import FILTRO_TODOS
 from app.services import (
     categoria_puesto_service,
     contrato_service,
     plaza_service,
+    sede_service,
+    tipo_servicio_service,
 )
 
 PORTAL_PLAZAS_ROUTE = "/portal/plazas"
 SIN_CATEGORIA_VALUE = "__SIN_CATEGORIA__"
+MODO_ASIGNACION_SEDE_CATEGORIA = "sede_categoria"
+MODO_ASIGNACION_SOLO_SEDE = "solo_sede"
 
 FORM_DEFAULTS = {
     "codigo": "",
+    "sede_id": "",
     "categoria_puesto_id": "",
     "fecha_inicio": "",
     "fecha_fin": "",
@@ -49,12 +54,16 @@ class PlazasState(AuthState):
     plazas: List[dict] = []
     plaza_seleccionada: Optional[dict] = None
     resumen_categorias: List[dict] = []
+    resumen_contratos: List[dict] = []
     contratos_disponibles: List[dict] = []
     categorias_catalogo: List[dict] = []
+    sedes_catalogo: List[dict] = []
 
     contrato_id: int = 0
     contrato_codigo: str = ""
     contrato_estatus: str = ""
+    contrato_tipo_servicio_clave: str = ""
+    contrato_tipo_servicio_nombre: str = ""
     contrato_seleccionado_id: str = ""
     categoria_filtro_id: str = FILTRO_TODOS
 
@@ -97,6 +106,7 @@ class PlazasState(AuthState):
     # FORMULARIO
     # =========================================================================
     form_codigo: str = ""
+    form_sede_id: str = ""
     form_categoria_puesto_id: str = ""
     form_fecha_inicio: str = ""
     form_fecha_fin: str = ""
@@ -105,11 +115,13 @@ class PlazasState(AuthState):
     form_notas: str = ""
     form_cantidad: str = "1"
     form_prefijo_codigo: str = ""
+    modo_asignacion_lote: str = MODO_ASIGNACION_SEDE_CATEGORIA
 
     # =========================================================================
     # ERRORES
     # =========================================================================
     error_codigo: str = ""
+    error_sede_id: str = ""
     error_categoria_puesto_id: str = ""
     error_fecha_inicio: str = ""
     error_salario_mensual: str = ""
@@ -124,6 +136,8 @@ class PlazasState(AuthState):
 
     @rx.var
     def tiene_resumen(self) -> bool:
+        if self.es_contexto_portal:
+            return len(self.resumen_contratos) > 0
         return len(self.resumen_categorias) > 0
 
     @rx.var
@@ -136,15 +150,19 @@ class PlazasState(AuthState):
         return PORTAL_PLAZAS_ROUTE if self.es_contexto_portal else "/plazas"
 
     @rx.var
+    def titulo_pagina(self) -> str:
+        return "Plazas"
+
+    @rx.var
     def subtitulo_inicio(self) -> str:
         if self.es_contexto_portal:
-            return "Gestión de plazas de la empresa activa"
+            return "Asignación de plazas"
         return "Categorización y operación de plazas por contrato"
 
     @rx.var
     def descripcion_selector_contrato(self) -> str:
         if self.es_contexto_portal:
-            return "Seleccione un contrato activo con personal para gestionar sus plazas"
+            return "Seleccione un contrato vigente con personal para asignar y gestionar sus plazas"
         return "Seleccione un contrato con personal para revisar, categorizar y operar sus plazas"
 
     @rx.var
@@ -171,6 +189,10 @@ class PlazasState(AuthState):
     @rx.var
     def tiene_contexto(self) -> bool:
         return self.contrato_id > 0
+
+    @rx.var
+    def es_detalle_portal(self) -> bool:
+        return self.es_contexto_portal and self.tiene_contexto
 
     @rx.var
     def vacantes_sin_categoria_disponibles(self) -> int:
@@ -279,6 +301,19 @@ class PlazasState(AuthState):
         ]
 
     @rx.var
+    def opciones_sedes_catalogo(self) -> List[dict]:
+        return [
+            {
+                "value": str(sede.get("id")),
+                "label": (
+                    f"{sede.get('codigo', '')} - "
+                    f"{sede.get('nombre_corto') or sede.get('nombre', '')}"
+                ).strip(" -"),
+            }
+            for sede in self.sedes_catalogo
+        ]
+
+    @rx.var
     def opciones_empleados(self) -> List[dict]:
         return [
             {
@@ -340,6 +375,7 @@ class PlazasState(AuthState):
                 for p in resultado
                 if termino in str(p.get("numero_plaza", "")).lower()
                 or termino in p.get("codigo", "").lower()
+                or termino in p.get("sede_nombre", "").lower()
                 or termino in p.get("categoria_nombre", "").lower()
                 or termino in p.get("empleado_nombre", "").lower()
             ]
@@ -361,11 +397,13 @@ class PlazasState(AuthState):
     @rx.var
     def puede_guardar(self) -> bool:
         return (
-            bool(self.form_fecha_inicio)
+            bool(self.form_sede_id)
+            and bool(self.form_fecha_inicio)
             and bool(self.form_salario_mensual)
             and not self.tiene_errores_en_campos(
                 [
                     "codigo",
+                    "sede_id",
                     "categoria_puesto_id",
                     "fecha_inicio",
                     "salario_mensual",
@@ -377,10 +415,11 @@ class PlazasState(AuthState):
     @rx.var
     def puede_guardar_categorizacion_lote(self) -> bool:
         return (
-            bool(self.form_categoria_puesto_id)
+            bool(self.form_sede_id)
+            and bool(self.form_categoria_puesto_id)
             and bool(self.form_cantidad)
             and not self.tiene_errores_en_campos(
-                ["categoria_puesto_id", "cantidad", "salario_mensual"]
+                ["sede_id", "categoria_puesto_id", "cantidad", "salario_mensual"]
             )
             and not self.saving
         )
@@ -408,6 +447,10 @@ class PlazasState(AuthState):
             return "Limpie los filtros o seleccione otra categoría."
         return ""
 
+    @rx.var
+    def plazas_sin_sede_total(self) -> int:
+        return len([plaza for plaza in self.plazas if not plaza.get("sede_id")])
+
     # =========================================================================
     # SETTERS
     # =========================================================================
@@ -416,9 +459,18 @@ class PlazasState(AuthState):
 
     def set_categoria_filtro_id(self, value: str):
         self.categoria_filtro_id = value or FILTRO_TODOS
+        if self.tiene_contexto:
+            return rx.redirect(
+                self._build_plazas_url(self.contrato_id, self.categoria_filtro_id),
+                replace=True,
+            )
 
     def set_form_codigo(self, value: str):
         self.form_codigo = value.upper() if value else ""
+
+    def set_form_sede_id(self, value: str):
+        self.form_sede_id = value or ""
+        self.error_sede_id = ""
 
     def set_form_categoria_puesto_id(self, value: str):
         self.form_categoria_puesto_id = value or ""
@@ -456,8 +508,7 @@ class PlazasState(AuthState):
         if value:
             self.categoria_filtro_id = FILTRO_TODOS
             return PlazasState.seleccionar_contrato(int(value))
-        self._limpiar_contexto_contrato()
-        return PlazasState.cargar_resumen_inicial
+        return PlazasState.volver_a_resumen
 
     # =========================================================================
     # HELPERS
@@ -466,6 +517,24 @@ class PlazasState(AuthState):
         if self.es_contexto_portal:
             return self.id_empresa_actual or None
         return None
+
+    def _build_plazas_url(
+        self,
+        contrato_id: int | None = None,
+        categoria_puesto_id: str = "",
+    ) -> str:
+        url = self.plazas_base_path
+        parametros: list[str] = []
+
+        if contrato_id:
+            parametros.append(f"contrato_id={contrato_id}")
+
+        if categoria_puesto_id and categoria_puesto_id != FILTRO_TODOS:
+            parametros.append(f"categoria_puesto_id={categoria_puesto_id}")
+
+        if parametros:
+            return f"{url}?{'&'.join(parametros)}"
+        return url
 
     def _asegurar_permiso_operar_plazas(self) -> None:
         if not self.puede_operar_plazas_en_contexto:
@@ -501,13 +570,17 @@ class PlazasState(AuthState):
             formatear_fecha(plaza.fecha_fin) if plaza.fecha_fin else "-"
         )
         plaza_dict["salario_fmt"] = formatear_moneda(str(plaza.salario_mensual))
+        plaza_dict["sede_nombre"] = plaza_dict.get("sede_nombre") or "Sin sede"
+        plaza_dict["sede_codigo"] = plaza_dict.get("sede_codigo") or ""
         plaza_dict["categoria_nombre"] = plaza_dict.get("categoria_nombre") or "Sin categoría"
         plaza_dict["categoria_clave"] = plaza_dict.get("categoria_clave") or ""
+        plaza_dict["tiene_sede"] = bool(plaza_dict.get("sede_id"))
         plaza_dict["tiene_categoria"] = bool(plaza_dict.get("categoria_puesto_id"))
         return plaza_dict
 
     def _cargar_plaza_en_formulario(self, plaza: dict) -> None:
         self.form_codigo = plaza.get("codigo", "") or ""
+        self.form_sede_id = str(plaza.get("sede_id")) if plaza.get("sede_id") else ""
         self.form_categoria_puesto_id = (
             str(plaza.get("categoria_puesto_id"))
             if plaza.get("categoria_puesto_id")
@@ -553,6 +626,20 @@ class PlazasState(AuthState):
         self.cantidad_plazas_maxima = resumen.cantidad_plazas_maxima
         self.plazas_desfase = resumen.plazas_desfase
 
+    async def _cargar_tipo_servicio_contrato(self, tipo_servicio_id: Optional[int]) -> None:
+        self.contrato_tipo_servicio_clave = ""
+        self.contrato_tipo_servicio_nombre = ""
+        if not tipo_servicio_id:
+            return
+
+        try:
+            tipo_servicio = await tipo_servicio_service.obtener_por_id(int(tipo_servicio_id))
+            self.contrato_tipo_servicio_clave = tipo_servicio.clave or ""
+            self.contrato_tipo_servicio_nombre = tipo_servicio.nombre or ""
+        except Exception:
+            self.contrato_tipo_servicio_clave = ""
+            self.contrato_tipo_servicio_nombre = ""
+
     async def _recargar_contexto_actual(self) -> None:
         contrato_id = self.contrato_id
         if contrato_id:
@@ -566,6 +653,8 @@ class PlazasState(AuthState):
         self.contrato_id = 0
         self.contrato_codigo = ""
         self.contrato_estatus = ""
+        self.contrato_tipo_servicio_clave = ""
+        self.contrato_tipo_servicio_nombre = ""
         self.contrato_seleccionado_id = ""
         self.categoria_filtro_id = FILTRO_TODOS
         self.total_plazas = 0
@@ -581,12 +670,22 @@ class PlazasState(AuthState):
         self.filtro_estatus = FILTRO_TODOS
         self.filtro_busqueda = ""
 
+    def _cerrar_overlays(self) -> None:
+        self.mostrar_modal_plaza = False
+        self.mostrar_modal_detalle = False
+        self.mostrar_modal_confirmar_cancelar = False
+        self.mostrar_modal_crear_lote = False
+        self.mostrar_modal_asignar_empleado = False
+        self.empleado_seleccionado_id = ""
+        self.empleados_disponibles = []
+
     def _limpiar_formulario(self) -> None:
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
         self.limpiar_errores_campos(
             [
                 "codigo",
+                "sede_id",
                 "categoria_puesto_id",
                 "fecha_inicio",
                 "salario_mensual",
@@ -656,14 +755,38 @@ class PlazasState(AuthState):
         finally:
             self.cargando_categorias = False
 
+    async def cargar_sedes_catalogo(self):
+        try:
+            sedes = await sede_service.obtener_todas(
+                incluir_inactivas=False,
+                limite=500,
+            )
+            self.sedes_catalogo = [sede.model_dump(mode="json") for sede in sedes]
+        except Exception as e:
+            self.sedes_catalogo = []
+            self.manejar_error(e, "cargar sedes")
+
     async def cargar_resumen_inicial(self):
         try:
-            self.resumen_categorias = await plaza_service.obtener_resumen_categorias_con_plazas(
-                empresa_id=self._empresa_filtro_actual(),
-            )
+            if self.es_contexto_portal:
+                self.resumen_contratos = (
+                    await plaza_service.obtener_resumen_contratos_con_plazas(
+                        empresa_id=self._empresa_filtro_actual(),
+                        solo_activos=True,
+                    )
+                )
+                self.resumen_categorias = []
+            else:
+                self.resumen_categorias = (
+                    await plaza_service.obtener_resumen_categorias_con_plazas(
+                        empresa_id=self._empresa_filtro_actual(),
+                    )
+                )
+                self.resumen_contratos = []
         except Exception as e:
             self.manejar_error(e, "cargar resumen")
             self.resumen_categorias = []
+            self.resumen_contratos = []
             return rx.toast.error(f"Error al cargar resumen: {e}")
 
     async def cargar_plazas_de_contrato(self, contrato_id: int):
@@ -680,6 +803,7 @@ class PlazasState(AuthState):
                 getattr(contrato.estatus, "value", contrato.estatus) or ""
             )
             self.contrato_seleccionado_id = str(contrato_id)
+            await self._cargar_tipo_servicio_contrato(getattr(contrato, "tipo_servicio_id", None))
 
             await self._cargar_totales_contrato(contrato_id)
 
@@ -696,6 +820,7 @@ class PlazasState(AuthState):
     async def seleccionar_contrato(self, contrato_id: int):
         self.categoria_filtro_id = FILTRO_TODOS
         await self.cargar_plazas_de_contrato(contrato_id)
+        return rx.redirect(self._build_plazas_url(contrato_id), replace=True)
 
     async def seleccionar_resumen(self, item: dict):
         categoria_id = item.get("categoria_puesto_id")
@@ -703,12 +828,23 @@ class PlazasState(AuthState):
             str(categoria_id) if categoria_id is not None else SIN_CATEGORIA_VALUE
         )
         await self.cargar_plazas_de_contrato(int(item["contrato_id"]))
+        return rx.redirect(
+            self._build_plazas_url(
+                int(item["contrato_id"]),
+                self.categoria_filtro_id,
+            ),
+            replace=True,
+        )
 
-    def volver_a_resumen(self):
+    async def volver_a_resumen(self):
+        self._cerrar_overlays()
         self._limpiar_contexto_contrato()
-        return PlazasState.cargar_resumen_inicial
+        await self.cargar_resumen_inicial()
+        return rx.redirect(self._build_plazas_url(), replace=True)
 
     async def _fetch_desde_url(self):
+        self._cerrar_overlays()
+        await self.cargar_sedes_catalogo()
         await self.cargar_categorias_catalogo()
         await self.cargar_contratos_con_personal()
 
@@ -725,6 +861,7 @@ class PlazasState(AuthState):
             except ValueError:
                 self.categoria_filtro_id = FILTRO_TODOS
 
+        self._limpiar_contexto_contrato()
         await self.cargar_resumen_inicial()
 
     async def on_mount_plazas(self):
@@ -806,6 +943,10 @@ class PlazasState(AuthState):
     async def abrir_asignar_empleado(self, plaza: dict):
         try:
             self._asegurar_permiso_operar_plazas()
+            if not plaza.get("sede_id"):
+                raise BusinessRuleError(
+                    "La plaza debe tener sede antes de asignar un empleado"
+                )
             if not plaza.get("categoria_puesto_id"):
                 raise BusinessRuleError(
                     "La plaza debe tener categoría antes de asignar un empleado"
@@ -901,6 +1042,7 @@ class PlazasState(AuthState):
 
             plaza_update = PlazaUpdate(
                 codigo=self.form_codigo.strip() or None,
+                sede_id=self.parse_id(self.form_sede_id),
                 categoria_puesto_id=self.parse_id(self.form_categoria_puesto_id),
                 fecha_inicio=(
                     date.fromisoformat(self.form_fecha_inicio)
@@ -945,8 +1087,11 @@ class PlazasState(AuthState):
             await self._asegurar_acceso_contrato(self.contrato_id)
 
             categoria_puesto_id = self.parse_id(self.form_categoria_puesto_id)
+            sede_id = self.parse_id(self.form_sede_id)
             if categoria_puesto_id is None:
                 raise BusinessRuleError("Seleccione una categoría")
+            if sede_id is None:
+                raise BusinessRuleError("Seleccione una sede")
 
             cantidad = int(self.form_cantidad or "0")
             salario = (
@@ -959,17 +1104,18 @@ class PlazasState(AuthState):
                 contrato_id=self.contrato_id,
                 categoria_puesto_id=categoria_puesto_id,
                 cantidad=cantidad,
+                sede_id=sede_id,
                 salario_mensual=salario,
                 prefijo_codigo=self.form_prefijo_codigo.strip(),
             )
 
             self.cerrar_modal_crear_lote()
             await self._recargar_contexto_actual()
-            return rx.toast.success(f"{len(plazas)} plaza(s) categorizadas")
+            return rx.toast.success(f"{len(plazas)} plaza(s) asignadas a sede y categoría")
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
         except Exception as e:
-            return self.manejar_error_con_toast(e, "categorizar plazas")
+            return self.manejar_error_con_toast(e, "asignar plazas")
         finally:
             self.saving = False
 

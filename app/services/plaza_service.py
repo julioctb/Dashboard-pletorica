@@ -94,6 +94,16 @@ class PlazaService:
     ) -> list[dict]:
         return await self.repository.obtener_resumen_categorias_con_plazas(empresa_id)
 
+    async def obtener_resumen_contratos_con_plazas(
+        self,
+        empresa_id: Optional[int] = None,
+        solo_activos: bool = False,
+    ) -> list[dict]:
+        return await self.repository.obtener_resumen_contratos_con_plazas(
+            empresa_id=empresa_id,
+            solo_activos=solo_activos,
+        )
+
     async def obtener_empleados_asignados(
         self,
         empresa_id: Optional[int] = None,
@@ -124,6 +134,7 @@ class PlazaService:
         for offset in range(faltantes):
             plaza = Plaza(
                 contrato_id=contrato_id,
+                sede_id=None,
                 categoria_puesto_id=None,
                 numero_plaza=siguiente_numero + offset,
                 codigo="",
@@ -142,6 +153,8 @@ class PlazaService:
 
     async def crear(self, plaza_create: PlazaCreate) -> Plaza:
         await self._validar_limite_contrato(plaza_create.contrato_id, nueva_cantidad=1)
+        if plaza_create.sede_id is not None:
+            await self._validar_sede_activa(plaza_create.sede_id)
         if plaza_create.categoria_puesto_id is not None:
             await self._validar_categoria_activa(plaza_create.categoria_puesto_id)
         plaza = Plaza(**plaza_create.model_dump())
@@ -150,7 +163,10 @@ class PlazaService:
     async def actualizar(self, id: int, plaza_update: PlazaUpdate) -> Plaza:
         plaza = await self.repository.obtener_por_id(id)
         cambios = plaza_update.model_dump(exclude_unset=True)
+        sede_final = cambios.get("sede_id", plaza.sede_id)
         categoria_final = cambios.get("categoria_puesto_id", plaza.categoria_puesto_id)
+        if sede_final is not None:
+            await self._validar_sede_activa(sede_final)
         if categoria_final is not None:
             await self._validar_categoria_activa(categoria_final)
 
@@ -162,9 +178,19 @@ class PlazaService:
                 "No se puede dejar una plaza ocupada sin categoría asignada"
             )
 
+        if plaza.sede_id is None and plaza.empleado_id is not None:
+            raise BusinessRuleError(
+                "No se puede dejar una plaza ocupada sin sede asignada"
+            )
+
         if plaza.estatus == EstatusPlaza.OCUPADA and plaza.empleado_id is None:
             raise BusinessRuleError(
                 "No se puede marcar una plaza como ocupada sin empleado asignado"
+            )
+
+        if plaza.estatus == EstatusPlaza.OCUPADA and plaza.sede_id is None:
+            raise BusinessRuleError(
+                "No se puede marcar una plaza como ocupada sin sede asignada"
             )
 
         if plaza.empleado_id is not None and plaza.estatus != EstatusPlaza.OCUPADA:
@@ -187,12 +213,15 @@ class PlazaService:
         contrato_id: int,
         categoria_puesto_id: int,
         cantidad: int,
+        sede_id: Optional[int] = None,
         salario_mensual: Optional[Decimal] = None,
         prefijo_codigo: str = "",
     ) -> list[Plaza]:
         if cantidad <= 0:
             raise BusinessRuleError("La cantidad debe ser mayor a cero")
         await self._validar_categoria_activa(categoria_puesto_id)
+        if sede_id is not None:
+            await self._validar_sede_activa(sede_id)
 
         vacantes = await self.repository.obtener_vacantes_sin_categoria(contrato_id)
         if len(vacantes) < cantidad:
@@ -203,6 +232,8 @@ class PlazaService:
         actualizadas: list[Plaza] = []
         prefijo_normalizado = prefijo_codigo.strip().upper()
         for plaza in vacantes[:cantidad]:
+            if plaza.sede_id is None:
+                plaza.sede_id = sede_id
             plaza.categoria_puesto_id = categoria_puesto_id
             if salario_mensual is not None:
                 plaza.salario_mensual = salario_mensual
@@ -212,10 +243,36 @@ class PlazaService:
 
         return actualizadas
 
+    async def asignar_sede_en_lote(
+        self,
+        contrato_id: int,
+        sede_id: int,
+        cantidad: int,
+    ) -> list[Plaza]:
+        if cantidad <= 0:
+            raise BusinessRuleError("La cantidad debe ser mayor a cero")
+
+        await self._validar_sede_activa(sede_id)
+        vacantes = await self.repository.obtener_vacantes_con_categoria_sin_sede(contrato_id)
+        if len(vacantes) < cantidad:
+            raise BusinessRuleError(
+                "No hay suficientes plazas vacantes con categoría y sin sede. "
+                f"Disponibles: {len(vacantes)}"
+            )
+
+        actualizadas: list[Plaza] = []
+        for plaza in vacantes[:cantidad]:
+            plaza.sede_id = sede_id
+            actualizadas.append(await self.repository.actualizar(plaza))
+
+        return actualizadas
+
     async def asignar_empleado(self, plaza_id: int, empleado_id: int) -> Plaza:
         plaza = await self.repository.obtener_por_id(plaza_id)
         if plaza.categoria_puesto_id is None:
             raise BusinessRuleError("La plaza debe tener categoría antes de asignar un empleado")
+        if plaza.sede_id is None:
+            raise BusinessRuleError("La plaza debe tener sede antes de asignar un empleado")
         if not plaza.puede_asignar_empleado():
             raise BusinessRuleError("La plaza no está disponible para asignación")
         plaza.empleado_id = empleado_id
@@ -304,10 +361,20 @@ class PlazaService:
                 f"La categoría '{categoria.nombre}' no está activa"
             )
 
+    async def _validar_sede_activa(self, sede_id: int) -> None:
+        from app.services import sede_service
+
+        sede = await sede_service.obtener_por_id(sede_id)
+        if not sede.esta_activa():
+            raise BusinessRuleError(
+                f"La sede '{sede.nombre_display()}' no está activa"
+            )
+
     def _map_resumen(self, item: dict) -> PlazaResumen:
         return PlazaResumen(
             id=item["id"],
             contrato_id=item["contrato_id"],
+            sede_id=item.get("sede_id"),
             categoria_puesto_id=item.get("categoria_puesto_id"),
             numero_plaza=item["numero_plaza"],
             codigo=item.get("codigo", ""),
@@ -318,6 +385,8 @@ class PlazaService:
             estatus=EstatusPlaza(item["estatus"]),
             notas=item.get("notas"),
             contrato_codigo=item.get("contrato_codigo", ""),
+            sede_codigo=item.get("sede_codigo", ""),
+            sede_nombre=item.get("sede_nombre", "Sin sede"),
             categoria_clave=item.get("categoria_clave", ""),
             categoria_nombre=item.get("categoria_nombre", "Sin categoría"),
             empleado_nombre=item.get("empleado_nombre", ""),

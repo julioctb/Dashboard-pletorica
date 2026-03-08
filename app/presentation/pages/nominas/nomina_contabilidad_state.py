@@ -109,6 +109,27 @@ class NominaContabilidadState(NominaBaseState):
         )
 
     @rx.var
+    def mostrar_accion_calcular(self) -> bool:
+        return self.periodo_actual.get('estatus') in (
+            'ENVIADO_A_CONTABILIDAD',
+            'EN_PROCESO_CONTABILIDAD',
+            'CALCULADO',
+        )
+
+    @rx.var
+    def razon_no_puede_calcular(self) -> str:
+        estatus = self.periodo_actual.get('estatus', '')
+        if estatus == 'ENVIADO_A_CONTABILIDAD':
+            return "Primero recibe el período en Contabilidad."
+        if estatus == 'CALCULADO':
+            return "El período ya fue calculado."
+        if estatus != 'EN_PROCESO_CONTABILIDAD':
+            return "El cálculo solo está disponible en períodos en proceso."
+        if not self.empleados_periodo:
+            return "El período no tiene empleados cargados."
+        return ""
+
+    @rx.var
     def puede_cerrar(self) -> bool:
         return self.periodo_actual.get('estatus') == 'CALCULADO'
 
@@ -397,6 +418,19 @@ class NominaContabilidadState(NominaBaseState):
         """Ejecuta el cálculo fiscal completo del período."""
         periodo_id = self.periodo_actual.get('id')
         if not periodo_id:
+            yield self.mostrar_mensaje("No hay período seleccionado para calcular.", "error")
+            return
+        if self.periodo_actual.get('estatus') != 'EN_PROCESO_CONTABILIDAD':
+            yield self.mostrar_mensaje(
+                "El período debe estar en 'En proceso Contabilidad' antes de calcular.",
+                "error",
+            )
+            return
+        if not self.empleados_periodo:
+            yield self.mostrar_mensaje(
+                "El período no tiene empleados cargados. Repuebla la nómina antes de calcular.",
+                "error",
+            )
             return
         self.mostrar_dialog_ejecutar = False
         self.calculando = True
@@ -416,7 +450,7 @@ class NominaContabilidadState(NominaBaseState):
                     "success",
                 )
         except Exception as e:
-            self.manejar_error(e, "ejecutar cálculo")
+            yield self.manejar_error(e, "ejecutar cálculo")
         finally:
             self.calculando = False
 

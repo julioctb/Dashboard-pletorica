@@ -7,6 +7,7 @@ Por defecto muestra los que requieren atención (EN_REVISION).
 import reflex as rx
 from typing import List, Optional
 
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.shared.base_state import BaseState
 from app.services import entregable_service, contrato_service
 from app.core.enums import EstatusEntregable
@@ -28,7 +29,7 @@ class EntregablesState(BaseState):
     # =========================================================================
     cargando: bool = False
     filtro_estatus: str = "EN_REVISION"  # Default: mostrar los que requieren atención
-    filtro_contrato_id: str = "all"  # Filtro opcional por contrato ("all" = todos)
+    filtro_contrato_id: str = FILTRO_TODOS
     filtro_busqueda: str = ""
 
     # =========================================================================
@@ -67,7 +68,7 @@ class EntregablesState(BaseState):
     @rx.var
     def opciones_estatus(self) -> List[dict]:
         return [
-            {"value": "all", "label": "Todos los estados"},
+            {"value": FILTRO_TODOS, "label": "Todos los estados"},
             {"value": "EN_REVISION", "label": "En revisión"},
             {"value": "PENDIENTE", "label": "Pendientes"},
             {"value": "APROBADO", "label": "Aprobados"},
@@ -80,7 +81,7 @@ class EntregablesState(BaseState):
 
     @rx.var
     def opciones_contratos(self) -> List[dict]:
-        return [{"value": "all", "label": "Todos los contratos"}] + self.contratos_disponibles
+        return [{"value": FILTRO_TODOS, "label": "Todos los contratos"}] + self.contratos_disponibles
 
     @rx.var
     def stats_total(self) -> int:
@@ -116,7 +117,7 @@ class EntregablesState(BaseState):
 
     @rx.var
     def filtro_activo_es_todos(self) -> bool:
-        return self.filtro_estatus == "all"
+        return self.filtro_estatus == FILTRO_TODOS
 
     @rx.var
     def filtro_activo_es_en_revision(self) -> bool:
@@ -150,7 +151,7 @@ class EntregablesState(BaseState):
     def titulo_filtro_actual(self) -> str:
         """Título descriptivo del filtro actual."""
         titulos = {
-            "all": "Todos los Entregables",
+            FILTRO_TODOS: "Todos los Entregables",
             "EN_REVISION": "Entregables en Revisión",
             "PENDIENTE": "Entregables Pendientes",
             "APROBADO": "Entregables Aprobados",
@@ -205,8 +206,8 @@ class EntregablesState(BaseState):
     async def _fetch_entregables(self):
         """Carga entregables desde BD (sin manejo de loading)."""
         try:
-            estatus = None if self.filtro_estatus == "all" else self.filtro_estatus
-            contrato_id = None if self.filtro_contrato_id == "all" else int(self.filtro_contrato_id)
+            estatus = None if self.filtro_estatus == FILTRO_TODOS else self.filtro_estatus
+            contrato_id = None if self.filtro_contrato_id == FILTRO_TODOS else int(self.filtro_contrato_id)
 
             entregables = await entregable_service.obtener_global(
                 estatus=estatus,
@@ -257,7 +258,7 @@ class EntregablesState(BaseState):
 
     async def filtrar_todos(self):
         """Muestra todos los entregables."""
-        await self.filtrar_por_estatus("all")
+        await self.filtrar_por_estatus(FILTRO_TODOS)
 
     async def filtrar_en_revision(self):
         """Filtra solo en revisión."""
@@ -287,9 +288,15 @@ class EntregablesState(BaseState):
         """Filtra entregables pagados."""
         await self.filtrar_por_estatus("PAGADO")
 
-    async def set_filtro_contrato(self, contrato_id: str):
-        """Cambia el filtro de contrato y recarga."""
-        self.filtro_contrato_id = contrato_id if contrato_id else "all"
+    def set_filtro_contrato(self, contrato_id: str):
+        self.filtro_contrato_id = contrato_id if contrato_id else FILTRO_TODOS
+
+    async def aplicar_filtros(self):
+        await self._cargar_entregables()
+
+    async def limpiar_filtros(self):
+        self.filtro_busqueda = ""
+        self.filtro_contrato_id = FILTRO_TODOS
         await self._cargar_entregables()
 
     # =========================================================================

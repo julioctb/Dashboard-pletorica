@@ -16,6 +16,11 @@ from .badges_domain import (
     document_status_badge,
     payroll_period_status_badge,
 )
+from app.presentation.theme.feedback import (
+    DEFAULT_TOAST_POSITION,
+    app_toast,
+    feedback_callout,
+)
 from .tables import tabla_vacia
 from .table_primitives import (
     table_cell_text,
@@ -33,6 +38,8 @@ from .filters import (
     input_busqueda,
     indicador_filtros,
     contador_registros,
+    acciones_filtros,
+    filtros_inline,
     switch_inactivos,
     barra_filtros,
     select_estatus_onboarding,
@@ -106,6 +113,9 @@ __all__ = [
     'document_status_badge',
     'badge_onboarding',
     'identifier_badge',
+    'DEFAULT_TOAST_POSITION',
+    'app_toast',
+    'feedback_callout',
     # tablas
     'tabla_vacia',
     'table_header_cells',
@@ -122,6 +132,8 @@ __all__ = [
     'input_busqueda',
     'indicador_filtros',
     'contador_registros',
+    'acciones_filtros',
+    'filtros_inline',
     'switch_inactivos',
     'barra_filtros',
     'select_estatus_onboarding',

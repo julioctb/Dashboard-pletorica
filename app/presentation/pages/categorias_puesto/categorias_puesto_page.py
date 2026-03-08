@@ -3,6 +3,7 @@ Pagina principal de Categorias de Puesto.
 Muestra una tabla o cards con las categorias y acciones CRUD.
 """
 import reflex as rx
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.pages.categorias_puesto.categorias_puesto_state import CategoriasPuestoState
 from app.presentation.layout import (
     page_layout,
@@ -10,6 +11,8 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
     status_badge_reactive,
     table_shell,
     tabla_vacia,
@@ -236,37 +239,29 @@ def grid_categorias() -> rx.Component:
 
 def filtros_categorias() -> rx.Component:
     """Filtros para categorias"""
-    return rx.hstack(
+    return filtros_inline(
         # Filtro por tipo de servicio
         rx.select.root(
             rx.select.trigger(placeholder="Tipo de servicio", width="200px"),
             rx.select.content(
-                rx.select.item("Todos los tipos", value="0"),
+                rx.select.item("Todos los tipos", value=FILTRO_TODOS),
                 select_items_from_options(CategoriasPuestoState.opciones_tipo_servicio),
             ),
             value=CategoriasPuestoState.filtro_tipo_servicio_id,
             on_change=CategoriasPuestoState.set_filtro_tipo_servicio_id,
+            size="2",
         ),
         # Switch para mostrar inactivas
         switch_inactivos(
             checked=CategoriasPuestoState.incluir_inactivas,
-            on_change=CategoriasPuestoState.toggle_inactivas,
+            on_change=CategoriasPuestoState.set_incluir_inactivas,
             label="Mostrar inactivas",
         ),
-        # Boton limpiar filtros
-        rx.cond(
-            CategoriasPuestoState.tiene_filtros_activos,
-            rx.button(
-                rx.icon("x", size=14),
-                "Limpiar",
-                on_click=CategoriasPuestoState.limpiar_filtros,
-                variant="ghost",
-                size="2",
-            ),
-            rx.fragment(),
+        acciones_filtros(
+            on_apply=CategoriasPuestoState.aplicar_filtros,
+            on_clear=CategoriasPuestoState.limpiar_filtros,
+            show_clear=CategoriasPuestoState.tiene_filtros_activos,
         ),
-        spacing="3",
-        align="center",
     )
 
 
@@ -297,7 +292,7 @@ def breadcrumbs() -> rx.Component:
             _hover={"color": "blue"},
         ),
         rx.cond(
-            CategoriasPuestoState.filtro_tipo_servicio_id != "0",
+            CategoriasPuestoState.filtro_tipo_servicio_id != FILTRO_TODOS,
             rx.hstack(
                 rx.text("/", color=Colors.TEXT_MUTED, font_size=Typography.SIZE_SM),
                 rx.text(

@@ -38,11 +38,20 @@ def _resumen_periodo() -> rx.Component:
             # Fechas
             rx.vstack(
                 rx.text("Período", size="1", color=Colors.TEXT_MUTED),
-                rx.text(
-                    NominaRRHHState.periodo_actual['fecha_inicio'].to(str) + "  —  "
-                    + NominaRRHHState.periodo_actual['fecha_fin'].to(str),
-                    size="3",
-                    weight="medium",
+                rx.hstack(
+                    rx.text(
+                        NominaRRHHState.periodo_actual["fecha_inicio_fmt"],
+                        size="3",
+                        weight="medium",
+                    ),
+                    rx.text("—", size="3", weight="medium"),
+                    rx.text(
+                        NominaRRHHState.periodo_actual["fecha_fin_fmt"],
+                        size="3",
+                        weight="medium",
+                    ),
+                    spacing="1",
+                    align="center",
                 ),
                 spacing="0",
                 align="start",

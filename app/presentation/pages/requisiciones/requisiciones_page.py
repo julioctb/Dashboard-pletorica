@@ -5,11 +5,14 @@ Muestra tabla con requisiciones, filtros y acciones CRUD + transiciones de estad
 import reflex as rx
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
 from app.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
     status_badge_reactive,
     tabla_vacia,
     skeleton_tabla,
     action_buttons_reactive,
     switch_inactivos,
+    indicador_filtros,
     select_items_from_options,
 )
 from app.presentation.theme import Colors, Spacing, Typography
@@ -37,13 +40,14 @@ from app.presentation.pages.requisiciones.requisiciones_modals import (
 
 def _filtros_requisiciones() -> rx.Component:
     """Filtros para requisiciones: estado y tipo."""
-    return rx.hstack(
+    return filtros_inline(
         # Filtro de estado
         rx.select.root(
             rx.select.trigger(placeholder="Estado", width="160px"),
             rx.select.content(select_items_from_options(RequisicionesState.opciones_estado)),
             value=RequisicionesState.filtro_estado,
             on_change=RequisicionesState.set_filtro_estado,
+            size="2",
         ),
         # Filtro de tipo
         rx.select.root(
@@ -51,25 +55,13 @@ def _filtros_requisiciones() -> rx.Component:
             rx.select.content(select_items_from_options(RequisicionesState.opciones_tipo_contratacion)),
             value=RequisicionesState.filtro_tipo,
             on_change=RequisicionesState.set_filtro_tipo,
-        ),
-        # Boton aplicar filtros
-        rx.button(
-            "Filtrar",
-            on_click=RequisicionesState.aplicar_filtros,
-            variant="soft",
             size="2",
         ),
-        # Boton limpiar
-        rx.button(
-            rx.icon("x", size=14),
-            "Limpiar",
-            on_click=RequisicionesState.limpiar_filtros,
-            variant="ghost",
-            size="2",
+        acciones_filtros(
+            on_apply=RequisicionesState.aplicar_filtros,
+            on_clear=RequisicionesState.limpiar_filtros,
+            show_clear=RequisicionesState.tiene_filtros_activos,
         ),
-        spacing="2",
-        wrap="wrap",
-        align="center",
     )
 
 
@@ -103,17 +95,25 @@ def requisiciones_page() -> rx.Component:
                 on_search_clear=lambda: RequisicionesState.set_filtro_busqueda(""),
                 filters=_filtros_requisiciones(),
                 show_view_toggle=False,
-                extra_right=rx.cond(
-                    RequisicionesState.puede_operar_requisiciones,
-                    rx.button(
-                        rx.icon("settings", size=14),
-                        "Configuración de requisiciones",
-                        variant="soft",
-                        color_scheme="gray",
-                        size="2",
-                        on_click=rx.redirect("/configuracion"),
+                extra_right=rx.hstack(
+                    indicador_filtros(
+                        tiene_filtros=RequisicionesState.tiene_filtros_activos,
+                        on_limpiar=RequisicionesState.limpiar_filtros,
                     ),
-                    rx.fragment(),
+                    rx.cond(
+                        RequisicionesState.puede_operar_requisiciones,
+                        rx.button(
+                            rx.icon("settings", size=14),
+                            "Configuración de requisiciones",
+                            variant="soft",
+                            color_scheme="gray",
+                            size="2",
+                            on_click=rx.redirect("/configuracion"),
+                        ),
+                        rx.fragment(),
+                    ),
+                    spacing="2",
+                    align="center",
                 ),
             ),
             content=rx.vstack(

@@ -7,6 +7,7 @@ from typing import List
 
 import reflex as rx
 
+from app.core.text_utils import formatear_fecha
 from app.presentation.portal.state.portal_state import PortalState
 from app.services.baja_service import baja_service
 from app.core.exceptions import BusinessRuleError
@@ -65,12 +66,7 @@ class BajasState(PortalState):
     @staticmethod
     def _formatear_fecha_iso(value: str) -> str:
         """Formatea fecha ISO a DD/MM/AAAA para la UI."""
-        if not value:
-            return ""
-        try:
-            return date.fromisoformat(value).strftime("%d/%m/%Y")
-        except ValueError:
-            return value
+        return formatear_fecha(value, valor_vacio="")
 
     async def on_mount_bajas(self):
         """Carga bajas y alertas al montar la pagina."""

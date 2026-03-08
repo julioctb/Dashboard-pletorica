@@ -3,8 +3,9 @@ Componentes UI para la pagina Bajas de Personal del portal.
 """
 import reflex as rx
 
-from app.presentation.constants import FILTRO_TODAS
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.ui import (
+    filtros_inline,
     table_shell,
     tabla_action_button,
     empty_state_card,
@@ -218,13 +219,13 @@ def alertas_liquidacion() -> rx.Component:
 
 def filtros_bajas() -> rx.Component:
     """Filtro de bajas por estatus."""
-    return rx.hstack(
+    return filtros_inline(
         rx.select.root(
             rx.select.trigger(placeholder="Filtro", width="180px"),
             rx.select.content(
                 rx.select.item("Activas", value="ACTIVAS"),
                 rx.select.item("Cerradas", value="CERRADAS"),
-                rx.select.item("Todas", value=FILTRO_TODAS),
+                rx.select.item("Todas", value=FILTRO_TODOS),
             ),
             value=BajasState.filtro_estatus,
             on_change=BajasState.cambiar_filtro,
@@ -237,8 +238,6 @@ def filtros_bajas() -> rx.Component:
             variant="soft",
             size="2",
         ),
-        spacing="3",
-        align="center",
     )
 
 

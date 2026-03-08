@@ -17,10 +17,16 @@ class ContratoQueryService:
     def __init__(self, root: "ContratoService"):
         self.root = root
 
+    async def _sincronizar_vigencia_automatica(self) -> None:
+        """Actualiza estatus vencidos antes de cualquier lectura del módulo."""
+        await self.root.repository.sincronizar_vigencia_automatica()
+
     async def obtener_por_id(self, contrato_id: int) -> Contrato:
+        await self._sincronizar_vigencia_automatica()
         return await self.root.repository.obtener_por_id(contrato_id)
 
     async def obtener_por_codigo(self, codigo: str) -> Optional[Contrato]:
+        await self._sincronizar_vigencia_automatica()
         return await self.root.repository.obtener_por_codigo(codigo)
 
     async def obtener_todos(
@@ -29,6 +35,7 @@ class ContratoQueryService:
         limite: Optional[int] = None,
         offset: int = 0,
     ) -> list[Contrato]:
+        await self._sincronizar_vigencia_automatica()
         return await self.root.repository.obtener_todos(incluir_inactivos, limite, offset)
 
     async def obtener_resumen_contratos(
@@ -45,6 +52,7 @@ class ContratoQueryService:
         empresa_id: int,
         incluir_inactivos: bool = False,
     ) -> list[Contrato]:
+        await self._sincronizar_vigencia_automatica()
         return await self.root.repository.obtener_por_empresa(empresa_id, incluir_inactivos)
 
     async def obtener_por_tipo_servicio(
@@ -52,6 +60,7 @@ class ContratoQueryService:
         tipo_servicio_id: int,
         incluir_inactivos: bool = False,
     ) -> list[Contrato]:
+        await self._sincronizar_vigencia_automatica()
         return await self.root.repository.obtener_por_tipo_servicio(
             tipo_servicio_id,
             incluir_inactivos,
@@ -60,6 +69,7 @@ class ContratoQueryService:
     async def buscar_por_texto(self, termino: str, limite: int = 10) -> list[Contrato]:
         if not termino or len(termino) < 2:
             return []
+        await self._sincronizar_vigencia_automatica()
         return await self.root.repository.buscar_por_texto(termino, limite)
 
     async def buscar_con_filtros(
@@ -78,6 +88,7 @@ class ContratoQueryService:
         if texto and len(texto.strip()) < 2:
             texto = None
 
+        await self._sincronizar_vigencia_automatica()
         contratos = await self.root.repository.buscar_con_filtros(
             texto=texto,
             empresa_id=empresa_id,
@@ -113,9 +124,11 @@ class ContratoQueryService:
         return [ContratoResumen.from_contrato(c) for c in contratos_con_personal]
 
     async def obtener_vigentes(self) -> list[Contrato]:
+        await self._sincronizar_vigencia_automatica()
         return await self.root.repository.obtener_vigentes()
 
     async def obtener_por_vencer(self, dias: int = 30) -> list[Contrato]:
+        await self._sincronizar_vigencia_automatica()
         return await self.root.repository.obtener_por_vencer(dias)
 
     async def existe_codigo(self, codigo: str, excluir_id: Optional[int] = None) -> bool:

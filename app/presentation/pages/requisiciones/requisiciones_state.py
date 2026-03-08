@@ -8,7 +8,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.presentation.components.shared.auth_state import AuthState
-from app.presentation.constants import FILTRO_TODOS
+from app.core.ui_helpers import FILTRO_TODOS
 from app.services.requisicion_service import requisicion_service
 from app.services.requisicion_pdf_service import requisicion_pdf_service
 from app.services.empresa_service import empresa_service
@@ -27,6 +27,7 @@ from app.core.exceptions import (
     DatabaseError,
     BusinessRuleError,
 )
+from app.core.text_utils import formatear_fecha
 
 
 # ============================================================================
@@ -477,6 +478,14 @@ class RequisicionesState(AuthState):
         return len(self.requisiciones_filtradas)
 
     @rx.var
+    def tiene_filtros_activos(self) -> bool:
+        return bool(
+            self.filtro_busqueda.strip()
+            or self.filtro_estado != FILTRO_TODOS
+            or self.filtro_tipo != FILTRO_TODOS
+        )
+
+    @rx.var
     def opciones_estado(self) -> List[dict]:
         return [
             {"value": FILTRO_TODOS, "label": "Todos"},
@@ -554,12 +563,10 @@ class RequisicionesState(AuthState):
             self.requisiciones = []
             for r in resumenes:
                 d = r.model_dump(mode='json')
-                # Formatear fecha a DD-MM-YYYY para la tabla
-                fe = d.get("fecha_elaboracion", "")
-                if fe and len(fe) >= 10:
-                    partes = fe[:10].split("-")
-                    if len(partes) == 3:
-                        d["fecha_elaboracion"] = f"{partes[2]}-{partes[1]}-{partes[0]}"
+                d["fecha_elaboracion_fmt"] = formatear_fecha(
+                    d.get("fecha_elaboracion"),
+                    valor_vacio="",
+                )
                 self.requisiciones.append(d)
             self.total_registros = len(self.requisiciones)
         except DatabaseError as e:
@@ -860,7 +867,16 @@ class RequisicionesState(AuthState):
 
     def abrir_modal_detalle(self, requisicion: dict):
         """Abre modal de detalle."""
-        self.requisicion_seleccionada = requisicion
+        self.requisicion_seleccionada = {
+            **requisicion,
+            "fecha_elaboracion_fmt": (
+                requisicion.get("fecha_elaboracion_fmt")
+                or formatear_fecha(
+                    requisicion.get("fecha_elaboracion"),
+                    valor_vacio="",
+                )
+            ),
+        }
         self.mostrar_modal_detalle = True
 
     def cerrar_modal_detalle(self):

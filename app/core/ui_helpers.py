@@ -30,10 +30,6 @@ from typing import List, Dict, Any, Type
 
 FILTRO_TODOS = "__TODOS__"
 FILTRO_SIN_SELECCION = ""
-FILTRO_TODAS = "__TODAS__"  # Alias femenino
-FILTRO_TODOS_LEGACY = "TODOS"
-FILTRO_TODAS_LEGACY = "TODAS"
-FILTRO_SIN_SELECCION_LEGACY = "0"
 
 
 # =============================================================================
@@ -96,7 +92,7 @@ def opciones_desde_lista(
     label_field: str = 'nombre',
     incluir_vacio: bool = False,
     vacio_label: str = "Seleccione...",
-    vacio_value: str = FILTRO_SIN_SELECCION_LEGACY
+    vacio_value: str = FILTRO_SIN_SELECCION,
 ) -> List[Dict[str, str]]:
     """
     Genera lista de opciones desde una lista de dicts u objetos.
@@ -116,7 +112,7 @@ def opciones_desde_lista(
         >>> empresas = [{"id": 1, "nombre": "ACME"}, {"id": 2, "nombre": "Corp"}]
         >>> opciones_desde_lista(empresas, incluir_vacio=True)
         [
-            {"value": "0", "label": "Seleccione..."},
+            {"value": "", "label": "Seleccione..."},
             {"value": "1", "label": "ACME"},
             {"value": "2", "label": "Corp"},
         ]
@@ -190,11 +186,7 @@ def es_filtro_activo(valor: str) -> bool:
     """
     return valor not in (
         FILTRO_TODOS,
-        FILTRO_TODAS,
         FILTRO_SIN_SELECCION,
-        FILTRO_TODOS_LEGACY,
-        FILTRO_TODAS_LEGACY,
-        FILTRO_SIN_SELECCION_LEGACY,
         "",
         None,
     )

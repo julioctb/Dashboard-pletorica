@@ -4,6 +4,7 @@ Muestra tabla de usuarios con filtros, CRUD y gestion de empresas.
 """
 import reflex as rx
 
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.pages.admin.usuarios.usuarios_state import UsuariosAdminState
 from app.presentation.pages.admin.usuarios.usuarios_modals import (
@@ -18,7 +19,9 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
+    acciones_filtros,
     empty_state_card,
+    filtros_inline,
     table_cell_text,
     table_shell,
     tabla_action_button,
@@ -118,16 +121,16 @@ def _celda_centrada(component: rx.Component) -> rx.Component:
 
 def _filtros() -> rx.Component:
     """Barra de filtros adicionales."""
-    return rx.hstack(
+    return filtros_inline(
         # Filtro por rol
         rx.select.root(
             rx.select.trigger(placeholder="Todos los roles"),
             rx.select.content(
-                rx.select.item("Todos", value="all"),
+                rx.select.item("Todos", value=FILTRO_TODOS),
                 rx.select.item("Administradores", value="admin"),
                 rx.select.item("Instituciones", value="institucion"),
                 rx.select.item("Proveedores", value="proveedor"),
-                rx.select.item("Clientes (legacy)", value="client"),
+                rx.select.item("Clientes", value="client"),
             ),
             value=UsuariosAdminState.filtro_rol_select,
             on_change=UsuariosAdminState.set_filtro_rol_select,
@@ -144,16 +147,15 @@ def _filtros() -> rx.Component:
             spacing="2",
             align="center",
         ),
-        # Boton aplicar
-        rx.button(
-            rx.icon("filter", size=14),
-            "Filtrar",
-            on_click=UsuariosAdminState.aplicar_filtros,
-            variant="soft",
-            size="2",
+        acciones_filtros(
+            on_apply=UsuariosAdminState.aplicar_filtros,
+            on_clear=UsuariosAdminState.limpiar_filtros,
+            show_clear=(
+                (UsuariosAdminState.filtro_busqueda != "")
+                | (UsuariosAdminState.filtro_rol != FILTRO_TODOS)
+                | UsuariosAdminState.incluir_inactivos
+            ),
         ),
-        spacing="3",
-        align="center",
     )
 
 
@@ -273,7 +275,7 @@ def _contenido_usuarios() -> rx.Component:
                 search_value=UsuariosAdminState.filtro_busqueda,
                 search_placeholder="Buscar por nombre...",
                 on_search_change=UsuariosAdminState.set_filtro_busqueda,
-                on_search_clear=lambda: UsuariosAdminState.set_filtro_busqueda(""),
+                on_search_clear=UsuariosAdminState.limpiar_busqueda,
                 show_view_toggle=False,
                 filters=_filtros(),
             ),

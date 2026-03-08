@@ -12,7 +12,7 @@ from .document_list_kit import (
     document_table_shell,
 )
 from .employee_form_modal import employee_form_body, employee_form_modal
-from .employee_list import employee_filters_bar, employee_table
+from .employee_list import employee_table
 from .employee_bulk_upload_kit import employee_bulk_upload_panel
 from .employee_form_sections import (
     employee_address_field,
@@ -38,7 +38,6 @@ __all__ = [
     "document_table_shell",
     "employee_form_modal",
     "employee_form_body",
-    "employee_filters_bar",
     "employee_table",
     "employee_bulk_upload_panel",
     "employee_address_field",

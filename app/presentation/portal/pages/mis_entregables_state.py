@@ -7,6 +7,7 @@ Por defecto muestra Pendientes y Rechazados (lo que requiere acción).
 import reflex as rx
 from typing import List, Optional
 
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.portal.state.portal_state import PortalState
 from app.services import entregable_service, archivo_service
 from app.entities.archivo import EntidadArchivo, TipoArchivo, OrigenArchivo
@@ -35,7 +36,7 @@ class MisEntregablesState(PortalState):
     mostrar_modal_entregable: bool = False
     # Default: mostrar PENDIENTE y RECHAZADO (requieren acción del cliente)
     filtro_estatus: str = "accion_requerida"
-    filtro_contrato_id: str = "all"
+    filtro_contrato_id: str = FILTRO_TODOS
     filtro_busqueda: str = ""
 
     # Facturacion modals
@@ -82,7 +83,7 @@ class MisEntregablesState(PortalState):
 
     @rx.var
     def opciones_contratos(self) -> List[dict]:
-        return [{"value": "all", "label": "Todos los contratos"}] + [
+        return [{"value": FILTRO_TODOS, "label": "Todos los contratos"}] + [
             {"value": str(c["id"]), "label": c["codigo"]} for c in self.contratos
         ]
 
@@ -250,13 +251,13 @@ class MisEntregablesState(PortalState):
             # Determinar lista de estatus segun filtro
             filtro_map = {
                 "accion_requerida": ["PENDIENTE", "RECHAZADO"],
-                "all": None,
+                FILTRO_TODOS: None,
                 "por_prefacturar": ["APROBADO", "PREFACTURA_RECHAZADA"],
                 "por_facturar": ["PREFACTURA_APROBADA"],
             }
             estatus_list = filtro_map.get(self.filtro_estatus, [self.filtro_estatus])
 
-            contrato_id = None if self.filtro_contrato_id == "all" else int(self.filtro_contrato_id)
+            contrato_id = None if self.filtro_contrato_id == FILTRO_TODOS else int(self.filtro_contrato_id)
 
             entregables = await entregable_service.obtener_por_empresa(
                 empresa_id=self.id_empresa_actual,
@@ -326,9 +327,15 @@ class MisEntregablesState(PortalState):
     async def filtrar_pagados(self):
         await self.filtrar_por_estatus("PAGADO")
 
-    async def set_filtro_contrato(self, contrato_id: str):
-        """Cambia el filtro de contrato y recarga."""
-        self.filtro_contrato_id = contrato_id if contrato_id else "all"
+    def set_filtro_contrato(self, contrato_id: str):
+        self.filtro_contrato_id = contrato_id if contrato_id else FILTRO_TODOS
+
+    async def aplicar_filtros(self):
+        await self._cargar_entregables()
+
+    async def limpiar_filtros(self):
+        self.filtro_busqueda = ""
+        self.filtro_contrato_id = FILTRO_TODOS
         await self._cargar_entregables()
 
     # =========================================================================

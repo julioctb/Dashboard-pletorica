@@ -5,6 +5,7 @@ Maneja el estado de la UI y las operaciones del módulo.
 import reflex as rx
 from typing import List, Optional
 
+from app.core.ui_helpers import FILTRO_TODOS
 from app.core.text_utils import normalizar_mayusculas
 from app.core.utils import generar_candidatos_codigo
 from app.entities.categoria_puesto import (
@@ -56,7 +57,7 @@ class CategoriasPuestoState(BaseState):
     view_mode: str = "table"
 
     # Filtros (filtro_busqueda viene de BaseState)
-    filtro_tipo_servicio_id: str = "0"  # "0" = todos, string para rx.select
+    filtro_tipo_servicio_id: str = FILTRO_TODOS
     incluir_inactivas: bool = False
 
     # ========================
@@ -86,8 +87,7 @@ class CategoriasPuestoState(BaseState):
         await self._fetch_categorias()
 
     def set_filtro_tipo_servicio_id(self, value: str):
-        self.filtro_tipo_servicio_id = value if value else "0"
-        return CategoriasPuestoState.filtrar_por_tipo  # Auto-filtrar al cambiar
+        self.filtro_tipo_servicio_id = value if value else FILTRO_TODOS
 
     def set_incluir_inactivas(self, value: bool):
         self.incluir_inactivas = value
@@ -191,7 +191,7 @@ class CategoriasPuestoState(BaseState):
     def tiene_filtros_activos(self) -> bool:
         """Indica si hay algún filtro aplicado"""
         return (
-            self.filtro_tipo_servicio_id != "0" or
+            self.filtro_tipo_servicio_id != FILTRO_TODOS or
             bool(self.filtro_busqueda.strip()) or
             self.incluir_inactivas
         )
@@ -204,7 +204,7 @@ class CategoriasPuestoState(BaseState):
     @rx.var
     def nombre_tipo_filtrado(self) -> str:
         """Nombre del tipo de servicio seleccionado en el filtro"""
-        if self.filtro_tipo_servicio_id == "0":
+        if self.filtro_tipo_servicio_id == FILTRO_TODOS:
             return "Todos"
         for t in self.tipos_servicio:
             if str(t["id"]) == self.filtro_tipo_servicio_id:
@@ -239,8 +239,7 @@ class CategoriasPuestoState(BaseState):
     async def _fetch_categorias(self):
         """Carga categorías desde BD (sin manejo de loading)."""
         try:
-            # Si hay filtro de tipo (distinto de "0"), obtener solo de ese tipo
-            if self.filtro_tipo_servicio_id and self.filtro_tipo_servicio_id != "0":
+            if self.filtro_tipo_servicio_id != FILTRO_TODOS:
                 categorias = await categoria_puesto_service.obtener_por_tipo_servicio(
                     int(self.filtro_tipo_servicio_id),
                     incluir_inactivas=self.incluir_inactivas
@@ -281,28 +280,29 @@ class CategoriasPuestoState(BaseState):
             return CategoriasPuestoState.buscar_categorias
 
     def toggle_inactivas(self, value: bool = None):
-        """Toggle o establecer el estado de incluir inactivas"""
+        """Toggle o establecer el estado de incluir inactivas sin recargar."""
         if value is not None:
             self.incluir_inactivas = value
         else:
             self.incluir_inactivas = not self.incluir_inactivas
-        return CategoriasPuestoState.cargar_categorias
 
-    def limpiar_busqueda(self):
-        """Limpia el campo de búsqueda y recarga"""
+    async def limpiar_busqueda(self):
+        """Limpia el campo de búsqueda y recarga."""
         self.filtro_busqueda = ""
-        return CategoriasPuestoState.cargar_categorias
+        async for _ in self.cargar_categorias():
+            yield
 
-    def limpiar_filtros(self):
-        """Limpia todos los filtros y recarga"""
+    async def limpiar_filtros(self):
+        """Limpia todos los filtros y recarga."""
         self.filtro_busqueda = ""
-        self.filtro_tipo_servicio_id = "0"
+        self.filtro_tipo_servicio_id = FILTRO_TODOS
         self.incluir_inactivas = False
-        return CategoriasPuestoState.cargar_categorias
+        async for _ in self.cargar_categorias():
+            yield
 
-    async def filtrar_por_tipo(self):
-        """Recargar categorías cuando cambia el filtro de tipo"""
-        await self._fetch_categorias()
+    async def aplicar_filtros(self):
+        async for _ in self.cargar_categorias():
+            yield
 
     # ========================
     # OPERACIONES CRUD
@@ -311,7 +311,7 @@ class CategoriasPuestoState(BaseState):
         self._limpiar_formulario()
         self.es_edicion = False
         # Auto-seleccionar tipo si hay filtro activo
-        if self.filtro_tipo_servicio_id and self.filtro_tipo_servicio_id != "0":
+        if self.filtro_tipo_servicio_id != FILTRO_TODOS:
             self.form_tipo_servicio_id = self.filtro_tipo_servicio_id
         self.mostrar_modal_categoria = True
 

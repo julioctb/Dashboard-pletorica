@@ -2,7 +2,7 @@
 
 from typing import Iterable
 
-from app.core.ui_helpers import FILTRO_TODOS_LEGACY
+from app.core.ui_helpers import FILTRO_TODOS
 
 
 _ONBOARDING_LABELS = {
@@ -19,7 +19,7 @@ _ONBOARDING_LABELS = {
 def _build_options(values: Iterable[str], include_todos: bool = True) -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     if include_todos:
-        items.append({"value": FILTRO_TODOS_LEGACY, "label": "Todos"})
+        items.append({"value": FILTRO_TODOS, "label": "Todos"})
     for value in values:
         items.append(
             {

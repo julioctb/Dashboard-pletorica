@@ -122,7 +122,7 @@ def _fila_requisicion(req: dict) -> rx.Component:
         ),
         # Fecha
         rx.table.cell(
-            rx.text(req["fecha_elaboracion"], font_size=Typography.SIZE_SM, white_space="nowrap"),
+            rx.text(req["fecha_elaboracion_fmt"], font_size=Typography.SIZE_SM, white_space="nowrap"),
             text_align="center",
         ),
         # Estado (con indicador de rechazo previo si aplica)

@@ -1,6 +1,7 @@
 import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea
 from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
+from app.presentation.components.ui.feedback import feedback_callout
 from app.presentation.pages.empresas.empresas_state import EmpresasState
 from app.entities import TipoEmpresa, EstatusEmpresa
 
@@ -29,22 +30,9 @@ def modal_empresa() -> rx.Component:
             # Mensaje de error/info
             rx.cond(
                 EmpresasState.mensaje_info != "",
-                rx.callout(
+                feedback_callout(
                     EmpresasState.mensaje_info,
-                    icon=rx.cond(
-                        EmpresasState.tipo_mensaje == "error",
-                        "triangle-alert",
-                        "info"
-                    ),
-                    color_scheme=rx.cond(
-                        EmpresasState.tipo_mensaje == "error",
-                        "red",
-                        "blue"
-                    ),
-                    size="2",
-                    width="100%",
-                    role="alert",
-                    aria_live="assertive"
+                    EmpresasState.tipo_mensaje,
                 )
             ),
 

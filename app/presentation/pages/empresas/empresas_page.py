@@ -3,7 +3,7 @@ Pagina principal de Empresas.
 Muestra una tabla o cards con las empresas y acciones CRUD.
 """
 import reflex as rx
-from app.presentation.constants import FILTRO_TODOS
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.pages.empresas.empresas_state import EmpresasState
 from app.core.enums import TipoEmpresa
 from app.presentation.layout import (
@@ -12,6 +12,8 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
     status_badge_reactive,
     table_cell_text_sm,
     tabla_vacia,
@@ -241,7 +243,7 @@ def grid_empresas() -> rx.Component:
 
 def filtros_empresas() -> rx.Component:
     """Filtros para empresas."""
-    return rx.flex(
+    return filtros_inline(
         # Filtro por tipo
         rx.box(
             rx.select.root(
@@ -268,10 +270,11 @@ def filtros_empresas() -> rx.Component:
             on_change=lambda v: EmpresasState.set_solo_activas(~v),
             label="Mostrar inactivas",
         ),
-        wrap="wrap",
-        column_gap=Spacing.SM,
-        row_gap=Spacing.SM,
-        align="center",
+        acciones_filtros(
+            on_apply=EmpresasState.aplicar_filtros,
+            on_clear=EmpresasState.limpiar_filtros,
+            show_clear=EmpresasState.tiene_filtros_activos,
+        ),
     )
 
 
@@ -304,10 +307,6 @@ def empresas_page() -> rx.Component:
                 on_search_change=EmpresasState.set_filtro_busqueda,
                 on_search_clear=lambda: EmpresasState.set_filtro_busqueda(""),
                 filters=filtros_empresas(),
-                extra_right=indicador_filtros(
-                    tiene_filtros=EmpresasState.tiene_filtros_activos,
-                    on_limpiar=EmpresasState.limpiar_filtros,
-                ),
                 show_view_toggle=True,
                 current_view=EmpresasState.view_mode,
                 on_view_table=EmpresasState.set_view_table,

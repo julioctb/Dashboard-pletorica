@@ -4,8 +4,7 @@ State para la pagina Alta de Empleados (Onboarding) del portal.
 import reflex as rx
 from typing import List
 
-from app.core.ui_helpers import rango_paginacion
-from app.presentation.constants import FILTRO_TODOS
+from app.core.ui_helpers import FILTRO_TODOS, rango_paginacion
 from app.presentation.portal.state.portal_state import PortalState
 from app.services.onboarding_service import onboarding_service
 from app.services.curp_service import curp_service
@@ -302,9 +301,9 @@ class OnboardingAltaState(PortalState):
         - Plantilla configurable desde /portal/configuracion-empresa
         - Generar token/enlace temporal para autoservicio
         """
-        return rx.toast.info(
+        return self.crear_toast(
             "Funcionalidad pendiente: envío de correo con enlace de registro",
-            position="top-center",
+            "info",
         )
 
     # ========================
@@ -326,7 +325,10 @@ class OnboardingAltaState(PortalState):
     async def registrar_empleado(self):
         """Registra un nuevo empleado en onboarding."""
         if not self._validar_formulario():
-            return rx.toast.error("Por favor corrija los errores del formulario")
+            return self.crear_toast(
+                "Por favor corrija los errores del formulario",
+                "error",
+            )
 
         self.saving = True
         try:
@@ -347,16 +349,17 @@ class OnboardingAltaState(PortalState):
 
             self.cerrar_modal_alta()
             await self._fetch_empleados_onboarding()
-            return rx.toast.success(
-                f"Empleado {empleado.clave} registrado correctamente"
+            return self.crear_toast(
+                f"Empleado {empleado.clave} registrado correctamente",
+                "success",
             )
 
         except BusinessRuleError as e:
             if "curp" in str(e).lower() or "CURP" in str(e):
                 self.error_curp = str(e)
-            return rx.toast.error(str(e))
+            return self.crear_toast(str(e), "error")
         except ValidationError as e:
-            return rx.toast.error(str(e))
+            return self.crear_toast(str(e), "error")
         except Exception as e:
             return self.manejar_error_con_toast(e, "registrando empleado")
         finally:

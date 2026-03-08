@@ -2,12 +2,12 @@
 State para la pagina Mis Empleados del portal.
 """
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import List
 
 import reflex as rx
 
-from app.core.text_utils import formatear_fecha
+from app.core.text_utils import formatear_fecha, formatear_fecha_hora
 from app.core.enums import GeneroEmpleado
 from app.presentation.components.shared import (
     EMPLOYEE_BULK_UPLOAD_ID,
@@ -636,6 +636,12 @@ class MisEmpleadosState(
         async for _ in self.cargar_empleados():
             yield
 
+    async def limpiar_filtros_emp(self):
+        self.filtro_busqueda_emp = ""
+        self.filtro_estatus_emp = "ACTIVO"
+        async for _ in self.cargar_empleados():
+            yield
+
     def ir_a_pagina(self, pagina: int):
         """Navega a una página específica del listado."""
         self.pagina = int(pagina) if pagina else 1
@@ -1145,19 +1151,7 @@ class MisEmpleadosState(
     @staticmethod
     def _formatear_fecha_hora(valor) -> str:
         """Formatea fechas de auditoría bancaria para UI."""
-        if not valor:
-            return ""
-        if isinstance(valor, datetime):
-            return valor.strftime("%d/%m/%Y %H:%M")
-        if isinstance(valor, date):
-            return formatear_fecha(valor)
-        if isinstance(valor, str):
-            try:
-                valor_dt = datetime.fromisoformat(valor.replace("Z", "+00:00"))
-                return valor_dt.strftime("%d/%m/%Y %H:%M")
-            except ValueError:
-                return valor
-        return str(valor)
+        return formatear_fecha_hora(valor, valor_vacio="")
 
     @staticmethod
     def _detalle_empleado_placeholder(resumen: dict) -> dict:

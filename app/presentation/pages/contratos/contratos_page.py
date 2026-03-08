@@ -11,6 +11,8 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
     status_badge_reactive,
     table_shell,
     tabla_vacia,
@@ -169,7 +171,7 @@ def fila_contrato(contrato: dict) -> rx.Component:
 
 
 ENCABEZADOS_CONTRATOS = [
-    {"nombre": "Fecha", "ancho": "100px"},
+    {"nombre": "Inicio", "ancho": "100px"},
     {"nombre": "Código", "ancho": "130px"},
     {"nombre": "Concepto", "ancho": "180px"},
     {"nombre": "Tipo", "ancho": "100px"},
@@ -325,7 +327,7 @@ def grid_contratos() -> rx.Component:
 
 def filtros_contratos() -> rx.Component:
     """Filtros para contratos"""
-    return rx.hstack(
+    return filtros_inline(
         # Filtro de fecha inicio (rango)
         rx.hstack(
             rx.vstack(
@@ -359,20 +361,11 @@ def filtros_contratos() -> rx.Component:
             on_change=ContratosState.set_incluir_inactivos,
             label="Mostrar inactivos",
         ),
-        # Botón limpiar filtros
-        rx.cond(
-            ContratosState.tiene_filtros_activos,
-            rx.button(
-                rx.icon("x", size=14),
-                "Limpiar",
-                on_click=ContratosState.limpiar_filtros,
-                variant="ghost",
-                size="2",
-            ),
+        acciones_filtros(
+            on_apply=ContratosState.aplicar_filtros,
+            on_clear=ContratosState.limpiar_filtros,
+            show_clear=ContratosState.tiene_filtros_activos,
         ),
-        spacing="3",
-        wrap="wrap",
-        align="center",
     )
 
 
@@ -403,7 +396,7 @@ def contratos_page() -> rx.Component:
                 search_value=ContratosState.filtro_busqueda,
                 search_placeholder="Buscar por folio, empresa o concepto...",
                 on_search_change=ContratosState.on_change_busqueda,
-                on_search_clear=lambda: ContratosState.set_filtro_busqueda(""),
+                on_search_clear=ContratosState.limpiar_busqueda,
                 filters=filtros_contratos(),
                 show_view_toggle=True,
                 current_view=ContratosState.view_mode,

@@ -324,8 +324,8 @@ class NominaCalculoService:
             ))
 
         # ── 6. IMSS obrero ────────────────────────────────────────────────────
-        # Días cotizables = trabajados + vacaciones (incapacidad los paga IMSS)
-        dias_cotizables = dias_trabajados + int(nomina.get('dias_vacaciones') or 0)
+        # `dias_trabajados` en nómina ya representa los días pagables del período.
+        dias_cotizables = dias_trabajados
         sdi_float = float(sdi)
         es_sm = sdi_float <= float(CatalogoUMA.DIARIO) * 1.5  # proxy salario mínimo
 
@@ -456,20 +456,39 @@ class NominaCalculoService:
         if self._concepto_ids:
             return
         try:
-            result = (
-                self.supabase.table('conceptos_nomina')
-                .select('id, clave')
-                .in_('clave', list(_CLAVES_SISTEMA))
-                .execute()
-            )
-            for row in (result.data or []):
-                self._concepto_ids[row['clave']] = row['id']
+            def _consultar_ids() -> dict[str, int]:
+                result = (
+                    self.supabase.table('conceptos_nomina')
+                    .select('id, clave')
+                    .in_('clave', list(_CLAVES_SISTEMA))
+                    .execute()
+                )
+                return {
+                    row['clave']: row['id']
+                    for row in (result.data or [])
+                    if row.get('clave') and row.get('id') is not None
+                }
+
+            self._concepto_ids = _consultar_ids()
             missing = _CLAVES_SISTEMA - set(self._concepto_ids.keys())
             if missing:
                 logger.warning(
-                    f"Conceptos no encontrados en BD: {missing}. "
-                    "Ejecute concepto_nomina_service.sincronizar_catalogo()."
+                    "Conceptos no encontrados en BD. Se intentará sincronizar catálogo: %s",
+                    missing,
                 )
+                from app.services.concepto_nomina_service import concepto_nomina_service
+
+                await concepto_nomina_service.sincronizar_catalogo()
+                self._concepto_ids = _consultar_ids()
+                missing = _CLAVES_SISTEMA - set(self._concepto_ids.keys())
+
+            if missing:
+                raise BusinessRuleError(
+                    "Faltan conceptos automáticos de nómina en BD: "
+                    f"{', '.join(sorted(missing))}."
+                )
+        except BusinessRuleError:
+            raise
         except Exception as e:
             logger.error(f"Error cargando IDs de conceptos: {e}")
             raise DatabaseError(f"Error cargando catálogo de conceptos: {e}")

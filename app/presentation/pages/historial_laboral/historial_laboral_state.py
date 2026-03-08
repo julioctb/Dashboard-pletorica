@@ -75,6 +75,17 @@ class HistorialLaboralState(BaseState):
         return len(self.historial_filtrado)
 
     @rx.var
+    def tiene_filtros_activos(self) -> bool:
+        return bool(
+            self.obtener_filtros_activos(
+                {
+                    "filtro_busqueda": self.filtro_busqueda,
+                    "filtro_empleado_id": self.filtro_empleado_id,
+                }
+            )
+        )
+
+    @rx.var
     def opciones_tipo_movimiento(self) -> List[dict]:
         return [
             {"value": m.value, "label": m.descripcion}

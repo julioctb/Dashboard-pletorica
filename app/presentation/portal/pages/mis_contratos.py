@@ -7,21 +7,25 @@ Permite búsqueda, filtro por estatus, detalle, edición y cambios de estatus pa
 import reflex as rx
 from typing import List
 
-from app.presentation.constants import FILTRO_TODOS
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.pages.contratos.contratos_modals import modal_contrato
 from app.presentation.pages.contratos.contratos_state import ContratosState
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.layout import page_layout, page_header, page_toolbar
 from app.presentation.components.ui import (
+    acciones_filtros,
     entity_card,
     entity_grid,
     boton_cancelar,
     boton_eliminar,
+    contador_registros,
+    filtros_inline,
 )
 from app.presentation.theme import Colors, Typography, Spacing
 from app.services import contrato_service
 from app.core.exceptions import DatabaseError, BusinessRuleError
+from app.core.text_utils import formatear_fecha
 
 
 # =============================================================================
@@ -49,7 +53,7 @@ class MisContratosState(PortalState):
         self.filtro_busqueda_cto = value
 
     def set_filtro_estatus_cto(self, value: str):
-        self.filtro_estatus_cto = value
+        self.filtro_estatus_cto = value if value else "ACTIVO"
 
     async def on_mount_contratos(self):
         resultado = await self.on_mount_portal()
@@ -75,7 +79,9 @@ class MisContratosState(PortalState):
                 incluir_inactivos=incluir_inactivos,
             )
             self.contratos = [
-                c.model_dump(mode='json') if hasattr(c, 'model_dump') else c
+                self._enriquecer_contrato(
+                    c.model_dump(mode='json') if hasattr(c, 'model_dump') else c
+                )
                 for c in contratos
             ]
             self.total_contratos_lista = len(self.contratos)
@@ -97,9 +103,15 @@ class MisContratosState(PortalState):
         async for _ in self.cargar_contratos():
             yield
 
+    async def limpiar_filtros_cto(self):
+        self.filtro_busqueda_cto = ""
+        self.filtro_estatus_cto = "ACTIVO"
+        async for _ in self.cargar_contratos():
+            yield
+
     def abrir_detalle(self, contrato: dict):
         """Abre el modal de detalle de un contrato."""
-        self.contrato_detalle = contrato
+        self.contrato_detalle = self._enriquecer_contrato(contrato)
         self.modal_detalle_abierto = True
 
     def cerrar_detalle(self):
@@ -227,6 +239,10 @@ class MisContratosState(PortalState):
         ]
 
     @rx.var
+    def total_contratos_filtrados(self) -> int:
+        return len(self.contratos_filtrados)
+
+    @rx.var
     def puede_editar_detalle(self) -> bool:
         contrato = self.contrato_detalle
         if not self.es_admin_empresa or not contrato:
@@ -254,6 +270,13 @@ class MisContratosState(PortalState):
         contrato = self.contrato_detalle
         return bool(self.es_admin_empresa and contrato and contrato.get("estatus") != "CANCELADO")
 
+    def _enriquecer_contrato(self, contrato: dict) -> dict:
+        """Agrega campos de presentacion para mantener la UI del portal consistente."""
+        data = dict(contrato)
+        data["fecha_inicio_fmt"] = formatear_fecha(data.get("fecha_inicio"))
+        data["fecha_fin_fmt"] = formatear_fecha(data.get("fecha_fin"))
+        return data
+
 
 # =============================================================================
 # COMPONENTES
@@ -275,8 +298,8 @@ def _card_contrato(cto: dict) -> rx.Component:
         ),
         campos=[
             ("Folio BUAP", rx.cond(cto["numero_folio_buap"], cto["numero_folio_buap"], "-")),
-            ("Inicio", rx.cond(cto["fecha_inicio"], cto["fecha_inicio"], "-")),
-            ("Fin", rx.cond(cto["fecha_fin"], cto["fecha_fin"], "Indefinido")),
+            ("Inicio", cto["fecha_inicio_fmt"]),
+            ("Fin", rx.cond(cto["fecha_fin"], cto["fecha_fin_fmt"], "Indefinido")),
         ],
         on_click=MisContratosState.abrir_detalle(cto),
     )
@@ -292,7 +315,7 @@ def _grid_contratos() -> rx.Component:
             width="100%",
         ),
         rx.cond(
-            MisContratosState.total_contratos_lista > 0,
+            MisContratosState.total_contratos_filtrados > 0,
             rx.vstack(
                 entity_grid(
                     items=MisContratosState.contratos_filtrados,
@@ -300,7 +323,7 @@ def _grid_contratos() -> rx.Component:
                 ),
                 rx.text(
                     "Mostrando ",
-                    MisContratosState.total_contratos_lista,
+                    MisContratosState.total_contratos_filtrados,
                     " contrato(s)",
                     font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_SECONDARY,
@@ -328,7 +351,7 @@ def _grid_contratos() -> rx.Component:
 
 def _filtros_contratos() -> rx.Component:
     """Filtros de la tabla de contratos."""
-    return rx.hstack(
+    return filtros_inline(
         rx.select.root(
             rx.select.trigger(placeholder="Estatus"),
             rx.select.content(
@@ -339,15 +362,22 @@ def _filtros_contratos() -> rx.Component:
             on_change=MisContratosState.set_filtro_estatus_cto,
             size="2",
         ),
-        rx.button(
-            rx.icon("filter", size=14),
-            "Filtrar",
-            on_click=MisContratosState.aplicar_filtros_cto,
-            variant="soft",
-            size="2",
+        acciones_filtros(
+            on_apply=MisContratosState.aplicar_filtros_cto,
+            on_clear=MisContratosState.limpiar_filtros_cto,
+            show_clear=(
+                (MisContratosState.filtro_busqueda_cto != "")
+                | (MisContratosState.filtro_estatus_cto != "ACTIVO")
+            ),
         ),
-        spacing="3",
-        align="center",
+        contador_registros(
+            total=MisContratosState.total_contratos_filtrados,
+            tiene_filtros=(
+                (MisContratosState.filtro_busqueda_cto != "")
+                | (MisContratosState.filtro_estatus_cto != "ACTIVO")
+            ),
+            texto_entidad="contrato",
+        ),
     )
 
 
@@ -424,8 +454,8 @@ def _modal_detalle_contrato() -> rx.Component:
                 rx.separator(),
                 # Vigencia
                 rx.grid(
-                    _campo_detalle("Fecha Inicio", datos["fecha_inicio"]),
-                    _campo_detalle("Fecha Fin", datos["fecha_fin"]),
+                    _campo_detalle("Inicio", datos["fecha_inicio_fmt"]),
+                    _campo_detalle("Fin", rx.cond(datos["fecha_fin"], datos["fecha_fin_fmt"], "Indefinido")),
                     columns=rx.breakpoints(initial="1", sm="2"),
                     spacing="4",
                     width="100%",

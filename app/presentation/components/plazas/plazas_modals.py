@@ -42,6 +42,16 @@ def modal_plaza() -> rx.Component:
                         rx.fragment(),
                     ),
                     form_select(
+                        label="Sede",
+                        required=True,
+                        placeholder="Seleccione sede",
+                        value=PlazasState.form_sede_id,
+                        on_change=PlazasState.set_form_sede_id,
+                        options=PlazasState.opciones_sedes_catalogo,
+                        error=PlazasState.error_sede_id,
+                        hint="La plaza debe quedar relacionada a una sede para poder ocuparse.",
+                    ),
+                    form_select(
                         label="Categoría",
                         placeholder="Seleccione categoría",
                         value=PlazasState.form_categoria_puesto_id,
@@ -147,6 +157,14 @@ def modal_detalle_plaza() -> rx.Component:
                             rx.hstack(
                                 rx.text("Contrato:", size="2", color="gray", width="120px"),
                                 rx.text(PlazasState.contrato_codigo, size="2"),
+                                width="100%",
+                            ),
+                            rx.hstack(
+                                rx.text("Sede:", size="2", color="gray", width="120px"),
+                                rx.text(
+                                    PlazasState.plaza_seleccionada["sede_nombre"],
+                                    size="2",
+                                ),
                                 width="100%",
                             ),
                             rx.hstack(
@@ -318,6 +336,14 @@ def modal_asignar_empleado() -> rx.Component:
                                     ),
                                     width="100%",
                                 ),
+                                rx.hstack(
+                                    rx.text("Sede:", size="2", color="gray", width="80px"),
+                                    rx.text(
+                                        PlazasState.plaza_seleccionada["sede_nombre"],
+                                        weight="medium",
+                                    ),
+                                    width="100%",
+                                ),
                                 spacing="1",
                                 width="100%",
                             ),
@@ -398,7 +424,7 @@ def modal_asignar_empleado() -> rx.Component:
 def modal_crear_lote() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
-            rx.dialog.title("Categorizar Plazas"),
+            rx.dialog.title("Asignar Plazas"),
             rx.dialog.description(
                 rx.vstack(
                     rx.callout(
@@ -424,6 +450,16 @@ def modal_crear_lote() -> rx.Component:
                         color_scheme="blue",
                         size="1",
                         width="100%",
+                    ),
+                    form_select(
+                        label="Sede destino",
+                        required=True,
+                        placeholder="Seleccione sede",
+                        value=PlazasState.form_sede_id,
+                        on_change=PlazasState.set_form_sede_id,
+                        options=PlazasState.opciones_sedes_catalogo,
+                        error=PlazasState.error_sede_id,
+                        hint="La sede se asignará a todas las plazas del lote.",
                     ),
                     form_select(
                         label="Categoría destino",
@@ -467,7 +503,7 @@ def modal_crear_lote() -> rx.Component:
             rx.hstack(
                 boton_cancelar(on_click=PlazasState.cerrar_modal_crear_lote),
                 boton_guardar(
-                    texto="Categorizar",
+                    texto="Asignar",
                     texto_guardando="Aplicando...",
                     on_click=PlazasState.crear_plazas_lote,
                     saving=PlazasState.saving,

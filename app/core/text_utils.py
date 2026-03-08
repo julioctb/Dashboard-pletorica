@@ -263,15 +263,69 @@ def formatear_fecha(
     if not fecha:
         return valor_vacio
 
-    try:
-        # Si es string, convertir a date
-        if isinstance(fecha, str):
-            fecha = date.fromisoformat(fecha)
-
-        # Si es datetime, usar directamente
-        return fecha.strftime(formato)
-    except (ValueError, TypeError, AttributeError):
+    fecha_normalizada = _parse_fecha_ui(fecha)
+    if fecha_normalizada is None:
         return valor_vacio
+    return fecha_normalizada.strftime(formato)
+
+
+def _parse_fecha_ui(
+    fecha: Optional[Union[date, datetime, str]],
+) -> Optional[Union[date, datetime]]:
+    """Normaliza fechas ISO simples o con hora para render en UI."""
+    if not fecha:
+        return None
+
+    if isinstance(fecha, datetime):
+        return fecha
+
+    if isinstance(fecha, date):
+        return fecha
+
+    if not isinstance(fecha, str):
+        return None
+
+    texto = fecha.strip()
+    if not texto:
+        return None
+
+    candidatos = [texto]
+    if texto.endswith("Z"):
+        candidatos.append(texto.replace("Z", "+00:00"))
+    if "T" in texto:
+        candidatos.append(texto.split("T", 1)[0])
+
+    for candidato in candidatos:
+        try:
+            if len(candidato) <= 10:
+                return date.fromisoformat(candidato)
+            return datetime.fromisoformat(candidato)
+        except ValueError:
+            continue
+
+    return None
+
+
+def formatear_fecha_hora(
+    fecha: Optional[Union[date, datetime, str]],
+    formato: str = "%d/%m/%Y %H:%M",
+    formato_fecha: str = "%d/%m/%Y",
+    valor_vacio: str = "",
+) -> str:
+    """
+    Formatea fecha/hora para UI.
+
+    Si recibe una fecha sin hora, conserva el formato corto de fecha.
+    Si recibe un datetime o un string ISO con hora, incluye HH:MM.
+    """
+    fecha_normalizada = _parse_fecha_ui(fecha)
+    if fecha_normalizada is None:
+        return valor_vacio
+
+    if isinstance(fecha_normalizada, datetime):
+        return fecha_normalizada.strftime(formato)
+
+    return fecha_normalizada.strftime(formato_fecha)
 
 
 _MESES_ES = [
@@ -292,11 +346,15 @@ def formatear_fecha_es(fecha: Optional[Union[date, datetime, str]]) -> str:
     """
     if not fecha:
         return ""
-    try:
-        if isinstance(fecha, str):
-            fecha = date.fromisoformat(fecha)
-        return f"{fecha.day} de {_MESES_ES[fecha.month]} de {fecha.year}"
-    except (ValueError, TypeError, AttributeError, IndexError):
+    fecha_normalizada = _parse_fecha_ui(fecha)
+    if fecha_normalizada is None:
         return ""
-
+    try:
+        return (
+            f"{fecha_normalizada.day} de "
+            f"{_MESES_ES[fecha_normalizada.month]} de "
+            f"{fecha_normalizada.year}"
+        )
+    except (AttributeError, IndexError):
+        return ""
 

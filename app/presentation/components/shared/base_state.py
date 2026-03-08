@@ -16,6 +16,7 @@ import reflex as rx
 from typing import Optional, List, Dict, Any, Callable, Awaitable
 
 from app.core.config import Config
+from app.presentation.theme.feedback import app_toast
 from app.core.ui_helpers import (
     FILTRO_TODOS,
     FILTRO_SIN_SELECCION,
@@ -61,7 +62,7 @@ class BaseState(rx.State):
     # MENSAJES
     # ========================
     mensaje_info: str = ""
-    tipo_mensaje: str = "info"  # info, success, error
+    tipo_mensaje: str = "info"  # info, success, warning, error
 
     # ========================
     # SETTERS COMUNES
@@ -100,6 +101,16 @@ class BaseState(rx.State):
         """Limpiar mensajes informativos"""
         self.mensaje_info = ""
         self.tipo_mensaje = "info"
+
+    def crear_toast(
+        self,
+        mensaje: str,
+        tipo: str = "info",
+        *,
+        duration: Optional[int] = None,
+    ) -> rx.Component:
+        """Crea un toast usando el contrato visual compartido."""
+        return app_toast(tipo, mensaje, duration=duration)
 
     # ========================
     # MANEJO DE ERRORES
@@ -213,7 +224,7 @@ class BaseState(rx.State):
             if Config.DEBUG:
                 logger.error(f"{prefijo}{type(error).__name__}: {error}", exc_info=True)
 
-        return rx.toast.error(mensaje, position="top-center")
+        return self.crear_toast(mensaje, "error")
 
     def aplicar_errores_validacion(
         self,

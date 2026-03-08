@@ -17,6 +17,7 @@ from app.presentation.pages.nominas.contabilidad_modals import (
     dialog_devolver_rrhh,
 )
 from app.presentation.components.ui import (
+    feedback_callout,
     tabla_vacia,
     table_shell,
     table_cell_text_sm,
@@ -38,6 +39,17 @@ def _badge_estatus_empleado(estatus: rx.Var) -> rx.Component:
         ('CALCULADO',   rx.badge('Calculado',   color_scheme='green', size='1')),
         ('APROBADO',    rx.badge('Aprobado',    color_scheme='teal',  size='1')),
         rx.badge(estatus, size='1'),
+    )
+
+
+def _callout_mensaje() -> rx.Component:
+    return rx.cond(
+        NominaContabilidadState.mensaje_info != "",
+        feedback_callout(
+            NominaContabilidadState.mensaje_info,
+            NominaContabilidadState.tipo_mensaje,
+        ),
+        rx.fragment(),
     )
 
 
@@ -86,24 +98,34 @@ def _botones_accion() -> rx.Component:
             ),
             rx.fragment(),
         ),
-        # Ejecutar cálculo (solo si EN_PROCESO con empleados)
+        # Ejecutar cálculo (visible durante el flujo de Contabilidad)
         rx.cond(
-            NominaContabilidadState.puede_calcular,
-            rx.button(
-                rx.cond(
-                    NominaContabilidadState.calculando,
-                    rx.spinner(size="1"),
-                    rx.icon("circle-play", size=15),
+            NominaContabilidadState.mostrar_accion_calcular,
+            rx.tooltip(
+                rx.button(
+                    rx.cond(
+                        NominaContabilidadState.calculando,
+                        rx.spinner(size="1"),
+                        rx.icon("circle-play", size=15),
+                    ),
+                    rx.cond(
+                        NominaContabilidadState.calculando,
+                        "Calculando...",
+                        "Ejecutar cálculo",
+                    ),
+                    on_click=NominaContabilidadState.abrir_dialog_ejecutar,
+                    color_scheme="blue",
+                    size="2",
+                    disabled=(
+                        NominaContabilidadState.calculando
+                        | ~NominaContabilidadState.puede_calcular
+                    ),
                 ),
-                rx.cond(
-                    NominaContabilidadState.calculando,
-                    "Calculando...",
-                    "Ejecutar cálculo",
+                content=rx.cond(
+                    NominaContabilidadState.puede_calcular,
+                    "Ejecuta ISR, IMSS y subsidio al empleo.",
+                    NominaContabilidadState.razon_no_puede_calcular,
                 ),
-                on_click=NominaContabilidadState.abrir_dialog_ejecutar,
-                color_scheme="blue",
-                size="2",
-                disabled=NominaContabilidadState.calculando,
             ),
             rx.fragment(),
         ),
@@ -460,6 +482,7 @@ def calculo_nomina_page() -> rx.Component:
                 icono="calculator",
             ),
             content=rx.vstack(
+                _callout_mensaje(),
                 _panel_resumen(),
                 _callout_pendiente_recibir(),
                 _callout_readonly(),

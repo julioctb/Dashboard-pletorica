@@ -79,6 +79,27 @@ class SupabasePlazaRepository:
             logger.error(f"Error obteniendo vacantes sin categoría del contrato {contrato_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
+    async def obtener_vacantes_con_categoria_sin_sede(self, contrato_id: int) -> list[Plaza]:
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select("*")
+                .eq("contrato_id", contrato_id)
+                .eq("estatus", EstatusPlaza.VACANTE.value)
+                .not_.is_("categoria_puesto_id", "null")
+                .is_("sede_id", "null")
+                .order("numero_plaza", desc=False)
+                .execute()
+            )
+            return [Plaza(**data) for data in (result.data or [])]
+        except Exception as e:
+            logger.error(
+                "Error obteniendo vacantes con categoría y sin sede del contrato %s: %s",
+                contrato_id,
+                e,
+            )
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
     async def existe_numero_plaza(
         self,
         contrato_id: int,
@@ -276,9 +297,15 @@ class SupabasePlazaRepository:
             empleados_map[emp["id"]] = {"nombre": nombre, "curp": emp.get("curp", "")}
         return empleados_map
 
-    async def _obtener_detalles_relacionados(self, contrato_ids: list[int], categoria_ids: list[int]) -> tuple[dict[int, dict], dict[int, dict]]:
+    async def _obtener_detalles_relacionados(
+        self,
+        contrato_ids: list[int],
+        categoria_ids: list[int],
+        sede_ids: list[int],
+    ) -> tuple[dict[int, dict], dict[int, dict], dict[int, dict]]:
         contratos_map: dict[int, dict] = {}
         categorias_map: dict[int, dict] = {}
+        sedes_map: dict[int, dict] = {}
 
         if contrato_ids:
             result_contratos = (
@@ -298,7 +325,16 @@ class SupabasePlazaRepository:
             )
             categorias_map = {item["id"]: item for item in (result_categorias.data or [])}
 
-        return contratos_map, categorias_map
+        if sede_ids:
+            result_sedes = (
+                self.supabase.table("sedes")
+                .select("id, codigo, nombre, nombre_corto")
+                .in_("id", sede_ids)
+                .execute()
+            )
+            sedes_map = {item["id"]: item for item in (result_sedes.data or [])}
+
+        return contratos_map, categorias_map, sedes_map
 
     async def _construir_resumen(self, plazas_data: list[dict]) -> list[dict]:
         if not plazas_data:
@@ -310,23 +346,39 @@ class SupabasePlazaRepository:
             for item in plazas_data
             if item.get("categoria_puesto_id") is not None
         })
+        sede_ids = sorted({
+            item["sede_id"]
+            for item in plazas_data
+            if item.get("sede_id") is not None
+        })
         empleado_ids = sorted({
             item["empleado_id"]
             for item in plazas_data
             if item.get("empleado_id") is not None
         })
 
-        contratos_map, categorias_map = await self._obtener_detalles_relacionados(contrato_ids, categoria_ids)
+        contratos_map, categorias_map, sedes_map = await self._obtener_detalles_relacionados(
+            contrato_ids,
+            categoria_ids,
+            sede_ids,
+        )
         empleados_map = await self._obtener_empleados_map(empleado_ids)
 
         resumen: list[dict] = []
         for item in plazas_data:
             contrato = contratos_map.get(item["contrato_id"], {})
             categoria = categorias_map.get(item.get("categoria_puesto_id"), {})
+            sede = sedes_map.get(item.get("sede_id"), {})
             empleado = empleados_map.get(item.get("empleado_id"), {})
             resumen.append({
                 **item,
                 "contrato_codigo": contrato.get("codigo", ""),
+                "sede_codigo": sede.get("codigo", ""),
+                "sede_nombre": (
+                    sede.get("nombre_corto")
+                    or sede.get("nombre")
+                    or "Sin sede"
+                ) if item.get("sede_id") else "Sin sede",
                 "categoria_clave": categoria.get("clave", ""),
                 "categoria_nombre": categoria.get("nombre", "Sin categoría") if item.get("categoria_puesto_id") else "Sin categoría",
                 "empleado_nombre": empleado.get("nombre", ""),
@@ -485,6 +537,108 @@ class SupabasePlazaRepository:
             )
         except Exception as e:
             logger.error(f"Error obteniendo resumen por categorías con plazas: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def obtener_resumen_contratos_con_plazas(
+        self,
+        empresa_id: Optional[int] = None,
+        solo_activos: bool = False,
+    ) -> list[dict]:
+        try:
+            contratos_query = (
+                self.supabase.table("contratos")
+                .select(
+                    "id, codigo, estatus, tipo_servicio_id, tiene_personal, "
+                    "cantidad_plazas_minima, cantidad_plazas_maxima"
+                )
+                .eq("tiene_personal", True)
+            )
+            if empresa_id:
+                contratos_query = contratos_query.eq("empresa_id", empresa_id)
+            if solo_activos:
+                contratos_query = contratos_query.eq("estatus", "ACTIVO")
+
+            contratos_result = contratos_query.order("codigo", desc=False).execute()
+            contratos = contratos_result.data or []
+            if not contratos:
+                return []
+
+            tipo_servicio_ids = sorted(
+                {
+                    contrato.get("tipo_servicio_id")
+                    for contrato in contratos
+                    if contrato.get("tipo_servicio_id") is not None
+                }
+            )
+            tipos_servicio_map: dict[int, dict] = {}
+            if tipo_servicio_ids:
+                tipos_result = (
+                    self.supabase.table("tipos_servicio")
+                    .select("id, clave, nombre")
+                    .in_("id", tipo_servicio_ids)
+                    .execute()
+                )
+                tipos_servicio_map = {
+                    item["id"]: item for item in (tipos_result.data or [])
+                }
+
+            resumen = {
+                contrato["id"]: {
+                    "contrato_id": contrato["id"],
+                    "contrato_codigo": contrato.get("codigo", ""),
+                    "contrato_estatus": contrato.get("estatus", ""),
+                    "tipo_servicio_id": contrato.get("tipo_servicio_id"),
+                    "tipo_servicio_clave": (
+                        tipos_servicio_map.get(
+                            contrato.get("tipo_servicio_id"), {}
+                        ).get("clave", "")
+                    ),
+                    "tipo_servicio_nombre": (
+                        tipos_servicio_map.get(
+                            contrato.get("tipo_servicio_id"), {}
+                        ).get("nombre", "Sin tipo de servicio")
+                    ),
+                    "cantidad_plazas_minima": int(
+                        contrato.get("cantidad_plazas_minima") or 0
+                    ),
+                    "cantidad_plazas_maxima": int(
+                        contrato.get("cantidad_plazas_maxima") or 0
+                    ),
+                    "total_plazas": 0,
+                    "plazas_vacantes": 0,
+                    "plazas_ocupadas": 0,
+                    "plazas_suspendidas": 0,
+                }
+                for contrato in contratos
+            }
+
+            contrato_ids = list(resumen.keys())
+            plazas_result = (
+                self.supabase.table(self.tabla)
+                .select("contrato_id, estatus")
+                .in_("contrato_id", contrato_ids)
+                .neq("estatus", EstatusPlaza.CANCELADA.value)
+                .execute()
+            )
+
+            for plaza in (plazas_result.data or []):
+                contrato_id = plaza.get("contrato_id")
+                if contrato_id not in resumen:
+                    continue
+
+                item = resumen[contrato_id]
+                item["total_plazas"] += 1
+
+                if plaza.get("estatus") == EstatusPlaza.VACANTE.value:
+                    item["plazas_vacantes"] += 1
+                elif plaza.get("estatus") == EstatusPlaza.OCUPADA.value:
+                    item["plazas_ocupadas"] += 1
+                elif plaza.get("estatus") == EstatusPlaza.SUSPENDIDA.value:
+                    item["plazas_suspendidas"] += 1
+
+            return list(resumen.values())
+        except Exception as e:
+            logger.error(f"Error obteniendo resumen de contratos con plazas: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_empleados_asignados(self, empresa_id: Optional[int] = None) -> list[int]:

@@ -26,6 +26,10 @@ class Plaza(BaseModel):
     # Identificación
     id: Optional[int] = None
     contrato_id: int = Field(..., description="FK a contratos")
+    sede_id: Optional[int] = Field(
+        default=None,
+        description="FK a sedes; NULL mientras la plaza no tenga sede asignada"
+    )
     categoria_puesto_id: Optional[int] = Field(
         default=None,
         description="FK a categorias_puesto; NULL mientras la plaza no esté categorizada"
@@ -111,7 +115,11 @@ class Plaza(BaseModel):
 
     def puede_asignar_empleado(self) -> bool:
         """Verifica si se puede asignar un empleado a esta plaza"""
-        return self.categoria_puesto_id is not None and self.estatus.es_asignable
+        return (
+            self.categoria_puesto_id is not None
+            and self.sede_id is not None
+            and self.estatus.es_asignable
+        )
 
     def esta_vigente(self, fecha_referencia: Optional[date] = None) -> bool:
         """Verifica si la plaza está vigente en una fecha"""
@@ -124,7 +132,11 @@ class Plaza(BaseModel):
 
     def puede_ocupar(self) -> bool:
         """Verifica si la plaza puede pasar a estado OCUPADA"""
-        return self.estatus == EstatusPlaza.VACANTE and self.categoria_puesto_id is not None
+        return (
+            self.estatus == EstatusPlaza.VACANTE
+            and self.categoria_puesto_id is not None
+            and self.sede_id is not None
+        )
 
     def puede_suspender(self) -> bool:
         """Verifica si la plaza puede ser suspendida"""
@@ -151,6 +163,7 @@ class PlazaCreate(BaseModel):
     )
 
     contrato_id: int = Field(..., description="FK a contratos")
+    sede_id: Optional[int] = Field(default=None, description="FK a sedes")
     categoria_puesto_id: Optional[int] = Field(default=None, description="FK a categorias_puesto")
     numero_plaza: int = Field(..., ge=1)
     codigo: str = Field(default="", max_length=50)
@@ -185,6 +198,7 @@ class PlazaUpdate(BaseModel):
     )
 
     codigo: Optional[str] = Field(default=None, max_length=50)
+    sede_id: Optional[int] = Field(default=None)
     categoria_puesto_id: Optional[int] = Field(default=None)
     empleado_id: Optional[int] = Field(default=None)
     fecha_inicio: Optional[date] = Field(default=None)
@@ -224,6 +238,7 @@ class PlazaResumen(BaseModel):
     # Datos de la plaza
     id: int
     contrato_id: int
+    sede_id: Optional[int] = None
     categoria_puesto_id: Optional[int] = None
     numero_plaza: int
     codigo: str = ""
@@ -240,6 +255,10 @@ class PlazaResumen(BaseModel):
     categoria_clave: str = ""
     categoria_nombre: str = "Sin categoría"
 
+    # Datos enriquecidos de la sede
+    sede_codigo: str = ""
+    sede_nombre: str = "Sin sede"
+
     # Datos enriquecidos del empleado (si está ocupada)
     empleado_nombre: str = ""
     empleado_curp: str = ""
@@ -250,6 +269,9 @@ class PlazaResumen(BaseModel):
         plaza: Plaza,
         contrato_id: int = 0,
         contrato_codigo: str = "",
+        sede_id: Optional[int] = None,
+        sede_codigo: str = "",
+        sede_nombre: str = "",
         categoria_puesto_id: Optional[int] = None,
         categoria_clave: str = "",
         categoria_nombre: str = "",
@@ -260,6 +282,7 @@ class PlazaResumen(BaseModel):
         return cls(
             id=plaza.id,
             contrato_id=contrato_id or plaza.contrato_id,
+            sede_id=sede_id if sede_id is not None else plaza.sede_id,
             categoria_puesto_id=(
                 categoria_puesto_id if categoria_puesto_id is not None else plaza.categoria_puesto_id
             ),
@@ -272,6 +295,8 @@ class PlazaResumen(BaseModel):
             estatus=plaza.estatus,
             notas=plaza.notas,
             contrato_codigo=contrato_codigo,
+            sede_codigo=sede_codigo,
+            sede_nombre=sede_nombre,
             categoria_clave=categoria_clave,
             categoria_nombre=categoria_nombre,
             empleado_nombre=empleado_nombre,

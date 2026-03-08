@@ -6,6 +6,7 @@ import reflex as rx
 from typing import List, Optional
 from uuid import UUID
 
+from app.core.ui_helpers import FILTRO_TODOS
 from app.entities import (
     UserProfileCreate,
     UserProfileUpdate,
@@ -69,7 +70,7 @@ class UsuariosAdminState(AuthState):
     mostrar_modal_confirmar_desactivar: bool = False
 
     # Filtros
-    filtro_rol: str = ""
+    filtro_rol: str = FILTRO_TODOS
     incluir_inactivos: bool = False
 
     # ========================
@@ -176,7 +177,7 @@ class UsuariosAdminState(AuthState):
         }
 
     def _rol_matches_filtro(self, rol_usuario: str) -> bool:
-        if not self.filtro_rol:
+        if self.filtro_rol == FILTRO_TODOS:
             return True
         if self.filtro_rol == "admin":
             return rol_usuario in ("admin", "superadmin")
@@ -225,16 +226,14 @@ class UsuariosAdminState(AuthState):
 
     # --- Filtros ---
     def set_filtro_rol(self, value: str):
-        self.filtro_rol = value
+        self.filtro_rol = value if value else FILTRO_TODOS
 
     def set_filtro_rol_select(self, value: str):
-        """Setter para el select de rol (mapea 'all' -> '')."""
-        self.filtro_rol = "" if value == "all" else value
+        self.filtro_rol = value if value else FILTRO_TODOS
 
     @rx.var
     def filtro_rol_select(self) -> str:
-        """Valor para el select de rol (mapea '' -> 'all')."""
-        return self.filtro_rol if self.filtro_rol else "all"
+        return self.filtro_rol
 
     def set_incluir_inactivos(self, value: bool):
         self.incluir_inactivos = value
@@ -773,6 +772,18 @@ class UsuariosAdminState(AuthState):
     async def aplicar_filtros(self):
         """Aplica filtros y recarga la lista."""
         async for _ in self._recargar_datos(self._fetch_usuarios):
+            yield
+
+    async def limpiar_busqueda(self):
+        self.filtro_busqueda = ""
+        async for _ in self.aplicar_filtros():
+            yield
+
+    async def limpiar_filtros(self):
+        self.filtro_busqueda = ""
+        self.filtro_rol = FILTRO_TODOS
+        self.incluir_inactivos = False
+        async for _ in self.aplicar_filtros():
             yield
 
     # ========================

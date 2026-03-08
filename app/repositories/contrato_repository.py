@@ -678,3 +678,27 @@ class SupabaseContratoRepository:
         except Exception as e:
             logger.error(f"Error cambiando estatus de contrato {contrato_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def sincronizar_vigencia_automatica(self) -> int:
+        """
+        Marca automáticamente como VENCIDO los contratos activos cuya fecha_fin ya pasó.
+
+        Returns:
+            Número de contratos actualizados.
+
+        Raises:
+            DatabaseError: Si hay error de conexión/infraestructura.
+        """
+        try:
+            hoy = date.today().isoformat()
+            result = self.supabase.table(self.tabla)\
+                .update({"estatus": EstatusContrato.VENCIDO.value})\
+                .eq("estatus", EstatusContrato.ACTIVO.value)\
+                .not_.is_("fecha_fin", "null")\
+                .lt("fecha_fin", hoy)\
+                .execute()
+
+            return len(result.data or [])
+        except Exception as e:
+            logger.error(f"Error sincronizando vigencia automática de contratos: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")

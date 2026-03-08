@@ -1,5 +1,6 @@
 import reflex as rx
 
+from app.presentation.theme.feedback import DEFAULT_TOAST_POSITION
 from app.presentation.theme import GLOBAL_STYLES
 from app.api.main import api_app
 
@@ -114,6 +115,7 @@ app = rx.App(
         scaling="100%",
         accent_color='blue'
     ),
+    toaster=rx.toast.provider(position=DEFAULT_TOAST_POSITION),
     style=GLOBAL_STYLES
 )
 

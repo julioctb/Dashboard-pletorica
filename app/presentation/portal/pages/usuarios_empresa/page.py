@@ -6,10 +6,12 @@ crear usuarios, editar rol/permisos, desactivar/reactivar.
 """
 import reflex as rx
 
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.layout import page_layout, page_header, page_toolbar
 from app.presentation.theme import Colors
 from app.core.constants.permisos import ROLES_ASIGNABLES_POR_ADMIN_EMPRESA
 from app.presentation.components.ui import (
+    filtros_inline,
     tabla_action_button,
     tabla_action_buttons,
 )
@@ -176,7 +178,7 @@ def _tabla_usuarios() -> rx.Component:
 
 def _filtro_rol() -> rx.Component:
     """Select para filtrar por rol."""
-    opciones = [{"label": "Todos los roles", "value": "all"}] + list(ROLES_ASIGNABLES_POR_ADMIN_EMPRESA)
+    opciones = [{"label": "Todos los roles", "value": FILTRO_TODOS}] + list(ROLES_ASIGNABLES_POR_ADMIN_EMPRESA)
     return rx.select.root(
         rx.select.trigger(placeholder="Filtrar por rol"),
         rx.select.content(
@@ -226,11 +228,9 @@ def usuarios_empresa_page() -> rx.Component:
                 on_search_change=UsuariosEmpresaState.set_filtro_busqueda_usr,
                 on_search_clear=lambda: UsuariosEmpresaState.set_filtro_busqueda_usr(""),
                 show_view_toggle=False,
-                filters=rx.hstack(
+                filters=filtros_inline(
                     _filtro_rol(),
                     _contador(),
-                    spacing="3",
-                    align="center",
                 ),
             ),
             content=rx.cond(

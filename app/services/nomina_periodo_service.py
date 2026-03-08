@@ -60,6 +60,20 @@ class NominaPeriodoService:
         ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return float(diario)
 
+    def _calcular_dias_trabajados_nomina(
+        self,
+        dias_periodo: int,
+        dias_faltas: int,
+        dias_incapacidad: int,
+    ) -> int:
+        """
+        Calcula los días pagables del período.
+
+        La nómina base parte del período completo. Solo se descuentan
+        faltas e incapacidades; vacaciones siguen siendo días pagados.
+        """
+        return max(dias_periodo - dias_faltas - dias_incapacidad, 0)
+
     def _mapear_salario_diario_por_empleado(
         self,
         empresa_id: int,
@@ -300,14 +314,16 @@ class NominaPeriodoService:
                 emp_id = emp['id']
                 asistencias = por_empleado.get(emp_id, [])
 
-                dias_trabajados = sum(
-                    1 for a in asistencias if a['tipo_registro'] == 'ASISTENCIA'
-                )
                 dias_faltas = sum(
                     1 for a in asistencias if a['tipo_registro'] == 'FALTA'
                 )
                 dias_incapacidad = sum(
                     1 for a in asistencias if a['tipo_registro'] in _TIPOS_INCAPACIDAD
+                )
+                dias_trabajados = self._calcular_dias_trabajados_nomina(
+                    dias_periodo=dias_periodo,
+                    dias_faltas=dias_faltas,
+                    dias_incapacidad=dias_incapacidad,
                 )
                 dias_vacaciones = sum(
                     1 for a in asistencias if a['tipo_registro'] == 'VACACIONES'

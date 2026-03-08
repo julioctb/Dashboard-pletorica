@@ -46,10 +46,12 @@ ENCABEZADOS = [
 
 def _fila_periodo(periodo: dict) -> rx.Component:
     """Fila de la tabla de períodos."""
-    fechas = rx.text(
-        periodo['fecha_inicio'].to(str) + "  →  " + periodo['fecha_fin'].to(str),
-        size="2",
-        color=Colors.TEXT_SECONDARY,
+    fechas = rx.hstack(
+        rx.text(periodo["fecha_inicio_fmt"], size="2", color=Colors.TEXT_SECONDARY),
+        rx.text("→", size="2", color=Colors.TEXT_SECONDARY),
+        rx.text(periodo["fecha_fin_fmt"], size="2", color=Colors.TEXT_SECONDARY),
+        spacing="1",
+        align="center",
     )
     return rx.table.row(
         rx.table.cell(

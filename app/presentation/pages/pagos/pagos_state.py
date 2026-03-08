@@ -89,13 +89,13 @@ class PagosPageState(BaseState):
         return ""
 
     def set_filtro_contrato_id(self, value: str):
-        self.filtro_contrato_id = value
+        self.filtro_contrato_id = value if value else FILTRO_TODOS
 
     def set_filtro_fecha_desde(self, value: str):
-        self.filtro_fecha_desde = value
+        self.filtro_fecha_desde = value if value else ""
 
     def set_filtro_fecha_hasta(self, value: str):
-        self.filtro_fecha_hasta = value
+        self.filtro_fecha_hasta = value if value else ""
 
     def set_form_contrato_id(self, value: str):
         self.form_contrato_id = value
@@ -154,11 +154,10 @@ class PagosPageState(BaseState):
             # Formatear para la tabla
             self.pagos = []
             for p in pagos_data:
-                fecha = p.get("fecha_pago", "")
-                if fecha and len(str(fecha)) >= 10:
-                    partes = str(fecha)[:10].split("-")
-                    if len(partes) == 3:
-                        fecha = f"{partes[2]}/{partes[1]}/{partes[0]}"
+                fecha = formatear_fecha(
+                    p.get("fecha_pago", ""),
+                    valor_vacio="",
+                )
 
                 monto = p.get("monto", 0)
                 self.pagos.append({
@@ -199,16 +198,17 @@ class PagosPageState(BaseState):
     # ========================
     async def aplicar_filtros(self):
         """Aplica los filtros y recarga."""
-        self.loading = True
-        yield
-        await self._fetch_pagos()
-        self.loading = False
+        async for _ in self._recargar_datos(self._fetch_pagos):
+            yield
 
-    def limpiar_filtros(self):
-        """Limpia todos los filtros."""
+    async def limpiar_filtros(self):
+        """Limpia filtros estructurados y búsqueda, y recarga la lista."""
+        self.filtro_busqueda = ""
         self.filtro_contrato_id = FILTRO_TODOS
         self.filtro_fecha_desde = ""
         self.filtro_fecha_hasta = ""
+        async for _ in self._recargar_datos(self._fetch_pagos):
+            yield
 
     # ========================
     # MODAL CREAR/EDITAR
@@ -342,5 +342,33 @@ class PagosPageState(BaseState):
     # COMPUTED
     # ========================
     @rx.var
+    def pagos_filtrados(self) -> List[dict]:
+        """Filtra por búsqueda local sobre el subconjunto ya cargado."""
+        termino = self.filtro_busqueda.strip().lower()
+        if not termino:
+            return self.pagos
+
+        return [
+            pago for pago in self.pagos
+            if termino in (pago.get("concepto") or "").lower()
+            or termino in (pago.get("numero_factura") or "").lower()
+            or termino in (pago.get("contrato_codigo") or "").lower()
+            or termino in (pago.get("empresa_nombre") or "").lower()
+        ]
+
+    @rx.var
+    def total_filtrado(self) -> int:
+        return len(self.pagos_filtrados)
+
+    @rx.var
+    def tiene_filtros_activos(self) -> bool:
+        return bool(
+            self.filtro_busqueda.strip()
+            or self.filtro_contrato_id != FILTRO_TODOS
+            or self.filtro_fecha_desde
+            or self.filtro_fecha_hasta
+        )
+
+    @rx.var
     def tiene_pagos(self) -> bool:
-        return len(self.pagos) > 0
+        return len(self.pagos_filtrados) > 0

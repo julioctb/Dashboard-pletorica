@@ -13,6 +13,8 @@ from app.presentation.layout import (
     page_toolbar,
 )
 from app.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
     table_shell,
     tabla_vacia,
     action_buttons_reactive,
@@ -273,16 +275,13 @@ def grid_historial() -> rx.Component:
 
 def filtros_historial() -> rx.Component:
     """Filtros para historial"""
-    return rx.hstack(
-        # Botón aplicar
-        rx.button(
-            "Aplicar",
-            size="2",
-            variant="soft",
-            on_click=HistorialLaboralState.aplicar_filtros,
+    return filtros_inline(
+        acciones_filtros(
+            on_apply=HistorialLaboralState.aplicar_filtros,
+            on_clear=HistorialLaboralState.limpiar_filtros,
+            show_clear=HistorialLaboralState.tiene_filtros_activos,
+            apply_label="Aplicar",
         ),
-        spacing="3",
-        align="center",
     )
 
 

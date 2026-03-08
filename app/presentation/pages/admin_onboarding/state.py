@@ -7,8 +7,8 @@ Muestra empleados de TODAS las empresas con conteos por estatus.
 import reflex as rx
 from typing import List
 
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.shared.auth_state import AuthState
-from app.presentation.constants import FILTRO_TODOS
 from app.services.onboarding_service import onboarding_service
 from app.core.exceptions import DatabaseError
 from app.core.ui_options import OPCIONES_ESTATUS_ONBOARDING_PIPELINE

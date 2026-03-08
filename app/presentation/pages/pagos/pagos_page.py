@@ -5,6 +5,8 @@ Muestra todos los pagos del sistema con filtros.
 import reflex as rx
 from app.presentation.pages.pagos.pagos_state import PagosPageState
 from app.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
     tabla_vacia,
     table_shell,
     table_cell_text_sm,
@@ -16,6 +18,7 @@ from app.presentation.components.ui import (
     boton_cancelar,
     tabla_action_button,
     tabla_action_buttons,
+    indicador_filtros,
     select_items_from_options,
 )
 from app.presentation.components.ui.modals import modal_confirmar_eliminar
@@ -89,14 +92,14 @@ def _tabla_pagos() -> rx.Component:
     return table_shell(
         loading=PagosPageState.loading,
         headers=ENCABEZADOS,
-        rows=PagosPageState.pagos,
+        rows=PagosPageState.pagos_filtrados,
         row_renderer=_fila_pago,
         has_rows=PagosPageState.tiene_pagos,
         empty_component=tabla_vacia(
             mensaje="No hay pagos registrados",
             onclick=PagosPageState.abrir_modal_crear,
         ),
-        total_caption="Mostrando " + PagosPageState.total_registros.to(str) + " pago(s)",
+        total_caption="Mostrando " + PagosPageState.total_filtrado.to(str) + " pago(s)",
         loading_rows=5,
     )
 
@@ -107,13 +110,14 @@ def _tabla_pagos() -> rx.Component:
 
 def _filtros() -> rx.Component:
     """Filtros de pagos."""
-    return rx.hstack(
+    return filtros_inline(
         # Filtro por contrato
         rx.select.root(
             rx.select.trigger(placeholder="Contrato", width="180px"),
             rx.select.content(select_items_from_options(PagosPageState.contratos_opciones)),
             value=PagosPageState.filtro_contrato_id,
             on_change=PagosPageState.set_filtro_contrato_id,
+            size="2",
         ),
         # Fecha desde
         rx.vstack(
@@ -123,6 +127,7 @@ def _filtros() -> rx.Component:
                 value=PagosPageState.filtro_fecha_desde,
                 on_change=PagosPageState.set_filtro_fecha_desde,
                 width="140px",
+                size="2",
             ),
             spacing="1",
         ),
@@ -134,27 +139,15 @@ def _filtros() -> rx.Component:
                 value=PagosPageState.filtro_fecha_hasta,
                 on_change=PagosPageState.set_filtro_fecha_hasta,
                 width="140px",
+                size="2",
             ),
             spacing="1",
         ),
-        # Boton aplicar
-        rx.button(
-            "Filtrar",
-            on_click=PagosPageState.aplicar_filtros,
-            variant="soft",
-            size="2",
+        acciones_filtros(
+            on_apply=PagosPageState.aplicar_filtros,
+            on_clear=PagosPageState.limpiar_filtros,
+            show_clear=PagosPageState.tiene_filtros_activos,
         ),
-        # Boton limpiar
-        rx.button(
-            rx.icon("x", size=14),
-            "Limpiar",
-            on_click=PagosPageState.limpiar_filtros,
-            variant="ghost",
-            size="2",
-        ),
-        spacing="3",
-        wrap="wrap",
-        align="end",
     )
 
 
@@ -331,6 +324,10 @@ def pagos_page() -> rx.Component:
                 on_search_change=PagosPageState.set_filtro_busqueda,
                 on_search_clear=lambda: PagosPageState.set_filtro_busqueda(""),
                 filters=_filtros(),
+                extra_right=indicador_filtros(
+                    tiene_filtros=PagosPageState.tiene_filtros_activos,
+                    on_limpiar=PagosPageState.limpiar_filtros,
+                ),
                 show_view_toggle=False,
             ),
             content=rx.vstack(

@@ -11,6 +11,7 @@ from app.presentation.components.plazas.plazas_modals import (
 )
 from app.presentation.components.ui import (
     breadcrumb_dynamic,
+    identifier_badge,
     select_items_from_options,
     skeleton_tabla,
     status_badge_reactive,
@@ -65,11 +66,49 @@ def _metric_card(
     )
 
 
+def _portal_metric_card(label: str, value) -> rx.Component:
+    return rx.vstack(
+        rx.text(
+            value,
+            font_size=Typography.SIZE_LG,
+            font_weight=Typography.WEIGHT_BOLD,
+            color=Colors.TEXT_PRIMARY,
+        ),
+        rx.text(
+            label,
+            font_size=Typography.SIZE_XS,
+            color=Colors.TEXT_MUTED,
+        ),
+        spacing="0",
+        align="center",
+        padding_x=Spacing.MD,
+        padding_y=Spacing.SM,
+        border=f"1px solid {Colors.BORDER}",
+        border_radius=Radius.MD,
+        min_width="88px",
+    )
+
+
+def accion_categorizar_plazas() -> rx.Component:
+    return rx.cond(
+        PlazasState.tiene_contexto & PlazasState.puede_operar_plazas_en_contexto,
+        rx.button(
+            rx.icon("tags", size=16),
+            "Asignar plazas",
+            on_click=PlazasState.abrir_modal_crear_lote,
+            color_scheme="blue",
+            disabled=~PlazasState.puede_categorizar_lote,
+        ),
+        rx.fragment(),
+    )
+
+
 def acciones_plaza(plaza: dict) -> rx.Component:
     es_vacante = plaza["estatus"] == "VACANTE"
     es_ocupada = plaza["estatus"] == "OCUPADA"
     es_suspendida = plaza["estatus"] == "SUSPENDIDA"
     es_cancelada = plaza["estatus"] == "CANCELADA"
+    tiene_sede = plaza["sede_id"] != None
     tiene_categoria = plaza["categoria_puesto_id"] != None
     puede_operar = PlazasState.puede_operar_plazas_en_contexto
 
@@ -92,7 +131,7 @@ def acciones_plaza(plaza: dict) -> rx.Component:
                 tooltip="Asignar empleado",
                 on_click=lambda: PlazasState.abrir_asignar_empleado(plaza),
                 color_scheme="green",
-                visible=puede_operar & es_vacante & tiene_categoria,
+                visible=puede_operar & es_vacante & tiene_categoria & tiene_sede,
             ),
             tabla_action_button(
                 icon="user-minus",
@@ -145,6 +184,23 @@ def fila_plaza(plaza: dict) -> rx.Component:
         ),
         rx.table.cell(
             rx.cond(
+                plaza["sede_id"] != None,
+                rx.hstack(
+                    rx.cond(
+                        plaza["sede_codigo"],
+                        rx.badge(plaza["sede_codigo"], variant="outline", size="1"),
+                        rx.fragment(),
+                    ),
+                    rx.text(plaza["sede_nombre"], font_size=Typography.SIZE_SM),
+                    spacing="2",
+                    align="center",
+                    wrap="wrap",
+                ),
+                rx.badge("Sin sede", color_scheme="gray", variant="soft"),
+            ),
+        ),
+        rx.table.cell(
+            rx.cond(
                 plaza["categoria_puesto_id"] != None,
                 rx.hstack(
                     rx.badge(plaza["categoria_clave"], variant="outline", size="1"),
@@ -172,6 +228,7 @@ def fila_plaza(plaza: dict) -> rx.Component:
 ENCABEZADOS_PLAZAS = [
     {"nombre": "#", "ancho": "70px"},
     {"nombre": "Código", "ancho": "110px"},
+    {"nombre": "Sede", "ancho": "220px"},
     {"nombre": "Categoría", "ancho": "220px"},
     {"nombre": "Inicio", "ancho": "110px"},
     {"nombre": "Salario", "ancho": "130px"},
@@ -227,6 +284,14 @@ def card_plaza(plaza: dict) -> rx.Component:
             ),
             rx.divider(),
             rx.vstack(
+                rx.hstack(
+                    rx.icon("map-pin", size=14, color=Colors.TEXT_MUTED),
+                    rx.text("Sede:", font_size=Typography.SIZE_SM, color=Colors.TEXT_SECONDARY),
+                    rx.text(plaza["sede_nombre"], font_size=Typography.SIZE_SM),
+                    spacing="2",
+                    align="center",
+                    wrap="wrap",
+                ),
                 rx.hstack(
                     rx.icon("briefcase", size=14, color=Colors.TEXT_MUTED),
                     rx.text("Categoría:", font_size=Typography.SIZE_SM, color=Colors.TEXT_SECONDARY),
@@ -431,6 +496,90 @@ def tabla_resumen_inicial() -> rx.Component:
     )
 
 
+def fila_resumen_contrato_portal(item: dict) -> rx.Component:
+    return rx.table.row(
+        rx.table.cell(
+            rx.text(
+                item["contrato_codigo"],
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_BOLD,
+                color=Colors.TEXT_PRIMARY,
+            ),
+        ),
+        rx.table.cell(
+            rx.cond(
+                item["tipo_servicio_clave"] != "",
+                rx.hstack(
+                    identifier_badge(item["tipo_servicio_clave"]),
+                    rx.text(
+                        item["tipo_servicio_nombre"],
+                        font_size=Typography.SIZE_SM,
+                    ),
+                    spacing="2",
+                    align="center",
+                    wrap="wrap",
+                ),
+                rx.text(
+                    item["tipo_servicio_nombre"],
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
+                ),
+            ),
+        ),
+        rx.table.cell(
+            rx.text(item["total_plazas"], font_size=Typography.SIZE_SM),
+            align="center",
+        ),
+        rx.table.cell(
+            rx.badge(item["plazas_vacantes"], color_scheme="blue", variant="soft"),
+            align="center",
+        ),
+        rx.table.cell(
+            rx.badge(item["plazas_ocupadas"], color_scheme="green", variant="soft"),
+            align="center",
+        ),
+        rx.table.cell(
+            rx.badge(item["plazas_suspendidas"], color_scheme="amber", variant="soft"),
+            align="center",
+        ),
+        cursor="pointer",
+        _hover={"background": Colors.SURFACE_HOVER},
+        on_click=lambda: PlazasState.seleccionar_contrato(item["contrato_id"]),
+    )
+
+
+ENCABEZADOS_CONTRATOS_PORTAL = [
+    {"nombre": "Contrato", "ancho": "220px"},
+    {"nombre": "Tipo de servicio", "ancho": "240px"},
+    {"nombre": "Plazas", "ancho": "100px"},
+    {"nombre": "Vacantes", "ancho": "110px"},
+    {"nombre": "Ocupadas", "ancho": "110px"},
+    {"nombre": "Suspendidas", "ancho": "120px"},
+]
+
+
+def tabla_contratos_portal() -> rx.Component:
+    return rx.cond(
+        PlazasState.loading,
+        skeleton_tabla(columnas=ENCABEZADOS_CONTRATOS_PORTAL, filas=5),
+        table_shell(
+            loading=False,
+            headers=ENCABEZADOS_CONTRATOS_PORTAL,
+            rows=PlazasState.resumen_contratos,
+            row_renderer=fila_resumen_contrato_portal,
+            has_rows=PlazasState.resumen_contratos.length() > 0,
+            empty_component=tabla_vacia(
+                mensaje=PlazasState.mensaje_sin_contratos_disponibles,
+                submensaje="",
+            ),
+            total_caption=(
+                PlazasState.resumen_contratos.length().to(str)
+                + " contrato(s) activos"
+            ),
+        ),
+    )
+
+
 def selector_contrato() -> rx.Component:
     return rx.card(
         rx.vstack(
@@ -510,12 +659,157 @@ def selector_contrato() -> rx.Component:
     )
 
 
+def contexto_contrato_portal() -> rx.Component:
+    return rx.flex(
+        rx.vstack(
+            rx.text(
+                PlazasState.contrato_codigo,
+                font_size=Typography.SIZE_LG,
+                font_weight=Typography.WEIGHT_BOLD,
+                color=Colors.TEXT_PRIMARY,
+            ),
+            rx.hstack(
+                rx.cond(
+                    PlazasState.contrato_tipo_servicio_clave != "",
+                    rx.hstack(
+                        identifier_badge(PlazasState.contrato_tipo_servicio_clave),
+                        rx.text(
+                            PlazasState.contrato_tipo_servicio_nombre,
+                            font_size=Typography.SIZE_SM,
+                            color=Colors.TEXT_SECONDARY,
+                        ),
+                        spacing="2",
+                        align="center",
+                        wrap="wrap",
+                    ),
+                    rx.cond(
+                        PlazasState.contrato_tipo_servicio_nombre != "",
+                        rx.text(
+                            PlazasState.contrato_tipo_servicio_nombre,
+                            font_size=Typography.SIZE_SM,
+                            color=Colors.TEXT_SECONDARY,
+                        ),
+                        rx.fragment(),
+                    ),
+                ),
+                status_badge_reactive(
+                    PlazasState.contrato_estatus,
+                    show_icon=True,
+                ),
+                spacing="2",
+                wrap="wrap",
+                align="center",
+            ),
+            rx.cond(
+                PlazasState.nombre_categoria_filtro != "",
+                rx.hstack(
+                    rx.text(
+                        "Categoría filtrada:",
+                        font_size=Typography.SIZE_SM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    rx.badge(
+                        PlazasState.nombre_categoria_filtro,
+                        color_scheme="gray",
+                        variant="soft",
+                    ),
+                    spacing="2",
+                    align="center",
+                    wrap="wrap",
+                ),
+                rx.text(
+                    "Gestione las plazas del contrato seleccionado.",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+            ),
+            spacing="1",
+            align_items="start",
+            flex="1",
+            min_width="280px",
+        ),
+        rx.flex(
+            _portal_metric_card("Plazas", PlazasState.total_plazas),
+            _portal_metric_card("Vacantes", PlazasState.plazas_vacantes),
+            _portal_metric_card("Ocupadas", PlazasState.plazas_ocupadas),
+            _portal_metric_card("Suspendidas", PlazasState.plazas_suspendidas),
+            direction="row",
+            wrap="wrap",
+            justify="end",
+            column_gap=Spacing.SM,
+            row_gap=Spacing.SM,
+            flex="0 1 auto",
+            min_width="fit-content",
+        ),
+        width="100%",
+        align="center",
+        justify="between",
+        padding=Spacing.MD,
+        background=Colors.SURFACE,
+        border=f"1px solid {Colors.BORDER}",
+        border_radius=Radius.MD,
+        direction="row",
+        wrap="wrap",
+        gap=Spacing.MD,
+    )
+
+
+def detalle_portal_plazas() -> rx.Component:
+    filtros = rx.hstack(
+        filtro_categoria(),
+        filtro_estatus(),
+        spacing="2",
+        wrap="wrap",
+    )
+
+    return rx.vstack(
+        rx.hstack(
+            rx.button(
+                rx.icon("arrow-left", size=16),
+                "Volver a contratos",
+                on_click=PlazasState.volver_a_resumen,
+                variant="ghost",
+                size="2",
+            ),
+            rx.spacer(),
+            accion_categorizar_plazas(),
+            spacing="3",
+            width="100%",
+            align="center",
+        ),
+        contexto_contrato_portal(),
+        alertas_contrato(),
+        page_toolbar(
+            search_value=PlazasState.filtro_busqueda,
+            search_placeholder="Buscar por número, código, sede, categoría o empleado...",
+            on_search_change=PlazasState.set_filtro_busqueda,
+            on_search_clear=lambda: PlazasState.set_filtro_busqueda(""),
+            filters=filtros,
+            show_view_toggle=False,
+        ),
+        tabla_plazas(),
+        width="100%",
+        spacing="4",
+        padding=Spacing.LG,
+    )
+
+
 def alertas_contrato() -> rx.Component:
     return rx.vstack(
         rx.cond(
+            PlazasState.plazas_sin_sede_total > 0,
+            rx.callout(
+                "Hay plazas sin sede. Use 'Asignar plazas' o edite cada plaza antes de ocuparlas o asignarles personal.",
+                icon="triangle-alert",
+                color_scheme="amber",
+                size="1",
+            ),
+            rx.fragment(),
+        ),
+        rx.cond(
             PlazasState.plazas_sin_categoria > 0,
             rx.callout(
-                "Hay plazas sin categoría. Use “Categorizar plazas” para asignarlas en lote o edite cada plaza individualmente.",
+                "Hay plazas sin categoría. Use 'Asignar plazas' o edite cada plaza individualmente.",
                 icon="triangle-alert",
                 color_scheme="amber",
                 size="1",
@@ -538,17 +832,7 @@ def alertas_contrato() -> rx.Component:
 
 
 def plazas_page() -> rx.Component:
-    accion_principal = rx.cond(
-        PlazasState.tiene_contexto & PlazasState.puede_operar_plazas_en_contexto,
-        rx.button(
-            rx.icon("tags", size=16),
-            "Categorizar plazas",
-            on_click=PlazasState.abrir_modal_crear_lote,
-            color_scheme="blue",
-            disabled=~PlazasState.puede_categorizar_lote,
-        ),
-        rx.fragment(),
-    )
+    accion_principal = accion_categorizar_plazas()
 
     filtros = rx.hstack(
         filtro_categoria(),
@@ -559,21 +843,25 @@ def plazas_page() -> rx.Component:
 
     return rx.box(
         page_layout(
-            header=page_header(
-                titulo="Plazas",
-                subtitulo=rx.cond(
-                    PlazasState.mostrar_vista_inicial,
-                    PlazasState.subtitulo_inicio,
-                    "",
+            header=rx.cond(
+                PlazasState.es_detalle_portal,
+                rx.fragment(),
+                page_header(
+                    titulo=PlazasState.titulo_pagina,
+                    subtitulo=rx.cond(
+                        PlazasState.mostrar_vista_inicial,
+                        PlazasState.subtitulo_inicio,
+                        "",
+                    ),
+                    icono="briefcase",
+                    accion_principal=accion_principal,
                 ),
-                icono="briefcase",
-                accion_principal=accion_principal,
             ),
             toolbar=rx.cond(
-                PlazasState.tiene_contexto,
+                PlazasState.tiene_contexto & ~PlazasState.es_detalle_portal,
                 page_toolbar(
                     search_value=PlazasState.filtro_busqueda,
-                    search_placeholder="Buscar por número, código, categoría o empleado...",
+                    search_placeholder="Buscar por número, código, sede, categoría o empleado...",
                     on_search_change=PlazasState.set_filtro_busqueda,
                     on_search_clear=lambda: PlazasState.set_filtro_busqueda(""),
                     filters=filtros,
@@ -586,24 +874,36 @@ def plazas_page() -> rx.Component:
             ),
             content=rx.vstack(
                 rx.cond(
-                    PlazasState.mostrar_vista_inicial,
-                    rx.vstack(
-                        selector_contrato(),
-                        tabla_resumen_inicial(),
-                        spacing="4",
-                        width="100%",
-                    ),
-                    rx.vstack(
-                        breadcrumb_dynamic(PlazasState.breadcrumb_items),
-                        alertas_contrato(),
-                        resumen_plazas(),
+                    PlazasState.es_detalle_portal,
+                    detalle_portal_plazas(),
+                    rx.cond(
+                        PlazasState.mostrar_vista_inicial,
                         rx.cond(
-                            PlazasState.is_table_view,
-                            tabla_plazas(),
-                            grid_plazas(),
+                            PlazasState.es_contexto_portal,
+                            tabla_contratos_portal(),
+                            rx.vstack(
+                                selector_contrato(),
+                                tabla_resumen_inicial(),
+                                spacing="4",
+                                width="100%",
+                            ),
                         ),
-                        spacing="4",
-                        width="100%",
+                        rx.vstack(
+                            rx.cond(
+                                PlazasState.es_contexto_portal,
+                                contexto_contrato_portal(),
+                                breadcrumb_dynamic(PlazasState.breadcrumb_items),
+                            ),
+                            alertas_contrato(),
+                            resumen_plazas(),
+                            rx.cond(
+                                PlazasState.is_table_view,
+                                tabla_plazas(),
+                                grid_plazas(),
+                            ),
+                            spacing="4",
+                            width="100%",
+                        ),
                     ),
                 ),
                 modal_plaza(),

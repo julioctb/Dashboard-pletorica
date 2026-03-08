@@ -3,11 +3,12 @@ Estado del detalle de una cotización (partidas + matriz de costos).
 """
 import asyncio
 import base64
-from datetime import date, datetime
+from datetime import date
 from typing import TypedDict
 
 import reflex as rx
 
+from app.core.text_utils import formatear_fecha
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.pages.cotizador.cotizador_validators import (
     validar_fecha_inicio,
@@ -49,34 +50,7 @@ class MatrizFilaUI(TypedDict):
 
 def _formatear_fecha(valor) -> str:
     """Normaliza fechas de Supabase/Pydantic a formato legible estable."""
-    if not valor:
-        return ""
-
-    if isinstance(valor, datetime):
-        return valor.strftime("%d/%m/%Y")
-
-    if isinstance(valor, date):
-        return valor.strftime("%d/%m/%Y")
-
-    texto = str(valor).strip()
-    if not texto:
-        return ""
-
-    candidatos = [texto]
-    if texto.endswith("Z"):
-        candidatos.append(texto.replace("Z", "+00:00"))
-    if "T" in texto:
-        candidatos.append(texto.split("T", 1)[0])
-
-    for candidato in candidatos:
-        try:
-            if len(candidato) <= 10:
-                return date.fromisoformat(candidato).strftime("%d/%m/%Y")
-            return datetime.fromisoformat(candidato).strftime("%d/%m/%Y")
-        except ValueError:
-            continue
-
-    return texto
+    return formatear_fecha(valor, valor_vacio="")
 
 
 class CotizadorDetalleState(PortalState):
@@ -533,8 +507,9 @@ class CotizadorDetalleState(PortalState):
             data_url = f"data:application/pdf;base64,{pdf_b64}"
             yield rx.download(url=data_url, filename=filename)
         except ImportError:
-            yield rx.toast.warning(
-                "Para generar PDF instala reportlab: poetry add reportlab num2words"
+            yield self.crear_toast(
+                "Para generar PDF instala reportlab: poetry add reportlab num2words",
+                "warning",
             )
         except Exception as e:
             self.manejar_error(e, "generar PDF")

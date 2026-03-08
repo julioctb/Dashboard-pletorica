@@ -11,6 +11,7 @@ from typing import Optional
 
 import reflex as rx
 
+from app.core.text_utils import formatear_fecha
 from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.pages.nominas.base_state import NominaBaseState
 from app.services.nomina_periodo_service import nomina_periodo_service
@@ -185,6 +186,25 @@ class NominaRRHHState(NominaBaseState):
     def set_filtro_estatus_periodos(self, v: str):
         self.filtro_estatus_periodos = v
 
+    @staticmethod
+    def _serializar_periodo_ui(periodo: dict) -> dict:
+        """Agrega campos legibles de fecha sin alterar los valores ISO crudos."""
+        if hasattr(periodo, "model_dump"):
+            data = periodo.model_dump(mode="json")
+        else:
+            data = dict(periodo or {})
+        data["fecha_inicio_fmt"] = formatear_fecha(data.get("fecha_inicio"))
+        data["fecha_fin_fmt"] = formatear_fecha(data.get("fecha_fin"))
+        data["fecha_pago_fmt"] = formatear_fecha(
+            data.get("fecha_pago"),
+            valor_vacio="",
+        )
+        return data
+
+    def _set_periodo_actual(self, periodo: dict):
+        """Mantiene `periodo_actual` con campos visibles derivados."""
+        self.periodo_actual = self._serializar_periodo_ui(periodo)
+
     # =========================================================================
     # MONTAJE
     # =========================================================================
@@ -226,9 +246,8 @@ class NominaRRHHState(NominaBaseState):
     async def _cargar_periodos(self):
         self.loading = True
         try:
-            self.periodos = await nomina_periodo_service.listar_periodos(
-                self.id_empresa_actual
-            )
+            periodos = await nomina_periodo_service.listar_periodos(self.id_empresa_actual)
+            self.periodos = [self._serializar_periodo_ui(periodo) for periodo in periodos]
         except Exception as e:
             self.manejar_error(e, "cargar períodos")
         finally:
@@ -376,7 +395,7 @@ class NominaRRHHState(NominaBaseState):
 
     async def abrir_periodo(self, periodo: dict):
         """Navega a la vista de preparación del período seleccionado."""
-        self.periodo_actual = periodo
+        self._set_periodo_actual(periodo)
         await self._cargar_empleados(periodo['id'])
         yield rx.redirect(self.nomina_preparacion_path)
 
@@ -402,7 +421,7 @@ class NominaRRHHState(NominaBaseState):
                 'EN_PREPARACION_RRHH',
                 str(self.usuario_actual.get('id', '') or ''),
             )
-            self.periodo_actual = resultado
+            self._set_periodo_actual(resultado)
             self.mostrar_dialog_iniciar = False
             yield self.mostrar_mensaje("Preparación de nómina iniciada", "success")
         except Exception as e:
@@ -433,7 +452,7 @@ class NominaRRHHState(NominaBaseState):
                 'ENVIADO_A_CONTABILIDAD',
                 str(self.usuario_actual.get('id', '') or ''),
             )
-            self.periodo_actual = resultado
+            self._set_periodo_actual(resultado)
             self.mostrar_dialog_envio = False
             yield self.mostrar_mensaje(
                 "Nómina enviada a Contabilidad. Ya no se puede modificar.", "success"

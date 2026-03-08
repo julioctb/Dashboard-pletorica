@@ -1,4 +1,14 @@
-"""Componentes reutilizables para filtros y búsqueda."""
+"""Componentes reutilizables para filtros y búsqueda.
+
+Contrato de interacción recomendado para listados:
+- `live_update`: el control modifica resultados de inmediato al cambiar o limpiar.
+- `explicit_apply`: el control solo actualiza estado local y la lista cambia con
+  `Filtrar` / `Limpiar`.
+
+La búsqueda del toolbar debe sentirse siempre viva. Si una página usa handlers
+especiales para consultar datos remotos, `on_clear` debe seguir exactamente la
+misma ruta que `on_change`.
+"""
 import reflex as rx
 from typing import Callable, Optional
 from app.presentation.components.ui.form_input import select_items_from_options
@@ -16,6 +26,10 @@ def input_busqueda(
 ) -> rx.Component:
     """
     Input de búsqueda con icono integrado y botón limpiar.
+
+    Este componente se usa en ambos contratos:
+    - `live_update`: escribir/limpiar afecta resultados inmediatamente.
+    - `explicit_apply`: solo para búsqueda local sobre datos ya cargados.
 
     Args:
         value: Variable de estado con el valor del input
@@ -166,6 +180,53 @@ def contador_registros(
     )
 
 
+def acciones_filtros(
+    on_apply: Callable,
+    on_clear: Optional[Callable] = None,
+    show_clear: rx.Var | bool = True,
+    apply_label: str = "Filtrar",
+    clear_label: str = "Limpiar",
+) -> rx.Component:
+    """Acciones canonicas para filtros remotos o explicitos."""
+    limpiar = rx.fragment()
+    if on_clear is not None:
+        limpiar = rx.cond(
+            show_clear,
+            rx.button(
+                rx.icon("x", size=14),
+                clear_label,
+                on_click=on_clear,
+                variant="ghost",
+                size="2",
+            ),
+            rx.fragment(),
+        )
+
+    return rx.hstack(
+        rx.button(
+            rx.icon("filter", size=14),
+            apply_label,
+            on_click=on_apply,
+            variant="soft",
+            size="2",
+        ),
+        limpiar,
+        spacing="2",
+        align="center",
+    )
+
+
+def filtros_inline(*children) -> rx.Component:
+    """Contenedor unico para barras de filtros inline en listados."""
+    return rx.hstack(
+        *children,
+        spacing="3",
+        align="center",
+        wrap="wrap",
+        width="100%",
+    )
+
+
 def switch_inactivos(
     checked: rx.Var,
     on_change: Callable,
@@ -257,12 +318,7 @@ def barra_filtros(
         contador: Componente contador opcional
     """
     contenido = [
-        rx.hstack(
-            *children,
-            spacing="4",
-            width="100%",
-            align="center",
-        ),
+        filtros_inline(*children),
     ]
 
     if contador:

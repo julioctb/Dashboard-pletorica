@@ -6,9 +6,13 @@ Cards de estadísticas son clickeables para filtrar.
 
 import reflex as rx
 
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.pages.entregables.entregables_state import EntregablesState
 from app.presentation.layout import page_layout, page_header
 from app.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
+    input_busqueda,
     status_badge_reactive,
     table_shell,
     tabla_vacia,
@@ -162,7 +166,7 @@ def _seccion_estadisticas() -> rx.Component:
 # =============================================================================
 def _barra_filtros() -> rx.Component:
     """Barra con búsqueda y filtro de contrato."""
-    return rx.hstack(
+    return filtros_inline(
         # Título dinámico del filtro actual
         rx.text(
             EntregablesState.titulo_filtro_actual,
@@ -171,14 +175,12 @@ def _barra_filtros() -> rx.Component:
             color=Colors.TEXT_PRIMARY,
         ),
         rx.spacer(),
-        # Búsqueda
-        rx.box(
-            rx.input(
-                placeholder="Buscar por período, contrato, empresa...",
-                value=EntregablesState.filtro_busqueda,
-                on_change=EntregablesState.set_filtro_busqueda,
-                width="280px",
-            ),
+        input_busqueda(
+            value=EntregablesState.filtro_busqueda,
+            on_change=EntregablesState.set_filtro_busqueda,
+            on_clear=lambda: EntregablesState.set_filtro_busqueda(""),
+            placeholder="Buscar por período, contrato, empresa...",
+            width="280px",
         ),
         # Filtro por contrato (opcional)
         rx.select.root(
@@ -186,11 +188,16 @@ def _barra_filtros() -> rx.Component:
             rx.select.content(select_items_from_options(EntregablesState.opciones_contratos)),
             value=EntregablesState.filtro_contrato_id,
             on_change=EntregablesState.set_filtro_contrato,
+            size="2",
         ),
-        spacing="3",
-        width="100%",
-        align="center",
-        padding_bottom=Spacing.MD,
+        acciones_filtros(
+            on_apply=EntregablesState.aplicar_filtros,
+            on_clear=EntregablesState.limpiar_filtros,
+            show_clear=(
+                (EntregablesState.filtro_busqueda != "")
+                | (EntregablesState.filtro_contrato_id != FILTRO_TODOS)
+            ),
+        ),
     )
 
 

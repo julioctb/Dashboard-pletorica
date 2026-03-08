@@ -1,5 +1,6 @@
 """Modal de formulario para crear/editar requisiciones - Wizard de 8 pasos."""
 import reflex as rx
+from app.presentation.components.ui.feedback import feedback_callout
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea, form_date
 from app.presentation.components.ui.buttons import boton_guardar
 from app.presentation.pages.requisiciones.requisiciones_state import RequisicionesState
@@ -676,20 +677,9 @@ def requisicion_form_modal(
             # Mensaje de error/info
             rx.cond(
                 RequisicionesState.mensaje_info != "",
-                rx.callout(
+                feedback_callout(
                     RequisicionesState.mensaje_info,
-                    icon=rx.cond(
-                        RequisicionesState.tipo_mensaje == "error",
-                        "triangle-alert",
-                        "info",
-                    ),
-                    color_scheme=rx.cond(
-                        RequisicionesState.tipo_mensaje == "error",
-                        "red",
-                        "blue",
-                    ),
-                    size="2",
-                    width="100%",
+                    RequisicionesState.tipo_mensaje,
                     margin_bottom="4",
                 ),
             ),

@@ -54,7 +54,7 @@ def modal_detalle_requisicion() -> rx.Component:
                                 rx.vstack(
                                     rx.text("Fecha:", weight="bold", size="2"),
                                     rx.text(
-                                        RequisicionesState.requisicion_seleccionada["fecha_elaboracion"],
+                                        RequisicionesState.requisicion_seleccionada["fecha_elaboracion_fmt"],
                                         size="2",
                                     ),
                                     align="start",

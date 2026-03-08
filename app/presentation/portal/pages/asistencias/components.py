@@ -8,6 +8,7 @@ from app.presentation.components.ui import (
     boton_cancelar,
     boton_guardar,
     empty_state_card,
+    filtros_inline,
     metric_card,
     table_shell,
     tabla_action_button,
@@ -175,7 +176,7 @@ def _selector_contrato() -> rx.Component:
 
 
 def filtros_asistencias() -> rx.Component:
-    return rx.hstack(
+    return filtros_inline(
         selector_panel(),
         _selector_contrato(),
         rx.cond(
@@ -196,9 +197,6 @@ def filtros_asistencias() -> rx.Component:
             variant="soft",
             size="2",
         ),
-        spacing="3",
-        wrap="wrap",
-        align="center",
     )
 
 
@@ -615,8 +613,8 @@ def _tarjeta_asignacion(asignacion: dict) -> rx.Component:
             rx.hstack(
                 rx.badge(
                     rx.cond(
-                        asignacion.get("fecha_inicio", ""),
-                        "Inicio " + asignacion["fecha_inicio"].to(str),
+                        asignacion.get("fecha_inicio_fmt", ""),
+                        rx.fragment("Inicio ", asignacion["fecha_inicio_fmt"]),
                         "Inicio -",
                     ),
                     color_scheme="teal",
@@ -624,9 +622,9 @@ def _tarjeta_asignacion(asignacion: dict) -> rx.Component:
                     size="1",
                 ),
                 rx.cond(
-                    asignacion.get("fecha_fin", "") != "",
+                    asignacion.get("fecha_fin_fmt", "") != "",
                     rx.badge(
-                        "Fin " + asignacion["fecha_fin"].to(str),
+                        rx.fragment("Fin ", asignacion["fecha_fin_fmt"]),
                         color_scheme="gray",
                         variant="soft",
                         size="1",

@@ -6,11 +6,13 @@ Soporta dos tipos: PRODUCTOS_SERVICIOS y PERSONAL.
 Restringido al portal para usuarios admin_empresa.
 """
 from calendar import monthrange
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import TypedDict
 
 import reflex as rx
+
+from app.core.text_utils import formatear_fecha
 
 
 class FormCategoriaUI(TypedDict):
@@ -114,34 +116,7 @@ class CotizadorState(PortalState):
     # ─── Setters explícitos ───────────────────────────────────────────────────
     def _formatear_fecha_resumen(self, valor) -> str:
         """Normaliza fechas para el listado evitando render crudo en la UI."""
-        if not valor:
-            return "-"
-
-        if isinstance(valor, datetime):
-            return valor.strftime("%d/%m/%Y")
-
-        if isinstance(valor, date):
-            return valor.strftime("%d/%m/%Y")
-
-        texto = str(valor).strip()
-        if not texto:
-            return "-"
-
-        candidatos = [texto]
-        if texto.endswith("Z"):
-            candidatos.append(texto.replace("Z", "+00:00"))
-        if "T" in texto:
-            candidatos.append(texto.split("T", 1)[0])
-
-        for candidato in candidatos:
-            try:
-                if len(candidato) <= 10:
-                    return date.fromisoformat(candidato).strftime("%d/%m/%Y")
-                return datetime.fromisoformat(candidato).strftime("%d/%m/%Y")
-            except ValueError:
-                continue
-
-        return texto
+        return formatear_fecha(valor)
 
     def _serializar_resumen_cotizacion(self, cotizacion) -> dict:
         """Prepara un resumen serializable y listo para render en tabla."""

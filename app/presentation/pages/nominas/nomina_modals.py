@@ -14,6 +14,7 @@ from app.presentation.components.ui import (
     form_date,
     boton_guardar,
     boton_cancelar,
+    feedback_callout,
 )
 from app.presentation.theme import Colors, Spacing, Typography, Radius
 
@@ -33,22 +34,9 @@ def modal_crear_periodo() -> rx.Component:
             ),
             rx.cond(
                 NominaRRHHState.mensaje_info != "",
-                rx.callout(
+                feedback_callout(
                     NominaRRHHState.mensaje_info,
-                    icon=rx.cond(
-                        NominaRRHHState.tipo_mensaje == "error",
-                        "triangle-alert",
-                        "info",
-                    ),
-                    color_scheme=rx.cond(
-                        NominaRRHHState.tipo_mensaje == "error",
-                        "red",
-                        "blue",
-                    ),
-                    size="2",
-                    width="100%",
-                    role="alert",
-                    aria_live="assertive",
+                    NominaRRHHState.tipo_mensaje,
                     margin_bottom="16px",
                 ),
                 rx.fragment(),

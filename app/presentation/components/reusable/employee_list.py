@@ -31,12 +31,3 @@ def employee_table(
         footer_component=footer_component,
         loading_rows=loading_rows,
     )
-
-
-def employee_filters_bar(*children) -> rx.Component:
-    """Contenedor reusable para filtros de empleados."""
-    return rx.hstack(
-        *children,
-        spacing="3",
-        align="center",
-    )

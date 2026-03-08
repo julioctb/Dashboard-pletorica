@@ -5,10 +5,12 @@ Tabla, cards, badges, acciones y filtros.
 """
 import reflex as rx
 
-from app.presentation.constants import FILTRO_TODAS
 from app.presentation.pages.empleados.empleados_state import EmpleadosState
-from app.presentation.components.reusable import employee_filters_bar, employee_table
+from app.core.ui_helpers import FILTRO_TODOS
+from app.presentation.components.reusable import employee_table
 from app.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
     tabla_vacia,
     tabla_action_button,
     tabla_action_buttons,
@@ -364,18 +366,19 @@ def grid_empleados() -> rx.Component:
 
 def filtros_empleados() -> rx.Component:
     """Filtros para empleados"""
-    return employee_filters_bar(
+    return filtros_inline(
         # Filtro por empresa
         rx.cond(
             EmpleadosState.mostrar_filtro_empresa,
             rx.select.root(
                 rx.select.trigger(placeholder="Empresa", width="180px"),
                 rx.select.content(
-                    rx.select.item("Todas", value=FILTRO_TODAS),
+                    rx.select.item("Todas", value=FILTRO_TODOS),
                     select_items_from_options(EmpleadosState.opciones_empresas),
                 ),
                 value=EmpleadosState.filtro_empresa_id,
                 on_change=EmpleadosState.set_filtro_empresa_id,
+                size="2",
             ),
             rx.fragment(),
         ),
@@ -385,21 +388,10 @@ def filtros_empleados() -> rx.Component:
             rx.select.content(select_items_from_options(EmpleadosState.opciones_estatus)),
             value=EmpleadosState.filtro_estatus,
             on_change=EmpleadosState.set_filtro_estatus,
-        ),
-        # Botón aplicar filtros
-        rx.button(
-            rx.icon("search", size=14),
-            "Filtrar",
-            on_click=EmpleadosState.aplicar_filtros,
-            variant="soft",
             size="2",
         ),
-        # Botón limpiar filtros
-        rx.button(
-            rx.icon("x", size=14),
-            "Limpiar",
-            on_click=EmpleadosState.limpiar_filtros,
-            variant="ghost",
-            size="2",
+        acciones_filtros(
+            on_apply=EmpleadosState.aplicar_filtros,
+            on_clear=EmpleadosState.limpiar_filtros,
         ),
     )

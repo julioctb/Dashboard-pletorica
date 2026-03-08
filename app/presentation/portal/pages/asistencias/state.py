@@ -7,6 +7,7 @@ from typing import List
 
 import reflex as rx
 
+from app.core.text_utils import formatear_fecha
 from app.core.enums import Estatus, TipoIncidencia
 from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.entities.asistencia import (
@@ -90,6 +91,20 @@ class AsistenciasState(PortalState):
     form_supervision_fecha_fin: str = ""
     form_supervision_activo: bool = True
     form_supervision_notas: str = ""
+
+    @staticmethod
+    def _serializar_asignacion_supervision(asignacion: dict) -> dict:
+        """Agrega campos visibles de fecha sin romper edición basada en ISO."""
+        data = dict(asignacion or {})
+        data["fecha_inicio_fmt"] = formatear_fecha(
+            data.get("fecha_inicio"),
+            valor_vacio="",
+        )
+        data["fecha_fin_fmt"] = formatear_fecha(
+            data.get("fecha_fin"),
+            valor_vacio="",
+        )
+        return data
 
     @rx.var
     def empleados_filtrados(self) -> List[dict]:
@@ -366,7 +381,10 @@ class AsistenciasState(PortalState):
             )
             self._limpiar_panel_operativo()
             self.horarios_configuracion = configuracion.get("horarios", [])
-            self.asignaciones_supervision = configuracion.get("asignaciones", [])
+            self.asignaciones_supervision = [
+                self._serializar_asignacion_supervision(asignacion)
+                for asignacion in configuracion.get("asignaciones", [])
+            ]
             self.supervisores_disponibles = configuracion.get("supervisores", [])
             self.sedes_catalogo = configuracion.get("sedes", [])
             return

@@ -58,9 +58,9 @@ class PortalState(AuthState):
 
         # Si no tiene empresa asignada (empleados se vinculan por user_id, no user_companies)
         if not self.es_empleado_portal and not self.id_empresa_actual:
-            return rx.toast.error(
+            return self.crear_toast(
                 "No tienes una empresa asignada. Contacta al administrador.",
-                position="top-center",
+                "error",
             )
 
         await self._cargar_contexto_portal_empresa()
@@ -115,7 +115,7 @@ class PortalState(AuthState):
         try:
             empresa_id = int(empresa_id_str)
         except (TypeError, ValueError):
-            return rx.toast.error("ID de empresa invalido")
+            return self.crear_toast("ID de empresa invalido", "error")
 
         if empresa_id == self.id_empresa_actual:
             return

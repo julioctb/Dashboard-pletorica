@@ -10,6 +10,7 @@ import reflex as rx
 
 from app.core.constants.permisos import PERMISOS_DEFAULT, ROLES_ASIGNABLES_POR_ADMIN_EMPRESA
 from app.core.exceptions import DatabaseError, DuplicateError, BusinessRuleError, NotFoundError
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.pages.admin.usuarios.usuarios_validators import (
     validar_email,
@@ -27,7 +28,7 @@ class UsuariosEmpresaState(PortalState):
     # ========================
     usuarios_empresa: List[dict] = []
     filtro_busqueda_usr: str = ""
-    filtro_rol_usr: str = ""
+    filtro_rol_usr: str = FILTRO_TODOS
 
     # ========================
     # MODAL CREAR
@@ -84,7 +85,7 @@ class UsuariosEmpresaState(PortalState):
         self.filtro_busqueda_usr = value
 
     def set_filtro_rol_usr(self, value: str):
-        self.filtro_rol_usr = "" if value == "all" else value
+        self.filtro_rol_usr = value if value else FILTRO_TODOS
 
     # ========================
     # SETTERS — crear
@@ -153,7 +154,7 @@ class UsuariosEmpresaState(PortalState):
                 if termino in (u.get('nombre_completo') or '').lower()
                 or termino in (u.get('email') or '').lower()
             ]
-        if self.filtro_rol_usr:
+        if self.filtro_rol_usr != FILTRO_TODOS:
             usuarios = [
                 u for u in usuarios
                 if u.get('rol_empresa') == self.filtro_rol_usr
@@ -178,7 +179,7 @@ class UsuariosEmpresaState(PortalState):
 
     @rx.var
     def filtro_rol_select(self) -> str:
-        return self.filtro_rol_usr if self.filtro_rol_usr else "all"
+        return self.filtro_rol_usr
 
     # ========================
     # MONTAJE

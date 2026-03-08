@@ -83,7 +83,7 @@ FORM_DEFAULTS = {
     "codigo": "",
     "folio_buap": "",
     "tipo_contrato": "",
-    "modalidad_adjudicacion": "",
+    "modalidad_adjudicacion": ModalidadAdjudicacion.ADJUDICACION_DIRECTA.value,
     "tipo_duracion": "",
     "fecha_inicio": "",
     "fecha_fin": "",
@@ -157,6 +157,7 @@ class ContratosState(AuthState, CRUDStateMixin):
     mostrar_modal_detalle: bool = False
     mostrar_modal_confirmar_cancelar: bool = False
     es_edicion: bool = False
+    form_paso_actual: int = 1
 
     # Entregables del contrato seleccionado (para modal detalle)
     entregables_contrato: List[dict] = []
@@ -249,34 +250,27 @@ class ContratosState(AuthState, CRUDStateMixin):
     # Usa helpers para reducir código repetitivo donde sea posible
     # ========================
 
-    # --- Filtros (retornan callback para recargar datos) ---
+    # --- Filtros ---
     def set_filtro_empresa_id(self, value: str):
         self.filtro_empresa_id = value if value else FILTRO_SIN_SELECCION
-        return ContratosState.cargar_contratos
 
     def set_filtro_tipo_servicio_id(self, value: str):
         self.filtro_tipo_servicio_id = value if value else FILTRO_SIN_SELECCION
-        return ContratosState.cargar_contratos
 
     def set_filtro_estatus(self, value: str):
-        self.filtro_estatus = value
-        return ContratosState.cargar_contratos
+        self.filtro_estatus = value if value else FILTRO_TODOS
 
     def set_filtro_modalidad(self, value: str):
-        self.filtro_modalidad = value
-        return ContratosState.cargar_contratos
+        self.filtro_modalidad = value if value else ""
 
     def set_incluir_inactivos(self, value: bool):
         self.incluir_inactivos = value
-        return ContratosState.cargar_contratos
 
     def set_filtro_fecha_desde(self, value: str):
         self.filtro_fecha_desde = value if value else ""
-        return ContratosState.cargar_contratos
 
     def set_filtro_fecha_hasta(self, value: str):
         self.filtro_fecha_hasta = value if value else ""
-        return ContratosState.cargar_contratos
 
     # View toggle heredado de BaseState
 
@@ -331,9 +325,17 @@ class ContratosState(AuthState, CRUDStateMixin):
 
     def set_form_fecha_fin(self, value):
         self.form_fecha_fin = value if value else ""
+        self._sincronizar_tipo_duracion()
 
     def set_form_descripcion_objeto(self, value):
-        self.form_descripcion_objeto = value if value else ""
+        self.form_descripcion_objeto = str(value or "")
+        if self.form_descripcion_objeto.strip():
+            self.error_descripcion_objeto = ""
+
+    def sync_form_descripcion_objeto_blur(self, value):
+        """Sincroniza el textarea al perder foco antes de validar o cambiar de paso."""
+        self.set_form_descripcion_objeto(value)
+        self.validar_descripcion_objeto_campo()
 
     def set_form_incluye_iva(self, value):
         self.form_incluye_iva = bool(value)
@@ -396,24 +398,35 @@ class ContratosState(AuthState, CRUDStateMixin):
         self.form_tipo_contrato = value if value else ""
         # Auto-configurar campos según tipo de contrato
         if value == TipoContrato.ADQUISICION.value:
-            # ADQUISICION: no lleva tipo servicio, tipo duración, ni personal
+            # ADQUISICION: no lleva tipo servicio ni personal
             self.form_tipo_servicio_id = ""
-            self.form_tipo_duracion = ""
             self.form_tiene_personal = False
             self.form_cantidad_plazas_minima = "0"
             self.form_cantidad_plazas_maxima = "0"
             self.form_monto_minimo = ""  # Solo monto máximo
-            self.form_fecha_fin = ""  # No aplica fecha fin
             # Limpiar errores relacionados
             self.error_tipo_servicio_id = ""
-            self.error_tipo_duracion = ""
-            self.error_fecha_fin = ""
             self.error_monto_minimo = ""
             self.error_cantidad_plazas_minima = ""
             self.error_cantidad_plazas_maxima = ""
         elif value == TipoContrato.SERVICIOS.value:
             # SERVICIOS: restaurar defaults
             self.form_tiene_personal = True
+        self._sincronizar_tipo_duracion()
+
+    def _sincronizar_tipo_duracion(self):
+        """Deriva el tipo de duración a partir de la fecha fin visible del wizard."""
+        if self.form_tipo_contrato != TipoContrato.SERVICIOS.value:
+            self.form_tipo_duracion = ""
+            self.error_tipo_duracion = ""
+            return
+
+        self.form_tipo_duracion = (
+            TipoDuracion.TIEMPO_DETERMINADO.value
+            if self.form_fecha_fin
+            else TipoDuracion.TIEMPO_INDEFINIDO.value
+        )
+        self.error_tipo_duracion = ""
 
     def validar_cantidad_plazas_minima_campo(self):
         if not self.form_tiene_personal:
@@ -480,6 +493,47 @@ class ContratosState(AuthState, CRUDStateMixin):
 
     def set_mostrar_modal_confirmar_cancelar(self, value: bool):
         self.mostrar_modal_confirmar_cancelar = value
+
+    def _obtener_total_pasos_wizard(self) -> int:
+        return 2 if self.es_edicion else 3
+
+    def set_form_paso_actual(self, paso: int):
+        """Permite navegación controlada entre pasos del wizard."""
+        total_pasos = self._obtener_total_pasos_wizard()
+        if not (1 <= paso <= total_pasos):
+            return
+
+        if paso > self.form_paso_actual:
+            for paso_actual in range(self.form_paso_actual, paso):
+                error = self._validar_paso(paso_actual)
+                if error:
+                    self.form_paso_actual = paso_actual
+                    self.mostrar_mensaje(error, "error")
+                    return
+
+        self.limpiar_mensajes()
+        self.form_paso_actual = paso
+
+    def ir_paso_siguiente(self):
+        """Avanza al siguiente paso solo si el actual es válido."""
+        if self.form_paso_actual >= self._obtener_total_pasos_wizard():
+            return
+
+        error = self._validar_paso(self.form_paso_actual)
+        if error:
+            self.mostrar_mensaje(error, "error")
+            return
+
+        self.limpiar_mensajes()
+        self.form_paso_actual += 1
+
+    def ir_paso_anterior(self):
+        """Retrocede un paso en el wizard."""
+        if self.form_paso_actual <= 1:
+            return
+
+        self.limpiar_mensajes()
+        self.form_paso_actual -= 1
 
     # ========================
     # VALIDACIÓN EN TIEMPO REAL
@@ -571,6 +625,9 @@ class ContratosState(AuthState, CRUDStateMixin):
                 validador=validar_descripcion_objeto,
                 error_attr="error_descripcion_objeto",
             )
+
+    def validar_folio_buap_campo(self):
+        self._validar_campo("folio_buap")
 
     def _validar_campo(self, campo: str):
         """Valida un campo usando el diccionario de validadores"""
@@ -697,6 +754,48 @@ class ContratosState(AuthState, CRUDStateMixin):
             not self.tiene_errores_formulario and
             not self.saving
         )
+
+    @rx.var
+    def mostrar_paso_entregables(self) -> bool:
+        """El paso de entregables solo se edita durante la creación."""
+        return not self.es_edicion
+
+    @rx.var
+    def total_pasos_wizard(self) -> int:
+        return self._obtener_total_pasos_wizard()
+
+    @rx.var
+    def es_primer_paso_wizard(self) -> bool:
+        return self.form_paso_actual == 1
+
+    @rx.var
+    def es_ultimo_paso_wizard(self) -> bool:
+        return self.form_paso_actual == self.total_pasos_wizard
+
+    @rx.var
+    def titulo_paso_actual_wizard(self) -> str:
+        if self.form_paso_actual == 1:
+            return "Datos"
+        if self.form_paso_actual == 2:
+            return "Plazas"
+        return "Entregables"
+
+    @rx.var
+    def vigencia_formulario_label(self) -> str:
+        """Etiqueta de vigencia derivada desde la fecha fin capturada."""
+        if not self.form_fecha_fin:
+            return "VIGENTE"
+
+        try:
+            fecha_fin = date.fromisoformat(self.form_fecha_fin)
+        except ValueError:
+            return "VIGENTE"
+
+        return "VENCIDO" if fecha_fin < date.today() else "VIGENTE"
+
+    @rx.var
+    def vigencia_formulario_color_scheme(self) -> str:
+        return "red" if self.vigencia_formulario_label == "VENCIDO" else "green"
 
     @rx.var
     def tiene_filtros_activos(self) -> bool:
@@ -1034,6 +1133,11 @@ class ContratosState(AuthState, CRUDStateMixin):
         async for _ in self._recargar_datos(self._fetch_contratos):
             yield
 
+    async def limpiar_busqueda(self):
+        """Limpia la búsqueda usando la misma ruta de recarga que el input live."""
+        async for _ in self.on_change_busqueda(""):
+            yield
+
     async def aplicar_filtros(self):
         """Aplicar filtros y recargar"""
         async for _ in self._recargar_datos(self._fetch_contratos):
@@ -1165,10 +1269,10 @@ class ContratosState(AuthState, CRUDStateMixin):
 
             if self.tiene_errores_formulario:
                 mensaje_errores = self._mensaje_errores_formulario()
-                yield rx.toast.error(
+                yield self.crear_toast(
                     mensaje_errores,
-                    position="top-center",
-                    duration=5000
+                    "error",
+                    duration=5000,
                 )
                 return
 
@@ -1185,10 +1289,10 @@ class ContratosState(AuthState, CRUDStateMixin):
             self.cerrar_modal_contrato()
             await self._fetch_contratos()
 
-            yield rx.toast.success(
+            yield self.crear_toast(
                 mensaje,
-                position="top-center",
-                duration=3000
+                "success",
+                duration=3000,
             )
 
             if self.es_contexto_portal:
@@ -1455,7 +1559,10 @@ class ContratosState(AuthState, CRUDStateMixin):
         # Verificar si ya existe este tipo
         for config in self.config_entregables:
             if config["tipo_entregable"] == self.form_tipo_entregable:
-                return rx.toast.warning("Este tipo de entregable ya está configurado")
+                return self.crear_toast(
+                    "Este tipo de entregable ya está configurado",
+                    "warning",
+                )
 
         # Obtener descripción del enum
         try:
@@ -1505,12 +1612,14 @@ class ContratosState(AuthState, CRUDStateMixin):
         for campo, default in FORM_DEFAULTS.items():
             setattr(self, f"form_{campo}", default)
         self.form_categoria_puesto_ids = []
+        self.form_paso_actual = 1
         self._limpiar_errores()
         self._limpiar_form_entregable()
         self.config_entregables = []
         self.form_contrato_items = []
         self.contrato_seleccionado = None
         self.es_edicion = False
+        self.limpiar_mensajes()
         self._aplicar_contexto_empresa_portal()
 
     def _limpiar_errores(self):
@@ -1540,6 +1649,15 @@ class ContratosState(AuthState, CRUDStateMixin):
         contrato_dict["saldo_pendiente_fmt"] = (
             formatear_moneda(str(saldo_pendiente))
             if saldo_pendiente is not None else "-"
+        )
+        fecha_fin = contrato.fecha_fin
+        contrato_dict["vigencia_label"] = (
+            "VENCIDO"
+            if fecha_fin and fecha_fin < date.today()
+            else "VIGENTE"
+        )
+        contrato_dict["vigencia_color_scheme"] = (
+            "red" if contrato_dict["vigencia_label"] == "VENCIDO" else "green"
         )
 
         return contrato_dict
@@ -1584,6 +1702,72 @@ class ContratosState(AuthState, CRUDStateMixin):
         req_id = contrato.get("requisicion_id")
         self.form_requisicion_id = str(req_id) if req_id else ""
         self.form_numero_requisicion = contrato.get("numero_requisicion", "") or ""
+        if not self.form_modalidad_adjudicacion:
+            self.form_modalidad_adjudicacion = ModalidadAdjudicacion.ADJUDICACION_DIRECTA.value
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value and not self.form_tipo_duracion:
+            self._sincronizar_tipo_duracion()
+
+    def _validar_paso(self, paso: int) -> str:
+        """Valida únicamente los campos del paso actual del wizard."""
+        self.limpiar_mensajes()
+
+        if paso == 1:
+            self._limpiar_errores()
+            self.validar_empresa_id_campo()
+            self.validar_tipo_contrato_campo()
+            self.validar_fecha_inicio_campo()
+            self.validar_descripcion_objeto_campo()
+            self._validar_campo("folio_buap")
+
+            if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
+                self.validar_tipo_servicio_id_campo()
+                if self.form_fecha_fin:
+                    self.validar_fecha_fin_campo()
+                else:
+                    self.error_fecha_fin = ""
+            else:
+                self.error_tipo_servicio_id = ""
+                if self.form_fecha_fin:
+                    self.validar_fecha_fin_campo()
+                else:
+                    self.error_fecha_fin = ""
+
+            errores = []
+            for etiqueta, error in (
+                ("Empresa", self.error_empresa_id),
+                ("Tipo de contrato", self.error_tipo_contrato),
+                ("Tipo de servicio", self.error_tipo_servicio_id),
+                ("Folio BUAP", self.error_folio_buap),
+                ("Fecha de inicio", self.error_fecha_inicio),
+                ("Fecha de fin", self.error_fecha_fin),
+                ("Descripción del objeto", self.error_descripcion_objeto),
+            ):
+                if error:
+                    errores.append(f"{etiqueta}: {error}")
+
+            return "; ".join(errores)
+
+        if paso == 2:
+            self.error_cantidad_plazas_minima = ""
+            self.error_cantidad_plazas_maxima = ""
+
+            if not (self.form_tipo_contrato == TipoContrato.SERVICIOS.value and self.form_tiene_personal):
+                return ""
+
+            self.validar_cantidad_plazas_minima_campo()
+            self.validar_cantidad_plazas_maxima_campo()
+
+            errores = []
+            for etiqueta, error in (
+                ("Plazas mínimas", self.error_cantidad_plazas_minima),
+                ("Plazas máximas", self.error_cantidad_plazas_maxima),
+            ):
+                if error:
+                    errores.append(f"{etiqueta}: {error}")
+
+            return "; ".join(errores)
+
+        return ""
 
     def _preparar_contrato_desde_formulario(self) -> ContratoCreate:
         """Prepara objeto ContratoCreate desde formulario con lógica condicional"""
@@ -1730,9 +1914,9 @@ class ContratosState(AuthState, CRUDStateMixin):
         self.saving = True
 
         if mensaje_accion:
-            yield rx.toast.info(
+            yield self.crear_toast(
                 f"{mensaje_accion} contrato '{codigo}'...",
-                position="top-center",
+                "info",
                 duration=2000,
             )
         else:
@@ -1743,9 +1927,9 @@ class ContratosState(AuthState, CRUDStateMixin):
             if on_exito:
                 on_exito()
             await self._fetch_contratos()
-            yield rx.toast.success(
+            yield self.crear_toast(
                 f"Contrato '{codigo}' {mensaje_exito} exitosamente",
-                position="top-center",
+                "success",
                 duration=3000,
             )
         except Exception as e:

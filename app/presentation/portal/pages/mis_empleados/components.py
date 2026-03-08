@@ -5,8 +5,10 @@ Tabla, filtros y badges.
 """
 import reflex as rx
 
-from app.presentation.constants import FILTRO_TODOS
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
     tabla_action_button,
     tabla_action_buttons,
     contador_registros,
@@ -15,7 +17,7 @@ from app.presentation.components.ui import (
     table_cell_text_sm,
     table_pagination,
 )
-from app.presentation.components.reusable import employee_filters_bar, employee_table
+from app.presentation.components.reusable import employee_table
 from app.presentation.theme import Typography
 
 from .state import MisEmpleadosState
@@ -140,7 +142,7 @@ def tabla_empleados() -> rx.Component:
 
 def filtros_empleados() -> rx.Component:
     """Filtros de la tabla de empleados."""
-    return employee_filters_bar(
+    return filtros_inline(
         rx.select.root(
             rx.select.trigger(placeholder="Estatus"),
             rx.select.content(
@@ -151,12 +153,13 @@ def filtros_empleados() -> rx.Component:
             on_change=MisEmpleadosState.set_filtro_estatus_emp,
             size="2",
         ),
-        rx.button(
-            rx.icon("filter", size=14),
-            "Filtrar",
-            on_click=MisEmpleadosState.aplicar_filtros_emp,
-            variant="soft",
-            size="2",
+        acciones_filtros(
+            on_apply=MisEmpleadosState.aplicar_filtros_emp,
+            on_clear=MisEmpleadosState.limpiar_filtros_emp,
+            show_clear=(
+                (MisEmpleadosState.filtro_busqueda_emp != "")
+                | (MisEmpleadosState.filtro_estatus_emp != "ACTIVO")
+            ),
         ),
         contador_registros(
             total=MisEmpleadosState.total_empleados_filtrados,

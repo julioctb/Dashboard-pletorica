@@ -7,8 +7,8 @@ import reflex as rx
 from decimal import Decimal
 from typing import List, Callable
 
+from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.shared.auth_state import AuthState
-from app.presentation.constants import FILTRO_TODOS
 from app.services import empresa_service
 from app.core.text_utils import normalizar_mayusculas
 
@@ -136,10 +136,9 @@ class EmpresasState(AuthState):
     def set_filtro_tipo(self, value):
         self.filtro_tipo = value if value else FILTRO_TODOS
 
-    async def set_solo_activas(self, value):
-        """Cambia filtro de activas y recarga datos"""
+    def set_solo_activas(self, value):
+        """Actualiza el filtro de activas sin recargar."""
         self.solo_activas = bool(value)
-        await self._fetch_empresas()
 
     # View toggle heredado de BaseState
 
