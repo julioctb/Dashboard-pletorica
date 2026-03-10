@@ -503,12 +503,12 @@ CAMPO_CODIGO_CONTRATO = FieldConfig(
 )
 
 CAMPO_FOLIO_BUAP = FieldConfig(
-    nombre='Folio BUAP',
+    nombre='Folio institución',
     requerido=False,
     max_len=FOLIO_BUAP_MAX,
     # UI
-    label='Número de folio BUAP',
-    placeholder='Folio oficial asignado por BUAP',
+    label='Número de folio institución',
+    placeholder='Folio oficial asignado por la institución',
     input_type=InputType.TEXT,
     section=SECCION_CONTRATO_GENERAL,
     order=2,

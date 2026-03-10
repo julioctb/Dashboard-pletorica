@@ -1022,7 +1022,14 @@ class ContratosState(AuthState, CRUDStateMixin):
                 error_attr="error_descripcion_objeto",
             )
 
+    def _usa_folio_en_formulario(self) -> bool:
+        """El folio solo se captura manualmente durante la edición."""
+        return bool(self.es_edicion)
+
     def validar_folio_buap_campo(self):
+        if not self._usa_folio_en_formulario():
+            self.error_folio_buap = ""
+            return
         self._validar_campo("folio_buap")
 
     def _validar_campo(self, campo: str):
@@ -1076,7 +1083,13 @@ class ContratosState(AuthState, CRUDStateMixin):
                 self.error_monto_maximo = error_coherencia
 
         # Validar campos opcionales del diccionario
-        for campo in ["folio_buap", "origen_recurso", "segmento_asignacion", "sede_campus", "poliza_detalle"]:
+        campos_opcionales = ["origen_recurso", "segmento_asignacion", "sede_campus", "poliza_detalle"]
+        if self._usa_folio_en_formulario():
+            campos_opcionales.insert(0, "folio_buap")
+        else:
+            self.error_folio_buap = ""
+
+        for campo in campos_opcionales:
             self._validar_campo(campo)
 
         if es_servicios and self.form_tiene_personal:
@@ -1087,9 +1100,15 @@ class ContratosState(AuthState, CRUDStateMixin):
     def tiene_errores_formulario(self) -> bool:
         """Verifica si hay errores de validación (considera condicionales)"""
         # Errores de campos del diccionario
-        errores_campos = self.tiene_errores_en_campos(
-            ["codigo"] + list(CAMPOS_VALIDACION.keys())
-        )
+        campos_validacion = ["codigo"] + list(CAMPOS_VALIDACION.keys())
+        if not self._usa_folio_en_formulario():
+            campos_validacion = [
+                campo
+                for campo in campos_validacion
+                if campo != "folio_buap"
+            ]
+
+        errores_campos = self.tiene_errores_en_campos(campos_validacion)
 
         # Errores de selects y campos requeridos
         errores_basicos = self.tiene_errores_en_campos(self._campos_error_basicos)
@@ -2224,7 +2243,10 @@ class ContratosState(AuthState, CRUDStateMixin):
             self.validar_tipo_contrato_campo()
             self.validar_fecha_inicio_campo()
             self.validar_descripcion_objeto_campo()
-            self._validar_campo("folio_buap")
+            if self._usa_folio_en_formulario():
+                self._validar_campo("folio_buap")
+            else:
+                self.error_folio_buap = ""
 
             if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
                 self.validar_tipo_servicio_id_campo()
@@ -2240,15 +2262,18 @@ class ContratosState(AuthState, CRUDStateMixin):
                     self.error_fecha_fin = ""
 
             errores = []
-            for etiqueta, error in (
+            errores_paso = [
                 ("Empresa", self.error_empresa_id),
                 ("Tipo de contrato", self.error_tipo_contrato),
                 ("Tipo de servicio", self.error_tipo_servicio_id),
-                ("Folio BUAP", self.error_folio_buap),
                 ("Fecha de inicio", self.error_fecha_inicio),
                 ("Fecha de fin", self.error_fecha_fin),
                 ("Descripción del objeto", self.error_descripcion_objeto),
-            ):
+            ]
+            if self._usa_folio_en_formulario():
+                errores_paso.insert(3, ("Folio institución", self.error_folio_buap))
+
+            for etiqueta, error in errores_paso:
                 if error:
                     errores.append(f"{etiqueta}: {error}")
 

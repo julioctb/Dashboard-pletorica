@@ -326,7 +326,7 @@ def _card_contrato(cto: dict) -> rx.Component:
             size="1",
         ),
         campos=[
-            ("Folio BUAP", rx.cond(cto["numero_folio_buap"], cto["numero_folio_buap"], "-")),
+            ("Folio institución", rx.cond(cto["numero_folio_buap"], cto["numero_folio_buap"], "-")),
             ("Inicio", cto["fecha_inicio_fmt"]),
             ("Fin", rx.cond(cto["fecha_fin"], cto["fecha_fin_fmt"], "Indefinido")),
         ],
@@ -577,7 +577,7 @@ def _modal_detalle_contrato() -> rx.Component:
                                     _texto_detalle(datos["codigo"], fallback="Sin código"),
                                 ),
                                 _campo_detalle(
-                                    "Folio BUAP",
+                                    "Folio institución",
                                     _texto_detalle(datos["numero_folio_buap"], fallback="Sin folio"),
                                 ),
                                 _campo_detalle(

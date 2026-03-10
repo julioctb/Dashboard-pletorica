@@ -120,6 +120,7 @@ def modal_crear_periodo() -> rx.Component:
                     texto_guardando="Generando...",
                     on_click=NominaRRHHState.crear_periodo,
                     saving=NominaRRHHState.saving,
+                    disabled=~NominaRRHHState.puede_generar_periodo,
                 ),
                 spacing="3",
                 justify="end",

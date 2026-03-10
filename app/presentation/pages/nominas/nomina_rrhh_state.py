@@ -295,6 +295,17 @@ class NominaRRHHState(NominaBaseState):
         return len(self.contratos_nomina_opciones) > 0
 
     @rx.var
+    def puede_generar_periodo(self) -> bool:
+        return bool(
+            self.puede_acceder_rrhh
+            and self.tiene_contratos_nomina
+            and self.tiene_periodos_disponibles
+            and str(self.form_contrato_nomina_id or "").strip()
+            and str(self.form_periodo_key or "").strip()
+            and str(self.form_fecha_pago or "").strip()
+        )
+
+    @rx.var
     def fecha_generacion_preview_fmt(self) -> str:
         return formatear_fecha_hora(
             self.form_fecha_generacion_preview,

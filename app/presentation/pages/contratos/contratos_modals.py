@@ -146,6 +146,15 @@ def _paso_contrato() -> rx.Component:
             hint="Se precarga desde el contexto activo cuando está disponible.",
         ),
     )
+    def _campo_folio() -> rx.Component:
+        return form_input(
+            label="Folio institución",
+            placeholder="Ej: INST-2026-001",
+            value=ContratosState.form_folio_buap,
+            on_change=ContratosState.set_form_folio_buap,
+            on_blur=ContratosState.validar_folio_buap_campo,
+            error=ContratosState.error_folio_buap,
+        )
 
     return _tarjeta_paso(
         "Datos del contrato",
@@ -168,14 +177,22 @@ def _paso_contrato() -> rx.Component:
             ),
             rx.cond(
                 ContratosState.es_servicios,
-                rx.hstack(
-                    form_input(
-                        label="Folio BUAP",
-                        placeholder="Ej: BUAP-2026-001",
-                        value=ContratosState.form_folio_buap,
-                        on_change=ContratosState.set_form_folio_buap,
-                        on_blur=ContratosState.validar_folio_buap_campo,
-                        error=ContratosState.error_folio_buap,
+                rx.cond(
+                    ContratosState.es_edicion,
+                    rx.hstack(
+                        _campo_folio(),
+                        form_select(
+                            label="Tipo de servicio",
+                            required=True,
+                            placeholder="Seleccione tipo de servicio",
+                            value=ContratosState.form_tipo_servicio_id,
+                            on_change=ContratosState.set_form_tipo_servicio_id,
+                            options=ContratosState.opciones_tipo_servicio,
+                            error=ContratosState.error_tipo_servicio_id,
+                        ),
+                        spacing="3",
+                        width="100%",
+                        align="start",
                     ),
                     form_select(
                         label="Tipo de servicio",
@@ -186,17 +203,12 @@ def _paso_contrato() -> rx.Component:
                         options=ContratosState.opciones_tipo_servicio,
                         error=ContratosState.error_tipo_servicio_id,
                     ),
-                    spacing="3",
                     width="100%",
-                    align="start",
                 ),
-                form_input(
-                    label="Folio BUAP",
-                    placeholder="Ej: BUAP-2026-001",
-                    value=ContratosState.form_folio_buap,
-                    on_change=ContratosState.set_form_folio_buap,
-                    on_blur=ContratosState.validar_folio_buap_campo,
-                    error=ContratosState.error_folio_buap,
+                rx.cond(
+                    ContratosState.es_edicion,
+                    _campo_folio(),
+                    rx.fragment(),
                 ),
             ),
             rx.hstack(
@@ -1006,7 +1018,7 @@ def _tab_informacion_contrato() -> rx.Component:
                         ),
                     ),
                     _detalle_campo(
-                        "Folio BUAP",
+                        "Folio institución",
                         rx.text(
                             rx.cond(
                                 ContratosState.contrato_seleccionado["numero_folio_buap"],
