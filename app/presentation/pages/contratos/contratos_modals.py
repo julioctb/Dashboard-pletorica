@@ -194,16 +194,18 @@ def _paso_contrato() -> rx.Component:
                         width="100%",
                         align="start",
                     ),
-                    form_select(
-                        label="Tipo de servicio",
-                        required=True,
-                        placeholder="Seleccione tipo de servicio",
-                        value=ContratosState.form_tipo_servicio_id,
-                        on_change=ContratosState.set_form_tipo_servicio_id,
-                        options=ContratosState.opciones_tipo_servicio,
-                        error=ContratosState.error_tipo_servicio_id,
+                    rx.box(
+                        form_select(
+                            label="Tipo de servicio",
+                            required=True,
+                            placeholder="Seleccione tipo de servicio",
+                            value=ContratosState.form_tipo_servicio_id,
+                            on_change=ContratosState.set_form_tipo_servicio_id,
+                            options=ContratosState.opciones_tipo_servicio,
+                            error=ContratosState.error_tipo_servicio_id,
+                        ),
+                        width="100%",
                     ),
-                    width="100%",
                 ),
                 rx.cond(
                     ContratosState.es_edicion,
