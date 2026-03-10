@@ -20,6 +20,7 @@ def identifier_badge(
     color_scheme: str | None = None,
     variant: str = "outline",
     size: str = "1",
+    **kwargs: Any,
 ) -> rx.Component:
     """Badge compacto para claves, codigos e identificadores cortos."""
     props = {
@@ -28,6 +29,7 @@ def identifier_badge(
     }
     if color_scheme is not None:
         props["color_scheme"] = color_scheme
+    props.update(kwargs)
     return rx.badge(value, **props)
 
 

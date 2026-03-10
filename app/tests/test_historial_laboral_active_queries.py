@@ -148,6 +148,93 @@ class TestHistorialLaboralActiveQueries:
             for call in _historial_calls(client)
         )
 
+    def test_nomina_resuelve_sede_desde_plaza_vigente_del_periodo(self):
+        client = FakeSupabaseClient(
+            {
+                "periodos_nomina": [
+                    FakeResult(
+                        [
+                            {
+                                "empresa_id": 7,
+                                "contrato_id": 101,
+                                "fecha_fin": "2026-01-31",
+                            }
+                        ]
+                    ),
+                ],
+                "plazas": [
+                    FakeResult(
+                        [
+                            {
+                                "id": 10,
+                                "empleado_id": 1,
+                                "salario_mensual": "9000",
+                                "fecha_inicio": "2026-01-15",
+                                "sede_id": 501,
+                            },
+                            {
+                                "id": 11,
+                                "empleado_id": 2,
+                                "salario_mensual": "8500",
+                                "fecha_inicio": "2026-01-20",
+                                "sede_id": None,
+                            },
+                        ]
+                    )
+                ],
+                "sedes": [
+                    FakeResult(
+                        [
+                            {
+                                "id": 501,
+                                "nombre": "Ciudad Universitaria",
+                                "nombre_corto": "Campus central",
+                            }
+                        ]
+                    )
+                ],
+                "nominas_empleado": [
+                    FakeResult(
+                        [
+                            {
+                                "id": 1001,
+                                "empleado_id": 1,
+                                "empleados": {
+                                    "nombre": "ANA",
+                                    "apellido_paterno": "UNO",
+                                    "clave": "B26-00001",
+                                },
+                            },
+                            {
+                                "id": 1002,
+                                "empleado_id": 2,
+                                "empleados": {
+                                    "nombre": "BETO",
+                                    "apellido_paterno": "DOS",
+                                    "clave": "B26-00002",
+                                },
+                            },
+                        ]
+                    )
+                ],
+            }
+        )
+        service = object.__new__(NominaPeriodoService)
+        service.supabase = client
+        service.tabla = "periodos_nomina"
+        service.tabla_nom_emp = "nominas_empleado"
+
+        result = service._consultar_empleados_periodo(88)
+
+        assert result[0]["sede_nombre"] == "CAMPUS CENTRAL"
+        assert result[1]["sede_nombre"] == "SIN SEDE"
+        assert (
+            "nominas_empleado",
+            "select",
+            "*, empleados(nombre, apellido_paterno, clave)",
+            {},
+        ) in client.calls
+
     def test_empleados_disponibles_ignora_historial_abierto_sin_plaza(self):
         client = FakeSupabaseClient(
             {

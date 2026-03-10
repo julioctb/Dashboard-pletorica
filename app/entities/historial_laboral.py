@@ -5,10 +5,35 @@ Bitacora automatica de movimientos de empleados.
 Cada registro representa un periodo/estado del empleado.
 Esta entidad es de SOLO LECTURA - los registros se crean automaticamente.
 """
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
-from dateutil.relativedelta import relativedelta
+try:
+    from dateutil.relativedelta import relativedelta
+except ModuleNotFoundError:  # pragma: no cover - fallback para entornos mínimos
+    class _RelativeDeltaFallback:
+        """Fallback básico para años/meses/días sin python-dateutil."""
+
+        def __init__(self, fin: date, inicio: date):
+            years = fin.year - inicio.year
+            months = fin.month - inicio.month
+            days = fin.day - inicio.day
+
+            if days < 0:
+                months -= 1
+                ultimo_dia_mes_previo = (fin.replace(day=1) - timedelta(days=1)).day
+                days += ultimo_dia_mes_previo
+
+            if months < 0:
+                years -= 1
+                months += 12
+
+            self.years = years
+            self.months = months
+            self.days = days
+
+    def relativedelta(fin: date, inicio: date):
+        return _RelativeDeltaFallback(fin, inicio)
 
 from app.core.enums import TipoMovimiento
 

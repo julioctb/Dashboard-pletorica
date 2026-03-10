@@ -173,7 +173,7 @@ class ExpedientesState(PortalState):
             self.loading = False
             yield resultado
             return
-        if not self.mostrar_seccion_rrhh or not self.es_rrhh:
+        if not self.mostrar_seccion_rrhh or not self.puede_acceder_rrhh:
             yield rx.redirect("/portal")
             return
 

@@ -178,7 +178,7 @@ class AsistenciasState(PortalState):
 
     @rx.var
     def puede_precargar_rrhh(self) -> bool:
-        return self.es_rrhh or self.es_admin_empresa
+        return self.puede_acceder_rrhh
 
     @rx.var
     def puede_operar_jornada(self) -> bool:
@@ -186,7 +186,7 @@ class AsistenciasState(PortalState):
 
     @rx.var
     def puede_configurar_catalogos(self) -> bool:
-        return self.es_rrhh or self.es_admin_empresa
+        return self.puede_acceder_rrhh
 
     @rx.var
     def mostrar_selector_panel(self) -> bool:
@@ -344,7 +344,7 @@ class AsistenciasState(PortalState):
             yield resultado
             return
         if not self.mostrar_seccion_rrhh or not (
-            self.es_operaciones or self.es_rrhh or self.es_admin_empresa
+            self.es_operaciones or self.puede_acceder_rrhh
         ):
             yield rx.redirect("/portal")
             return

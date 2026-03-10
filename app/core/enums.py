@@ -1019,6 +1019,20 @@ class PeriodicidadNomina(str, Enum):
         return descripciones.get(self.value, self.value)
 
 
+class ReglaCalculoQuincenal(str, Enum):
+    """Regla para calcular el sueldo base en periodos quincenales."""
+    REAL = 'REAL'
+    MIXTA = 'MIXTA'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'REAL': 'Real por días',
+            'MIXTA': 'Base fija quincenal',
+        }
+        return descripciones.get(self.value, self.value)
+
+
 class OrigenMovimiento(str, Enum):
     """Quién generó el movimiento en la nómina."""
     SISTEMA = 'SISTEMA'

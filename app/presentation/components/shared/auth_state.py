@@ -325,11 +325,16 @@ class AuthState(BaseState):
         return self.rol_empresa_actual == 'admin_empresa'
 
     @rx.var
-    def es_rrhh(self) -> bool:
-        """Puede gestionar personal, expedientes, cuentas bancarias."""
+    def puede_acceder_rrhh(self) -> bool:
+        """Acceso transversal a vistas y operación de RRHH en empresa."""
         if self.es_superadmin:
             return True
         return self.rol_empresa_actual in ('rrhh', 'admin_empresa')
+
+    @rx.var
+    def es_rrhh(self) -> bool:
+        """Alias legado de compatibilidad para acceso RRHH."""
+        return self.puede_acceder_rrhh
 
     @rx.var
     def es_operaciones(self) -> bool:
@@ -380,7 +385,7 @@ class AuthState(BaseState):
         """¿Puede editar empleados, aprobar docs, crear accesos?
         Acceso: rrhh, admin_empresa, superadmin.
         NOTA: gestor_institucional NO puede (solo registra, no gestiona)."""
-        return self.es_rrhh
+        return self.puede_acceder_rrhh
 
     @rx.var
     def puede_registrar_personal(self) -> bool:
@@ -396,7 +401,7 @@ class AuthState(BaseState):
     def puede_aprobar_documentos(self) -> bool:
         """¿Puede aprobar/rechazar documentos de empleados?
         Acceso: rrhh, admin_empresa, superadmin."""
-        return self.es_rrhh
+        return self.puede_acceder_rrhh
 
     @rx.var
     def puede_validar_entregables(self) -> bool:
@@ -418,7 +423,12 @@ class AuthState(BaseState):
     def puede_acceder_nomina(self) -> bool:
         """¿Puede acceder al módulo de nómina?
         Acceso: rrhh, contabilidad, admin_empresa, superadmin."""
-        return self.es_rrhh or self.es_contabilidad
+        return self.puede_acceder_rrhh or self.es_contabilidad
+
+    @rx.var
+    def puede_acceder_nomina_contabilidad(self) -> bool:
+        """¿Puede acceder a vistas de cálculo/conciliación de nómina?"""
+        return self.es_contabilidad or self.es_admin_empresa
 
     # =========================================================================
     # MÉTODOS DE AUTENTICACIÓN

@@ -27,9 +27,9 @@ def modal_crear_periodo() -> rx.Component:
     """Modal para crear un nuevo período de nómina."""
     return rx.dialog.root(
         rx.dialog.content(
-            rx.dialog.title("Nuevo período de nómina"),
+            rx.dialog.title("Nueva nómina"),
             rx.dialog.description(
-                "Define el rango de fechas y la periodicidad del período.",
+                "Selecciona el contrato base, el período calculado del mes actual, valida la auditoría y confirma la fecha de pago.",
                 margin_bottom="16px",
             ),
             rx.cond(
@@ -42,45 +42,73 @@ def modal_crear_periodo() -> rx.Component:
                 rx.fragment(),
             ),
             rx.vstack(
-                form_input(
-                    label="Nombre del período",
+                form_select(
+                    label="Contrato base de nomina",
                     required=True,
-                    placeholder="Ej: Quincena 1 Marzo 2026",
-                    value=NominaRRHHState.form_nombre,
-                    on_change=NominaRRHHState.set_form_nombre,
-                    error=NominaRRHHState.error_nombre,
-                    max_length=100,
+                    placeholder="Selecciona un contrato activo con personal",
+                    value=NominaRRHHState.form_contrato_nomina_id,
+                    on_change=NominaRRHHState.set_form_contrato_nomina_id,
+                    options=NominaRRHHState.contratos_nomina_opciones,
+                    error=NominaRRHHState.error_contrato_nomina,
+                    hint="Solo se muestran contratos activos con personal habilitado.",
                 ),
                 form_select(
-                    label="Periodicidad",
+                    label="Período",
                     required=True,
-                    value=NominaRRHHState.form_periodicidad,
-                    on_change=NominaRRHHState.set_form_periodicidad,
-                    options=NominaRRHHState.opciones_periodicidad,
+                    placeholder="Selecciona un período",
+                    value=NominaRRHHState.form_periodo_key,
+                    on_change=NominaRRHHState.set_form_periodo_key,
+                    options=NominaRRHHState.periodos_disponibles_catalogo,
+                    error=NominaRRHHState.error_periodo,
+                    hint="Solo se muestran periodos no creados del mes actual según la política activa.",
+                ),
+                rx.cond(
+                    ~NominaRRHHState.tiene_contratos_nomina,
+                    rx.callout.root(
+                        rx.callout.icon(rx.icon("triangle-alert", size=16)),
+                        rx.callout.text(
+                            "No hay contratos activos con personal disponibles para generar nómina."
+                        ),
+                        color_scheme="orange",
+                        variant="soft",
+                        width="100%",
+                    ),
+                    rx.fragment(),
+                ),
+                rx.cond(
+                    ~NominaRRHHState.tiene_periodos_disponibles,
+                    rx.callout.root(
+                        rx.callout.icon(rx.icon("calendar-range", size=16)),
+                        rx.callout.text(
+                            "No hay periodos disponibles para el mes actual o falta configurar la política de nómina."
+                        ),
+                        color_scheme="gray",
+                        variant="soft",
+                        width="100%",
+                    ),
+                    rx.fragment(),
                 ),
                 rx.hstack(
-                    form_date(
-                        label="Fecha de inicio",
-                        required=True,
-                        value=NominaRRHHState.form_fecha_inicio,
-                        on_change=NominaRRHHState.set_form_fecha_inicio,
-                        error=NominaRRHHState.error_fecha_inicio,
+                    form_input(
+                        label="Fecha de generación",
+                        value=NominaRRHHState.fecha_generacion_preview_fmt,
+                        read_only=True,
                     ),
-                    form_date(
-                        label="Fecha de fin",
-                        required=True,
-                        value=NominaRRHHState.form_fecha_fin,
-                        on_change=NominaRRHHState.set_form_fecha_fin,
-                        error=NominaRRHHState.error_fecha_fin,
+                    form_input(
+                        label="Generado por",
+                        value=NominaRRHHState.form_generado_por_preview,
+                        read_only=True,
                     ),
                     spacing="3",
                     width="100%",
                 ),
                 form_date(
-                    label="Fecha de pago (opcional)",
+                    label="Fecha de pago",
+                    required=True,
                     value=NominaRRHHState.form_fecha_pago,
                     on_change=NominaRRHHState.set_form_fecha_pago,
                     error=NominaRRHHState.error_fecha_pago,
+                    hint="Se autocompleta desde la configuración operativa, pero puedes ajustarla.",
                 ),
                 spacing="4",
                 width="100%",
@@ -88,8 +116,8 @@ def modal_crear_periodo() -> rx.Component:
             rx.hstack(
                 boton_cancelar(on_click=NominaRRHHState.cerrar_modal_periodo),
                 boton_guardar(
-                    texto="Crear período",
-                    texto_guardando="Creando...",
+                    texto="Generar nómina",
+                    texto_guardando="Generando...",
                     on_click=NominaRRHHState.crear_periodo,
                     saving=NominaRRHHState.saving,
                 ),
@@ -98,7 +126,7 @@ def modal_crear_periodo() -> rx.Component:
                 margin_top="4",
                 width="100%",
             ),
-            max_width="480px",
+            max_width="640px",
         ),
         open=NominaRRHHState.mostrar_modal_periodo,
         on_open_change=NominaRRHHState.set_mostrar_modal_periodo,
@@ -111,36 +139,79 @@ def modal_crear_periodo() -> rx.Component:
 
 def _fila_descuento(descuento: dict) -> rx.Component:
     """Fila en la lista de descuentos existentes."""
-    return rx.hstack(
-        rx.text(
-            descuento['concepto_nombre'],
-            size="2",
-            color=Colors.TEXT_PRIMARY,
-            flex="1",
-        ),
-        rx.text(
-            "$" + descuento['monto'].to(str),
-            size="2",
-            weight="medium",
-            color=Colors.TEXT_PRIMARY,
-            min_width="80px",
-            text_align="right",
-        ),
-        rx.cond(
-            NominaRRHHState.puede_editar_descuentos,
-            rx.icon_button(
-                rx.icon("trash-2", size=14),
-                size="1",
-                variant="ghost",
-                color_scheme="red",
-                on_click=NominaRRHHState.eliminar_descuento(descuento['id']),
+    return rx.box(
+        rx.hstack(
+            rx.hstack(
+                rx.badge(
+                    descuento['badge'],
+                    color_scheme=descuento['color_scheme'],
+                    variant="soft",
+                    size="1",
+                ),
+                rx.vstack(
+                    rx.text(
+                        descuento['concepto_nombre'],
+                        size="2",
+                        color=Colors.TEXT_PRIMARY,
+                        weight="medium",
+                    ),
+                    rx.text(
+                        descuento['origen_label'],
+                        size="1",
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    spacing="0",
+                    align="start",
+                ),
+                spacing="2",
+                align="center",
+                flex="1",
+                min_width="0",
             ),
-            rx.fragment(),
+            rx.hstack(
+                rx.vstack(
+                    rx.text(
+                        "Monto",
+                        size="1",
+                        color=Colors.TEXT_MUTED,
+                        width="100%",
+                        text_align="right",
+                    ),
+                    rx.text(
+                        descuento['monto_fmt'],
+                        size="2",
+                        weight="bold",
+                        color=Colors.TEXT_PRIMARY,
+                        width="100%",
+                        text_align="right",
+                    ),
+                    spacing="0",
+                    align="end",
+                    min_width="120px",
+                ),
+                rx.cond(
+                    NominaRRHHState.puede_editar_descuentos,
+                    rx.icon_button(
+                        rx.icon("trash-2", size=14),
+                        size="1",
+                        variant="soft",
+                        color_scheme="red",
+                        on_click=NominaRRHHState.eliminar_descuento(descuento['id']),
+                    ),
+                    rx.fragment(),
+                ),
+                spacing="3",
+                align="center",
+            ),
+            width="100%",
+            align="center",
+            spacing="3",
         ),
         width="100%",
-        align="center",
-        padding_y=Spacing.XS,
-        border_bottom=f"1px solid {Colors.BORDER}",
+        padding=Spacing.MD,
+        background=Colors.SURFACE,
+        border=f"1px solid {Colors.BORDER}",
+        border_radius=Radius.MD,
     )
 
 
@@ -165,27 +236,47 @@ def modal_descuentos_empleado() -> rx.Component:
                 rx.cond(
                     NominaRRHHState.descuentos_empleado,
                     rx.vstack(
-                        rx.text(
-                            "Descuentos aplicados",
-                            size="2",
-                            weight="medium",
-                            color=Colors.TEXT_SECONDARY,
-                        ),
-                        rx.vstack(
-                            rx.foreach(
-                                NominaRRHHState.descuentos_empleado,
-                                _fila_descuento,
+                        rx.hstack(
+                            rx.text(
+                                "Descuentos aplicados",
+                                size="2",
+                                weight="medium",
+                                color=Colors.TEXT_SECONDARY,
+                            ),
+                            rx.spacer(),
+                            rx.badge(
+                                NominaRRHHState.descuentos_empleado.length().to(str),
+                                variant="soft",
+                                color_scheme="gray",
+                                size="1",
                             ),
                             width="100%",
-                            spacing="0",
+                            align="center",
+                        ),
+                        rx.box(
+                            rx.vstack(
+                                rx.foreach(
+                                    NominaRRHHState.descuentos_empleado,
+                                    _fila_descuento,
+                                ),
+                                width="100%",
+                                spacing="2",
+                            ),
+                            width="100%",
+                            max_height="240px",
+                            overflow_y="auto",
+                            padding=Spacing.SM,
+                            background=Colors.SECONDARY_LIGHT,
+                            border=f"1px solid {Colors.BORDER}",
+                            border_radius=Radius.LG,
                         ),
                         width="100%",
                         spacing="2",
                     ),
-                    rx.text(
+                    feedback_callout(
                         "Sin descuentos aplicados aún.",
-                        size="2",
-                        color=Colors.TEXT_MUTED,
+                        "info",
+                        width="100%",
                     ),
                 ),
                 # --- Formulario (solo si está en preparación) ---
@@ -202,16 +293,19 @@ def modal_descuentos_empleado() -> rx.Component:
                         form_select(
                             label="Tipo de descuento",
                             required=True,
+                            placeholder="Selecciona un descuento disponible",
                             value=NominaRRHHState.form_concepto_clave,
                             on_change=NominaRRHHState.set_form_concepto_clave,
                             options=NominaRRHHState.opciones_conceptos_rrhh,
+                            disabled=~NominaRRHHState.tiene_opciones_conceptos_rrhh,
                         ),
                         form_input(
                             label="Monto",
                             required=True,
-                            placeholder="Ej: 1500.00",
+                            placeholder="Ej: $ 1,500.00",
                             value=NominaRRHHState.form_monto_descuento,
                             on_change=NominaRRHHState.set_form_monto_descuento,
+                            disabled=~NominaRRHHState.tiene_opciones_conceptos_rrhh,
                             error=NominaRRHHState.error_monto,
                         ),
                         form_input(
@@ -219,18 +313,16 @@ def modal_descuentos_empleado() -> rx.Component:
                             placeholder="Ej: Crédito 12345678",
                             value=NominaRRHHState.form_notas_descuento,
                             on_change=NominaRRHHState.set_form_notas_descuento,
+                            disabled=~NominaRRHHState.tiene_opciones_conceptos_rrhh,
                         ),
-                        rx.hstack(
-                            rx.button(
-                                rx.icon("plus", size=14),
-                                "Agregar descuento",
-                                on_click=NominaRRHHState.guardar_descuento,
-                                loading=NominaRRHHState.saving,
-                                color_scheme="orange",
-                                size="2",
+                        rx.cond(
+                            ~NominaRRHHState.tiene_opciones_conceptos_rrhh,
+                            feedback_callout(
+                                "Todos los descuentos disponibles ya están aplicados en este período.",
+                                "warning",
+                                width="100%",
                             ),
-                            justify="end",
-                            width="100%",
+                            rx.fragment(),
                         ),
                         width="100%",
                         spacing="3",
@@ -251,16 +343,28 @@ def modal_descuentos_empleado() -> rx.Component:
                 width="100%",
             ),
             rx.hstack(
-                rx.dialog.close(
-                    rx.button(
-                        "Cerrar",
-                        on_click=NominaRRHHState.cerrar_modal_descuento,
-                        variant="soft",
-                        color_scheme="gray",
-                    ),
+                boton_cancelar(
+                    texto="Cerrar",
+                    on_click=NominaRRHHState.cerrar_modal_descuento,
                 ),
-                justify="end",
-                margin_top="4",
+                rx.spacer(),
+                rx.cond(
+                    NominaRRHHState.puede_editar_descuentos,
+                    boton_guardar(
+                        texto="Añadir",
+                        texto_guardando="Añadiendo...",
+                        on_click=NominaRRHHState.guardar_descuento,
+                        saving=NominaRRHHState.saving,
+                        disabled=~NominaRRHHState.puede_anadir_descuento,
+                        color_scheme="orange",
+                        size="2",
+                    ),
+                    rx.fragment(),
+                ),
+                width="100%",
+                align="center",
+                spacing="3",
+                margin_top=Spacing.BASE,
             ),
             max_width="480px",
         ),

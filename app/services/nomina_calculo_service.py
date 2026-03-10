@@ -17,10 +17,12 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 from app.database import db_manager
+from app.core.enums import PeriodicidadNomina, ReglaCalculoQuincenal
 from app.core.exceptions import DatabaseError, NotFoundError, BusinessRuleError
 from app.core.catalogs import CatalogoConceptosNomina, CatalogoUMA
 from app.core.catalogs.fiscal.isr import CatalogoISR
 from app.core.calculations.calculadora_imss import CalculadoraIMSS
+from app.services.configuracion_operativa_service import configuracion_operativa_service
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +205,64 @@ class NominaCalculoService:
     # CÁLCULO INTERNO
     # =========================================================================
 
+    @staticmethod
+    def _normalizar_periodicidad(periodicidad: object) -> str:
+        if isinstance(periodicidad, PeriodicidadNomina):
+            return periodicidad.value
+        return str(periodicidad or PeriodicidadNomina.QUINCENAL.value)
+
+    @staticmethod
+    def _normalizar_regla_calculo_quincenal(valor: object) -> str:
+        if isinstance(valor, ReglaCalculoQuincenal):
+            return valor.value
+        try:
+            return ReglaCalculoQuincenal(str(valor or "").upper()).value
+        except ValueError:
+            return ReglaCalculoQuincenal.MIXTA.value
+
+    async def _resolver_regla_calculo_quincenal_periodo(
+        self,
+        periodo: dict,
+    ) -> Optional[str]:
+        periodicidad = self._normalizar_periodicidad(periodo.get('periodicidad'))
+        if periodicidad != PeriodicidadNomina.QUINCENAL.value:
+            return None
+
+        snapshot = periodo.get('regla_calculo_quincenal')
+        if snapshot:
+            regla = self._normalizar_regla_calculo_quincenal(snapshot)
+            periodo['regla_calculo_quincenal'] = regla
+            return regla
+
+        empresa_id = periodo.get('empresa_id')
+        regla = ReglaCalculoQuincenal.MIXTA.value
+        if empresa_id:
+            config = await configuracion_operativa_service.obtener_o_crear_default(
+                int(empresa_id)
+            )
+            regla = self._normalizar_regla_calculo_quincenal(
+                getattr(config, 'regla_calculo_quincenal', None)
+            )
+
+        periodo_id = periodo.get('id')
+        if periodo_id:
+            try:
+                self.supabase.table('periodos_nomina').update({
+                    'regla_calculo_quincenal': regla,
+                }).eq('id', periodo_id).execute()
+            except Exception as e:
+                logger.error(
+                    "Error persistiendo snapshot de regla quincenal en periodo %s: %s",
+                    periodo_id,
+                    e,
+                )
+                raise DatabaseError(
+                    f"Error persistiendo regla de cálculo quincenal: {e}"
+                )
+
+        periodo['regla_calculo_quincenal'] = regla
+        return regla
+
     async def _calcular_nomina_empleado(self, nomina: dict, periodo: dict) -> dict:
         """
         Flujo completo de cálculo para un empleado.
@@ -227,7 +287,10 @@ class NominaCalculoService:
         horas_dobles = Decimal(str(nomina.get('horas_extra_dobles') or 0))
         horas_triples = Decimal(str(nomina.get('horas_extra_triples') or 0))
         domingos = int(nomina.get('domingos_trabajados') or 0)
-        periodicidad = periodo.get('periodicidad', 'QUINCENAL')
+        periodicidad = self._normalizar_periodicidad(periodo.get('periodicidad'))
+        regla_calculo_quincenal = await self._resolver_regla_calculo_quincenal_periodo(
+            periodo
+        )
 
         if salario_diario <= 0:
             raise BusinessRuleError(
@@ -246,7 +309,13 @@ class NominaCalculoService:
         movimientos_sistema: list[dict] = []
 
         # Sueldo
-        sueldo = _round2(salario_diario * dias_trabajados)
+        if (
+            periodicidad == PeriodicidadNomina.QUINCENAL.value
+            and regla_calculo_quincenal == ReglaCalculoQuincenal.MIXTA.value
+        ):
+            sueldo = _round2(salario_diario * Decimal('15'))
+        else:
+            sueldo = _round2(salario_diario * dias_trabajados)
         if sueldo > 0:
             movimientos_sistema.append(self._mov(
                 nomina_id, 'SUELDO', 'PERCEPCION', sueldo, sueldo, Decimal('0')
@@ -278,8 +347,13 @@ class NominaCalculoService:
                 monto_pd, gravable_pd, exento_pd
             ))
 
+        aplica_descuentos_automaticos_quincenales = not (
+            periodicidad == PeriodicidadNomina.QUINCENAL.value
+            and regla_calculo_quincenal == ReglaCalculoQuincenal.REAL.value
+        )
+
         # Descuento por faltas (deducción automática)
-        if dias_faltas > 0:
+        if dias_faltas > 0 and aplica_descuentos_automaticos_quincenales:
             monto_faltas = _round2(salario_diario * dias_faltas)
             movimientos_sistema.append(self._mov(
                 nomina_id, 'DESCUENTO_FALTAS', 'DEDUCCION',
@@ -287,7 +361,7 @@ class NominaCalculoService:
             ))
 
         # Descuento por incapacidad (IMSS paga días, empresa descuenta)
-        if dias_incapacidad > 0:
+        if dias_incapacidad > 0 and aplica_descuentos_automaticos_quincenales:
             monto_incap = _round2(salario_diario * dias_incapacidad)
             movimientos_sistema.append(self._mov(
                 nomina_id, 'DESCUENTO_INCAPACIDAD', 'DEDUCCION',
@@ -296,8 +370,11 @@ class NominaCalculoService:
 
         # ── 3. Base gravable ISR (suma de monto_gravable de percepciones) ────
         base_gravable_periodo = sum(
-            m['monto_gravable'] for m in movimientos_sistema
-            if m['tipo'] == 'PERCEPCION'
+            (
+                m['monto_gravable'] for m in movimientos_sistema
+                if m['tipo'] == 'PERCEPCION'
+            ),
+            Decimal('0'),
         )
 
         # ── 4. ISR proporcional al período ────────────────────────────────────
@@ -364,25 +441,54 @@ class NominaCalculoService:
 
         # ── 9. Calcular totales consolidados ──────────────────────────────────
         percepciones = sum(
-            Decimal(str(m['monto_gravable'])) + Decimal(str(m['monto_exento']))
-            for m in movimientos_sistema if m['tipo'] == 'PERCEPCION'
+            (
+                Decimal(str(m['monto_gravable'])) + Decimal(str(m['monto_exento']))
+                for m in movimientos_sistema
+                if m['tipo'] == 'PERCEPCION'
+            ),
+            Decimal('0'),
         )
         percepciones += sum(
-            Decimal(str(m['monto'])) for m in manuales if m['tipo'] == 'PERCEPCION'
+            (
+                Decimal(str(m['monto']))
+                for m in manuales
+                if m['tipo'] == 'PERCEPCION'
+            ),
+            Decimal('0'),
         )
 
         deducciones = sum(
-            Decimal(str(m['monto'])) for m in movimientos_sistema if m['tipo'] == 'DEDUCCION'
+            (
+                Decimal(str(m['monto']))
+                for m in movimientos_sistema
+                if m['tipo'] == 'DEDUCCION'
+            ),
+            Decimal('0'),
         )
         deducciones += sum(
-            Decimal(str(m['monto'])) for m in manuales if m['tipo'] == 'DEDUCCION'
+            (
+                Decimal(str(m['monto']))
+                for m in manuales
+                if m['tipo'] == 'DEDUCCION'
+            ),
+            Decimal('0'),
         )
 
         otros_pagos = sum(
-            Decimal(str(m['monto'])) for m in movimientos_sistema if m['tipo'] == 'OTRO_PAGO'
+            (
+                Decimal(str(m['monto']))
+                for m in movimientos_sistema
+                if m['tipo'] == 'OTRO_PAGO'
+            ),
+            Decimal('0'),
         )
         otros_pagos += sum(
-            Decimal(str(m['monto'])) for m in manuales if m['tipo'] == 'OTRO_PAGO'
+            (
+                Decimal(str(m['monto']))
+                for m in manuales
+                if m['tipo'] == 'OTRO_PAGO'
+            ),
+            Decimal('0'),
         )
 
         neto = _round2(percepciones - deducciones + otros_pagos)

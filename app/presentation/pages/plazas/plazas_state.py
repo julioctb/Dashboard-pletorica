@@ -177,7 +177,7 @@ class PlazasState(AuthState):
     @rx.var
     def puede_operar_plazas_en_contexto(self) -> bool:
         if self.es_contexto_portal:
-            return bool(self.id_empresa_actual) and (self.es_rrhh or self.es_admin_empresa)
+            return bool(self.id_empresa_actual) and self.puede_acceder_rrhh
         return bool(
             self.es_superadmin
             or self.es_institucion
@@ -973,7 +973,7 @@ class PlazasState(AuthState):
                 yield rx.redirect("/")
                 return
 
-            if self.es_empleado_portal or not self.id_empresa_actual or not self.es_rrhh:
+            if self.es_empleado_portal or not self.id_empresa_actual or not self.puede_acceder_rrhh:
                 yield rx.redirect("/portal")
                 return
 

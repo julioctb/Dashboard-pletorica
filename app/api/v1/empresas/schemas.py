@@ -22,6 +22,7 @@ class EmpresaResponse(BaseModel):
     rfc: str
     tipo_empresa: str
     estatus: str
+    gestion_nomina_activa: bool = False
     direccion: Optional[str] = None
     codigo_postal: Optional[str] = None
     telefono: Optional[str] = None

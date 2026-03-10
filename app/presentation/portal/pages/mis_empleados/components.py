@@ -28,6 +28,34 @@ def badge_estatus(estatus: str) -> rx.Component:
     return employee_status_badge(estatus)
 
 
+def _badge_descuento(descuento: dict) -> rx.Component:
+    """Badge compacto de descuento activo."""
+    return rx.tooltip(
+        rx.badge(
+            descuento["badge"],
+            color_scheme=descuento["color_scheme"],
+            variant="soft",
+            size="1",
+        ),
+        content=descuento["tooltip"],
+    )
+
+
+def descuentos_badges(descuentos: list[dict]) -> rx.Component:
+    """Agrupa badges activos del empleado."""
+    descuentos_typed = descuentos.to(list[dict])
+    return rx.cond(
+        descuentos_typed.length() > 0,
+        rx.hstack(
+            rx.foreach(descuentos_typed, _badge_descuento),
+            spacing="1",
+            wrap="wrap",
+            width="100%",
+        ),
+        rx.text("-", font_size=Typography.SIZE_SM, color="gray"),
+    )
+
+
 def fila_empleado(emp: dict) -> rx.Component:
     """Fila de la tabla de empleados."""
     # Editable: ACTIVO y no restringido
@@ -71,6 +99,9 @@ def fila_empleado(emp: dict) -> rx.Component:
             ),
         ),
         rx.table.cell(
+            descuentos_badges(emp["descuentos_activos_hoy"]),
+        ),
+        rx.table.cell(
             tabla_action_buttons([
                 tabla_action_button(
                     icon="eye",
@@ -83,7 +114,7 @@ def fila_empleado(emp: dict) -> rx.Component:
                     tooltip="Ver expediente",
                     on_click=MisEmpleadosState.ver_expediente(emp),
                     color_scheme="blue",
-                    visible=MisEmpleadosState.es_rrhh,
+                    visible=MisEmpleadosState.puede_acceder_rrhh,
                 ),
                 tabla_action_button(
                     icon="pencil",
@@ -102,6 +133,7 @@ ENCABEZADOS_EMPLEADOS = [
     {"nombre": "Telefono", "ancho": "130px"},
     {"nombre": "Expediente", "ancho": "110px", "header_align": "center"},
     {"nombre": "Estatus", "ancho": "100px", "header_align": "center"},
+    {"nombre": "Descuentos", "ancho": "130px"},
     {"nombre": "Acciones", "ancho": "160px", "header_align": "center"},
 ]
 

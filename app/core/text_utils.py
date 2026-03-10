@@ -7,9 +7,8 @@ tanto en entities (Pydantic) como en validators (frontend).
 IMPORTANTE: Cualquier cambio aquí afecta ambas capas.
 """
 from datetime import date, datetime
+import re
 from typing import Optional, Union
-
-from app.core.validation.custom_validators import limpiar_telefono
 
 
 def normalizar_mayusculas(texto: Optional[str]) -> str:
@@ -116,7 +115,7 @@ def formatear_telefono(texto: Optional[str]) -> str:
     """
     if not texto:
         return ""
-    digitos = limpiar_telefono(texto)
+    digitos = re.sub(r'[\s\-\(\)\+]', '', texto.strip())
     if len(digitos) == 10:
         return f"{digitos[:3]} {digitos[3:6]} {digitos[6:]}"
     return digitos
@@ -357,4 +356,3 @@ def formatear_fecha_es(fecha: Optional[Union[date, datetime, str]]) -> str:
         )
     except (AttributeError, IndexError):
         return ""
-

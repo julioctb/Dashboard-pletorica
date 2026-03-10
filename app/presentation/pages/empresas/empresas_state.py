@@ -64,6 +64,7 @@ FORM_DEFAULTS = {
     "email": "",
     "pagina_web": "",
     "estatus": EstatusEmpresa.ACTIVO.value,
+    "gestion_nomina_activa": False,
     "notas": "",
     "registro_patronal": "",
     "prima_riesgo": "",
@@ -114,6 +115,7 @@ class EmpresasState(AuthState):
     form_email: str = ""
     form_pagina_web: str = ""
     form_estatus: str = EstatusEmpresa.ACTIVO.value
+    form_gestion_nomina_activa: bool = False
     form_notas: str = ""
     form_registro_patronal: str = ""
     form_prima_riesgo: str = ""
@@ -174,6 +176,9 @@ class EmpresasState(AuthState):
 
     def set_form_estatus(self, value):
         self.form_estatus = value if value else ""
+
+    def set_form_gestion_nomina_activa(self, value: bool):
+        self.form_gestion_nomina_activa = bool(value)
 
     def set_form_notas(self, value):
         self.form_notas = value if value else ""
@@ -467,6 +472,7 @@ class EmpresasState(AuthState):
         self.form_email = empresa.email or ""
         self.form_pagina_web = empresa.pagina_web or ""
         self.form_estatus = str(empresa.estatus)
+        self.form_gestion_nomina_activa = bool(empresa.gestion_nomina_activa)
         self.form_notas = empresa.notas or ""
         self.form_registro_patronal = empresa.registro_patronal or ""
         self.form_prima_riesgo = str(empresa.get_prima_riesgo_porcentaje()) if empresa.prima_riesgo else ""
@@ -484,6 +490,7 @@ class EmpresasState(AuthState):
             "email": self.form_email.strip() or None,
             "pagina_web": self.form_pagina_web.strip() or None,
             "estatus": EstatusEmpresa(self.form_estatus) if self.form_estatus else None,
+            "gestion_nomina_activa": bool(self.form_gestion_nomina_activa),
             "notas": self.form_notas.strip() or None,
             "registro_patronal": self.form_registro_patronal.strip() or None,
             "prima_riesgo": Decimal(self.form_prima_riesgo) if self.form_prima_riesgo.strip() else None,

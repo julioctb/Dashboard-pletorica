@@ -38,6 +38,7 @@ class PortalState(AuthState):
     total_plazas_ocupadas: int = 0
     total_plazas_vacantes: int = 0
     tiene_contratos_con_personal: bool = False
+    gestion_nomina_activa_empresa: bool = False
     metricas_cargadas: bool = False
 
     # ========================
@@ -85,11 +86,16 @@ class PortalState(AuthState):
         """Carga señales mínimas que usa la navegación del portal."""
         self.total_contratos = 0
         self.tiene_contratos_con_personal = False
+        self.gestion_nomina_activa_empresa = False
 
         if self.es_empleado_portal or not self.id_empresa_actual:
             return
 
         try:
+            empresa = await empresa_service.obtener_por_id(self.id_empresa_actual)
+            self.gestion_nomina_activa_empresa = bool(
+                getattr(empresa, "gestion_nomina_activa", False)
+            )
             contratos = await self._obtener_contratos_activos_empresa()
             self.total_contratos = len(contratos)
             self.tiene_contratos_con_personal = any(
@@ -100,6 +106,7 @@ class PortalState(AuthState):
             logger.error("Error cargando contexto del portal: %s", e)
             self.total_contratos = 0
             self.tiene_contratos_con_personal = False
+            self.gestion_nomina_activa_empresa = False
 
     async def cambiar_empresa_portal(self, empresa_id_str: str):
         """
@@ -267,11 +274,19 @@ class PortalState(AuthState):
 
     @rx.var
     def mostrar_seccion_nominas(self) -> bool:
-        return self.es_usuario_empresa_portal and self.es_rrhh
+        return (
+            self.es_usuario_empresa_portal
+            and self.puede_acceder_rrhh
+            and self.gestion_nomina_activa_empresa
+        )
 
     @rx.var
     def mostrar_seccion_contabilidad(self) -> bool:
-        return self.es_usuario_empresa_portal and self.es_contabilidad
+        return (
+            self.es_usuario_empresa_portal
+            and self.puede_acceder_nomina_contabilidad
+            and self.gestion_nomina_activa_empresa
+        )
 
     @rx.var
     def mostrar_seccion_empresa(self) -> bool:

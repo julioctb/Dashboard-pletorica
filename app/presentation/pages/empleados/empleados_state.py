@@ -8,7 +8,7 @@ Refactorizado para usar:
 - BaseState.limpiar_formulario para limpieza de formularios
 """
 import reflex as rx
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TypedDict
 from datetime import date
 
 from app.presentation.components.shared.auth_state import AuthState
@@ -19,6 +19,9 @@ from app.core.ui_helpers import (
     opciones_desde_enum,
 )
 from app.services import empleado_service, empresa_service
+from app.services.empleado_descuento_recurrente_service import (
+    empleado_descuento_recurrente_service,
+)
 from app.core.text_utils import formatear_fecha, formatear_fecha_hora
 from app.core.enums import EstatusEmpleado, GeneroEmpleado, MotivoBaja
 
@@ -45,6 +48,26 @@ from .empleados_validators import (
 )
 
 
+class DescuentoActivoUI(TypedDict):
+    badge: str
+    color_scheme: str
+    tooltip: str
+
+
+class EmpleadoListadoUI(TypedDict):
+    id: int
+    clave: str
+    nombre_completo: str
+    curp: str
+    empresa_nombre: str
+    estatus: str
+    is_restricted: bool
+    estatus_onboarding: str
+    email: str
+    telefono: str
+    descuentos_activos_hoy: list[DescuentoActivoUI]
+
+
 class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     """Estado para el módulo de Empleados"""
 
@@ -58,6 +81,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         "curp": "",
         "rfc": "",
         "nss": "",
+        "fecha_ingreso": "",
         "nombre": "",
         "apellido_paterno": "",
         "apellido_materno": "",
@@ -76,7 +100,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     }
     _campos_error: List[str] = [
         "curp", "rfc", "nss", "nombre", "apellido_paterno",
-        "email", "telefono", "empresa_id"
+        "email", "telefono", "empresa_id", "fecha_ingreso", "descuentos_recurrentes"
     ]
 
     # ========================
@@ -87,7 +111,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     # ========================
     # ESTADO DE DATOS
     # ========================
-    empleados: List[dict] = []
+    empleados: List[EmpleadoListadoUI] = []
     empleado_seleccionado: Optional[dict] = None
     total_empleados: int = 0
 
@@ -127,6 +151,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     form_curp: str = ""
     form_rfc: str = ""
     form_nss: str = ""
+    form_fecha_ingreso: str = ""
     form_nombre: str = ""
     form_apellido_paterno: str = ""
     form_apellido_materno: str = ""
@@ -140,6 +165,22 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     form_motivo_baja: str = ""
     form_fecha_efectiva: str = ""
     form_notas_baja: str = ""
+    form_descuento_infonavit_monto: str = ""
+    form_descuento_infonavit_inicio: str = ""
+    form_descuento_infonavit_fin: str = ""
+    form_descuento_infonavit_notas: str = ""
+    form_descuento_fonacot_monto: str = ""
+    form_descuento_fonacot_inicio: str = ""
+    form_descuento_fonacot_fin: str = ""
+    form_descuento_fonacot_notas: str = ""
+    form_descuento_prestamo_empresa_monto: str = ""
+    form_descuento_prestamo_empresa_inicio: str = ""
+    form_descuento_prestamo_empresa_fin: str = ""
+    form_descuento_prestamo_empresa_notas: str = ""
+    form_descuento_pension_alimenticia_monto: str = ""
+    form_descuento_pension_alimenticia_inicio: str = ""
+    form_descuento_pension_alimenticia_fin: str = ""
+    form_descuento_pension_alimenticia_notas: str = ""
 
     # Restricciones
     form_motivo_restriccion: str = ""
@@ -156,11 +197,13 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     error_curp: str = ""
     error_rfc: str = ""
     error_nss: str = ""
+    error_fecha_ingreso: str = ""
     error_nombre: str = ""
     error_apellido_paterno: str = ""
     error_email: str = ""
     error_telefono: str = ""
     error_empresa_id: str = ""
+    error_descuentos_recurrentes: str = ""
 
     # View toggle heredado de BaseState
 
@@ -211,6 +254,9 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
     def set_form_nss(self, value: str):
         self._set_form_plain_field("form_nss", value)
+
+    def set_form_fecha_ingreso(self, value: str):
+        self._set_form_fecha_ingreso_value(value)
 
     def set_form_nombre(self, value: str):
         self._set_form_upper_field("form_nombre", value)
@@ -263,6 +309,18 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     def set_form_notas_liberacion(self, value: str):
         self._set_form_plain_field("form_notas_liberacion", value)
 
+    def set_form_descuento_monto(self, form_key: str, value: str):
+        self._set_form_descuento_recurrente_field(form_key, "monto", value)
+
+    def set_form_descuento_inicio(self, form_key: str, value: str):
+        self._set_form_descuento_recurrente_field(form_key, "inicio", value)
+
+    def set_form_descuento_fin(self, form_key: str, value: str):
+        self._set_form_descuento_recurrente_field(form_key, "fin", value)
+
+    def set_form_descuento_notas(self, form_key: str, value: str):
+        self._set_form_descuento_recurrente_field(form_key, "notas", value)
+
     def set_pestaña_activa(self, value: str):
         self.pestaña_activa = value if value else "datos"
 
@@ -289,6 +347,9 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
             validador=validar_nss,
             error_attr="error_nss",
         )
+
+    def validar_fecha_ingreso_blur(self):
+        self._validar_fecha_ingreso_form()
 
     def validar_nombre_blur(self):
         self.validar_y_asignar_error(
@@ -355,7 +416,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         return opciones_desde_enum(MotivoBaja)
 
     @rx.var
-    def empleados_filtrados(self) -> List[dict]:
+    def empleados_filtrados(self) -> List["EmpleadoListadoUI"]:
         """Empleados filtrados por búsqueda local (adicional al filtro de BD)"""
         if not self.filtro_busqueda:
             return self.empleados
@@ -547,6 +608,11 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         self.loading = True
         try:
             empleado = await empleado_service.obtener_por_id(empleado_id)
+            descuentos_resumen = (
+                await empleado_descuento_recurrente_service.obtener_resumenes_ui_por_empleados(
+                    [empleado_id]
+                )
+            ).get(empleado_id, {})
 
             # Obtener nombre de empresa
             empresa_nombre = "Sin asignar"
@@ -588,6 +654,14 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 "restriction_reason": empleado.restriction_reason or "",
                 "restricted_at": empleado.restricted_at.isoformat() if empleado.restricted_at else "",
                 "restricted_by": str(empleado.restricted_by) if empleado.restricted_by else "",
+                "descuentos_configurados": descuentos_resumen.get(
+                    "descuentos_configurados",
+                    [],
+                ),
+                "descuentos_activos_hoy": descuentos_resumen.get(
+                    "descuentos_activos_hoy",
+                    [],
+                ),
             }
 
         except NotFoundError:
@@ -826,6 +900,10 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         if not self._validar_formulario():
             return rx.toast.error("Por favor corrija los errores del formulario")
 
+        descuentos_form = self._construir_descuentos_recurrentes_form()
+        if descuentos_form is None:
+            return rx.toast.error(self.error_descuentos_recurrentes or "Revise los descuentos recurrentes")
+
         # Validar que tenemos ID en modo edición
         if self.es_edicion and not self.empleado_id_edicion:
             return rx.toast.error("Error: No se encontró el ID del empleado a editar")
@@ -840,9 +918,16 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                     **self._payload_base_empleado(),
                 )
 
-                await empleado_service.actualizar(
+                empleado_actualizado = await empleado_service.actualizar(
                     self.empleado_id_edicion,  # Usar ID guardado
                     empleado_update
+                )
+                await empleado_descuento_recurrente_service.reemplazar_descuentos_empleado(
+                    empleado_actualizado.id,
+                    [
+                        descuento.model_copy(update={"empleado_id": empleado_actualizado.id})
+                        for descuento in descuentos_form
+                    ],
                 )
 
                 self.cerrar_modal_empleado()
@@ -858,6 +943,13 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 )
 
                 empleado = await empleado_service.crear(empleado_create)
+                await empleado_descuento_recurrente_service.reemplazar_descuentos_empleado(
+                    empleado.id,
+                    [
+                        descuento.model_copy(update={"empleado_id": empleado.id})
+                        for descuento in descuentos_form
+                    ],
+                )
 
                 self.cerrar_modal_empleado()
                 await self._fetch_empleados()
@@ -1032,6 +1124,10 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 except NotFoundError:
                     empresas_cache[emp.empresa_id] = "N/A"
 
+        descuentos_resumen = await empleado_descuento_recurrente_service.obtener_resumenes_ui_por_empleados(
+            [emp.id for emp in empleados if emp.id is not None]
+        )
+
         return [
             {
                 "id": emp.id,
@@ -1061,6 +1157,14 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 "restriction_reason": emp.restriction_reason or "",
                 "restricted_at": emp.restricted_at.isoformat() if emp.restricted_at else "",
                 "restricted_by": str(emp.restricted_by) if emp.restricted_by else "",
+                "descuentos_configurados": descuentos_resumen.get(emp.id, {}).get(
+                    "descuentos_configurados",
+                    [],
+                ),
+                "descuentos_activos_hoy": descuentos_resumen.get(emp.id, {}).get(
+                    "descuentos_activos_hoy",
+                    [],
+                ),
             }
             for emp in empleados
         ]
@@ -1109,8 +1213,19 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     # ========================
     def _limpiar_formulario(self):
         """Limpia el formulario usando configuración del mixin"""
-        self.empleado_id_edicion = 0
-        self._limpiar_formulario_crud()  # Usa _campos_formulario y _campos_error
+        self._reset_employee_form_fields(
+            error_fields=self._campos_error + ["fecha_ingreso", "descuentos_recurrentes"],
+            extra_defaults={
+                "form_empresa_id": "",
+                "form_motivo_baja": "",
+                "form_fecha_efectiva": "",
+                "form_notas_baja": "",
+                "form_motivo_restriccion": "",
+                "form_notas_restriccion": "",
+                "form_motivo_liberacion": "",
+                "form_notas_liberacion": "",
+            },
+        )
         if not self.es_admin:
             self.form_empresa_id = self._filtro_empresa_restringido_value()
 
@@ -1184,7 +1299,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es válido."""
-        return self._validar_formulario_empleado_compartido(
+        es_valido = self._validar_formulario_empleado_compartido(
             error_fields=self._campos_error,
             curp_validator=validar_curp,
             required_validations=[
@@ -1198,6 +1313,9 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 ("error_telefono", self.form_telefono, validar_telefono),
             ],
         )
+        if not self._validar_fecha_ingreso_form():
+            es_valido = False
+        return es_valido
 
     # ========================
     # EVENTO ON_MOUNT

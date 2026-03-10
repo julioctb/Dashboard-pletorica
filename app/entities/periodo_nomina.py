@@ -10,6 +10,8 @@ from typing import ClassVar, Optional
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
+from app.core.enums import ReglaCalculoQuincenal
+
 
 class PeriodoNomina(BaseModel):
     """
@@ -30,6 +32,7 @@ class PeriodoNomina(BaseModel):
 
     nombre: str = Field(..., max_length=100, description="Nombre descriptivo del período")
     periodicidad: str = Field(default='QUINCENAL')
+    regla_calculo_quincenal: Optional[ReglaCalculoQuincenal] = None
     fecha_inicio: date
     fecha_fin: date
     fecha_pago: Optional[date] = None
@@ -44,6 +47,8 @@ class PeriodoNomina(BaseModel):
     total_empleados: int = Field(default=0, ge=0)
 
     # Workflow — quién envió / cerró
+    creado_por: Optional[str] = None
+    creado_por_nombre: Optional[str] = None
     enviado_contabilidad_por: Optional[str] = None
     enviado_contabilidad_fecha: Optional[datetime] = None
     cerrado_por: Optional[str] = None
@@ -84,10 +89,13 @@ class PeriodoNominaCreate(BaseModel):
     contrato_id: Optional[int] = None
     nombre: str = Field(..., max_length=100)
     periodicidad: str = Field(default='QUINCENAL')
+    regla_calculo_quincenal: Optional[ReglaCalculoQuincenal] = None
     fecha_inicio: date
     fecha_fin: date
     fecha_pago: Optional[date] = None
     notas: Optional[str] = None
+    creado_por: Optional[str] = None
+    creado_por_nombre: Optional[str] = None
 
     @model_validator(mode='after')
     def validar_fechas(self) -> 'PeriodoNominaCreate':
@@ -107,6 +115,7 @@ class PeriodoNominaUpdate(BaseModel):
 
     nombre: Optional[str] = Field(None, max_length=100)
     periodicidad: Optional[str] = None
+    regla_calculo_quincenal: Optional[ReglaCalculoQuincenal] = None
     fecha_inicio: Optional[date] = None
     fecha_fin: Optional[date] = None
     fecha_pago: Optional[date] = None
@@ -122,6 +131,7 @@ class PeriodoNominaResumen(BaseModel):
     contrato_id: Optional[int] = None
     nombre: str
     periodicidad: str
+    regla_calculo_quincenal: Optional[ReglaCalculoQuincenal] = None
     fecha_inicio: date
     fecha_fin: date
     fecha_pago: Optional[date] = None
@@ -130,4 +140,6 @@ class PeriodoNominaResumen(BaseModel):
     total_deducciones: Decimal = Decimal('0')
     total_neto: Decimal = Decimal('0')
     total_empleados: int = 0
+    creado_por: Optional[str] = None
+    creado_por_nombre: Optional[str] = None
     fecha_creacion: Optional[datetime] = None

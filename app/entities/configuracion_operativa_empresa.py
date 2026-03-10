@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
 
+from app.core.enums import PeriodicidadNomina, ReglaCalculoQuincenal
+
 
 class ConfiguracionOperativaEmpresa(BaseModel):
     """Configuración operativa de una empresa (1:1)."""
@@ -19,18 +21,38 @@ class ConfiguracionOperativaEmpresa(BaseModel):
 
     id: Optional[int] = None
     empresa_id: int
+    tipo_nomina: PeriodicidadNomina = Field(
+        default=PeriodicidadNomina.QUINCENAL,
+        description="Periodicidad configurada para la nomina de la empresa",
+    )
+    regla_calculo_quincenal: ReglaCalculoQuincenal = Field(
+        default=ReglaCalculoQuincenal.MIXTA,
+        description="Regla de calculo del sueldo base en nomina quincenal",
+    )
+    contrato_nomina_id: Optional[int] = Field(
+        default=None,
+        description="Contrato base que delimita la operacion de nomina",
+    )
 
     dias_bloqueo_cuenta_antes_pago: int = Field(
         default=3, ge=1, le=10,
         description="Días antes del pago en que se bloquean cambios bancarios"
     )
     dia_pago_primera_quincena: int = Field(
-        default=15, ge=1, le=28,
+        default=15, ge=1, le=31,
         description="Día del mes para pago de primera quincena"
     )
     dia_pago_segunda_quincena: int = Field(
-        default=0, ge=0, le=28,
+        default=0, ge=0, le=31,
         description="Día del mes para pago de segunda quincena (0=último día)"
+    )
+    dia_pago_semanal: int = Field(
+        default=5, ge=1, le=7,
+        description="Dia de pago semanal usando base 1=Lunes ... 7=Domingo",
+    )
+    dia_pago_mensual: int = Field(
+        default=0, ge=0, le=31,
+        description="Dia de pago mensual (0=ultimo dia del mes)",
     )
 
     # Auditoría
@@ -44,9 +66,16 @@ class ConfiguracionOperativaEmpresaCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     empresa_id: int
+    tipo_nomina: PeriodicidadNomina = Field(default=PeriodicidadNomina.QUINCENAL)
+    regla_calculo_quincenal: ReglaCalculoQuincenal = Field(
+        default=ReglaCalculoQuincenal.MIXTA
+    )
+    contrato_nomina_id: Optional[int] = None
     dias_bloqueo_cuenta_antes_pago: int = Field(default=3, ge=1, le=10)
-    dia_pago_primera_quincena: int = Field(default=15, ge=1, le=28)
-    dia_pago_segunda_quincena: int = Field(default=0, ge=0, le=28)
+    dia_pago_primera_quincena: int = Field(default=15, ge=1, le=31)
+    dia_pago_segunda_quincena: int = Field(default=0, ge=0, le=31)
+    dia_pago_semanal: int = Field(default=5, ge=1, le=7)
+    dia_pago_mensual: int = Field(default=0, ge=0, le=31)
 
 
 class ConfiguracionOperativaEmpresaUpdate(BaseModel):
@@ -55,5 +84,10 @@ class ConfiguracionOperativaEmpresaUpdate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     dias_bloqueo_cuenta_antes_pago: Optional[int] = Field(None, ge=1, le=10)
-    dia_pago_primera_quincena: Optional[int] = Field(None, ge=1, le=28)
-    dia_pago_segunda_quincena: Optional[int] = Field(None, ge=0, le=28)
+    tipo_nomina: Optional[PeriodicidadNomina] = None
+    regla_calculo_quincenal: Optional[ReglaCalculoQuincenal] = None
+    contrato_nomina_id: Optional[int] = None
+    dia_pago_primera_quincena: Optional[int] = Field(None, ge=1, le=31)
+    dia_pago_segunda_quincena: Optional[int] = Field(None, ge=0, le=31)
+    dia_pago_semanal: Optional[int] = Field(None, ge=1, le=7)
+    dia_pago_mensual: Optional[int] = Field(None, ge=0, le=31)

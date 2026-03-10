@@ -5,6 +5,24 @@ Todas las versiones notables del proyecto se documentan en este archivo.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
 versionamiento basado en [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.8.1] - 2026-03-09
+
+### Added
+- Migracion 048 para refactor de plazas, migracion 049 para vincular plazas con sedes y migracion 050 para restaurar categorias de contrato en planeacion
+- Componentes de feedback compartidos y cobertura de pruebas para contratos, plazas, portal y utilidades de serializacion
+- Presentacion de contrato y sincronizacion de categorias/plazas desde planeacion
+
+### Changed
+- Refactor del modulo de plazas en entidades, repositorios, servicios, estados, modales y pagina de portal/backoffice
+- Uniformizacion de estilos y variantes en modales, inputs, tablas y filtros reutilizables
+- Ajustes de consultas/estados de contratos, cotizador y `mis_contratos` para mantener consistencia entre backoffice y portal
+- Se adopta versionado patch `0.8.x` para cambios menores compatibles y correctivos
+
+### Fixed
+- Error de `Select Item` con valor vacio
+- Flujo de asignacion de plazas a sedes
+- Consistencia de serializacion y actualizacion parcial de modelos compartidos
+
 ## [0.8.0] - 2026-03-07
 
 ### Added

@@ -131,7 +131,9 @@ class EmpresaService(BaseService):
             if not empresa.email:
                 logger.warning("Empresa de nomina creada sin email")
 
-        return await self.repository.crear(empresa)
+        empresa_creada = await self.repository.crear(empresa)
+        await self._asegurar_configuracion_nomina_default(empresa_creada)
+        return empresa_creada
 
     async def _generar_codigo_unico(self, nombre_comercial: str) -> str:
         """
@@ -166,7 +168,9 @@ class EmpresaService(BaseService):
             empresa_update,
             self.repository,
         )
-        return await self.repository.actualizar(empresa_modificada)
+        empresa_actualizada = await self.repository.actualizar(empresa_modificada)
+        await self._asegurar_configuracion_nomina_default(empresa_actualizada)
+        return empresa_actualizada
 
     async def cambiar_estatus(self, empresa_id: int, nuevo_estatus) -> bool:
         """
@@ -229,6 +233,18 @@ class EmpresaService(BaseService):
                 f"No se puede desactivar '{empresa.nombre_comercial}' porque tiene "
                 f"{len(contratos_operativos)} contrato(s) activo(s), suspendido(s) o en borrador"
             )
+
+    @staticmethod
+    async def _asegurar_configuracion_nomina_default(empresa: Empresa) -> None:
+        """Si la empresa activa nomina, garantiza que exista su config operativa."""
+        if not getattr(empresa, "gestion_nomina_activa", False) or not empresa.id:
+            return
+
+        from app.services.configuracion_operativa_service import (
+            configuracion_operativa_service,
+        )
+
+        await configuracion_operativa_service.obtener_o_crear_default(empresa.id)
 
 
 # Instancia global del servicio (singleton)

@@ -5,7 +5,11 @@ Tabla, cards, badges, acciones y filtros.
 """
 import reflex as rx
 
-from app.presentation.pages.empleados.empleados_state import EmpleadosState
+from app.presentation.pages.empleados.empleados_state import (
+    EmpleadosState,
+    EmpleadoListadoUI,
+    DescuentoActivoUI,
+)
 from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.reusable import employee_table
 from app.presentation.components.ui import (
@@ -55,11 +59,38 @@ def restriccion_badge(is_restricted) -> rx.Component:
     )
 
 
+def _badge_descuento(descuento: DescuentoActivoUI) -> rx.Component:
+    """Badge compacto para descuentos activos del empleado."""
+    return rx.tooltip(
+        rx.badge(
+            descuento["badge"],
+            color_scheme=descuento["color_scheme"],
+            variant="soft",
+            size="1",
+        ),
+        content=descuento["tooltip"],
+    )
+
+
+def descuentos_badges(descuentos: list[DescuentoActivoUI]) -> rx.Component:
+    """Badges agrupados de descuentos activos hoy."""
+    return rx.cond(
+        descuentos.length() > 0,
+        rx.hstack(
+            rx.foreach(descuentos, _badge_descuento),
+            spacing="1",
+            wrap="wrap",
+            width="100%",
+        ),
+        rx.text("-", size="2", color=Colors.TEXT_MUTED),
+    )
+
+
 # =============================================================================
 # ACCIONES
 # =============================================================================
 
-def acciones_empleado(empleado: dict) -> rx.Component:
+def acciones_empleado(empleado: EmpleadoListadoUI) -> rx.Component:
     """Acciones para cada empleado usando tabla_action_button."""
     # Condiciones de visibilidad
     es_activo = empleado["estatus"] == "ACTIVO"
@@ -134,12 +165,13 @@ ENCABEZADOS_EMPLEADOS = [
     {"nombre": "CURP", "ancho": "180px"},
     {"nombre": "Empresa", "ancho": "150px"},
     {"nombre": "Estatus", "ancho": "100px"},
+    {"nombre": "Descuentos", "ancho": "130px"},
     {"nombre": "Onboarding", "ancho": "130px"},
     {"nombre": "Acciones", "ancho": "120px"},
 ]
 
 
-def fila_empleado(empleado: dict) -> rx.Component:
+def fila_empleado(empleado: EmpleadoListadoUI) -> rx.Component:
     """Fila de la tabla para un empleado"""
     _abrir = lambda: EmpleadosState.abrir_modal_detalle(empleado)
     _cell_style = {"cursor": "pointer"}
@@ -175,6 +207,11 @@ def fila_empleado(empleado: dict) -> rx.Component:
                 restriccion_badge(empleado["is_restricted"]),
                 spacing="1",
             ),
+            on_click=_abrir, style=_cell_style,
+        ),
+        # Descuentos
+        rx.table.cell(
+            descuentos_badges(empleado["descuentos_activos_hoy"]),
             on_click=_abrir, style=_cell_style,
         ),
         # Onboarding
@@ -231,7 +268,7 @@ def tabla_empleados() -> rx.Component:
 # VISTA DE CARDS
 # =============================================================================
 
-def card_empleado(empleado: dict) -> rx.Component:
+def card_empleado(empleado: EmpleadoListadoUI) -> rx.Component:
     """Card individual para un empleado"""
     _abrir = lambda: EmpleadosState.abrir_modal_detalle(empleado)
     return rx.card(
@@ -277,6 +314,8 @@ def card_empleado(empleado: dict) -> rx.Component:
                     spacing="2",
                     align="center",
                 ),
+
+                descuentos_badges(empleado["descuentos_activos_hoy"]),
 
                 # Email (si existe)
                 rx.cond(

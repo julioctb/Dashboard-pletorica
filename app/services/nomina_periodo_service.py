@@ -7,19 +7,45 @@ estatus del período (workflow RRHH → Contabilidad).
 Patrón: Direct Access (sin repository).
 """
 import logging
+from calendar import monthrange
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
+from app.core.catalogs.nomina import (
+    detectar_periodo_actual,
+    generar_catalogo_periodos,
+    resolver_periodo_por_key,
+    resolver_quincena_por_key,
+)
+from app.core.enums import (
+    EstatusPlaza,
+    PeriodicidadNomina,
+    ReglaCalculoQuincenal,
+)
+from app.core.exceptions import (
+    BusinessRuleError,
+    DatabaseError,
+    DuplicateError,
+    NotFoundError,
+)
+from app.core.text_utils import formatear_moneda, normalizar_mayusculas
 from app.database import db_manager
-from app.core.enums import EstatusPlaza
-from app.core.exceptions import DatabaseError, NotFoundError, BusinessRuleError
+from app.entities.empleado_descuento_recurrente import (
+    DESCUENTOS_RECURRENTES_CLAVES,
+    DESCUENTOS_RECURRENTES_POR_CLAVE,
+)
+from app.entities.configuracion_operativa_empresa import (
+    ConfiguracionOperativaEmpresaUpdate,
+)
 from app.entities.periodo_nomina import PeriodoNomina
+from app.services.configuracion_operativa_service import configuracion_operativa_service
 
 logger = logging.getLogger(__name__)
 
 # Tipos de registro que impactan nómina
+_TIPOS_INASISTENCIA_NO_PAGADA = ('FALTA', 'PERMISO_SIN_GOCE')
 _TIPOS_INCAPACIDAD = ('INCAPACIDAD_ENFERMEDAD', 'INCAPACIDAD_RIESGO_TRABAJO', 'INCAPACIDAD_MATERNIDAD')
 _ESTATUS_REPOBLABLES = (
     'BORRADOR',
@@ -70,7 +96,7 @@ class NominaPeriodoService:
         Calcula los días pagables del período.
 
         La nómina base parte del período completo. Solo se descuentan
-        faltas e incapacidades; vacaciones siguen siendo días pagados.
+        inasistencias no pagadas e incapacidades; vacaciones siguen siendo días pagados.
         """
         return max(dias_periodo - dias_faltas - dias_incapacidad, 0)
 
@@ -78,6 +104,7 @@ class NominaPeriodoService:
         self,
         empresa_id: int,
         fecha_referencia: object,
+        contrato_id: Optional[int] = None,
     ) -> dict[int, float]:
         """
         Resuelve salario diario vigente por empleado desde plazas ocupadas vigentes.
@@ -87,29 +114,49 @@ class NominaPeriodoService:
         - Solo cuentan plazas `OCUPADA` con `empleado_id` asignado.
         - `plazas.salario_mensual` define el salario vigente de esa asignación.
         """
+        snapshot_por_empleado = self._mapear_plaza_vigente_por_empleado(
+            empresa_id=empresa_id,
+            fecha_referencia=fecha_referencia,
+            contrato_id=contrato_id,
+        )
+        return {
+            empleado_id: float(snapshot.get("salario_diario") or 0.0)
+            for empleado_id, snapshot in snapshot_por_empleado.items()
+        }
+
+    def _consultar_plazas_ocupadas_vigentes(
+        self,
+        empresa_id: int,
+        fecha_referencia: object,
+        contrato_id: Optional[int] = None,
+    ) -> list[dict]:
+        """Obtiene plazas ocupadas vigentes al corte, ordenadas por inicio más reciente."""
         fecha_corte = (
             fecha_referencia.isoformat()
             if isinstance(fecha_referencia, date)
             else str(fecha_referencia)
         )
 
-        res_contratos = (
-            self.supabase.table("contratos")
-            .select("id")
-            .eq("empresa_id", empresa_id)
-            .execute()
-        )
-        contrato_ids = [
-            item["id"]
-            for item in (res_contratos.data or [])
-            if item.get("id") is not None
-        ]
+        if contrato_id is not None:
+            contrato_ids = [contrato_id]
+        else:
+            res_contratos = (
+                self.supabase.table("contratos")
+                .select("id")
+                .eq("empresa_id", empresa_id)
+                .execute()
+            )
+            contrato_ids = [
+                item["id"]
+                for item in (res_contratos.data or [])
+                if item.get("id") is not None
+            ]
         if not contrato_ids:
-            return {}
+            return []
 
         res_plazas = (
             self.supabase.table("plazas")
-            .select("id, empleado_id, salario_mensual, fecha_inicio")
+            .select("id, empleado_id, salario_mensual, fecha_inicio, sede_id")
             .in_("contrato_id", contrato_ids)
             .eq("estatus", EstatusPlaza.OCUPADA.value)
             .lte("fecha_inicio", fecha_corte)
@@ -117,21 +164,43 @@ class NominaPeriodoService:
             .order("fecha_inicio", desc=True)
             .execute()
         )
-        plazas_ocupadas = res_plazas.data or []
+        return res_plazas.data or []
 
-        salario_diario_por_empleado: dict[int, float] = {}
+    def _mapear_plaza_vigente_por_empleado(
+        self,
+        empresa_id: int,
+        fecha_referencia: object,
+        contrato_id: Optional[int] = None,
+    ) -> dict[int, dict[str, object]]:
+        """
+        Resuelve el snapshot de plaza vigente por empleado al corte del período.
+
+        Una sola fuente de verdad para:
+        - salario diario usado por nómina
+        - sede asociada a la plaza vigente
+        """
+        plazas_ocupadas = self._consultar_plazas_ocupadas_vigentes(
+            empresa_id=empresa_id,
+            fecha_referencia=fecha_referencia,
+            contrato_id=contrato_id,
+        )
+
+        snapshot_por_empleado: dict[int, dict[str, object]] = {}
         for item in plazas_ocupadas:
             empleado_id = item.get("empleado_id")
             if empleado_id is None:
                 continue
-            if empleado_id in salario_diario_por_empleado:
+            if empleado_id in snapshot_por_empleado:
                 continue
-            salario_mensual = item.get("salario_mensual")
-            salario_diario_por_empleado[empleado_id] = self._salario_diario_desde_mensual(
-                salario_mensual
-            )
+            snapshot_por_empleado[int(empleado_id)] = {
+                "plaza_id": item.get("id"),
+                "sede_id": item.get("sede_id"),
+                "salario_diario": self._salario_diario_desde_mensual(
+                    item.get("salario_mensual")
+                ),
+            }
 
-        return salario_diario_por_empleado
+        return snapshot_por_empleado
 
     def _actualizar_total_empleados_periodo(self, periodo_id: int, total_empleados: int) -> None:
         """Mantiene sincronizado el snapshot agregado del período."""
@@ -141,6 +210,52 @@ class NominaPeriodoService:
 
     def _consultar_empleados_periodo(self, periodo_id: int) -> list[dict]:
         """Consulta los recibos del período con nombre y clave del empleado."""
+        periodo_result = (
+            self.supabase.table(self.tabla)
+            .select(
+                "empresa_id, contrato_id, fecha_fin, periodicidad, regla_calculo_quincenal"
+            )
+            .eq("id", periodo_id)
+            .limit(1)
+            .execute()
+        )
+        periodo = (periodo_result.data or [{}])[0]
+        plaza_por_empleado = self._mapear_plaza_vigente_por_empleado(
+            empresa_id=int(periodo.get("empresa_id") or 0),
+            fecha_referencia=periodo.get("fecha_fin") or date.today().isoformat(),
+            contrato_id=periodo.get("contrato_id"),
+        ) if periodo.get("empresa_id") else {}
+
+        sede_ids = {
+            int(snapshot.get("sede_id"))
+            for snapshot in plaza_por_empleado.values()
+            if snapshot.get("sede_id") is not None
+        }
+        sedes_map: dict[int, str] = {}
+        if sede_ids:
+            try:
+                sedes_result = (
+                    self.supabase.table("sedes")
+                    .select("id, nombre, nombre_corto")
+                    .in_("id", list(sede_ids))
+                    .execute()
+                )
+                sedes_map = {
+                    int(sede.get("id")): normalizar_mayusculas(
+                        str(sede.get("nombre_corto") or "").strip()
+                        or str(sede.get("nombre") or "").strip()
+                        or "Sin sede"
+                    )
+                    for sede in (sedes_result.data or [])
+                    if sede.get("id") is not None
+                }
+            except Exception as exc:
+                logger.warning(
+                    "No se pudo resolver la sede de plazas del período %s: %s",
+                    periodo_id,
+                    exc,
+                )
+
         result = (
             self.supabase.table(self.tabla_nom_emp)
             .select('*, empleados(nombre, apellido_paterno, clave)')
@@ -155,8 +270,274 @@ class NominaPeriodoService:
             apellido = emp.get('apellido_paterno', '')
             r['nombre_empleado'] = f"{nombre} {apellido}".strip()
             r['clave_empleado'] = emp.get('clave', '')
+            snapshot_plaza = plaza_por_empleado.get(int(r.get("empleado_id") or 0), {})
+            sede_id = snapshot_plaza.get("sede_id")
+            r["sede_nombre"] = (
+                sedes_map.get(int(sede_id), "SIN SEDE")
+                if sede_id is not None
+                else "SIN SEDE"
+            )
+            r["dias_trabajados_ui"] = self._dias_trabajados_ui_periodo(
+                periodo.get("periodicidad"),
+                periodo.get("regla_calculo_quincenal"),
+                r.get("dias_trabajados"),
+            )
             items.append(r)
         return items
+
+    def _adjuntar_descuentos_rrhh_periodo(self, items: list[dict]) -> list[dict]:
+        """Anexa badges de descuentos RRHH capturados para el período."""
+        nomina_empleado_ids = [item.get("id") for item in items if item.get("id") is not None]
+        if not nomina_empleado_ids:
+            return items
+
+        try:
+            result = (
+                self.supabase.table("nomina_movimientos")
+                .select(
+                    "nomina_empleado_id, monto, es_automatico, "
+                    "conceptos_nomina(clave, nombre)"
+                )
+                .in_("nomina_empleado_id", nomina_empleado_ids)
+                .eq("origen", "RRHH")
+                .execute()
+            )
+        except Exception as exc:
+            logger.warning(
+                "No se pudieron adjuntar descuentos RRHH del período: %s",
+                exc,
+            )
+            for item in items:
+                item["descuentos_rrhh"] = []
+            return items
+
+        descuentos_por_nomina: dict[int, list[dict]] = defaultdict(list)
+        for row in (result.data or []):
+            concepto = row.get("conceptos_nomina", {}) or {}
+            clave = str(concepto.get("clave") or "").strip().upper()
+            meta = DESCUENTOS_RECURRENTES_POR_CLAVE.get(clave)
+            if meta is None:
+                continue
+
+            nomina_empleado_id = row.get("nomina_empleado_id")
+            if nomina_empleado_id is None:
+                continue
+
+            monto_fmt = formatear_moneda(str(row.get("monto") or 0))
+            origen_label = "Perfil empleado" if row.get("es_automatico") else "RRHH manual"
+            descuentos_por_nomina[int(nomina_empleado_id)].append(
+                {
+                    "concepto_clave": clave,
+                    "concepto_nombre": concepto.get("nombre") or meta["nombre"],
+                    "badge": meta["badge"],
+                    "color_scheme": meta["color_scheme"],
+                    "monto_fmt": monto_fmt,
+                    "es_automatico": bool(row.get("es_automatico")),
+                    "origen_label": origen_label,
+                    "tooltip": f'{meta["nombre"]} · {monto_fmt} · {origen_label}',
+                }
+            )
+
+        for item in items:
+            descuentos = descuentos_por_nomina.get(int(item.get("id") or 0), [])
+            descuentos.sort(
+                key=lambda descuento: int(
+                    DESCUENTOS_RECURRENTES_POR_CLAVE.get(
+                        descuento["concepto_clave"],
+                        {},
+                    ).get("orden", 999)
+                )
+            )
+            item["descuentos_rrhh"] = descuentos
+
+        return items
+
+    def _rango_catalogo_periodos(self) -> tuple[date, date]:
+        """Ventana del select: solo el mes actual."""
+        hoy = date.today()
+        return date(hoy.year, hoy.month, 1), date(
+            hoy.year,
+            hoy.month,
+            monthrange(hoy.year, hoy.month)[1],
+        )
+
+    def _duplicated_period_error(self, nombre: Optional[str] = None) -> DuplicateError:
+        """Mensaje canónico para colisión de períodos."""
+        return DuplicateError(
+            "Ya existe una nómina para ese período en la empresa.",
+            field="periodo_key",
+            value=nombre,
+        )
+
+    @staticmethod
+    def _leer_config(config: object, campo: str, default):
+        valor = getattr(config, campo, default)
+        return default if valor is None else valor
+
+    def _periodicidad_configurada(self, config: object) -> str:
+        tipo_nomina = self._leer_config(
+            config,
+            "tipo_nomina",
+            PeriodicidadNomina.QUINCENAL.value,
+        )
+        if isinstance(tipo_nomina, PeriodicidadNomina):
+            return tipo_nomina.value
+        return str(tipo_nomina or PeriodicidadNomina.QUINCENAL.value)
+
+    def _contexto_politica_nomina(self, config: object) -> tuple[str, dict[str, int]]:
+        """Normaliza periodicidad y defaults de pago para helpers de periodos."""
+        return self._periodicidad_configurada(config), {
+            "dia_pago_primera_quincena": self._leer_config(
+                config,
+                "dia_pago_primera_quincena",
+                15,
+            ),
+            "dia_pago_segunda_quincena": self._leer_config(
+                config,
+                "dia_pago_segunda_quincena",
+                0,
+            ),
+            "dia_pago_semanal": self._leer_config(config, "dia_pago_semanal", 5),
+            "dia_pago_mensual": self._leer_config(config, "dia_pago_mensual", 0),
+        }
+
+    def _regla_calculo_quincenal_configurada(self, config: object) -> str:
+        valor = self._leer_config(
+            config,
+            "regla_calculo_quincenal",
+            ReglaCalculoQuincenal.MIXTA.value,
+        )
+        if isinstance(valor, ReglaCalculoQuincenal):
+            return valor.value
+        try:
+            return ReglaCalculoQuincenal(str(valor or "").upper()).value
+        except ValueError:
+            logger.warning(
+                "Regla de cálculo quincenal inválida en configuración: %s. Se usa MIXTA.",
+                valor,
+            )
+            return ReglaCalculoQuincenal.MIXTA.value
+
+    def _snapshot_regla_calculo_quincenal(
+        self,
+        periodicidad: str | PeriodicidadNomina,
+        config: object,
+    ) -> Optional[str]:
+        periodicidad_value = (
+            periodicidad.value if isinstance(periodicidad, PeriodicidadNomina)
+            else str(periodicidad or PeriodicidadNomina.QUINCENAL.value)
+        )
+        if periodicidad_value != PeriodicidadNomina.QUINCENAL.value:
+            return None
+        return self._regla_calculo_quincenal_configurada(config)
+
+    def _dias_trabajados_ui_periodo(
+        self,
+        periodicidad: object,
+        regla_calculo_quincenal: object,
+        dias_trabajados: object,
+    ) -> int:
+        """Topa a 15 solo la vista de preparación quincenal con regla MIXTA."""
+        try:
+            dias = max(int(dias_trabajados or 0), 0)
+        except (TypeError, ValueError):
+            return 0
+
+        periodicidad_value = (
+            periodicidad.value
+            if isinstance(periodicidad, PeriodicidadNomina)
+            else str(periodicidad or "")
+        )
+        if periodicidad_value != PeriodicidadNomina.QUINCENAL.value:
+            return dias
+
+        regla = (
+            regla_calculo_quincenal.value
+            if isinstance(regla_calculo_quincenal, ReglaCalculoQuincenal)
+            else str(
+                regla_calculo_quincenal or ReglaCalculoQuincenal.MIXTA.value
+            ).upper()
+        )
+        if regla == ReglaCalculoQuincenal.MIXTA.value:
+            return min(dias, 15)
+        return dias
+
+    async def _asegurar_modulo_nomina_activo(self, empresa_id: int) -> None:
+        from app.services import empresa_service
+
+        empresa = await empresa_service.obtener_por_id(empresa_id)
+        if not bool(getattr(empresa, "gestion_nomina_activa", False)):
+            raise BusinessRuleError(
+                "La gestión de nómina no está activa para la empresa seleccionada."
+            )
+
+    async def _obtener_configuracion_nomina(
+        self,
+        empresa_id: int,
+        *,
+        validar_modulo: bool = True,
+    ):
+        if validar_modulo:
+            await self._asegurar_modulo_nomina_activo(empresa_id)
+        return await configuracion_operativa_service.obtener_o_crear_default(empresa_id)
+
+    async def _obtener_contrato_nomina_id_configurado(
+        self,
+        empresa_id: int,
+        *,
+        requerido: bool = False,
+    ) -> Optional[int]:
+        config = await self._obtener_configuracion_nomina(empresa_id)
+        contrato_id = self._leer_config(config, "contrato_nomina_id", None)
+        if contrato_id is None:
+            if requerido:
+                raise BusinessRuleError(
+                    "Configura un contrato base de nómina antes de generar periodos."
+                )
+            return None
+
+        await configuracion_operativa_service.validar_contrato_nomina(
+            empresa_id,
+            int(contrato_id),
+        )
+        return int(contrato_id)
+
+    async def _resolver_contrato_nomina_id_periodo(
+        self,
+        empresa_id: int,
+        contrato_id: Optional[int],
+    ) -> int:
+        if contrato_id is not None:
+            await configuracion_operativa_service.validar_contrato_nomina(
+                empresa_id,
+                int(contrato_id),
+            )
+            return int(contrato_id)
+
+        contrato_configurado = await self._obtener_contrato_nomina_id_configurado(
+            empresa_id,
+            requerido=True,
+        )
+        if contrato_configurado is None:
+            raise BusinessRuleError(
+                "Selecciona un contrato base de nómina antes de generar periodos."
+            )
+        return int(contrato_configurado)
+
+    async def _sincronizar_contrato_nomina_configurado(
+        self,
+        empresa_id: int,
+        contrato_id: Optional[int],
+    ) -> None:
+        if contrato_id is None:
+            return
+
+        await configuracion_operativa_service.crear_o_actualizar(
+            empresa_id,
+            ConfiguracionOperativaEmpresaUpdate(
+                contrato_nomina_id=int(contrato_id),
+            ),
+        )
 
     # =========================================================================
     # CREACIÓN
@@ -169,9 +550,12 @@ class NominaPeriodoService:
         fecha_inicio: date,
         fecha_fin: date,
         periodicidad: str = 'QUINCENAL',
+        regla_calculo_quincenal: Optional[str] = None,
         contrato_id: Optional[int] = None,
         fecha_pago: Optional[date] = None,
         notas: Optional[str] = None,
+        creado_por: Optional[str] = None,
+        creado_por_nombre: Optional[str] = None,
     ) -> dict:
         """
         Crea un nuevo período de nómina en estatus BORRADOR.
@@ -193,20 +577,204 @@ class NominaPeriodoService:
             'fecha_fin': fecha_fin.isoformat(),
             'estatus': 'BORRADOR',
         }
+        if regla_calculo_quincenal is not None:
+            datos['regla_calculo_quincenal'] = regla_calculo_quincenal
         if contrato_id is not None:
             datos['contrato_id'] = contrato_id
         if fecha_pago is not None:
             datos['fecha_pago'] = fecha_pago.isoformat()
         if notas is not None:
             datos['notas'] = notas
+        if creado_por:
+            datos['creado_por'] = creado_por
+        if creado_por_nombre:
+            datos['creado_por_nombre'] = creado_por_nombre
 
         try:
             result = self.supabase.table(self.tabla).insert(datos).execute()
             logger.info(f"Período '{nombre}' creado (empresa {empresa_id})")
             return result.data[0]
+        except DuplicateError:
+            raise
         except Exception as e:
+            error_text = str(e).lower()
+            if "duplicate" in error_text or "unique" in error_text:
+                logger.warning(
+                    "Período duplicado para empresa %s [%s - %s]",
+                    empresa_id,
+                    fecha_inicio,
+                    fecha_fin,
+                )
+                raise self._duplicated_period_error(nombre)
             logger.error(f"Error creando período '{nombre}': {e}")
             raise DatabaseError(f"Error creando período de nómina: {e}")
+
+    async def listar_periodos_disponibles(self, empresa_id: int) -> list[dict]:
+        """Retorna catálogo de periodos disponibles según la política activa."""
+        try:
+            config = await self._obtener_configuracion_nomina(empresa_id)
+            periodicidad, politica_kwargs = self._contexto_politica_nomina(config)
+            fecha_inicio_catalogo, fecha_fin_catalogo = self._rango_catalogo_periodos()
+
+            result = (
+                self.supabase.table(self.tabla)
+                .select('fecha_inicio, fecha_fin')
+                .eq('empresa_id', empresa_id)
+                .gte('fecha_inicio', fecha_inicio_catalogo.isoformat())
+                .lte('fecha_fin', fecha_fin_catalogo.isoformat())
+                .execute()
+            )
+            rangos_existentes = {
+                (
+                    item.get('fecha_inicio'),
+                    item.get('fecha_fin'),
+                )
+                for item in (result.data or [])
+                if item.get('fecha_inicio') and item.get('fecha_fin')
+            }
+
+            catalogo = generar_catalogo_periodos(
+                periodicidad,
+                fecha_inicio_catalogo=fecha_inicio_catalogo,
+                fecha_fin_catalogo=fecha_fin_catalogo,
+                **politica_kwargs,
+            )
+
+            return [
+                periodo.to_option()
+                for periodo in catalogo
+                if (
+                    periodo.fecha_inicio.isoformat(),
+                    periodo.fecha_fin.isoformat(),
+                ) not in rangos_existentes
+            ]
+        except DatabaseError:
+            raise
+        except Exception as e:
+            logger.error(
+                "Error listando periodos disponibles para empresa %s: %s",
+                empresa_id,
+                e,
+            )
+            raise DatabaseError(f"Error listando periodos disponibles: {e}")
+
+    async def listar_quincenas_disponibles(self, empresa_id: int) -> list[dict]:
+        """Compatibilidad: devuelve el catálogo configurado de periodos."""
+        return await self.listar_periodos_disponibles(empresa_id)
+
+    async def crear_periodo_configurado(
+        self,
+        empresa_id: int,
+        periodo_key: str,
+        contrato_id: Optional[int] = None,
+        fecha_pago_override: Optional[date] = None,
+        usuario_id: Optional[str] = None,
+        usuario_nombre: Optional[str] = None,
+        notas: Optional[str] = None,
+    ) -> dict:
+        """Crea un periodo usando la política activa de nómina de la empresa."""
+        config = await self._obtener_configuracion_nomina(empresa_id)
+        periodicidad, politica_kwargs = self._contexto_politica_nomina(config)
+        contrato_id_resuelto = await self._resolver_contrato_nomina_id_periodo(
+            empresa_id,
+            contrato_id,
+        )
+        periodo_calculado = resolver_periodo_por_key(
+            periodo_key,
+            periodicidad,
+            **politica_kwargs,
+        )
+
+        fecha_pago = fecha_pago_override or periodo_calculado.fecha_pago_sugerida
+        if fecha_pago < periodo_calculado.fecha_inicio:
+            raise BusinessRuleError(
+                "fecha_pago debe ser mayor o igual a la fecha de inicio del periodo"
+            )
+
+        periodo = await self.crear_periodo(
+            empresa_id=empresa_id,
+            nombre=periodo_calculado.nombre,
+            fecha_inicio=periodo_calculado.fecha_inicio,
+            fecha_fin=periodo_calculado.fecha_fin,
+            periodicidad=periodo_calculado.periodicidad.value,
+            regla_calculo_quincenal=self._snapshot_regla_calculo_quincenal(
+                periodo_calculado.periodicidad,
+                config,
+            ),
+            contrato_id=contrato_id_resuelto,
+            fecha_pago=fecha_pago,
+            notas=notas,
+            creado_por=usuario_id,
+            creado_por_nombre=usuario_nombre,
+        )
+        await self._sincronizar_contrato_nomina_configurado(
+            empresa_id,
+            contrato_id_resuelto,
+        )
+        total_empleados = await self.poblar_empleados(periodo['id'])
+        return {
+            **periodo,
+            'total_empleados_poblados': total_empleados,
+        }
+
+    async def crear_periodo_quincenal(
+        self,
+        empresa_id: int,
+        quincena_key: str,
+        fecha_pago_override: Optional[date] = None,
+        usuario_id: Optional[str] = None,
+        usuario_nombre: Optional[str] = None,
+        contrato_id: Optional[int] = None,
+        notas: Optional[str] = None,
+    ) -> dict:
+        """Compatibilidad con el flujo quincenal previo."""
+        config = await self._obtener_configuracion_nomina(empresa_id)
+        contrato_nomina_id = await self._resolver_contrato_nomina_id_periodo(
+            empresa_id,
+            contrato_id,
+        )
+        quincena = resolver_quincena_por_key(
+            quincena_key=quincena_key,
+            dia_pago_primera_quincena=self._leer_config(
+                config,
+                "dia_pago_primera_quincena",
+                15,
+            ),
+            dia_pago_segunda_quincena=self._leer_config(
+                config,
+                "dia_pago_segunda_quincena",
+                0,
+            ),
+        )
+
+        fecha_pago = fecha_pago_override or quincena.fecha_pago_sugerida
+        if fecha_pago < quincena.fecha_inicio:
+            raise BusinessRuleError(
+                "fecha_pago debe ser mayor o igual a la fecha de inicio de la quincena"
+            )
+
+        periodo = await self.crear_periodo(
+            empresa_id=empresa_id,
+            nombre=quincena.nombre,
+            fecha_inicio=quincena.fecha_inicio,
+            fecha_fin=quincena.fecha_fin,
+            periodicidad='QUINCENAL',
+            regla_calculo_quincenal=self._regla_calculo_quincenal_configurada(config),
+            contrato_id=contrato_nomina_id,
+            fecha_pago=fecha_pago,
+            notas=notas,
+            creado_por=usuario_id,
+            creado_por_nombre=usuario_nombre,
+        )
+        await self._sincronizar_contrato_nomina_configurado(
+            empresa_id,
+            contrato_nomina_id,
+        )
+        total_empleados = await self.poblar_empleados(periodo['id'])
+        return {
+            **periodo,
+            'total_empleados_poblados': total_empleados,
+        }
 
     # =========================================================================
     # POBLAR EMPLEADOS
@@ -231,6 +799,7 @@ class NominaPeriodoService:
         """
         periodo = await self.obtener_periodo(periodo_id)
         empresa_id = periodo['empresa_id']
+        contrato_id = periodo.get('contrato_id')
         fecha_inicio = periodo['fecha_inicio']
         fecha_fin = periodo['fecha_fin']
 
@@ -238,6 +807,7 @@ class NominaPeriodoService:
             salario_diario_por_empleado = self._mapear_salario_diario_por_empleado(
                 empresa_id=empresa_id,
                 fecha_referencia=fecha_fin,
+                contrato_id=contrato_id,
             )
             empleado_ids_con_plaza = list(salario_diario_por_empleado.keys())
             if not empleado_ids_con_plaza:
@@ -294,8 +864,10 @@ class NominaPeriodoService:
                 .eq('empresa_id', empresa_id)
                 .gte('fecha', fecha_inicio)
                 .lte('fecha', fecha_fin)
-                .execute()
             )
+            if contrato_id is not None:
+                res_asist = res_asist.eq('contrato_id', contrato_id)
+            res_asist = res_asist.execute()
             asistencias_raw = res_asist.data or []
 
             # 3. Agrupar asistencias por empleado
@@ -315,7 +887,9 @@ class NominaPeriodoService:
                 asistencias = por_empleado.get(emp_id, [])
 
                 dias_faltas = sum(
-                    1 for a in asistencias if a['tipo_registro'] == 'FALTA'
+                    1
+                    for a in asistencias
+                    if a['tipo_registro'] in _TIPOS_INASISTENCIA_NO_PAGADA
                 )
                 dias_incapacidad = sum(
                     1 for a in asistencias if a['tipo_registro'] in _TIPOS_INCAPACIDAD
@@ -396,6 +970,122 @@ class NominaPeriodoService:
             logger.error(f"Error poblando empleados del período {periodo_id}: {e}")
             raise DatabaseError(f"Error poblando empleados del período: {e}")
 
+    async def _materializar_descuentos_recurrentes_rrhh(self, periodo: dict) -> int:
+        """Genera snapshot de descuentos recurrentes vigentes al iniciar preparación."""
+        from app.services.empleado_descuento_recurrente_service import (
+            empleado_descuento_recurrente_service,
+        )
+
+        periodo_id = int(periodo["id"])
+        items = self._consultar_empleados_periodo(periodo_id)
+        if not items:
+            total = await self.poblar_empleados(periodo_id)
+            if total <= 0:
+                return 0
+            items = self._consultar_empleados_periodo(periodo_id)
+            if not items:
+                return 0
+
+        empleado_ids = [
+            int(item["empleado_id"])
+            for item in items
+            if item.get("empleado_id") is not None
+        ]
+        if not empleado_ids:
+            return 0
+
+        fecha_inicio = date.fromisoformat(str(periodo["fecha_inicio"]))
+        fecha_fin = date.fromisoformat(str(periodo["fecha_fin"]))
+        descuentos_vigentes = await empleado_descuento_recurrente_service.obtener_vigentes_en_rango(
+            empleado_ids,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+        )
+        if not descuentos_vigentes:
+            return 0
+
+        conceptos_result = (
+            self.supabase.table("conceptos_nomina")
+            .select("id, clave")
+            .in_("clave", list(DESCUENTOS_RECURRENTES_CLAVES))
+            .execute()
+        )
+        concepto_ids = {
+            str(item.get("clave") or "").strip().upper(): item.get("id")
+            for item in (conceptos_result.data or [])
+            if item.get("id") is not None
+        }
+        if not concepto_ids:
+            logger.warning(
+                "Período %s: no se encontraron conceptos de nómina para descuentos RRHH",
+                periodo_id,
+            )
+            return 0
+
+        nomina_empleado_ids = [
+            int(item["id"])
+            for item in items
+            if item.get("id") is not None
+        ]
+        existentes_result = (
+            self.supabase.table("nomina_movimientos")
+            .select("nomina_empleado_id, concepto_id")
+            .in_("nomina_empleado_id", nomina_empleado_ids)
+            .eq("origen", "RRHH")
+            .execute()
+        )
+        existentes = {
+            (
+                int(item.get("nomina_empleado_id")),
+                int(item.get("concepto_id")),
+            )
+            for item in (existentes_result.data or [])
+            if item.get("nomina_empleado_id") is not None
+            and item.get("concepto_id") is not None
+        }
+
+        payload: list[dict] = []
+        for item in items:
+            nomina_empleado_id = item.get("id")
+            empleado_id = item.get("empleado_id")
+            if nomina_empleado_id is None or empleado_id is None:
+                continue
+
+            for descuento in descuentos_vigentes.get(int(empleado_id), []):
+                concepto_id = concepto_ids.get(descuento.concepto_clave)
+                if concepto_id is None:
+                    continue
+
+                llave = (int(nomina_empleado_id), int(concepto_id))
+                if llave in existentes:
+                    continue
+
+                payload.append(
+                    {
+                        "nomina_empleado_id": int(nomina_empleado_id),
+                        "concepto_id": int(concepto_id),
+                        "tipo": "DEDUCCION",
+                        "origen": "RRHH",
+                        "monto": float(descuento.monto_periodico),
+                        "monto_gravable": 0.0,
+                        "monto_exento": 0.0,
+                        "es_automatico": True,
+                        "notas": descuento.notas or None,
+                    }
+                )
+                existentes.add(llave)
+
+        if not payload:
+            return 0
+
+        self.supabase.table("nomina_movimientos").insert(payload).execute()
+        logger.info(
+            "Período %s: se generaron %s descuento(s) recurrente(s) RRHH",
+            periodo_id,
+            len(payload),
+        )
+        return len(payload)
+
     # =========================================================================
     # WORKFLOW
     # =========================================================================
@@ -427,6 +1117,9 @@ class NominaPeriodoService:
                 f"Transiciones válidas desde '{estatus_actual}': "
                 f"{PeriodoNomina.TRANSICIONES_VALIDAS.get(estatus_actual, [])}"
             )
+
+        if nuevo_estatus == 'EN_PREPARACION_RRHH':
+            await self._materializar_descuentos_recurrentes_rrhh(periodo)
 
         from datetime import datetime, timezone
         ahora = datetime.now(timezone.utc).isoformat()
@@ -487,8 +1180,9 @@ class NominaPeriodoService:
         self,
         empresa_id: int,
         estatus: Optional[str] = None,
+        estatuses: Optional[list[str]] = None,
     ) -> list[dict]:
-        """Lista períodos de una empresa, opcionalmente filtrados por estatus."""
+        """Lista períodos de una empresa."""
         try:
             query = (
                 self.supabase.table(self.tabla)
@@ -498,6 +1192,8 @@ class NominaPeriodoService:
             )
             if estatus:
                 query = query.eq('estatus', estatus)
+            elif estatuses:
+                query = query.in_('estatus', estatuses)
             result = query.execute()
             return result.data or []
         except Exception as e:
@@ -513,18 +1209,99 @@ class NominaPeriodoService:
         try:
             items = self._consultar_empleados_periodo(periodo_id)
             if items:
-                return items
+                return self._adjuntar_descuentos_rrhh_periodo(items)
 
             periodo = await self.obtener_periodo(periodo_id)
             if periodo.get('estatus') in _ESTATUS_REPOBLABLES:
                 total = await self.poblar_empleados(periodo_id)
                 if total > 0:
-                    return self._consultar_empleados_periodo(periodo_id)
+                    return self._adjuntar_descuentos_rrhh_periodo(
+                        self._consultar_empleados_periodo(periodo_id)
+                    )
 
             return []
         except Exception as e:
             logger.error(f"Error obteniendo empleados del período {periodo_id}: {e}")
             raise DatabaseError(f"Error obteniendo empleados del período: {e}")
+
+    async def obtener_resumen_operativo_actual(
+        self,
+        empresa_id: int,
+        *,
+        fecha_referencia: Optional[date] = None,
+        contrato_id: Optional[int] = None,
+    ) -> dict:
+        """Cards operativas de /portal/nominas calculadas por calendario actual."""
+        config = await self._obtener_configuracion_nomina(empresa_id)
+        periodicidad, politica_kwargs = self._contexto_politica_nomina(config)
+        periodo_actual = detectar_periodo_actual(
+            periodicidad,
+            fecha_referencia=fecha_referencia,
+            **politica_kwargs,
+        )
+
+        resumen = {
+            "periodicidad": periodicidad,
+            "periodo_actual_titulo": periodo_actual.titulo_actual,
+            "periodo_actual_rango": periodo_actual.rango_actual_label,
+            "periodo_actual_label": periodo_actual.label,
+            "periodo_actual_inicio": periodo_actual.fecha_inicio.isoformat(),
+            "periodo_actual_fin": periodo_actual.fecha_fin.isoformat(),
+            "total_plazas": 0,
+            "activos": 0,
+            "inasistencias": 0,
+            "incapacidades": 0,
+            "warning": "",
+        }
+
+        contrato_nomina_id = contrato_id
+        if contrato_nomina_id is None:
+            contrato_nomina_id = self._leer_config(config, "contrato_nomina_id", None)
+        if contrato_nomina_id is None:
+            resumen["warning"] = (
+                "Selecciona un contrato base de nómina para calcular plazas e incidencias."
+            )
+            return resumen
+
+        try:
+            await configuracion_operativa_service.validar_contrato_nomina(
+                empresa_id,
+                int(contrato_nomina_id),
+            )
+        except BusinessRuleError as e:
+            resumen["warning"] = str(e)
+            return resumen
+
+        from app.services import plaza_service
+
+        totales_plaza = await plaza_service.calcular_totales_contrato(int(contrato_nomina_id))
+        resumen["total_plazas"] = int(totales_plaza.total_plazas or 0)
+        resumen["activos"] = int(totales_plaza.plazas_ocupadas or 0)
+
+        faltas_result = (
+            self.supabase.table("registros_asistencia")
+            .select("id", count="exact")
+            .eq("empresa_id", empresa_id)
+            .eq("contrato_id", int(contrato_nomina_id))
+            .in_("tipo_registro", list(_TIPOS_INASISTENCIA_NO_PAGADA))
+            .gte("fecha", periodo_actual.fecha_inicio.isoformat())
+            .lte("fecha", periodo_actual.fecha_fin.isoformat())
+            .execute()
+        )
+        resumen["inasistencias"] = int(faltas_result.count or 0)
+
+        incapacidades_result = (
+            self.supabase.table("registros_asistencia")
+            .select("id", count="exact")
+            .eq("empresa_id", empresa_id)
+            .eq("contrato_id", int(contrato_nomina_id))
+            .in_("tipo_registro", list(_TIPOS_INCAPACIDAD))
+            .gte("fecha", periodo_actual.fecha_inicio.isoformat())
+            .lte("fecha", periodo_actual.fecha_fin.isoformat())
+            .execute()
+        )
+        resumen["incapacidades"] = int(incapacidades_result.count or 0)
+        return resumen
 
 
 # Singleton

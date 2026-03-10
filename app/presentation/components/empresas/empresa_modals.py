@@ -200,6 +200,25 @@ def modal_empresa() -> rx.Component:
                         spacing="2",
                         width="100%"
                     ),
+                    rx.hstack(
+                        rx.switch(
+                            checked=EmpresasState.form_gestion_nomina_activa,
+                            on_change=EmpresasState.set_form_gestion_nomina_activa,
+                        ),
+                        rx.vstack(
+                            rx.text("Gestion de nomina activa", weight="medium", size="2"),
+                            rx.text(
+                                "Habilita configuracion operativa y acceso al modulo de nominas para la empresa.",
+                                size="1",
+                                color="gray",
+                            ),
+                            spacing="1",
+                            align="start",
+                        ),
+                        spacing="3",
+                        align="center",
+                        width="100%",
+                    ),
 
                     form_textarea(
                         label="Notas",
@@ -298,6 +317,22 @@ def modal_detalle_empresa() -> rx.Component:
                                 rx.vstack(
                                     rx.text("Tipo:", weight="bold", size="2"),
                                     rx.badge(EmpresasState.empresa_seleccionada.tipo_empresa.to_string()),
+                                    align="start"
+                                ),
+                                rx.vstack(
+                                    rx.text("Nomina:", weight="bold", size="2"),
+                                    rx.badge(
+                                        rx.cond(
+                                            EmpresasState.empresa_seleccionada.gestion_nomina_activa,
+                                            "ACTIVA",
+                                            "INACTIVA",
+                                        ),
+                                        color_scheme=rx.cond(
+                                            EmpresasState.empresa_seleccionada.gestion_nomina_activa,
+                                            "blue",
+                                            "gray",
+                                        ),
+                                    ),
                                     align="start"
                                 ),
                                 columns="2",

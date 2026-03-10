@@ -17,10 +17,13 @@ from app.presentation.components.reusable import (
     employee_bank_data_section,
     employee_birth_gender_row,
     employee_curp_field,
+    employee_date_field,
     employee_emergency_contact_section,
     employee_name_fields_section,
     employee_notes_field,
     employee_phone_email_row,
+    employee_recurring_discount_card,
+    employee_recurring_discounts_section,
     employee_rfc_nss_row,
 )
 
@@ -58,6 +61,8 @@ def modal_empleado() -> rx.Component:
                 # RFC y NSS (obligatorios)
                 _campos_rfc_nss(),
 
+                _campo_fecha_ingreso(),
+
                 # Fecha nacimiento y genero (obligatorios)
                 _campos_fecha_genero(),
 
@@ -76,6 +81,8 @@ def modal_empleado() -> rx.Component:
                 # Notas
                 _campo_notas(),
 
+                _seccion_descuentos_recurrentes_form(),
+
                 padding_y=Spacing.BASE,
             ),
         on_cancel=MisEmpleadosState.cerrar_modal_empleado,
@@ -89,6 +96,86 @@ def modal_empleado() -> rx.Component:
         save_loading_text="Guardando...",
         save_color_scheme="teal",
         max_width="600px",
+    )
+
+
+def _campo_fecha_ingreso() -> rx.Component:
+    """Campo fecha de ingreso visible en create/edit."""
+    return employee_date_field(
+        label="Fecha de ingreso",
+        required=True,
+        value=MisEmpleadosState.form_fecha_ingreso,
+        on_change=MisEmpleadosState.set_form_fecha_ingreso,
+        on_blur=MisEmpleadosState.validar_fecha_ingreso_blur,
+        error=MisEmpleadosState.error_fecha_ingreso,
+        helper_text=rx.text(
+            "Se usa como fecha inicial sugerida para descuentos recurrentes nuevos.",
+            font_size=Typography.SIZE_XS,
+            color=Colors.TEXT_SECONDARY,
+        ),
+    )
+
+
+def _seccion_descuentos_recurrentes_form() -> rx.Component:
+    """Sección de descuentos recurrentes en la ficha del empleado."""
+    return employee_recurring_discounts_section(
+        employee_recurring_discount_card(
+            title="INFONAVIT",
+            badge_text="INF",
+            badge_color_scheme="blue",
+            amount_value=MisEmpleadosState.form_descuento_infonavit_monto,
+            amount_on_change=lambda value: MisEmpleadosState.set_form_descuento_monto("infonavit", value),
+            start_value=MisEmpleadosState.form_descuento_infonavit_inicio,
+            start_on_change=lambda value: MisEmpleadosState.set_form_descuento_inicio("infonavit", value),
+            end_value=MisEmpleadosState.form_descuento_infonavit_fin,
+            end_on_change=lambda value: MisEmpleadosState.set_form_descuento_fin("infonavit", value),
+            notes_value=MisEmpleadosState.form_descuento_infonavit_notas,
+            notes_on_change=lambda value: MisEmpleadosState.set_form_descuento_notas("infonavit", value),
+        ),
+        employee_recurring_discount_card(
+            title="FONACOT",
+            badge_text="FON",
+            badge_color_scheme="orange",
+            amount_value=MisEmpleadosState.form_descuento_fonacot_monto,
+            amount_on_change=lambda value: MisEmpleadosState.set_form_descuento_monto("fonacot", value),
+            start_value=MisEmpleadosState.form_descuento_fonacot_inicio,
+            start_on_change=lambda value: MisEmpleadosState.set_form_descuento_inicio("fonacot", value),
+            end_value=MisEmpleadosState.form_descuento_fonacot_fin,
+            end_on_change=lambda value: MisEmpleadosState.set_form_descuento_fin("fonacot", value),
+            notes_value=MisEmpleadosState.form_descuento_fonacot_notas,
+            notes_on_change=lambda value: MisEmpleadosState.set_form_descuento_notas("fonacot", value),
+        ),
+        employee_recurring_discount_card(
+            title="Préstamo empresa",
+            badge_text="PRE",
+            badge_color_scheme="teal",
+            amount_value=MisEmpleadosState.form_descuento_prestamo_empresa_monto,
+            amount_on_change=lambda value: MisEmpleadosState.set_form_descuento_monto("prestamo_empresa", value),
+            start_value=MisEmpleadosState.form_descuento_prestamo_empresa_inicio,
+            start_on_change=lambda value: MisEmpleadosState.set_form_descuento_inicio("prestamo_empresa", value),
+            end_value=MisEmpleadosState.form_descuento_prestamo_empresa_fin,
+            end_on_change=lambda value: MisEmpleadosState.set_form_descuento_fin("prestamo_empresa", value),
+            notes_value=MisEmpleadosState.form_descuento_prestamo_empresa_notas,
+            notes_on_change=lambda value: MisEmpleadosState.set_form_descuento_notas("prestamo_empresa", value),
+        ),
+        employee_recurring_discount_card(
+            title="Pensión alimenticia",
+            badge_text="PEN",
+            badge_color_scheme="red",
+            amount_value=MisEmpleadosState.form_descuento_pension_alimenticia_monto,
+            amount_on_change=lambda value: MisEmpleadosState.set_form_descuento_monto("pension_alimenticia", value),
+            start_value=MisEmpleadosState.form_descuento_pension_alimenticia_inicio,
+            start_on_change=lambda value: MisEmpleadosState.set_form_descuento_inicio("pension_alimenticia", value),
+            end_value=MisEmpleadosState.form_descuento_pension_alimenticia_fin,
+            end_on_change=lambda value: MisEmpleadosState.set_form_descuento_fin("pension_alimenticia", value),
+            notes_value=MisEmpleadosState.form_descuento_pension_alimenticia_notas,
+            notes_on_change=lambda value: MisEmpleadosState.set_form_descuento_notas("pension_alimenticia", value),
+        ),
+        error=MisEmpleadosState.error_descuentos_recurrentes,
+        helper_text=(
+            "Capture solo descuentos configurados. Si la fecha fin queda vacía, "
+            "el descuento se considera indefinido."
+        ),
     )
 
 
@@ -325,6 +412,7 @@ def modal_detalle_empleado() -> rx.Component:
                             width="100%",
                         ),
                     ),
+                    _seccion_descuentos_detalle(),
                     _seccion_detalle(
                         "Datos bancarios actuales",
                         "credit-card",
@@ -610,6 +698,105 @@ def _campo_detalle(
         ),
         width="100%",
         grid_column="1 / -1" if ancho_completo else "auto",
+    )
+
+
+def _badge_descuento_empleado(descuento: dict) -> rx.Component:
+    """Badge con tooltip para descuentos configurados."""
+    return rx.tooltip(
+        rx.badge(
+            descuento["badge"],
+            color_scheme=descuento["color_scheme"],
+            variant="soft",
+            size="1",
+        ),
+        content=descuento["tooltip"],
+    )
+
+
+def _fila_descuento_detalle(descuento: dict) -> rx.Component:
+    """Fila de detalle para descuentos recurrentes."""
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.hstack(
+                    _badge_descuento_empleado(descuento),
+                    rx.text(
+                        descuento["concepto_nombre"],
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
+                    spacing="2",
+                    align="center",
+                ),
+                rx.spacer(),
+                rx.text(
+                    descuento["monto_periodico_fmt"],
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                ),
+                width="100%",
+                align="center",
+            ),
+            rx.text(
+                descuento["vigencia"],
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_SECONDARY,
+            ),
+            rx.cond(
+                descuento["notas"] != "",
+                rx.text(
+                    descuento["notas"],
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                rx.fragment(),
+            ),
+            spacing="1",
+            width="100%",
+        ),
+        width="100%",
+        padding_y=Spacing.XS,
+        border_bottom=f"1px solid {Colors.BORDER}",
+    )
+
+
+def _seccion_descuentos_detalle() -> rx.Component:
+    """Sección de solo lectura para descuentos recurrentes."""
+    descuentos_configurados = MisEmpleadosState.empleado_detalle.get(
+        "descuentos_configurados",
+        [],
+    ).to(list[dict])
+    descuentos_activos = MisEmpleadosState.empleado_detalle.get(
+        "descuentos_activos_hoy",
+        [],
+    ).to(list[dict])
+    return _seccion_detalle(
+        "Descuentos recurrentes",
+        "circle-minus",
+        rx.cond(
+            descuentos_configurados.length() > 0,
+            rx.vstack(
+                rx.hstack(
+                    rx.foreach(descuentos_activos, _badge_descuento_empleado),
+                    spacing="2",
+                    wrap="wrap",
+                    width="100%",
+                ),
+                rx.vstack(
+                    rx.foreach(descuentos_configurados, _fila_descuento_detalle),
+                    spacing="0",
+                    width="100%",
+                ),
+                spacing="3",
+                width="100%",
+            ),
+            rx.text(
+                "No hay descuentos recurrentes configurados.",
+                color=Colors.TEXT_SECONDARY,
+                font_size=Typography.SIZE_SM,
+            ),
+        ),
     )
 
 

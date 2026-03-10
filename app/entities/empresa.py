@@ -85,6 +85,10 @@ class Empresa(BaseModel):
 
     # Control de estado
     estatus: EstatusEmpresa = Field(default=EstatusEmpresa.ACTIVO)
+    gestion_nomina_activa: bool = Field(
+        default=False,
+        description="Si la empresa tiene habilitado el modulo de nomina",
+    )
     notas: Optional[str] = pydantic_field(CAMPO_NOTAS)
 
     # Auditoría
@@ -232,6 +236,7 @@ class EmpresaCreate(BaseModel):
     registro_patronal: Optional[str] = Field(None, max_length=15)
     prima_riesgo: Optional[Decimal] = None
     estatus: EstatusEmpresa = Field(default=EstatusEmpresa.ACTIVO)
+    gestion_nomina_activa: bool = Field(default=False)
     notas: Optional[str] = None
 
 
@@ -256,6 +261,7 @@ class EmpresaUpdate(BaseModel):
     registro_patronal: Optional[str] = Field(None, max_length=15)
     prima_riesgo: Optional[Decimal] = None
     estatus: Optional[EstatusEmpresa] = None
+    gestion_nomina_activa: Optional[bool] = None
     notas: Optional[str] = None
 
 
@@ -274,6 +280,7 @@ class EmpresaResumen(BaseModel):
     rfc: str
     tipo_empresa: TipoEmpresa
     estatus: EstatusEmpresa
+    gestion_nomina_activa: bool = False
     contacto_principal: Optional[str]
     email: Optional[str]
     fecha_creacion: datetime
@@ -291,6 +298,7 @@ class EmpresaResumen(BaseModel):
             rfc=empresa.rfc,
             tipo_empresa=empresa.tipo_empresa,
             estatus=empresa.estatus,
+            gestion_nomina_activa=empresa.gestion_nomina_activa,
             contacto_principal=empresa.telefono,
             email=empresa.email,
             fecha_creacion=empresa.fecha_creacion,

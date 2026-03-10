@@ -73,6 +73,45 @@ def employee_email_field(
     )
 
 
+def employee_date_field(
+    *,
+    label: str,
+    value: Any,
+    on_change,
+    on_blur=None,
+    error: Any = None,
+    required: bool = False,
+    helper_text: Any = None,
+) -> rx.Component:
+    """Campo de fecha reutilizable con label y helper opcional."""
+    return rx.vstack(
+        rx.text(
+            f"{label} *" if required else label,
+            font_size=Typography.SIZE_SM,
+            font_weight=Typography.WEIGHT_MEDIUM,
+        ),
+        rx.input(
+            type="date",
+            value=value,
+            on_change=on_change,
+            on_blur=on_blur,
+            width="100%",
+        ),
+        rx.cond(
+            error != "",
+            rx.text(
+                error,
+                font_size=Typography.SIZE_XS,
+                color=Colors.ERROR,
+            ),
+            rx.fragment(),
+        ) if error is not None else rx.fragment(),
+        helper_text if helper_text is not None else rx.fragment(),
+        width="100%",
+        spacing="1",
+    )
+
+
 def employee_phone_email_row(
     *,
     telefono_value: Any,
@@ -127,6 +166,138 @@ def employee_phone_email_row(
         ),
         spacing="3",
         width="100%",
+    )
+
+
+def employee_recurring_discount_card(
+    *,
+    title: str,
+    badge_text: str,
+    badge_color_scheme: str,
+    amount_value: Any,
+    amount_on_change,
+    start_value: Any,
+    start_on_change,
+    end_value: Any,
+    end_on_change,
+    notes_value: Any,
+    notes_on_change,
+    helper_text: str = "",
+) -> rx.Component:
+    """Bloque reusable para capturar un descuento recurrente específico."""
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.hstack(
+                    rx.badge(
+                        badge_text,
+                        color_scheme=badge_color_scheme,
+                        variant="soft",
+                        size="1",
+                    ),
+                    rx.text(
+                        title,
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                    ),
+                    spacing="2",
+                    align="center",
+                ),
+                rx.spacer(),
+                width="100%",
+                align="center",
+            ),
+            rx.cond(
+                helper_text != "",
+                rx.text(
+                    helper_text,
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                rx.fragment(),
+            ),
+            rx.hstack(
+                _field_stack(
+                    label="Monto por período",
+                    value=amount_value,
+                    on_change=amount_on_change,
+                    placeholder="Ej: 1500.00",
+                ),
+                employee_date_field(
+                    label="Fecha inicio",
+                    value=start_value,
+                    on_change=start_on_change,
+                ),
+                spacing="3",
+                width="100%",
+                align="start",
+            ),
+            rx.hstack(
+                employee_date_field(
+                    label="Fecha fin",
+                    value=end_value,
+                    on_change=end_on_change,
+                    helper_text=rx.text(
+                        "Vacía = indefinido",
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                ),
+                employee_notes_field(
+                    value=notes_value,
+                    on_change=notes_on_change,
+                    label="Notas",
+                    placeholder="Referencia o detalles opcionales",
+                    rows="2",
+                ),
+                spacing="3",
+                width="100%",
+                align="start",
+            ),
+            spacing="3",
+            width="100%",
+        ),
+        width="100%",
+        padding="12px",
+        border=f"1px solid {Colors.BORDER}",
+        border_radius="8px",
+        background=Colors.SURFACE,
+    )
+
+
+def employee_recurring_discounts_section(
+    *children,
+    error: Any = None,
+    helper_text: str = "",
+) -> rx.Component:
+    """Sección reusable para los descuentos recurrentes del empleado."""
+    return rx.vstack(
+        rx.text(
+            "Descuentos recurrentes",
+            font_size=Typography.SIZE_SM,
+            font_weight=Typography.WEIGHT_MEDIUM,
+        ),
+        rx.cond(
+            helper_text != "",
+            rx.text(
+                helper_text,
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_SECONDARY,
+            ),
+            rx.fragment(),
+        ),
+        rx.cond(
+            error != "",
+            rx.text(
+                error,
+                font_size=Typography.SIZE_XS,
+                color=Colors.ERROR,
+            ),
+            rx.fragment(),
+        ) if error is not None else rx.fragment(),
+        *children,
+        width="100%",
+        spacing="3",
     )
 
 

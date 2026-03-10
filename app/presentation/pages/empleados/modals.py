@@ -13,10 +13,13 @@ from app.presentation.components.reusable import (
     employee_address_field,
     employee_birth_gender_row,
     employee_curp_field,
+    employee_date_field,
     employee_emergency_contact_section,
     employee_name_fields_section,
     employee_notes_field,
     employee_phone_email_row,
+    employee_recurring_discount_card,
+    employee_recurring_discounts_section,
     employee_rfc_nss_row,
 )
 from app.presentation.components.ui import boton_cancelar, boton_guardar, identifier_badge
@@ -100,6 +103,8 @@ def modal_empleado() -> rx.Component:
                     nss_placeholder="11 dígitos",
                 ),
 
+                _campo_fecha_ingreso(),
+
                 # Fecha nacimiento y género
                 employee_birth_gender_row(
                     fecha_value=EmpleadosState.form_fecha_nacimiento,
@@ -151,6 +156,8 @@ def modal_empleado() -> rx.Component:
                     placeholder="Observaciones adicionales",
                 ),
 
+                _seccion_descuentos_recurrentes_form(),
+
                 padding_y="4",
         ),
         on_cancel=EmpleadosState.cerrar_modal_empleado,
@@ -163,6 +170,169 @@ def modal_empleado() -> rx.Component:
         saving=EmpleadosState.saving,
         save_loading_text="Guardando...",
         max_width="600px",
+    )
+
+
+def _campo_fecha_ingreso() -> rx.Component:
+    """Campo reusable de fecha de ingreso para backoffice."""
+    return employee_date_field(
+        label="Fecha de Ingreso",
+        required=True,
+        value=EmpleadosState.form_fecha_ingreso,
+        on_change=EmpleadosState.set_form_fecha_ingreso,
+        on_blur=EmpleadosState.validar_fecha_ingreso_blur,
+        error=EmpleadosState.error_fecha_ingreso,
+        helper_text=rx.text(
+            "Se autocompleta con la fecha actual al crear, pero sigue siendo editable.",
+            font_size=Typography.SIZE_XS,
+            color=Colors.TEXT_SECONDARY,
+        ),
+    )
+
+
+def _seccion_descuentos_recurrentes_form() -> rx.Component:
+    """Sección de descuentos recurrentes en el formulario de empleado."""
+    return employee_recurring_discounts_section(
+        employee_recurring_discount_card(
+            title="INFONAVIT",
+            badge_text="INF",
+            badge_color_scheme="blue",
+            amount_value=EmpleadosState.form_descuento_infonavit_monto,
+            amount_on_change=lambda value: EmpleadosState.set_form_descuento_monto("infonavit", value),
+            start_value=EmpleadosState.form_descuento_infonavit_inicio,
+            start_on_change=lambda value: EmpleadosState.set_form_descuento_inicio("infonavit", value),
+            end_value=EmpleadosState.form_descuento_infonavit_fin,
+            end_on_change=lambda value: EmpleadosState.set_form_descuento_fin("infonavit", value),
+            notes_value=EmpleadosState.form_descuento_infonavit_notas,
+            notes_on_change=lambda value: EmpleadosState.set_form_descuento_notas("infonavit", value),
+        ),
+        employee_recurring_discount_card(
+            title="FONACOT",
+            badge_text="FON",
+            badge_color_scheme="orange",
+            amount_value=EmpleadosState.form_descuento_fonacot_monto,
+            amount_on_change=lambda value: EmpleadosState.set_form_descuento_monto("fonacot", value),
+            start_value=EmpleadosState.form_descuento_fonacot_inicio,
+            start_on_change=lambda value: EmpleadosState.set_form_descuento_inicio("fonacot", value),
+            end_value=EmpleadosState.form_descuento_fonacot_fin,
+            end_on_change=lambda value: EmpleadosState.set_form_descuento_fin("fonacot", value),
+            notes_value=EmpleadosState.form_descuento_fonacot_notas,
+            notes_on_change=lambda value: EmpleadosState.set_form_descuento_notas("fonacot", value),
+        ),
+        employee_recurring_discount_card(
+            title="Préstamo empresa",
+            badge_text="PRE",
+            badge_color_scheme="teal",
+            amount_value=EmpleadosState.form_descuento_prestamo_empresa_monto,
+            amount_on_change=lambda value: EmpleadosState.set_form_descuento_monto("prestamo_empresa", value),
+            start_value=EmpleadosState.form_descuento_prestamo_empresa_inicio,
+            start_on_change=lambda value: EmpleadosState.set_form_descuento_inicio("prestamo_empresa", value),
+            end_value=EmpleadosState.form_descuento_prestamo_empresa_fin,
+            end_on_change=lambda value: EmpleadosState.set_form_descuento_fin("prestamo_empresa", value),
+            notes_value=EmpleadosState.form_descuento_prestamo_empresa_notas,
+            notes_on_change=lambda value: EmpleadosState.set_form_descuento_notas("prestamo_empresa", value),
+        ),
+        employee_recurring_discount_card(
+            title="Pensión alimenticia",
+            badge_text="PEN",
+            badge_color_scheme="red",
+            amount_value=EmpleadosState.form_descuento_pension_alimenticia_monto,
+            amount_on_change=lambda value: EmpleadosState.set_form_descuento_monto("pension_alimenticia", value),
+            start_value=EmpleadosState.form_descuento_pension_alimenticia_inicio,
+            start_on_change=lambda value: EmpleadosState.set_form_descuento_inicio("pension_alimenticia", value),
+            end_value=EmpleadosState.form_descuento_pension_alimenticia_fin,
+            end_on_change=lambda value: EmpleadosState.set_form_descuento_fin("pension_alimenticia", value),
+            notes_value=EmpleadosState.form_descuento_pension_alimenticia_notas,
+            notes_on_change=lambda value: EmpleadosState.set_form_descuento_notas("pension_alimenticia", value),
+        ),
+        error=EmpleadosState.error_descuentos_recurrentes,
+        helper_text=(
+            "Capture solo los descuentos configurados. Si deja la fecha fin vacía, "
+            "el descuento se considera indefinido."
+        ),
+    )
+
+
+def _badge_descuento_empleado(descuento: dict) -> rx.Component:
+    """Badge compacto con tooltip para descuentos configurados."""
+    return rx.tooltip(
+        rx.badge(
+            descuento["badge"],
+            color_scheme=descuento["color_scheme"],
+            variant="soft",
+            size="1",
+        ),
+        content=descuento["tooltip"],
+    )
+
+
+def _fila_descuento_detalle(descuento: dict) -> rx.Component:
+    """Fila de lectura para descuentos configurados del empleado."""
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.hstack(
+                    _badge_descuento_empleado(descuento),
+                    rx.text(descuento["concepto_nombre"], size="2", weight="medium"),
+                    spacing="2",
+                    align="center",
+                ),
+                rx.spacer(),
+                rx.text(descuento["monto_periodico_fmt"], size="2", weight="medium"),
+                width="100%",
+                align="center",
+            ),
+            rx.text(descuento["vigencia"], size="1", color="gray"),
+            rx.cond(
+                descuento["notas"] != "",
+                rx.text(descuento["notas"], size="1", color="gray"),
+                rx.fragment(),
+            ),
+            width="100%",
+            spacing="1",
+        ),
+        width="100%",
+        padding_y="6px",
+        border_bottom=f"1px solid {Colors.BORDER}",
+    )
+
+
+def _seccion_descuentos_detalle() -> rx.Component:
+    """Sección de lectura para descuentos configurados del empleado."""
+    descuentos_configurados = EmpleadosState.empleado_seleccionado[
+        "descuentos_configurados"
+    ].to(list[dict])
+    descuentos_activos = EmpleadosState.empleado_seleccionado[
+        "descuentos_activos_hoy"
+    ].to(list[dict])
+    return rx.vstack(
+        rx.text("Descuentos Recurrentes", weight="bold", size="3"),
+        rx.cond(
+            descuentos_configurados.length() > 0,
+            rx.vstack(
+                rx.hstack(
+                    rx.foreach(descuentos_activos, _badge_descuento_empleado),
+                    spacing="2",
+                    wrap="wrap",
+                    width="100%",
+                ),
+                rx.vstack(
+                    rx.foreach(descuentos_configurados, _fila_descuento_detalle),
+                    width="100%",
+                    spacing="0",
+                ),
+                width="100%",
+                spacing="3",
+            ),
+            rx.text(
+                "No hay descuentos recurrentes configurados.",
+                size="2",
+                color="gray",
+            ),
+        ),
+        spacing="2",
+        width="100%",
+        align_items="start",
     )
 
 
@@ -319,6 +489,10 @@ def modal_detalle_empleado() -> rx.Component:
                             width="100%",
                             align_items="start",
                         ),
+
+                        rx.divider(),
+
+                        _seccion_descuentos_detalle(),
 
                         rx.divider(),
 

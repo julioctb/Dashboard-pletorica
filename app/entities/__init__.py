@@ -64,6 +64,7 @@ from app.core.enums import (
     # Enums de Nómina — Operación
     EstatusPeriodoNomina,
     PeriodicidadNomina,
+    ReglaCalculoQuincenal,
     OrigenMovimiento,
     EstatusNominaEmpleado,
 )
@@ -157,6 +158,10 @@ from app.entities.empleado import (
     EmpleadoCreate,
     EmpleadoUpdate,
     EmpleadoResumen,
+)
+from app.entities.empleado_descuento_recurrente import (
+    EmpleadoDescuentoRecurrente,
+    EmpleadoDescuentoRecurrenteCreate,
 )
 
 # Historial Laboral
@@ -578,6 +583,7 @@ __all__ = [
     # Enums Nómina — Operación
     "EstatusPeriodoNomina",
     "PeriodicidadNomina",
+    "ReglaCalculoQuincenal",
     "OrigenMovimiento",
     "EstatusNominaEmpleado",
     # Concepto Nómina

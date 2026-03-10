@@ -32,6 +32,7 @@ import reflex as rx
 from app.presentation.theme import (
     Colors,
     Typography,
+    CardStyles,
     Shadows,
     Radius,
     Transitions,
@@ -43,7 +44,7 @@ def metric_card(
     valor: rx.Var | str,
     icono: str,
     color_scheme: str = "blue",
-    href: str | None = None,
+    href: rx.Var | str | None = None,
     descripcion: rx.Var | str | None = None,
 ) -> rx.Component:
     """
@@ -93,7 +94,7 @@ def metric_card(
             align_items="start",
         ),
         rx.spacer(),
-        # Icono con fondo circular temático
+        # Icono con contenedor temático redondeado
         rx.center(
             rx.icon(icono, size=24, color=f"var(--{color_scheme}-9)"),
             width="48px",
@@ -111,13 +112,14 @@ def metric_card(
         card_content,
         width="100%",
         style={
+            **CardStyles.BASE,
             "_hover": {"box_shadow": Shadows.MD},
             "transition": Transitions.FAST,
         },
     )
 
     # Si tiene href, envolver en link
-    if href:
+    if href is not None:
         return rx.link(
             card,
             href=href,

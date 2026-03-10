@@ -16,14 +16,14 @@ from app.presentation.pages.nominas.nomina_modals import (
     dialog_enviar_contabilidad,
 )
 from app.presentation.components.ui import (
+    filtros_inline,
+    identifier_badge,
     payroll_period_status_badge,
     tabla_vacia,
+    table_pagination,
     table_shell,
-    table_cell_text_sm,
-    skeleton_tabla,
-    breadcrumb_dynamic,
 )
-from app.presentation.layout import page_layout, page_header
+from app.presentation.layout import page_layout, page_header, page_toolbar
 from app.presentation.theme import Colors, Spacing, Typography, Radius
 
 
@@ -61,6 +61,39 @@ def _resumen_periodo() -> rx.Component:
             rx.vstack(
                 rx.text("Periodicidad", size="1", color=Colors.TEXT_MUTED),
                 rx.text(NominaRRHHState.periodo_actual['periodicidad'], size="3"),
+                spacing="0",
+                align="start",
+            ),
+            rx.separator(orientation="vertical", size="2"),
+            rx.vstack(
+                rx.text("Fecha de pago", size="1", color=Colors.TEXT_MUTED),
+                rx.text(
+                    NominaRRHHState.periodo_actual["fecha_pago_fmt"],
+                    size="3",
+                    weight="medium",
+                ),
+                spacing="0",
+                align="start",
+            ),
+            rx.separator(orientation="vertical", size="2"),
+            rx.vstack(
+                rx.text("Generada", size="1", color=Colors.TEXT_MUTED),
+                rx.text(
+                    NominaRRHHState.periodo_actual["fecha_creacion_fmt"],
+                    size="3",
+                    weight="medium",
+                ),
+                spacing="0",
+                align="start",
+            ),
+            rx.separator(orientation="vertical", size="2"),
+            rx.vstack(
+                rx.text("Generado por", size="1", color=Colors.TEXT_MUTED),
+                rx.text(
+                    NominaRRHHState.periodo_actual["creado_por_nombre_fmt"],
+                    size="3",
+                    weight="medium",
+                ),
                 spacing="0",
                 align="start",
             ),
@@ -105,7 +138,7 @@ def _botones_accion_periodo() -> rx.Component:
     return rx.hstack(
         # Si es BORRADOR → Iniciar preparación
         rx.cond(
-            NominaRRHHState.periodo_es_borrador & NominaRRHHState.es_rrhh,
+            NominaRRHHState.periodo_es_borrador & NominaRRHHState.puede_abrir_preparacion,
             rx.button(
                 rx.icon("circle-play", size=15),
                 "Iniciar preparación",
@@ -118,7 +151,7 @@ def _botones_accion_periodo() -> rx.Component:
         ),
         # Si está EN_PREPARACION → Enviar a Contabilidad
         rx.cond(
-            NominaRRHHState.puede_enviar_a_contabilidad & NominaRRHHState.es_rrhh,
+            NominaRRHHState.puede_enviar_a_contabilidad & NominaRRHHState.puede_abrir_preparacion,
             rx.button(
                 rx.icon("send", size=15),
                 "Enviar a Contabilidad",
@@ -150,22 +183,79 @@ def _botones_accion_periodo() -> rx.Component:
 # =============================================================================
 
 ENCABEZADOS = [
-    {"nombre": "Clave", "ancho": "80px"},
     {"nombre": "Nombre", "ancho": "200px"},
-    {"nombre": "Días trab.", "ancho": "80px"},
-    {"nombre": "Faltas", "ancho": "70px"},
-    {"nombre": "H.E. dobles", "ancho": "90px"},
-    {"nombre": "H.E. triples", "ancho": "90px"},
-    {"nombre": "Domingos", "ancho": "80px"},
-    {"nombre": "Descuentos", "ancho": "90px"},
-    {"nombre": "Acciones", "ancho": "80px"},
+    {"nombre": "Sede", "ancho": "160px", "header_align": "center"},
+    {"nombre": "Días trab.", "ancho": "90px", "header_align": "center"},
+    {"nombre": "Faltas", "ancho": "80px", "header_align": "center"},
+    {"nombre": "H.E. dobles", "ancho": "100px", "header_align": "center"},
+    {"nombre": "H.E. triples", "ancho": "100px", "header_align": "center"},
+    {"nombre": "Domingos", "ancho": "90px", "header_align": "center"},
+    {"nombre": "Descuentos", "ancho": "110px", "header_align": "center"},
+    {"nombre": "Acciones", "ancho": "90px", "header_align": "center"},
 ]
+
+
+def _badge_descuento_rrhh(descuento: dict) -> rx.Component:
+    """Badge con tooltip para descuentos RRHH del período."""
+    return rx.tooltip(
+        identifier_badge(
+            descuento["badge"],
+            color_scheme=descuento["color_scheme"],
+            variant="soft",
+            size="1",
+            width="38px",
+            justify_content="center",
+            text_align="center",
+        ),
+        content=descuento["tooltip"],
+    )
+
+
+def _celda_descuentos_rrhh(empleado: dict) -> rx.Component:
+    """Renderiza descuentos capturados/materializados en el período."""
+    descuentos_typed = empleado["descuentos_rrhh"].to(list[dict])
+    return _celda_centrada(
+        rx.cond(
+            descuentos_typed.length() > 0,
+            rx.flex(
+                rx.foreach(descuentos_typed, _badge_descuento_rrhh),
+                gap="1",
+                wrap="wrap",
+                justify="center",
+                width="100%",
+            ),
+            rx.text("—", size="2", color=Colors.TEXT_MUTED),
+        ),
+    )
+
+
+def _celda_centrada(content: rx.Component) -> rx.Component:
+    return rx.table.cell(
+        rx.flex(
+            content,
+            justify="center",
+            align="center",
+            width="100%",
+        ),
+        text_align="center",
+    )
+
+
+def _texto_celda_centrada(value) -> rx.Component:
+    return _celda_centrada(
+        rx.text(
+            value,
+            size="2",
+            color=Colors.TEXT_MUTED,
+            width="100%",
+            text_align="center",
+        ),
+    )
 
 
 def _fila_empleado(empleado: dict) -> rx.Component:
     """Fila de la tabla de empleados en preparación."""
     return rx.table.row(
-        table_cell_text_sm(empleado['clave_empleado'], tone="muted"),
         rx.table.cell(
             rx.text(
                 empleado['nombre_empleado'],
@@ -177,15 +267,28 @@ def _fila_empleado(empleado: dict) -> rx.Component:
                 white_space="nowrap",
             ),
         ),
-        rx.table.cell(
+        _celda_centrada(
+            rx.text(
+                empleado["sede_nombre"],
+                size="2",
+                color=Colors.TEXT_MUTED,
+                max_width="160px",
+                overflow="hidden",
+                text_overflow="ellipsis",
+                white_space="nowrap",
+                width="100%",
+                text_align="center",
+            ),
+        ),
+        _celda_centrada(
             rx.badge(
-                empleado['dias_trabajados'].to(str),
+                empleado['dias_trabajados_ui'].to(str),
                 color_scheme='green',
                 variant='soft',
                 size='1',
             ),
         ),
-        rx.table.cell(
+        _celda_centrada(
             rx.cond(
                 empleado['dias_faltas'].to(int) > 0,
                 rx.badge(
@@ -197,23 +300,20 @@ def _fila_empleado(empleado: dict) -> rx.Component:
                 rx.text("—", size="2", color=Colors.TEXT_MUTED),
             ),
         ),
-        table_cell_text_sm(empleado['horas_extra_dobles'].to(str), tone="muted"),
-        table_cell_text_sm(empleado['horas_extra_triples'].to(str), tone="muted"),
-        table_cell_text_sm(empleado['domingos_trabajados'].to(str), tone="muted"),
-        # Descuentos badge (placeholder — no count fácil sin computed var)
-        rx.table.cell(
-            rx.badge("RRHH", color_scheme="orange", variant="soft", size="1"),
-        ),
-        rx.table.cell(
+        _texto_celda_centrada(empleado['horas_extra_dobles'].to(str)),
+        _texto_celda_centrada(empleado['horas_extra_triples'].to(str)),
+        _texto_celda_centrada(empleado['domingos_trabajados'].to(str)),
+        _celda_descuentos_rrhh(empleado),
+        _celda_centrada(
             rx.tooltip(
                 rx.icon_button(
-                    rx.icon("circle-minus", size=15),
+                    rx.icon("badge-dollar-sign", size=15),
                     size="2",
                     variant="soft",
                     color_scheme="orange",
                     on_click=NominaRRHHState.abrir_modal_descuento(empleado),
                 ),
-                content="Descuentos manuales",
+                content="Capturar descuentos manuales",
             ),
         ),
     )
@@ -223,16 +323,52 @@ def _tabla_empleados() -> rx.Component:
     return table_shell(
         loading=NominaRRHHState.loading,
         headers=ENCABEZADOS,
-        rows=NominaRRHHState.empleados_periodo,
+        rows=NominaRRHHState.empleados_periodo_paginados,
         row_renderer=_fila_empleado,
-        has_rows=NominaRRHHState.tiene_empleados,
-        empty_component=tabla_vacia(
-            mensaje="No hay empleados en este período",
+        has_rows=NominaRRHHState.tiene_empleados_filtrados,
+        empty_component=rx.cond(
+            NominaRRHHState.filtro_busqueda_empleados != "",
+            tabla_vacia(mensaje="No hay empleados que coincidan con la búsqueda."),
+            tabla_vacia(mensaje="No hay empleados en este período"),
         ),
-        total_caption=(
-            NominaRRHHState.empleados_periodo.length().to(str) + " empleado(s)"
+        total_caption=NominaRRHHState.total_caption_empleados_preparacion,
+        footer_component=table_pagination(
+            current_page=NominaRRHHState.pagina_empleados_preparacion_actual,
+            total_pages=NominaRRHHState.total_paginas_empleados_preparacion,
+            page_numbers=NominaRRHHState.paginas_visibles_empleados_preparacion,
+            on_page_change=NominaRRHHState.ir_a_pagina_empleados_preparacion,
+            on_previous=NominaRRHHState.pagina_anterior_empleados_preparacion,
+            on_next=NominaRRHHState.pagina_siguiente_empleados_preparacion,
+            color_scheme="blue",
         ),
         loading_rows=5,
+    )
+
+
+def _toolbar_tabla_empleados() -> rx.Component:
+    return page_toolbar(
+        search_value=NominaRRHHState.filtro_busqueda_empleados,
+        search_placeholder="Buscar por nombre o sede...",
+        on_search_change=NominaRRHHState.set_filtro_busqueda_empleados,
+        on_search_clear=lambda: NominaRRHHState.set_filtro_busqueda_empleados(""),
+        filters=filtros_inline(
+            rx.select.root(
+                rx.select.trigger(placeholder="Sede", width="220px"),
+                rx.select.content(
+                    rx.foreach(
+                        NominaRRHHState.opciones_sede_empleados_preparacion,
+                        lambda opcion: rx.select.item(
+                            opcion["label"],
+                            value=opcion["value"],
+                        ),
+                    )
+                ),
+                value=NominaRRHHState.filtro_sede_empleados_preparacion,
+                on_change=NominaRRHHState.set_filtro_sede_empleados_preparacion,
+                size="2",
+            ),
+        ),
+        show_view_toggle=False,
     )
 
 
@@ -287,6 +423,7 @@ def preparacion_nomina_page() -> rx.Component:
             content=rx.vstack(
                 _resumen_periodo(),
                 _callout_readonly(),
+                _toolbar_tabla_empleados(),
                 _tabla_empleados(),
                 # Modales y dialogs
                 modal_descuentos_empleado(),

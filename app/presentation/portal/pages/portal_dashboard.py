@@ -9,69 +9,28 @@ Muestra metricas rapidas de la empresa del usuario:
 """
 import reflex as rx
 
+from app.presentation.components.ui import metric_card
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.layout import page_layout, page_header
-from app.presentation.theme import Colors, Typography, Shadows
+from app.presentation.theme import CardStyles, Colors, Radius, Typography
 
 
-# =============================================================================
-# COMPONENTES DE METRICAS
-# =============================================================================
-
-def _metric_card(
-    titulo: str,
-    valor: rx.Var,
-    icono: str,
-    color_scheme: str,
-    href: str,
-) -> rx.Component:
-    """
-    Tarjeta de metrica con valor, icono y link.
-
-    Note: color_scheme usa variables Radix dinamicas (var(--{color}-N))
-    para permitir multiples colores por card (blue, teal, green, orange).
-    """
-    return rx.link(
-        rx.card(
-            rx.hstack(
-                rx.vstack(
-                    rx.text(
-                        titulo,
-                        font_size=Typography.SIZE_XS,
-                        color=Colors.TEXT_MUTED,
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                    ),
-                    rx.text(
-                        valor,
-                        font_size=Typography.SIZE_3XL,
-                        font_weight=Typography.WEIGHT_BOLD,
-                        color=Colors.TEXT_PRIMARY,
-                        line_height="1",
-                    ),
-                    spacing="1",
-                    align_items="start",
-                ),
-                rx.spacer(),
-                rx.center(
-                    rx.icon(icono, size=24, color=f"var(--{color_scheme}-9)"),
-                    width="48px",
-                    height="48px",
-                    border_radius="12px",
-                    background=f"var(--{color_scheme}-3)",
-                    flex_shrink="0",
-                ),
-                width="100%",
-                align="center",
+def _metric_skeleton() -> rx.Component:
+    return rx.card(
+        rx.hstack(
+            rx.vstack(
+                rx.skeleton(width="120px", height="14px"),
+                rx.skeleton(width="70px", height="28px"),
+                spacing="2",
+                align_items="start",
             ),
+            rx.spacer(),
+            rx.skeleton(width="48px", height="48px", border_radius=Radius.XL),
             width="100%",
-            style={
-                "_hover": {"box_shadow": Shadows.MD},
-                "transition": "box-shadow 0.2s",
-            },
+            align="center",
         ),
-        href=href,
-        underline="none",
         width="100%",
+        style={**CardStyles.BASE},
     )
 
 
@@ -79,36 +38,35 @@ def _metricas_grid() -> rx.Component:
     """Grid de metricas principales."""
     return rx.cond(
         PortalState.loading,
-        # Skeleton
         rx.grid(
-            *[rx.skeleton(rx.card(rx.box(height="80px"), width="100%")) for _ in range(4)],
-            columns="4",
+            *[_metric_skeleton() for _ in range(4)],
+            columns=rx.breakpoints(initial="1", sm="2", lg="4"),
             spacing="4",
             width="100%",
         ),
         rx.grid(
-            _metric_card(
+            metric_card(
                 titulo="Empleados Activos",
                 valor=PortalState.total_empleados,
                 icono="users",
                 color_scheme="blue",
                 href=PortalState.ruta_rrhh_principal,
             ),
-            _metric_card(
+            metric_card(
                 titulo="Contratos Activos",
                 valor=PortalState.total_contratos,
                 icono="file-text",
                 color_scheme="teal",
                 href=PortalState.ruta_contrato_principal,
             ),
-            _metric_card(
+            metric_card(
                 titulo="Plazas Ocupadas",
                 valor=PortalState.total_plazas_ocupadas,
                 icono="user-check",
                 color_scheme="green",
                 href=PortalState.ruta_rrhh_principal,
             ),
-            _metric_card(
+            metric_card(
                 titulo="Plazas Vacantes",
                 valor=PortalState.total_plazas_vacantes,
                 icono="user-x",

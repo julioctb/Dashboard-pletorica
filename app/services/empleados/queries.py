@@ -104,9 +104,16 @@ class EmpleadoQueryService:
             empresa_nombre = None
 
         from app.services.empleado_documento_service import empleado_documento_service
+        from app.services.empleado_descuento_recurrente_service import (
+            empleado_descuento_recurrente_service,
+        )
 
+        empleado_ids = [emp.id for emp in empleados if emp.id is not None]
         progreso_expediente = await empleado_documento_service.contar_progreso_requerido_lote(
-            [emp.id for emp in empleados if emp.id is not None]
+            empleado_ids
+        )
+        descuentos_resumen = await empleado_descuento_recurrente_service.obtener_resumenes_ui_por_empleados(
+            empleado_ids
         )
 
         return [
@@ -121,6 +128,14 @@ class EmpleadoQueryService:
                     emp.id,
                     {},
                 ).get("total_requeridos", 0),
+                descuentos_configurados=descuentos_resumen.get(emp.id, {}).get(
+                    "descuentos_configurados",
+                    [],
+                ),
+                descuentos_activos_hoy=descuentos_resumen.get(emp.id, {}).get(
+                    "descuentos_activos_hoy",
+                    [],
+                ),
             )
             for emp in empleados
         ]

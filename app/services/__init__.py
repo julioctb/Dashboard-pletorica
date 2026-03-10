@@ -62,6 +62,10 @@ from app.services.empleado_service import (
     EmpleadoService,
     empleado_service,
 )
+from app.services.empleado_descuento_recurrente_service import (
+    EmpleadoDescuentoRecurrenteService,
+    empleado_descuento_recurrente_service,
+)
 
 # Historial Laboral
 from app.services.historial_laboral_service import (
@@ -275,6 +279,8 @@ __all__ = [
     "EmpleadoRestrictionService",
     "EmpleadoService",
     "empleado_service",
+    "EmpleadoDescuentoRecurrenteService",
+    "empleado_descuento_recurrente_service",
     # Historial Laboral
     "HistorialLaboralService",
     "historial_laboral_service",

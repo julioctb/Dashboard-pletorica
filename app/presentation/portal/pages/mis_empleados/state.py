@@ -16,6 +16,9 @@ from app.presentation.components.shared import (
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.components.shared.employee_form_state_mixin import EmployeeFormStateMixin
 from app.services import cuenta_bancaria_historial_service, empleado_service
+from app.services.empleado_descuento_recurrente_service import (
+    empleado_descuento_recurrente_service,
+)
 from app.entities import EmpleadoCreate, EmpleadoUpdate
 from app.core.exceptions import DuplicateError, BusinessRuleError, NotFoundError
 from app.core.ui_helpers import opciones_desde_enum, rango_paginacion
@@ -50,6 +53,38 @@ from app.presentation.pages.empleados.empleados_validators import (
 
 logger = logging.getLogger(__name__)
 
+
+def _empty_empleado_detalle() -> dict:
+    """Payload base del detalle para evitar claves ausentes en render."""
+    return {
+        "id": 0,
+        "empresa_id": 0,
+        "user_id": "",
+        "clave": "",
+        "nombre_completo": "",
+        "estatus": "",
+        "is_restricted": False,
+        "curp": "",
+        "rfc": "",
+        "nss": "",
+        "telefono": "",
+        "email": "",
+        "direccion": "",
+        "notas": "",
+        "fecha_ingreso": "",
+        "contacto_nombre": "",
+        "contacto_telefono": "",
+        "contacto_parentesco": "",
+        "banco": "",
+        "cuenta_bancaria": "",
+        "clabe_interbancaria": "",
+        "documentos_aprobados_expediente": 0,
+        "documentos_requeridos_expediente": 0,
+        "descuentos_configurados": [],
+        "descuentos_activos_hoy": [],
+    }
+
+
 class MisEmpleadosState(
     PortalState,
     EmployeeFormStateMixin,
@@ -64,6 +99,7 @@ class MisEmpleadosState(
         "apellido_materno",
         "rfc",
         "nss",
+        "fecha_ingreso",
         "genero",
         "fecha_nacimiento",
         "email",
@@ -74,6 +110,7 @@ class MisEmpleadosState(
         "cuenta_bancaria",
         "banco",
         "clabe",
+        "descuentos_recurrentes",
     ]
 
     empleados: List[dict] = []
@@ -115,6 +152,7 @@ class MisEmpleadosState(
     form_apellido_materno: str = ""
     form_rfc: str = ""
     form_nss: str = ""
+    form_fecha_ingreso: str = ""
     form_fecha_nacimiento: str = ""
     form_genero: str = ""
     form_telefono: str = ""
@@ -131,6 +169,22 @@ class MisEmpleadosState(
     form_contacto_nombre: str = ""
     form_contacto_telefono: str = ""
     form_contacto_parentesco: str = ""
+    form_descuento_infonavit_monto: str = ""
+    form_descuento_infonavit_inicio: str = ""
+    form_descuento_infonavit_fin: str = ""
+    form_descuento_infonavit_notas: str = ""
+    form_descuento_fonacot_monto: str = ""
+    form_descuento_fonacot_inicio: str = ""
+    form_descuento_fonacot_fin: str = ""
+    form_descuento_fonacot_notas: str = ""
+    form_descuento_prestamo_empresa_monto: str = ""
+    form_descuento_prestamo_empresa_inicio: str = ""
+    form_descuento_prestamo_empresa_fin: str = ""
+    form_descuento_prestamo_empresa_notas: str = ""
+    form_descuento_pension_alimenticia_monto: str = ""
+    form_descuento_pension_alimenticia_inicio: str = ""
+    form_descuento_pension_alimenticia_fin: str = ""
+    form_descuento_pension_alimenticia_notas: str = ""
 
     # ========================
     # DETALLE DE EMPLEADO
@@ -138,7 +192,7 @@ class MisEmpleadosState(
     mostrar_modal_detalle: bool = False
     mostrar_modal_historial_bancario: bool = False
     loading_detalle_empleado: bool = False
-    empleado_detalle: dict = {}
+    empleado_detalle: dict = _empty_empleado_detalle()
     historial_bancario: List[dict] = []
 
     # ========================
@@ -161,6 +215,7 @@ class MisEmpleadosState(
     error_apellido_materno: str = ""
     error_rfc: str = ""
     error_nss: str = ""
+    error_fecha_ingreso: str = ""
     error_genero: str = ""
     error_fecha_nacimiento: str = ""
     error_email: str = ""
@@ -171,6 +226,7 @@ class MisEmpleadosState(
     error_cuenta_bancaria: str = ""
     error_banco: str = ""
     error_clabe: str = ""
+    error_descuentos_recurrentes: str = ""
 
     # ========================
     # SETTERS DE FILTROS
@@ -203,6 +259,9 @@ class MisEmpleadosState(
 
     def set_form_nss(self, value: str):
         self._set_form_plain_field("form_nss", value)
+
+    def set_form_fecha_ingreso(self, value: str):
+        self._set_form_fecha_ingreso_value(value)
 
     def set_form_fecha_nacimiento(self, value: str):
         self._set_form_plain_field("form_fecha_nacimiento", value)
@@ -242,6 +301,18 @@ class MisEmpleadosState(
 
     def set_form_contacto_parentesco(self, value: str):
         self._set_form_plain_field("form_contacto_parentesco", value)
+
+    def set_form_descuento_monto(self, form_key: str, value: str):
+        self._set_form_descuento_recurrente_field(form_key, "monto", value)
+
+    def set_form_descuento_inicio(self, form_key: str, value: str):
+        self._set_form_descuento_recurrente_field(form_key, "inicio", value)
+
+    def set_form_descuento_fin(self, form_key: str, value: str):
+        self._set_form_descuento_recurrente_field(form_key, "fin", value)
+
+    def set_form_descuento_notas(self, form_key: str, value: str):
+        self._set_form_descuento_recurrente_field(form_key, "notas", value)
 
     def set_form_motivo_baja(self, value: str):
         self._set_form_plain_field("form_motivo_baja", value)
@@ -298,6 +369,9 @@ class MisEmpleadosState(
             validador=validar_nss_empleado_requerido,
             error_attr="error_nss",
         )
+
+    def validar_fecha_ingreso_blur(self):
+        self._validar_fecha_ingreso_form()
 
     def validar_fecha_nacimiento_blur(self):
         self.validar_y_asignar_error(
@@ -714,7 +788,7 @@ class MisEmpleadosState(
     @rx.event
     def ver_expediente(self, empleado: dict):
         """Navega al detalle de expediente del empleado en la pagina dedicada."""
-        if not self.es_rrhh or not isinstance(empleado, dict):
+        if not self.puede_acceder_rrhh or not isinstance(empleado, dict):
             return
 
         empleado_id = empleado.get("id")
@@ -781,7 +855,7 @@ class MisEmpleadosState(
         self.mostrar_modal_detalle = False
         self.mostrar_modal_historial_bancario = False
         self.loading_detalle_empleado = False
-        self.empleado_detalle = {}
+        self.empleado_detalle = _empty_empleado_detalle()
         self.historial_bancario = []
 
     def abrir_modal_historial_bancario(self):
@@ -853,6 +927,12 @@ class MisEmpleadosState(
         if not self._validar_formulario():
             return rx.toast.error("Por favor corrija los errores del formulario")
 
+        descuentos_form = self._construir_descuentos_recurrentes_form()
+        if descuentos_form is None:
+            return rx.toast.error(
+                self.error_descuentos_recurrentes or "Revise los descuentos recurrentes"
+            )
+
         self.saving = True
         try:
             snapshot_bancario = self._snapshot_bancario_form()
@@ -871,6 +951,13 @@ class MisEmpleadosState(
             empleado_create = EmpleadoCreate(**payload)
 
             empleado = await empleado_service.crear(empleado_create)
+            await empleado_descuento_recurrente_service.reemplazar_descuentos_empleado(
+                empleado.id,
+                [
+                    descuento.model_copy(update={"empleado_id": empleado.id})
+                    for descuento in descuentos_form
+                ],
+            )
             await self._registrar_historial_bancario(
                 empleado.id,
                 snapshot_bancario,
@@ -910,6 +997,11 @@ class MisEmpleadosState(
         snapshot_bancario_inicial = await self._obtener_snapshot_bancario_base_edicion(
             empleado
         )
+        descuentos_resumen = (
+            await empleado_descuento_recurrente_service.obtener_resumenes_ui_por_empleados(
+                [empleado.id]
+            )
+        ).get(empleado.id, {})
         self.snapshot_bancario_base_edicion = snapshot_bancario_inicial
         self.editar_datos_bancarios = False
         self._llenar_formulario_empleado_compartido(
@@ -920,6 +1012,7 @@ class MisEmpleadosState(
                 "apellido_materno": empleado.apellido_materno,
                 "rfc": empleado.rfc,
                 "nss": empleado.nss,
+                "fecha_ingreso": str(empleado.fecha_ingreso) if empleado.fecha_ingreso else "",
                 "fecha_nacimiento": str(empleado.fecha_nacimiento) if empleado.fecha_nacimiento else "",
                 "genero": empleado.genero,
                 "telefono": empleado.telefono,
@@ -930,6 +1023,10 @@ class MisEmpleadosState(
                 "cuenta_bancaria": snapshot_bancario_inicial["cuenta_bancaria"],
                 "banco": snapshot_bancario_inicial["banco"],
                 "clabe_interbancaria": snapshot_bancario_inicial["clabe_interbancaria"],
+                "descuentos_configurados": descuentos_resumen.get(
+                    "descuentos_configurados",
+                    [],
+                ),
             }
         )
 
@@ -940,6 +1037,14 @@ class MisEmpleadosState(
         if not self._validar_formulario():
             return rx.toast.error("Por favor corrija los errores del formulario")
 
+        descuentos_form = self._construir_descuentos_recurrentes_form(
+            empleado_id=self.empleado_editando_id
+        )
+        if descuentos_form is None:
+            return rx.toast.error(
+                self.error_descuentos_recurrentes or "Revise los descuentos recurrentes"
+            )
+
         self.saving = True
         try:
             snapshot_bancario_original = self._normalizar_snapshot_bancario(
@@ -949,6 +1054,10 @@ class MisEmpleadosState(
             empleado_update = EmpleadoUpdate(**self._payload_base_empleado())
 
             empleado = await empleado_service.actualizar(self.empleado_editando_id, empleado_update)
+            await empleado_descuento_recurrente_service.reemplazar_descuentos_empleado(
+                empleado.id,
+                descuentos_form,
+            )
             if snapshot_bancario_nuevo != snapshot_bancario_original:
                 await self._registrar_historial_bancario(
                     empleado.id,
@@ -1156,7 +1265,8 @@ class MisEmpleadosState(
     @staticmethod
     def _detalle_empleado_placeholder(resumen: dict) -> dict:
         """Construye un placeholder ligero mientras carga el detalle completo."""
-        return {
+        detalle = _empty_empleado_detalle()
+        detalle.update({
             "id": resumen.get("id"),
             "empresa_id": resumen.get("empresa_id"),
             "clave": resumen.get("clave", "") or "",
@@ -1171,14 +1281,22 @@ class MisEmpleadosState(
             "documentos_requeridos_expediente": int(
                 resumen.get("documentos_requeridos_expediente", 0) or 0
             ),
-        }
+            "descuentos_configurados": list(
+                resumen.get("descuentos_configurados", []) or []
+            ),
+            "descuentos_activos_hoy": list(
+                resumen.get("descuentos_activos_hoy", []) or []
+            ),
+        })
+        return detalle
 
     def _serializar_empleado_detalle_modal(self, empleado, resumen: dict) -> dict:
         """Normaliza el detalle del empleado a un payload seguro para Reflex."""
         contacto_nombre, contacto_telefono, contacto_parentesco = self._split_contacto_emergencia(
             empleado.contacto_emergencia
         )
-        return {
+        detalle = _empty_empleado_detalle()
+        detalle.update({
             "id": empleado.id,
             "empresa_id": empleado.empresa_id,
             "user_id": str(empleado.user_id) if empleado.user_id else "",
@@ -1206,7 +1324,14 @@ class MisEmpleadosState(
             "documentos_requeridos_expediente": int(
                 resumen.get("documentos_requeridos_expediente", 0) or 0
             ),
-        }
+            "descuentos_configurados": list(
+                resumen.get("descuentos_configurados", []) or []
+            ),
+            "descuentos_activos_hoy": list(
+                resumen.get("descuentos_activos_hoy", []) or []
+            ),
+        })
+        return detalle
 
     def _serializar_historial_bancario(self, registros, user_id) -> List[dict]:
         """Normaliza historial bancario a un formato de lectura para la UI."""
@@ -1271,7 +1396,7 @@ class MisEmpleadosState(
 
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es valido."""
-        return self._validar_formulario_empleado_compartido(
+        es_valido = self._validar_formulario_empleado_compartido(
             error_fields=self._campos_error_formulario,
             curp_validator=validar_curp,
             required_validations=[
@@ -1293,3 +1418,6 @@ class MisEmpleadosState(
                 ("error_clabe", self.form_clabe, validar_clabe),
             ],
         )
+        if not self._validar_fecha_ingreso_form():
+            es_valido = False
+        return es_valido

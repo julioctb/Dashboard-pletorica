@@ -437,6 +437,7 @@ class EmpleadoUpdate(BaseModel):
     direccion: Optional[str] = Field(None, max_length=DIRECCION_MAX)
     contacto_emergencia: Optional[str] = Field(None, max_length=CONTACTO_EMERGENCIA_MAX)
     estatus: Optional[EstatusEmpleado] = None
+    fecha_ingreso: Optional[date] = None
     fecha_baja: Optional[date] = None
     motivo_baja: Optional[MotivoBaja] = None
     notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
@@ -525,6 +526,8 @@ class EmpleadoResumen(BaseModel):
     estatus_onboarding: Optional[str] = None
     documentos_aprobados_expediente: int = 0
     documentos_requeridos_expediente: int = 0
+    descuentos_configurados: list[dict] = Field(default_factory=list)
+    descuentos_activos_hoy: list[dict] = Field(default_factory=list)
 
     @classmethod
     def from_empleado(
@@ -534,6 +537,8 @@ class EmpleadoResumen(BaseModel):
         *,
         documentos_aprobados_expediente: int = 0,
         documentos_requeridos_expediente: int = 0,
+        descuentos_configurados: Optional[list[dict]] = None,
+        descuentos_activos_hoy: Optional[list[dict]] = None,
     ) -> 'EmpleadoResumen':
         """Factory method para crear desde un empleado completo."""
         return cls(
@@ -551,6 +556,8 @@ class EmpleadoResumen(BaseModel):
             estatus_onboarding=empleado.estatus_onboarding,
             documentos_aprobados_expediente=documentos_aprobados_expediente,
             documentos_requeridos_expediente=documentos_requeridos_expediente,
+            descuentos_configurados=descuentos_configurados or [],
+            descuentos_activos_hoy=descuentos_activos_hoy or [],
         )
 
     @classmethod
@@ -561,6 +568,8 @@ class EmpleadoResumen(BaseModel):
         *,
         documentos_aprobados_expediente: int = 0,
         documentos_requeridos_expediente: int = 0,
+        descuentos_configurados: Optional[list[dict]] = None,
+        descuentos_activos_hoy: Optional[list[dict]] = None,
     ) -> 'EmpleadoResumen':
         """Factory method para crear desde un diccionario de BD."""
         # Construir nombre completo
@@ -586,4 +595,6 @@ class EmpleadoResumen(BaseModel):
             estatus_onboarding=data.get('estatus_onboarding'),
             documentos_aprobados_expediente=documentos_aprobados_expediente,
             documentos_requeridos_expediente=documentos_requeridos_expediente,
+            descuentos_configurados=descuentos_configurados or [],
+            descuentos_activos_hoy=descuentos_activos_hoy or [],
         )

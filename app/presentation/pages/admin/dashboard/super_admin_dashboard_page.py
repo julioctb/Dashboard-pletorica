@@ -6,7 +6,7 @@ import reflex as rx
 
 from app.presentation.components.ui import metric_card
 from app.presentation.layout import page_header, page_layout
-from app.presentation.theme import Colors, Spacing, Typography
+from app.presentation.theme import CardStyles, Colors, Radius, Spacing, Typography
 
 from .super_admin_dashboard_state import SuperAdminDashboardState
 
@@ -36,11 +36,12 @@ def _skeleton_metric() -> rx.Component:
                 align_items="start",
             ),
             rx.spacer(),
-            rx.skeleton(width="48px", height="48px", border_radius="9999px"),
+            rx.skeleton(width="48px", height="48px", border_radius=Radius.XL),
             width="100%",
             align="center",
         ),
         width="100%",
+        style={**CardStyles.BASE},
     )
 
 

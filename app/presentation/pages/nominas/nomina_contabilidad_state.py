@@ -16,8 +16,6 @@ from app.presentation.pages.nominas.base_state import NominaBaseState
 from app.services.nomina_periodo_service import nomina_periodo_service
 from app.services.nomina_calculo_service import nomina_calculo_service
 from app.services.dispersion_service import dispersion_service
-from app.database import db_manager
-
 logger = logging.getLogger(__name__)
 
 # Bonos capturables por Contabilidad (origen_captura = CONTABILIDAD)
@@ -243,26 +241,17 @@ class NominaContabilidadState(NominaBaseState):
 
     async def on_mount_contabilidad(self):
         """Carga períodos en estatus relevantes para Contabilidad."""
-        if self.requiere_login and not self.esta_autenticado:
-            yield rx.redirect("/login")
-            return
-        if not self.es_contabilidad:
-            yield rx.redirect(self.nomina_no_access_path)
-            return
-        if not self.id_empresa_actual:
-            yield self.mostrar_mensaje(
-                "Selecciona una empresa para gestionar nóminas", "error"
-            )
+        resultado = await self.validar_contexto_nomina(requiere_contabilidad=True)
+        if resultado:
+            yield resultado
             return
         await self._cargar_periodos_pendientes()
 
     async def on_mount_calculo(self):
         """Monta la vista de cálculo. Requiere periodo_actual en estado."""
-        if self.requiere_login and not self.esta_autenticado:
-            yield rx.redirect("/login")
-            return
-        if not self.es_contabilidad:
-            yield rx.redirect(self.nomina_no_access_path)
+        resultado = await self.validar_contexto_nomina(requiere_contabilidad=True)
+        if resultado:
+            yield resultado
             return
         if not self.periodo_actual:
             yield rx.redirect(self.nomina_base_path)
@@ -276,11 +265,9 @@ class NominaContabilidadState(NominaBaseState):
 
     async def on_mount_detalle(self):
         """Monta el detalle de un empleado. Requiere empleado_detalle en estado."""
-        if self.requiere_login and not self.esta_autenticado:
-            yield rx.redirect("/login")
-            return
-        if not self.es_contabilidad:
-            yield rx.redirect(self.nomina_no_access_path)
+        resultado = await self.validar_contexto_nomina(requiere_contabilidad=True)
+        if resultado:
+            yield resultado
             return
         if not self.empleado_detalle:
             yield rx.redirect(self.nomina_calculo_path)
@@ -296,16 +283,10 @@ class NominaContabilidadState(NominaBaseState):
     async def _cargar_periodos_pendientes(self):
         self.loading = True
         try:
-            supabase = db_manager.get_client()
-            result = (
-                supabase.table('periodos_nomina')
-                .select('*')
-                .eq('empresa_id', self.id_empresa_actual)
-                .in_('estatus', list(_ESTATUS_CONTABILIDAD))
-                .order('fecha_inicio', desc=True)
-                .execute()
+            self.periodos_pendientes = await nomina_periodo_service.listar_periodos(
+                self.id_empresa_actual,
+                estatuses=list(_ESTATUS_CONTABILIDAD),
             )
-            self.periodos_pendientes = result.data or []
         except Exception as e:
             self.manejar_error(e, "cargar períodos pendientes")
         finally:

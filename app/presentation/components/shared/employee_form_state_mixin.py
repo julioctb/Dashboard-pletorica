@@ -10,6 +10,23 @@ from app.core.validation import (
     normalizar_cuenta_bancaria,
     normalizar_nombre_banco,
 )
+from app.entities.empleado_descuento_recurrente import (
+    DESCUENTOS_RECURRENTES_CONFIG,
+    DESCUENTOS_RECURRENTES_POR_FORM_KEY,
+    EmpleadoDescuentoRecurrenteCreate,
+)
+
+_EMPLOYEE_RECURRENT_DISCOUNT_FORM_DEFAULTS = {}
+for _meta_descuento in DESCUENTOS_RECURRENTES_CONFIG:
+    _form_key = _meta_descuento["form_key"]
+    _EMPLOYEE_RECURRENT_DISCOUNT_FORM_DEFAULTS.update(
+        {
+            f"form_descuento_{_form_key}_monto": "",
+            f"form_descuento_{_form_key}_inicio": "",
+            f"form_descuento_{_form_key}_fin": "",
+            f"form_descuento_{_form_key}_notas": "",
+        }
+    )
 
 
 class EmployeeFormStateMixin:
@@ -26,6 +43,7 @@ class EmployeeFormStateMixin:
         "form_apellido_materno": "",
         "form_rfc": "",
         "form_nss": "",
+        "form_fecha_ingreso": "",
         "form_fecha_nacimiento": "",
         "form_genero": "",
         "form_telefono": "",
@@ -90,6 +108,8 @@ class EmployeeFormStateMixin:
             defaults["form_contacto_emergencia"] = ""
         else:
             defaults.update(self._EMPLOYEE_SPLIT_CONTACT_FORM_DEFAULTS)
+        defaults["form_fecha_ingreso"] = date.today().isoformat()
+        defaults.update(_EMPLOYEE_RECURRENT_DISCOUNT_FORM_DEFAULTS)
 
         if extra_defaults:
             defaults.update(extra_defaults)
@@ -119,6 +139,11 @@ class EmployeeFormStateMixin:
         self.form_apellido_materno = empleado.get("apellido_materno", "") or ""
         self.form_rfc = empleado.get("rfc", "") or ""
         self.form_nss = empleado.get("nss", "") or ""
+        self.form_fecha_ingreso = (
+            empleado.get("fecha_ingreso_iso", "")
+            or empleado.get("fecha_ingreso", "")
+            or date.today().isoformat()
+        )
         self.form_fecha_nacimiento = (
             empleado.get("fecha_nacimiento_iso", "")
             or empleado.get("fecha_nacimiento", "")
@@ -150,6 +175,10 @@ class EmployeeFormStateMixin:
                 self.form_contacto_parentesco,
             ) = self._split_contacto_emergencia(contacto)
 
+        self._llenar_formulario_descuentos_recurrentes(
+            empleado.get("descuentos_configurados", []) or []
+        )
+
     def _payload_base_empleado(self) -> dict[str, Any]:
         """Construye el payload común para create/update de empleado."""
         payload = {
@@ -158,6 +187,11 @@ class EmployeeFormStateMixin:
             "nombre": self.form_nombre or None,
             "apellido_paterno": self.form_apellido_paterno or None,
             "apellido_materno": self.form_apellido_materno or None,
+            "fecha_ingreso": (
+                date.fromisoformat(self.form_fecha_ingreso)
+                if self.form_fecha_ingreso
+                else None
+            ),
             "fecha_nacimiento": (
                 date.fromisoformat(self.form_fecha_nacimiento)
                 if self.form_fecha_nacimiento
@@ -216,3 +250,186 @@ class EmployeeFormStateMixin:
                 es_valido = False
 
         return es_valido
+
+    def _set_form_fecha_ingreso_value(self, value: str) -> None:
+        """Actualiza fecha_ingreso y conserva el prefilling de descuentos nuevos."""
+        self.form_fecha_ingreso = value if value else ""
+        if hasattr(self, "error_fecha_ingreso"):
+            self.error_fecha_ingreso = ""
+
+        for meta in DESCUENTOS_RECURRENTES_CONFIG:
+            monto_attr = f'form_descuento_{meta["form_key"]}_monto'
+            inicio_attr = f'form_descuento_{meta["form_key"]}_inicio'
+            if (
+                hasattr(self, monto_attr)
+                and hasattr(self, inicio_attr)
+                and getattr(self, monto_attr, "").strip()
+                and not getattr(self, inicio_attr, "").strip()
+            ):
+                setattr(self, inicio_attr, self.form_fecha_ingreso)
+
+    def _set_form_descuento_recurrente_field(
+        self,
+        form_key: str,
+        field_name: str,
+        value: str,
+    ) -> None:
+        """Set genérico de campos de descuentos recurrentes."""
+        if form_key not in DESCUENTOS_RECURRENTES_POR_FORM_KEY:
+            return
+
+        attr = f"form_descuento_{form_key}_{field_name}"
+        if not hasattr(self, attr):
+            return
+
+        setattr(self, attr, value if value else "")
+        if hasattr(self, "error_descuentos_recurrentes"):
+            self.error_descuentos_recurrentes = ""
+
+        if field_name == "monto" and str(value or "").strip():
+            inicio_attr = f"form_descuento_{form_key}_inicio"
+            if hasattr(self, inicio_attr) and not getattr(self, inicio_attr, "").strip():
+                setattr(
+                    self,
+                    inicio_attr,
+                    getattr(self, "form_fecha_ingreso", "") or date.today().isoformat(),
+                )
+
+    def _llenar_formulario_descuentos_recurrentes(
+        self,
+        descuentos_configurados: list[dict],
+    ) -> None:
+        """Carga descuentos recurrentes ya configurados en el formulario."""
+        for attr, default in _EMPLOYEE_RECURRENT_DISCOUNT_FORM_DEFAULTS.items():
+            if hasattr(self, attr):
+                setattr(self, attr, default)
+
+        for descuento in descuentos_configurados:
+            meta = DESCUENTOS_RECURRENTES_POR_FORM_KEY.get(
+                descuento.get("form_key", "")
+            )
+            if meta is None:
+                meta = next(
+                    (
+                        item
+                        for item in DESCUENTOS_RECURRENTES_CONFIG
+                        if item["concepto_clave"] == descuento.get("concepto_clave")
+                    ),
+                    None,
+                )
+            if meta is None:
+                continue
+
+            form_key = meta["form_key"]
+            monto = descuento.get("monto_periodico")
+            monto_value = ""
+            if monto not in (None, ""):
+                monto_value = f"{float(monto):.2f}"
+
+            setattr(self, f"form_descuento_{form_key}_monto", monto_value)
+            setattr(
+                self,
+                f"form_descuento_{form_key}_inicio",
+                descuento.get("fecha_inicio", "") or "",
+            )
+            setattr(
+                self,
+                f"form_descuento_{form_key}_fin",
+                descuento.get("fecha_fin", "") or "",
+            )
+            setattr(
+                self,
+                f"form_descuento_{form_key}_notas",
+                descuento.get("notas", "") or "",
+            )
+
+    def _validar_fecha_ingreso_form(
+        self,
+        *,
+        error_attr: str = "error_fecha_ingreso",
+    ) -> bool:
+        """Valida fecha_ingreso como dato maestro obligatorio."""
+        if hasattr(self, error_attr):
+            setattr(self, error_attr, "")
+
+        if not getattr(self, "form_fecha_ingreso", "").strip():
+            if hasattr(self, error_attr):
+                setattr(self, error_attr, "La fecha de ingreso es obligatoria")
+            return False
+
+        try:
+            date.fromisoformat(self.form_fecha_ingreso)
+        except ValueError:
+            if hasattr(self, error_attr):
+                setattr(self, error_attr, "La fecha de ingreso no es válida")
+            return False
+
+        return True
+
+    def _construir_descuentos_recurrentes_form(
+        self,
+        *,
+        empleado_id: int = 0,
+        error_attr: str = "error_descuentos_recurrentes",
+    ) -> list[EmpleadoDescuentoRecurrenteCreate] | None:
+        """Normaliza la sección de descuentos recurrentes del formulario."""
+        if hasattr(self, error_attr):
+            setattr(self, error_attr, "")
+
+        descuentos: list[EmpleadoDescuentoRecurrenteCreate] = []
+        fecha_ingreso_default = getattr(self, "form_fecha_ingreso", "").strip()
+
+        for meta in DESCUENTOS_RECURRENTES_CONFIG:
+            form_key = meta["form_key"]
+            monto = getattr(self, f"form_descuento_{form_key}_monto", "").strip()
+            fecha_inicio = getattr(self, f"form_descuento_{form_key}_inicio", "").strip()
+            fecha_fin = getattr(self, f"form_descuento_{form_key}_fin", "").strip()
+            notas = getattr(self, f"form_descuento_{form_key}_notas", "").strip()
+
+            if not any([monto, fecha_inicio, fecha_fin, notas]):
+                continue
+
+            if not monto:
+                if hasattr(self, error_attr):
+                    setattr(
+                        self,
+                        error_attr,
+                        f'Capture un monto para {meta["label"]}.',
+                    )
+                return None
+
+            fecha_inicio_valor = fecha_inicio or fecha_ingreso_default
+            if not fecha_inicio_valor:
+                if hasattr(self, error_attr):
+                    setattr(
+                        self,
+                        error_attr,
+                        f'Capture una fecha de inicio para {meta["label"]}.',
+                    )
+                return None
+
+            try:
+                descuentos.append(
+                    EmpleadoDescuentoRecurrenteCreate(
+                        empleado_id=empleado_id,
+                        concepto_clave=meta["concepto_clave"],
+                        monto_periodico=monto,
+                        fecha_inicio=date.fromisoformat(fecha_inicio_valor),
+                        fecha_fin=(
+                            date.fromisoformat(fecha_fin)
+                            if fecha_fin
+                            else None
+                        ),
+                        notas=notas or None,
+                    )
+                )
+            except Exception as exc:
+                if hasattr(self, error_attr):
+                    setattr(
+                        self,
+                        error_attr,
+                        f'{meta["label"]}: {exc}',
+                    )
+                return None
+
+        return descuentos
