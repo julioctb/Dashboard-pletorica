@@ -21,6 +21,9 @@ from .fiscal import (
     CatalogoISR,
     CatalogoISN,
     CatalogoINFONAVIT,
+    CatalogoSalarioMinimo,
+    ContextoFiscalNomina,
+    PoliticaFiscalResolver,
 )
 
 # Laboral
@@ -45,6 +48,9 @@ __all__ = [
     "CatalogoISR",
     "CatalogoISN",
     "CatalogoINFONAVIT",
+    "CatalogoSalarioMinimo",
+    "ContextoFiscalNomina",
+    "PoliticaFiscalResolver",
     # Laboral
     "CatalogoPrestaciones",
     "CatalogoVacaciones",

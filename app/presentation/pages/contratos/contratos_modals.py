@@ -32,7 +32,6 @@ def _tarjeta_paso(
                 width="100%",
                 align="start",
             ),
-            rx.separator(),
             contenido,
             spacing="4",
             width="100%",
@@ -49,6 +48,7 @@ def _indicador_pasos() -> rx.Component:
     def _paso(numero: int, titulo: str) -> rx.Component:
         es_activo = ContratosState.form_paso_actual >= numero
         es_actual = ContratosState.form_paso_actual == numero
+        on_click_paso = ContratosState.set_form_paso_actual(numero)
 
         return rx.hstack(
             rx.center(
@@ -65,13 +65,20 @@ def _indicador_pasos() -> rx.Component:
                 border=f"1px solid {Colors.BORDER}",
                 cursor="pointer",
                 flex_shrink="0",
-                on_click=ContratosState.set_form_paso_actual(numero),
+                on_click=on_click_paso,
             ),
             rx.text(
                 titulo,
                 size="2",
                 weight=rx.cond(es_actual, "bold", "medium"),
                 color=rx.cond(es_activo, Colors.TEXT_PRIMARY, Colors.TEXT_MUTED),
+                cursor="pointer",
+                user_select="none",
+                transition="color 0.2s ease",
+                _hover={
+                    "color": rx.cond(es_activo, Colors.PRIMARY_HOVER, Colors.TEXT_PRIMARY),
+                },
+                on_click=on_click_paso,
             ),
             spacing="2",
             align="center",
@@ -85,10 +92,27 @@ def _indicador_pasos() -> rx.Component:
             background=Colors.BORDER,
         )
 
+    pasos_uno = rx.hstack(
+        _paso(1, "Datos"),
+        width="100%",
+        justify="center",
+        align="center",
+    )
+
     pasos_dos = rx.hstack(
         _paso(1, "Datos"),
         _conector(),
         _paso(2, "Plazas"),
+        width="100%",
+        justify="center",
+        align="center",
+        spacing="3",
+    )
+
+    pasos_dos_sin_plazas = rx.hstack(
+        _paso(1, "Datos"),
+        _conector(),
+        _paso(2, "Entregables"),
         width="100%",
         justify="center",
         align="center",
@@ -107,17 +131,12 @@ def _indicador_pasos() -> rx.Component:
         spacing="3",
     )
 
-    return rx.vstack(
-        rx.cond(ContratosState.mostrar_paso_entregables, pasos_tres, pasos_dos),
-        rx.text(
-            ContratosState.titulo_paso_actual_wizard,
-            size="2",
-            weight="medium",
-            color=Colors.TEXT_PRIMARY,
-            width="100%",
-            text_align="center",
+    return rx.box(
+        rx.cond(
+            ContratosState.mostrar_paso_plazas,
+            rx.cond(ContratosState.mostrar_paso_entregables, pasos_tres, pasos_dos),
+            rx.cond(ContratosState.mostrar_paso_entregables, pasos_dos_sin_plazas, pasos_uno),
         ),
-        spacing="3",
         width="100%",
         padding_y=Spacing.XS,
     )
@@ -156,6 +175,37 @@ def _paso_contrato() -> rx.Component:
             error=ContratosState.error_folio_buap,
         )
 
+    def _bloque_incluye_personal() -> rx.Component:
+        return rx.box(
+            rx.vstack(
+                rx.hstack(
+                    rx.checkbox(
+                        "Incluye personal",
+                        checked=ContratosState.form_tiene_personal,
+                        on_change=ContratosState.set_form_tiene_personal,
+                        disabled=ContratosState.es_adquisicion,
+                    ),
+                    align="center",
+                    spacing="3",
+                ),
+                rx.text(
+                    "Active esta opción si el contrato debe materializar plazas.",
+                    size="1",
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                spacing="1",
+                align="start",
+                width="100%",
+            ),
+            padding=Spacing.SM,
+            border=f"1px solid {Colors.BORDER}",
+            border_radius=Radius.MD,
+            background=Colors.SECONDARY_LIGHT,
+            width="100%",
+            flex="1",
+            min_width="280px",
+        )
+
     return _tarjeta_paso(
         "Datos del contrato",
         "Capture la información base y la vigencia del contrato.",
@@ -176,24 +226,13 @@ def _paso_contrato() -> rx.Component:
                 align="start",
             ),
             rx.cond(
+                ContratosState.es_edicion,
+                _campo_folio(),
+                rx.fragment(),
+            ),
+            rx.cond(
                 ContratosState.es_servicios,
-                rx.cond(
-                    ContratosState.es_edicion,
-                    rx.hstack(
-                        _campo_folio(),
-                        form_select(
-                            label="Tipo de servicio",
-                            required=True,
-                            placeholder="Seleccione tipo de servicio",
-                            value=ContratosState.form_tipo_servicio_id,
-                            on_change=ContratosState.set_form_tipo_servicio_id,
-                            options=ContratosState.opciones_tipo_servicio,
-                            error=ContratosState.error_tipo_servicio_id,
-                        ),
-                        spacing="3",
-                        width="100%",
-                        align="start",
-                    ),
+                rx.hstack(
                     rx.box(
                         form_select(
                             label="Tipo de servicio",
@@ -205,13 +244,30 @@ def _paso_contrato() -> rx.Component:
                             error=ContratosState.error_tipo_servicio_id,
                         ),
                         width="100%",
+                        flex="1",
+                        min_width="280px",
                     ),
+                    _bloque_incluye_personal(),
+                    spacing="3",
+                    width="100%",
+                    align="start",
+                    wrap="wrap",
                 ),
-                rx.cond(
+                rx.fragment(),
+            ),
+            form_textarea(
+                label="Objeto del contrato",
+                placeholder="Ej: Servicio integral de limpieza en instalaciones administrativas.",
+                value=ContratosState.form_descripcion_objeto,
+                on_change=ContratosState.set_form_descripcion_objeto,
+                on_blur=ContratosState.sync_form_descripcion_objeto_blur,
+                error=ContratosState.error_descripcion_objeto,
+                hint=rx.cond(
                     ContratosState.es_edicion,
-                    _campo_folio(),
-                    rx.fragment(),
+                    "Opcional. Capture o actualice este dato cuando la institución asigne el folio.",
+                    "Opcional. Puede completarlo después, cuando la institución genere el folio.",
                 ),
+                rows="4",
             ),
             rx.hstack(
                 form_date(
@@ -233,71 +289,6 @@ def _paso_contrato() -> rx.Component:
                 spacing="3",
                 width="100%",
                 align="start",
-            ),
-            rx.box(
-                rx.hstack(
-                    rx.text("Vigencia:", size="2", weight="medium", color=Colors.TEXT_PRIMARY),
-                    rx.badge(
-                        ContratosState.vigencia_formulario_label,
-                        color_scheme=ContratosState.vigencia_formulario_color_scheme,
-                        variant="soft",
-                        size="2",
-                    ),
-                    rx.text(
-                        "Depende de la fecha fin respecto a la fecha actual.",
-                        size="1",
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    spacing="3",
-                    align="center",
-                    wrap="wrap",
-                ),
-                padding=Spacing.SM,
-                border=f"1px solid {Colors.BORDER}",
-                border_radius=Radius.MD,
-                background=Colors.SECONDARY_LIGHT,
-                width="100%",
-            ),
-            form_textarea(
-                label="Descripción del objeto",
-                required=True,
-                placeholder="Ej: Servicio integral de limpieza en instalaciones administrativas.",
-                value=ContratosState.form_descripcion_objeto,
-                on_change=ContratosState.set_form_descripcion_objeto,
-                on_blur=ContratosState.sync_form_descripcion_objeto_blur,
-                error=ContratosState.error_descripcion_objeto,
-                rows="4",
-            ),
-            rx.box(
-                rx.vstack(
-                    rx.hstack(
-                        rx.checkbox(
-                            "Incluye personal",
-                            checked=ContratosState.form_tiene_personal,
-                            on_change=ContratosState.set_form_tiene_personal,
-                            disabled=ContratosState.es_adquisicion,
-                        ),
-                        align="center",
-                        spacing="3",
-                    ),
-                    rx.text(
-                        rx.cond(
-                            ContratosState.es_adquisicion,
-                            "Los contratos de adquisición no generan plazas.",
-                            "Active esta opción si el contrato debe materializar plazas.",
-                        ),
-                        size="1",
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    spacing="1",
-                    align="start",
-                    width="100%",
-                ),
-                padding=Spacing.SM,
-                border=f"1px solid {Colors.BORDER}",
-                border_radius=Radius.MD,
-                background=Colors.SECONDARY_LIGHT,
-                width="100%",
             ),
             spacing="4",
             width="100%",
@@ -814,10 +805,10 @@ def _paso_entregables() -> rx.Component:
 def modal_contrato() -> rx.Component:
     """Modal wizard para crear o editar contratos."""
     contenido_paso = rx.match(
-        ContratosState.form_paso_actual,
-        (1, _paso_contrato()),
-        (2, _paso_plazas()),
-        (3, _paso_entregables()),
+        ContratosState.paso_actual_wizard,
+        ("datos", _paso_contrato()),
+        ("plazas", _paso_plazas()),
+        ("entregables", _paso_entregables()),
         _paso_contrato(),
     )
 
@@ -859,7 +850,6 @@ def modal_contrato() -> rx.Component:
                     overflow_y="auto",
                     padding_right=Spacing.XS,
                 ),
-                rx.separator(),
                 rx.hstack(
                     boton_cancelar(
                         on_click=ContratosState.cerrar_modal_contrato,
@@ -1226,24 +1216,29 @@ def _tab_informacion_contrato() -> rx.Component:
             width="100%",
             variant="surface",
         ),
-        rx.cond(
-            ContratosState.contrato_seleccionado["descripcion_objeto"],
-            rx.card(
-                rx.vstack(
-                    rx.text("Descripción del objeto", weight="bold", size="4"),
-                    rx.text(
+        rx.card(
+            rx.vstack(
+                rx.text("Objeto del contrato", weight="bold", size="4"),
+                rx.text(
+                    ContratosState.contrato_seleccionado["descripcion_objeto_display"],
+                    size="2",
+                    color=rx.cond(
                         ContratosState.contrato_seleccionado["descripcion_objeto"],
-                        size="2",
-                        color=Colors.TEXT_PRIMARY,
+                        Colors.TEXT_PRIMARY,
+                        Colors.TEXT_MUTED,
                     ),
-                    spacing="2",
-                    width="100%",
-                    align="start",
+                    font_style=rx.cond(
+                        ContratosState.contrato_seleccionado["descripcion_objeto"],
+                        "normal",
+                        "italic",
+                    ),
                 ),
+                spacing="2",
                 width="100%",
-                variant="surface",
+                align="start",
             ),
-            rx.fragment(),
+            width="100%",
+            variant="surface",
         ),
         rx.cond(
             ContratosState.contrato_seleccionado["notas"],

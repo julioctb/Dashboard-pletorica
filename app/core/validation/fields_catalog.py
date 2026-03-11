@@ -515,12 +515,12 @@ CAMPO_FOLIO_BUAP = FieldConfig(
 )
 
 CAMPO_DESCRIPCION_OBJETO = FieldConfig(
-    nombre='Descripción del objeto',
+    nombre='Objeto del contrato',
     requerido=False,
     max_len=DESCRIPCION_OBJETO_MAX,
     # UI
-    label='Descripción del objeto',
-    placeholder='Descripción del objeto del contrato...',
+    label='Objeto del contrato',
+    placeholder='Objeto del contrato...',
     hint=f'Máximo {DESCRIPCION_OBJETO_MAX} caracteres',
     input_type=InputType.TEXTAREA,
     section=SECCION_CONTRATO_GENERAL,

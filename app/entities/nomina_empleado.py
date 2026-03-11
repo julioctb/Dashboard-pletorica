@@ -7,9 +7,11 @@ resumen de totales calculados desde los movimientos.
 """
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
+
+from app.core.enums import TipoJornadaPlaza
 
 
 class NominaEmpleado(BaseModel):
@@ -48,6 +50,13 @@ class NominaEmpleado(BaseModel):
     horas_extra_dobles: Decimal = Field(default=Decimal('0'), ge=0)
     horas_extra_triples: Decimal = Field(default=Decimal('0'), ge=0)
     domingos_trabajados: int = Field(default=0, ge=0)
+    tipo_jornada: TipoJornadaPlaza = Field(default=TipoJornadaPlaza.COMPLETA)
+    factor_jornada: Decimal = Field(default=Decimal('1.0'), gt=0, le=1)
+    salario_minimo_diario_aplicable: Decimal = Field(default=Decimal('0'), ge=0)
+    es_salario_minimo_art36: bool = False
+    imss_obrero_absorbido: Decimal = Field(default=Decimal('0'), ge=0)
+    listo_para_timbrar: bool = Field(default=False)
+    observaciones_fiscales: list[dict[str, Any]] = Field(default_factory=list)
 
     # Totales (agregados desde nomina_movimientos)
     total_percepciones: Decimal = Field(default=Decimal('0'), ge=0)
@@ -86,6 +95,13 @@ class NominaEmpleadoCreate(BaseModel):
     horas_extra_dobles: Decimal = Field(default=Decimal('0'), ge=0)
     horas_extra_triples: Decimal = Field(default=Decimal('0'), ge=0)
     domingos_trabajados: int = Field(default=0, ge=0)
+    tipo_jornada: TipoJornadaPlaza = Field(default=TipoJornadaPlaza.COMPLETA)
+    factor_jornada: Decimal = Field(default=Decimal('1.0'), gt=0, le=1)
+    salario_minimo_diario_aplicable: Decimal = Field(default=Decimal('0'), ge=0)
+    es_salario_minimo_art36: bool = False
+    imss_obrero_absorbido: Decimal = Field(default=Decimal('0'), ge=0)
+    listo_para_timbrar: bool = False
+    observaciones_fiscales: list[dict[str, Any]] = Field(default_factory=list)
     banco_destino: Optional[str] = Field(None, max_length=100)
     clabe_destino: Optional[str] = Field(None, max_length=18)
     notas: Optional[str] = None
@@ -106,6 +122,13 @@ class NominaEmpleadoUpdate(BaseModel):
     horas_extra_dobles: Optional[Decimal] = Field(None, ge=0)
     horas_extra_triples: Optional[Decimal] = Field(None, ge=0)
     domingos_trabajados: Optional[int] = Field(None, ge=0)
+    tipo_jornada: Optional[TipoJornadaPlaza] = None
+    factor_jornada: Optional[Decimal] = Field(None, gt=0, le=1)
+    salario_minimo_diario_aplicable: Optional[Decimal] = Field(None, ge=0)
+    es_salario_minimo_art36: Optional[bool] = None
+    imss_obrero_absorbido: Optional[Decimal] = Field(None, ge=0)
+    listo_para_timbrar: Optional[bool] = None
+    observaciones_fiscales: Optional[list[dict[str, Any]]] = None
     notas: Optional[str] = None
 
 
@@ -121,9 +144,13 @@ class NominaEmpleadoResumen(BaseModel):
     salario_diario: Decimal
     dias_trabajados: int = 0
     dias_faltas: int = 0
+    tipo_jornada: TipoJornadaPlaza = TipoJornadaPlaza.COMPLETA
+    factor_jornada: Decimal = Decimal('1.0')
     total_percepciones: Decimal = Decimal('0')
     total_deducciones: Decimal = Decimal('0')
     total_neto: Decimal = Decimal('0')
+    listo_para_timbrar: bool = False
+    observaciones_fiscales: list[dict[str, Any]] = Field(default_factory=list)
 
     # Campos JOIN (empleado)
     nombre_empleado: str = ""

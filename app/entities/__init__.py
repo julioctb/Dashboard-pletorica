@@ -28,6 +28,7 @@ from app.core.enums import (
     EstatusContrato,
     # Enums de Plaza
     EstatusPlaza,
+    TipoJornadaPlaza,
     # Enums de Empleado
     EstatusEmpleado,
     GeneroEmpleado,

@@ -11,6 +11,7 @@ from calendar import monthrange
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
+from types import SimpleNamespace
 from typing import Optional
 
 from app.core.catalogs.nomina import (
@@ -19,10 +20,12 @@ from app.core.catalogs.nomina import (
     resolver_periodo_por_key,
     resolver_quincena_por_key,
 )
+from app.core.catalogs.fiscal import PoliticaFiscalResolver
 from app.core.enums import (
     EstatusPlaza,
     PeriodicidadNomina,
     ReglaCalculoQuincenal,
+    TipoJornadaPlaza,
 )
 from app.core.exceptions import (
     BusinessRuleError,
@@ -31,6 +34,7 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.core.text_utils import formatear_moneda, normalizar_mayusculas
+from app.core.catalogs.sistema.tolerancias import Tolerancias
 from app.database import db_manager
 from app.entities.empleado_descuento_recurrente import (
     DESCUENTOS_RECURRENTES_CLAVES,
@@ -41,6 +45,7 @@ from app.entities.configuracion_operativa_empresa import (
 )
 from app.entities.periodo_nomina import PeriodoNomina
 from app.services.configuracion_operativa_service import configuracion_operativa_service
+from app.services.configuracion_fiscal_service import configuracion_fiscal_service
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +76,17 @@ class NominaPeriodoService:
         self.tabla = 'periodos_nomina'
         self.tabla_nom_emp = 'nominas_empleado'
 
+    async def _obtener_configuracion_fiscal(self, empresa_id: int):
+        try:
+            return await configuracion_fiscal_service.obtener_o_crear_default(empresa_id)
+        except Exception as exc:
+            logger.warning(
+                "Usando fallback de configuración fiscal para empresa %s: %s",
+                empresa_id,
+                exc,
+            )
+            return SimpleNamespace(zona_frontera=False, aplicar_art_36=True)
+
     def _salario_diario_desde_mensual(self, salario_mensual: object) -> float:
         """
         Convierte salario mensual de plaza a salario diario con base 30.
@@ -85,6 +101,108 @@ class NominaPeriodoService:
             Decimal(str(salario_mensual)) / Decimal("30")
         ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return float(diario)
+
+    def _normalizar_tipo_jornada(self, valor: object) -> str:
+        if isinstance(valor, TipoJornadaPlaza):
+            return valor.value
+        try:
+            return TipoJornadaPlaza(str(valor or "").upper()).value
+        except ValueError:
+            return TipoJornadaPlaza.COMPLETA.value
+
+    def _factor_default_tipo_jornada(self, tipo_jornada: object) -> Decimal:
+        tipo = self._normalizar_tipo_jornada(tipo_jornada)
+        if tipo == TipoJornadaPlaza.MEDIA_JORNADA.value:
+            return Decimal("0.50")
+        return Decimal("1.00")
+
+    def _normalizar_factor_jornada(
+        self,
+        valor: object,
+        tipo_jornada: object,
+    ) -> float:
+        if valor in (None, ""):
+            return float(self._factor_default_tipo_jornada(tipo_jornada))
+        try:
+            factor = Decimal(str(valor)).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+        except Exception:
+            return float(self._factor_default_tipo_jornada(tipo_jornada))
+        if factor <= 0 or factor > 1:
+            return float(self._factor_default_tipo_jornada(tipo_jornada))
+        return float(factor)
+
+    def _salario_minimo_proporcional_diario(
+        self,
+        salario_minimo_diario: object,
+        factor_jornada: object,
+    ) -> Decimal:
+        return (
+            Decimal(str(salario_minimo_diario or 0))
+            * Decimal(str(factor_jornada or 0))
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    def _observacion_fiscal(
+        self,
+        *,
+        codigo: str,
+        mensaje: str,
+        severidad: str,
+    ) -> dict[str, str]:
+        return {
+            "codigo": codigo,
+            "mensaje": mensaje,
+            "severity": severidad,
+        }
+
+    async def _resolver_contexto_fiscal_periodo(
+        self,
+        periodo: dict,
+    ):
+        fecha_fiscal = (
+            periodo.get("fecha_pago")
+            or periodo.get("fecha_fin")
+            or date.today().isoformat()
+        )
+        zona_frontera = periodo.get("zona_frontera")
+        aplicar_art_36 = periodo.get("aplicar_art_36")
+
+        if zona_frontera is None or aplicar_art_36 is None:
+            config_fiscal = await self._obtener_configuracion_fiscal(
+                int(periodo["empresa_id"])
+            )
+            zona_frontera = bool(getattr(config_fiscal, "zona_frontera", False))
+            aplicar_art_36 = bool(getattr(config_fiscal, "aplicar_art_36", True))
+
+            try:
+                self.supabase.table(self.tabla).update(
+                    {
+                        "zona_frontera": zona_frontera,
+                        "aplicar_art_36": aplicar_art_36,
+                    }
+                ).eq("id", int(periodo["id"])).execute()
+            except Exception as exc:
+                logger.warning(
+                    "No se pudo persistir snapshot fiscal del periodo %s: %s",
+                    periodo.get("id"),
+                    exc,
+                )
+
+            periodo["zona_frontera"] = zona_frontera
+            periodo["aplicar_art_36"] = aplicar_art_36
+
+        contexto = PoliticaFiscalResolver.resolver(
+            fecha_fiscal,
+            zona_frontera=bool(zona_frontera),
+        )
+        return {
+            "fecha_fiscal": contexto.fecha_referencia.isoformat(),
+            "zona_frontera": bool(zona_frontera),
+            "aplicar_art_36": bool(aplicar_art_36),
+            "contexto": contexto,
+        }
 
     def _calcular_dias_trabajados_nomina(
         self,
@@ -156,7 +274,10 @@ class NominaPeriodoService:
 
         res_plazas = (
             self.supabase.table("plazas")
-            .select("id, empleado_id, salario_mensual, fecha_inicio, sede_id")
+            .select(
+                "id, empleado_id, salario_mensual, fecha_inicio, sede_id, "
+                "tipo_jornada, factor_jornada"
+            )
             .in_("contrato_id", contrato_ids)
             .eq("estatus", EstatusPlaza.OCUPADA.value)
             .lte("fecha_inicio", fecha_corte)
@@ -198,6 +319,13 @@ class NominaPeriodoService:
                 "salario_diario": self._salario_diario_desde_mensual(
                     item.get("salario_mensual")
                 ),
+                "tipo_jornada": self._normalizar_tipo_jornada(
+                    item.get("tipo_jornada")
+                ),
+                "factor_jornada": self._normalizar_factor_jornada(
+                    item.get("factor_jornada"),
+                    item.get("tipo_jornada"),
+                ),
             }
 
         return snapshot_por_empleado
@@ -213,7 +341,9 @@ class NominaPeriodoService:
         periodo_result = (
             self.supabase.table(self.tabla)
             .select(
-                "empresa_id, contrato_id, fecha_fin, periodicidad, regla_calculo_quincenal"
+                "empresa_id, contrato_id, fecha_fin, fecha_pago, periodicidad, "
+                "regla_calculo_quincenal, listo_para_timbrar, "
+                "total_empleados_con_observaciones_fiscales"
             )
             .eq("id", periodo_id)
             .limit(1)
@@ -282,6 +412,21 @@ class NominaPeriodoService:
                 periodo.get("regla_calculo_quincenal"),
                 r.get("dias_trabajados"),
             )
+            observaciones = r.get("observaciones_fiscales") or []
+            r["observaciones_fiscales"] = observaciones
+            r["tiene_observaciones_fiscales"] = bool(observaciones)
+            r["tiene_errores_fiscales"] = any(
+                str(item.get("severity") or "").lower() == "error"
+                for item in observaciones
+                if isinstance(item, dict)
+            )
+            r["observaciones_fiscales_resumen"] = " · ".join(
+                str(item.get("mensaje") or "").strip()
+                for item in observaciones
+                if isinstance(item, dict) and str(item.get("mensaje") or "").strip()
+            )
+            r["tipo_jornada"] = self._normalizar_tipo_jornada(r.get("tipo_jornada"))
+            r["tipo_jornada_label"] = TipoJornadaPlaza(r["tipo_jornada"]).descripcion
             items.append(r)
         return items
 
@@ -556,6 +701,8 @@ class NominaPeriodoService:
         notas: Optional[str] = None,
         creado_por: Optional[str] = None,
         creado_por_nombre: Optional[str] = None,
+        zona_frontera: Optional[bool] = None,
+        aplicar_art_36: Optional[bool] = None,
     ) -> dict:
         """
         Crea un nuevo período de nómina en estatus BORRADOR.
@@ -589,6 +736,10 @@ class NominaPeriodoService:
             datos['creado_por'] = creado_por
         if creado_por_nombre:
             datos['creado_por_nombre'] = creado_por_nombre
+        if zona_frontera is not None:
+            datos['zona_frontera'] = zona_frontera
+        if aplicar_art_36 is not None:
+            datos['aplicar_art_36'] = aplicar_art_36
 
         try:
             result = self.supabase.table(self.tabla).insert(datos).execute()
@@ -674,6 +825,7 @@ class NominaPeriodoService:
     ) -> dict:
         """Crea un periodo usando la política activa de nómina de la empresa."""
         config = await self._obtener_configuracion_nomina(empresa_id)
+        config_fiscal = await self._obtener_configuracion_fiscal(empresa_id)
         periodicidad, politica_kwargs = self._contexto_politica_nomina(config)
         contrato_id_resuelto = await self._resolver_contrato_nomina_id_periodo(
             empresa_id,
@@ -706,6 +858,8 @@ class NominaPeriodoService:
             notas=notas,
             creado_por=usuario_id,
             creado_por_nombre=usuario_nombre,
+            zona_frontera=bool(getattr(config_fiscal, "zona_frontera", False)),
+            aplicar_art_36=bool(getattr(config_fiscal, "aplicar_art_36", True)),
         )
         await self._sincronizar_contrato_nomina_configurado(
             empresa_id,
@@ -729,6 +883,7 @@ class NominaPeriodoService:
     ) -> dict:
         """Compatibilidad con el flujo quincenal previo."""
         config = await self._obtener_configuracion_nomina(empresa_id)
+        config_fiscal = await self._obtener_configuracion_fiscal(empresa_id)
         contrato_nomina_id = await self._resolver_contrato_nomina_id_periodo(
             empresa_id,
             contrato_id,
@@ -765,6 +920,8 @@ class NominaPeriodoService:
             notas=notas,
             creado_por=usuario_id,
             creado_por_nombre=usuario_nombre,
+            zona_frontera=bool(getattr(config_fiscal, "zona_frontera", False)),
+            aplicar_art_36=bool(getattr(config_fiscal, "aplicar_art_36", True)),
         )
         await self._sincronizar_contrato_nomina_configurado(
             empresa_id,
@@ -804,12 +961,12 @@ class NominaPeriodoService:
         fecha_fin = periodo['fecha_fin']
 
         try:
-            salario_diario_por_empleado = self._mapear_salario_diario_por_empleado(
+            plaza_snapshot_por_empleado = self._mapear_plaza_vigente_por_empleado(
                 empresa_id=empresa_id,
                 fecha_referencia=fecha_fin,
                 contrato_id=contrato_id,
             )
-            empleado_ids_con_plaza = list(salario_diario_por_empleado.keys())
+            empleado_ids_con_plaza = list(plaza_snapshot_por_empleado.keys())
             if not empleado_ids_con_plaza:
                 logger.warning(
                     "No hay empleados con plaza ocupada vigente para empresa %s en período %s",
@@ -818,6 +975,9 @@ class NominaPeriodoService:
                 )
                 self._actualizar_total_empleados_periodo(periodo_id, 0)
                 return 0
+
+            fiscal_periodo = await self._resolver_contexto_fiscal_periodo(periodo)
+            contexto_fiscal = fiscal_periodo["contexto"]
 
             # 1. Empleados ACTIVOS de la empresa con plaza vigente
             res_emp = (
@@ -847,7 +1007,11 @@ class NominaPeriodoService:
                     empleados_con_plaza_inactivos,
                 )
             empleados_sin_salario = [
-                emp_id for emp_id in empleado_ids if salario_diario_por_empleado.get(emp_id, 0.0) <= 0
+                emp_id
+                for emp_id in empleado_ids
+                if float(
+                    plaza_snapshot_por_empleado.get(emp_id, {}).get("salario_diario") or 0
+                ) <= 0
             ]
             if empleados_sin_salario:
                 logger.warning(
@@ -917,10 +1081,54 @@ class NominaPeriodoService:
                 horas_dobles = min(total_horas_extra, 9.0)
                 horas_triples = max(0.0, total_horas_extra - 9.0)
 
-                salario_diario = salario_diario_por_empleado.get(emp_id, 0.0)
+                snapshot_plaza = plaza_snapshot_por_empleado.get(emp_id, {})
+                salario_diario = float(snapshot_plaza.get("salario_diario") or 0.0)
                 if salario_diario <= 0:
                     empleados_omitidos.append(emp_id)
                     continue
+
+                tipo_jornada = self._normalizar_tipo_jornada(
+                    snapshot_plaza.get("tipo_jornada")
+                )
+                factor_jornada = self._normalizar_factor_jornada(
+                    snapshot_plaza.get("factor_jornada"),
+                    tipo_jornada,
+                )
+                salario_minimo_diario = Decimal(
+                    str(contexto_fiscal.salario_minimo_diario_aplicable or 0)
+                ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                salario_minimo_proporcional = self._salario_minimo_proporcional_diario(
+                    salario_minimo_diario,
+                    factor_jornada,
+                )
+                observaciones_fiscales: list[dict[str, str]] = []
+                if not contexto_fiscal.vigencia_soportada and contexto_fiscal.mensaje_vigencia:
+                    observaciones_fiscales.append(
+                        self._observacion_fiscal(
+                            codigo="CATALOGO_FISCAL_NO_VIGENTE",
+                            mensaje=contexto_fiscal.mensaje_vigencia,
+                            severidad="error",
+                        )
+                    )
+
+                salario_diario_decimal = Decimal(str(salario_diario)).quantize(
+                    Decimal("0.01"),
+                    rounding=ROUND_HALF_UP,
+                )
+                if salario_diario_decimal < salario_minimo_proporcional and not Tolerancias.es_salario_minimo(
+                    salario_diario_decimal,
+                    salario_minimo_proporcional,
+                ):
+                    observaciones_fiscales.append(
+                        self._observacion_fiscal(
+                            codigo="SALARIO_BAJO_MINIMO_PROPORCIONAL",
+                            mensaje=(
+                                "El salario diario de la plaza está por debajo del mínimo "
+                                "proporcional para la jornada capturada."
+                            ),
+                            severidad="warning",
+                        )
+                    )
 
                 registros.append({
                     'periodo_id': periodo_id,
@@ -937,6 +1145,13 @@ class NominaPeriodoService:
                     'horas_extra_dobles': horas_dobles,
                     'horas_extra_triples': horas_triples,
                     'domingos_trabajados': domingos,
+                    'tipo_jornada': tipo_jornada,
+                    'factor_jornada': factor_jornada,
+                    'salario_minimo_diario_aplicable': float(salario_minimo_diario),
+                    'es_salario_minimo_art36': False,
+                    'imss_obrero_absorbido': 0.0,
+                    'listo_para_timbrar': False,
+                    'observaciones_fiscales': observaciones_fiscales,
                     'banco_destino': emp.get('banco'),
                     'clabe_destino': emp.get('clabe_interbancaria'),
                 })
@@ -1120,6 +1335,17 @@ class NominaPeriodoService:
 
         if nuevo_estatus == 'EN_PREPARACION_RRHH':
             await self._materializar_descuentos_recurrentes_rrhh(periodo)
+        elif nuevo_estatus == 'CERRADO' and not bool(periodo.get('listo_para_timbrar', False)):
+            total_obs = int(periodo.get('total_empleados_con_observaciones_fiscales') or 0)
+            detalle = (
+                f" Hay {total_obs} empleado(s) con observaciones fiscales."
+                if total_obs > 0
+                else ""
+            )
+            raise BusinessRuleError(
+                "El período no está listo para timbrar y no puede cerrarse."
+                + detalle
+            )
 
         from datetime import datetime, timezone
         ahora = datetime.now(timezone.utc).isoformat()

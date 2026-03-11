@@ -53,6 +53,18 @@ def _callout_mensaje() -> rx.Component:
     )
 
 
+def _badge_timbrado(empleado: dict) -> rx.Component:
+    return rx.cond(
+        empleado['listo_para_timbrar'],
+        rx.cond(
+            empleado['tiene_observaciones_fiscales'],
+            rx.badge("Con observaciones", color_scheme="amber", size="1", variant="soft"),
+            rx.badge("Listo para timbrar", color_scheme="green", size="1", variant="soft"),
+        ),
+        rx.badge("No listo", color_scheme="red", size="1", variant="soft"),
+    )
+
+
 # =============================================================================
 # PANEL RESUMEN DEL PERÍODO
 # =============================================================================
@@ -129,15 +141,23 @@ def _botones_accion() -> rx.Component:
             ),
             rx.fragment(),
         ),
-        # Cerrar período (solo si CALCULADO)
+        # Cerrar período (solo si CALCULADO y listo para timbrar)
         rx.cond(
-            NominaContabilidadState.puede_cerrar,
-            rx.button(
-                rx.icon("lock", size=15),
-                "Cerrar período",
-                on_click=NominaContabilidadState.abrir_dialog_cerrar,
-                color_scheme="green",
-                size="2",
+            NominaContabilidadState.mostrar_accion_cerrar,
+            rx.tooltip(
+                rx.button(
+                    rx.icon("lock", size=15),
+                    "Cerrar período",
+                    on_click=NominaContabilidadState.abrir_dialog_cerrar,
+                    color_scheme="green",
+                    size="2",
+                    disabled=~NominaContabilidadState.puede_cerrar,
+                ),
+                content=rx.cond(
+                    NominaContabilidadState.puede_cerrar,
+                    "Cierra el período para dejarlo en solo lectura.",
+                    NominaContabilidadState.razon_no_puede_cerrar,
+                ),
             ),
             rx.fragment(),
         ),
@@ -205,6 +225,33 @@ def _panel_resumen() -> rx.Component:
                 "$" + NominaContabilidadState.total_neto_periodo.to(str),
                 Colors.PRIMARY,
             ),
+            rx.separator(orientation="vertical", size="2"),
+            rx.vstack(
+                rx.text("Pre-timbrado", size="1", color=Colors.TEXT_MUTED),
+                rx.cond(
+                    NominaContabilidadState.periodo_listo_para_timbrar,
+                    rx.badge(
+                        "Listo para timbrar",
+                        color_scheme="green",
+                        size="2",
+                        variant="soft",
+                    ),
+                    rx.badge(
+                        "No listo para timbrar",
+                        color_scheme="red",
+                        size="2",
+                        variant="soft",
+                    ),
+                ),
+                rx.text(
+                    NominaContabilidadState.total_empleados_con_observaciones_fiscales.to(str)
+                    + " empleado(s) con observaciones",
+                    size="1",
+                    color=Colors.TEXT_MUTED,
+                ),
+                spacing="1",
+                align="start",
+            ),
             rx.spacer(),
             _botones_accion(),
             spacing="6",
@@ -220,6 +267,20 @@ def _panel_resumen() -> rx.Component:
     )
 
 
+def _callout_timbrado() -> rx.Component:
+    return rx.cond(
+        (
+            NominaContabilidadState.periodo_calculado
+            & ~NominaContabilidadState.periodo_listo_para_timbrar
+        ),
+        feedback_callout(
+            NominaContabilidadState.razon_no_puede_cerrar,
+            "warning",
+        ),
+        rx.fragment(),
+    )
+
+
 # =============================================================================
 # TABLA DE EMPLEADOS
 # =============================================================================
@@ -231,6 +292,7 @@ ENCABEZADOS_CALCULO = [
     {"nombre": "Deducciones",  "ancho": "110px"},
     {"nombre": "Neto",         "ancho": "110px"},
     {"nombre": "Estatus",      "ancho": "100px"},
+    {"nombre": "Timbrado",     "ancho": "140px"},
     {"nombre": "Acciones",     "ancho": "100px"},
 ]
 
@@ -274,6 +336,16 @@ def _fila_empleado_calculo(empleado: dict) -> rx.Component:
         ),
         rx.table.cell(
             _badge_estatus_empleado(empleado['estatus']),
+        ),
+        rx.table.cell(
+            rx.tooltip(
+                _badge_timbrado(empleado),
+                content=rx.cond(
+                    empleado['tiene_observaciones_fiscales'],
+                    empleado['observaciones_fiscales_resumen'],
+                    "Sin observaciones fiscales",
+                ),
+            ),
         ),
         rx.table.cell(
             rx.hstack(
@@ -484,6 +556,7 @@ def calculo_nomina_page() -> rx.Component:
             content=rx.vstack(
                 _callout_mensaje(),
                 _panel_resumen(),
+                _callout_timbrado(),
                 _callout_pendiente_recibir(),
                 _callout_readonly(),
                 _tabla_empleados_calculo(),

@@ -53,6 +53,7 @@ def test_fetch_contratos_portal_incluye_vencidos_por_default(monkeypatch):
 
     assert fake_service.calls == [(26, True)]
     assert dummy.total_contratos_lista == 1
+    assert dummy.contratos[0]["descripcion_objeto_display"] == "Sin objeto capturado"
     assert dummy.contratos[0]["fecha_fin_fmt"] == "01/02/2026"
     assert dummy.contratos[0]["vigencia_label"] == "VENCIDO"
 

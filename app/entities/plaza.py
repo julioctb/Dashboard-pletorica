@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
-from app.core.enums import EstatusPlaza
+from app.core.enums import EstatusPlaza, TipoJornadaPlaza
 from app.core.validation.decimal_converters import convertir_a_decimal, convertir_a_decimal_opcional
 
 
@@ -66,6 +66,17 @@ class Plaza(BaseModel):
         decimal_places=2,
         description="Salario mensual de esta plaza"
     )
+    tipo_jornada: TipoJornadaPlaza = Field(
+        default=TipoJornadaPlaza.COMPLETA,
+        description="Tipo de jornada de la plaza",
+    )
+    factor_jornada: Decimal = Field(
+        default=Decimal("1.0"),
+        gt=0,
+        le=1,
+        decimal_places=2,
+        description="Factor proporcional de jornada (1.0 = completa)",
+    )
 
     # Estado
     estatus: EstatusPlaza = Field(
@@ -92,6 +103,11 @@ class Plaza(BaseModel):
     @classmethod
     def convertir_salario(cls, v):
         """Convierte el salario a Decimal si es necesario"""
+        return convertir_a_decimal(v)
+
+    @field_validator('factor_jornada', mode='before')
+    @classmethod
+    def convertir_factor_jornada(cls, v):
         return convertir_a_decimal(v)
 
     @field_validator('codigo', mode='before')
@@ -174,11 +190,18 @@ class PlazaCreate(BaseModel):
     salario_mensual: Decimal = Field(..., ge=0)
     estatus: EstatusPlaza = Field(default=EstatusPlaza.VACANTE)
     notas: Optional[str] = Field(default=None, max_length=1000)
+    tipo_jornada: TipoJornadaPlaza = Field(default=TipoJornadaPlaza.COMPLETA)
+    factor_jornada: Decimal = Field(default=Decimal("1.0"), gt=0, le=1)
 
     @field_validator('salario_mensual', mode='before')
     @classmethod
     def convertir_salario(cls, v):
         """Convierte el salario a Decimal si es necesario"""
+        return convertir_a_decimal(v)
+
+    @field_validator('factor_jornada', mode='before')
+    @classmethod
+    def convertir_factor_jornada(cls, v):
         return convertir_a_decimal(v)
 
     @field_validator('codigo', mode='before')
@@ -205,6 +228,8 @@ class PlazaUpdate(BaseModel):
     fecha_inicio: Optional[date] = Field(default=None)
     fecha_fin: Optional[date] = Field(default=None)
     salario_mensual: Optional[Decimal] = Field(default=None, ge=0)
+    tipo_jornada: Optional[TipoJornadaPlaza] = Field(default=None)
+    factor_jornada: Optional[Decimal] = Field(default=None, gt=0, le=1)
     estatus: Optional[EstatusPlaza] = Field(default=None)
     notas: Optional[str] = Field(default=None, max_length=1000)
 
@@ -212,6 +237,11 @@ class PlazaUpdate(BaseModel):
     @classmethod
     def convertir_salario(cls, v):
         """Convierte el salario a Decimal si es necesario"""
+        return convertir_a_decimal_opcional(v)
+
+    @field_validator('factor_jornada', mode='before')
+    @classmethod
+    def convertir_factor_jornada(cls, v):
         return convertir_a_decimal_opcional(v)
 
     @field_validator('codigo', mode='before')
@@ -247,6 +277,8 @@ class PlazaResumen(BaseModel):
     fecha_inicio: date
     fecha_fin: Optional[date] = None
     salario_mensual: Decimal
+    tipo_jornada: TipoJornadaPlaza = TipoJornadaPlaza.COMPLETA
+    factor_jornada: Decimal = Decimal("1.0")
     estatus: EstatusPlaza
     notas: Optional[str] = None
 

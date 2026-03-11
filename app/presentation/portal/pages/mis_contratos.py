@@ -317,7 +317,7 @@ def _card_contrato(cto: dict) -> rx.Component:
         icono="file-text",
         color_icono=Colors.PORTAL_PRIMARY,
         titulo=cto["codigo"],
-        subtitulo=cto["descripcion_objeto"],
+        subtitulo=cto["descripcion_objeto_display"],
         status=cto["estatus"],
         badge_superior=rx.badge(
             cto["tipo_contrato"],
@@ -757,9 +757,10 @@ def _modal_detalle_contrato() -> rx.Component:
                         variant="surface",
                     ),
                     _campo_detalle(
-                        "Descripción del objeto",
+                        "Objeto del contrato",
                         _texto_detalle(
                             datos["descripcion_objeto"],
+                            fallback="Sin objeto capturado",
                             white_space="pre-wrap",
                         ),
                     ),
@@ -920,7 +921,7 @@ def mis_contratos_page() -> rx.Component:
             ),
             toolbar=page_toolbar(
                 search_value=MisContratosState.filtro_busqueda_cto,
-                search_placeholder="Buscar por codigo, folio o descripcion...",
+                search_placeholder="Buscar por codigo, folio u objeto...",
                 on_search_change=MisContratosState.set_filtro_busqueda_cto,
                 on_search_clear=lambda: MisContratosState.set_filtro_busqueda_cto(""),
                 show_view_toggle=False,

@@ -12,6 +12,7 @@ from typing import Optional
 
 import reflex as rx
 
+from app.core.enums import TipoJornadaPlaza
 from app.presentation.pages.nominas.base_state import NominaBaseState
 from app.services.nomina_periodo_service import nomina_periodo_service
 from app.services.nomina_calculo_service import nomina_calculo_service
@@ -129,7 +130,38 @@ class NominaContabilidadState(NominaBaseState):
 
     @rx.var
     def puede_cerrar(self) -> bool:
+        return (
+            self.periodo_actual.get('estatus') == 'CALCULADO'
+            and bool(self.periodo_actual.get('listo_para_timbrar', False))
+        )
+
+    @rx.var
+    def mostrar_accion_cerrar(self) -> bool:
         return self.periodo_actual.get('estatus') == 'CALCULADO'
+
+    @rx.var
+    def periodo_listo_para_timbrar(self) -> bool:
+        return bool(self.periodo_actual.get('listo_para_timbrar', False))
+
+    @rx.var
+    def total_empleados_con_observaciones_fiscales(self) -> int:
+        return int(
+            self.periodo_actual.get('total_empleados_con_observaciones_fiscales') or 0
+        )
+
+    @rx.var
+    def razon_no_puede_cerrar(self) -> str:
+        if self.periodo_actual.get('estatus') != 'CALCULADO':
+            return "El período debe estar calculado antes de cerrarse."
+        if self.periodo_listo_para_timbrar:
+            return ""
+        total = self.total_empleados_con_observaciones_fiscales
+        if total > 0:
+            return (
+                f"El período no está listo para timbrar. Hay {total} empleado(s) "
+                "con observaciones fiscales."
+            )
+        return "El período no está listo para timbrar."
 
     @rx.var
     def puede_devolver(self) -> bool:
@@ -195,6 +227,47 @@ class NominaContabilidadState(NominaBaseState):
     @rx.var
     def detalle_total_neto(self) -> float:
         return float(self.empleado_detalle.get('total_neto') or 0)
+
+    @rx.var
+    def detalle_listo_para_timbrar(self) -> bool:
+        return bool(self.empleado_detalle.get('listo_para_timbrar', False))
+
+    @rx.var
+    def detalle_tipo_jornada_label(self) -> str:
+        try:
+            return TipoJornadaPlaza(
+                str(self.empleado_detalle.get('tipo_jornada') or "COMPLETA")
+            ).descripcion
+        except ValueError:
+            return "Jornada completa"
+
+    @rx.var
+    def detalle_factor_jornada(self) -> float:
+        return float(self.empleado_detalle.get('factor_jornada') or 0)
+
+    @rx.var
+    def detalle_salario_minimo_diario_aplicable(self) -> float:
+        return float(self.empleado_detalle.get('salario_minimo_diario_aplicable') or 0)
+
+    @rx.var
+    def detalle_es_salario_minimo_art36(self) -> bool:
+        return bool(self.empleado_detalle.get('es_salario_minimo_art36', False))
+
+    @rx.var
+    def detalle_art36_aplico(self) -> bool:
+        return float(self.empleado_detalle.get('imss_obrero_absorbido') or 0) > 0
+
+    @rx.var
+    def detalle_imss_obrero_absorbido(self) -> float:
+        return float(self.empleado_detalle.get('imss_obrero_absorbido') or 0)
+
+    @rx.var
+    def detalle_observaciones_fiscales(self) -> list[dict]:
+        return [
+            item
+            for item in (self.empleado_detalle.get('observaciones_fiscales') or [])
+            if isinstance(item, dict)
+        ]
 
     # Movimientos filtrados por tipo para la página de detalle
     @rx.var
@@ -450,6 +523,9 @@ class NominaContabilidadState(NominaBaseState):
         periodo_id = self.periodo_actual.get('id')
         if not periodo_id:
             return
+        if not self.puede_cerrar:
+            yield self.mostrar_mensaje(self.razon_no_puede_cerrar, "warning")
+            return
         self.saving = True
         try:
             resultado = await nomina_periodo_service.transicionar_estatus(
@@ -557,6 +633,7 @@ class NominaContabilidadState(NominaBaseState):
             # Actualizar fila en la tabla del período
             periodo_id = self.periodo_actual.get('id')
             if periodo_id:
+                self.periodo_actual = await nomina_periodo_service.obtener_periodo(periodo_id)
                 await self._cargar_empleados(periodo_id)
             yield self.mostrar_mensaje("Empleado recalculado correctamente", "success")
         except Exception as e:

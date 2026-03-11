@@ -14,8 +14,21 @@ def empty_state_card(
     return rx.center(
         rx.vstack(
             rx.icon(icon, size=48, color=Colors.TEXT_MUTED),
-            rx.text(title, size="4", color=Colors.TEXT_SECONDARY, weight="medium"),
-            rx.text(description, size="2", color=Colors.TEXT_MUTED, text_align="center"),
+            rx.text(
+                title,
+                size="4",
+                color=Colors.TEXT_SECONDARY,
+                weight="medium",
+                text_align="center",
+                width="100%",
+            ),
+            rx.text(
+                description,
+                size="2",
+                color=Colors.TEXT_MUTED,
+                text_align="center",
+                width="100%",
+            ),
             rx.cond(action_button, action_button, rx.fragment()),
             spacing="3",
             align="center",

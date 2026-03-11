@@ -12,8 +12,14 @@ Actualizado: 2026-01-17 (Migración a catálogos)
 """
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Optional
-from app.core.catalogs import CatalogoISN, CatalogoPrestaciones, CatalogoVacaciones
+from app.core.catalogs import (
+    CatalogoISN,
+    CatalogoPrestaciones,
+    CatalogoSalarioMinimo,
+    CatalogoVacaciones,
+)
 
 
 # =============================================================================
@@ -97,9 +103,12 @@ class ConfiguracionEmpresa:
     @property
     def salario_minimo_aplicable(self) -> float:
         """Retorna el salario mínimo según zona geográfica"""
-        if self.zona_frontera:
-            return float(CatalogoPrestaciones.SALARIO_MINIMO_FRONTERA)
-        return float(CatalogoPrestaciones.SALARIO_MINIMO_GENERAL)
+        salario = CatalogoSalarioMinimo.diario_vigente(
+            date.today(),
+            zona_frontera=self.zona_frontera,
+            permitir_fallback=True,
+        )
+        return float(salario or 0)
 
     def calcular_factor_integracion(self, antiguedad_anos: int) -> float:
         """

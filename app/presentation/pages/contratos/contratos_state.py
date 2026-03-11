@@ -121,7 +121,7 @@ FORM_DEFAULTS = {
     "sede_campus": "",
     "requiere_poliza": False,
     "poliza_detalle": "",
-    "tiene_personal": True,
+    "tiene_personal": False,
     "cantidad_plazas_minima": "0",
     "cantidad_plazas_maxima": "0",
     "estatus": EstatusContrato.BORRADOR.value,
@@ -229,7 +229,7 @@ class ContratosState(AuthState, CRUDStateMixin):
     form_sede_campus: str = ""
     form_requiere_poliza: bool = False
     form_poliza_detalle: str = ""
-    form_tiene_personal: bool = True
+    form_tiene_personal: bool = False
     form_cantidad_plazas_minima: str = "0"
     form_cantidad_plazas_maxima: str = "0"
     form_estatus: str = EstatusContrato.BORRADOR.value
@@ -416,8 +416,7 @@ class ContratosState(AuthState, CRUDStateMixin):
 
     def set_form_descripcion_objeto(self, value):
         self.form_descripcion_objeto = str(value or "")
-        if self.form_descripcion_objeto.strip():
-            self.error_descripcion_objeto = ""
+        self.error_descripcion_objeto = ""
 
     def sync_form_descripcion_objeto_blur(self, value):
         """Sincroniza el textarea al perder foco antes de validar o cambiar de paso."""
@@ -454,6 +453,7 @@ class ContratosState(AuthState, CRUDStateMixin):
             self.form_cantidad_plazas_maxima = "0"
             self.error_cantidad_plazas_minima = ""
             self.error_cantidad_plazas_maxima = ""
+        self._ajustar_paso_actual_wizard()
 
     def set_form_cantidad_plazas_minima(self, value):
         self.form_cantidad_plazas_minima = ''.join(c for c in str(value) if c.isdigit()) if value else ""
@@ -586,9 +586,10 @@ class ContratosState(AuthState, CRUDStateMixin):
             self.error_cantidad_plazas_minima = ""
             self.error_cantidad_plazas_maxima = ""
         elif value == TipoContrato.SERVICIOS.value:
-            # SERVICIOS: restaurar defaults
-            self.form_tiene_personal = True
+            # SERVICIOS: el usuario decide explícitamente si materializa plazas
+            self.form_tiene_personal = False
         self._sincronizar_tipo_duracion()
+        self._ajustar_paso_actual_wizard()
 
     def _sincronizar_tipo_duracion(self):
         """Deriva el tipo de duración a partir de la fecha fin visible del wizard."""
@@ -890,8 +891,24 @@ class ContratosState(AuthState, CRUDStateMixin):
     def set_mostrar_modal_confirmar_cancelar(self, value: bool):
         self.mostrar_modal_confirmar_cancelar = value
 
+    def _mostrar_paso_plazas_wizard(self) -> bool:
+        return (
+            self.form_tipo_contrato == TipoContrato.SERVICIOS.value
+            and self.form_tiene_personal
+        )
+
+    def _ajustar_paso_actual_wizard(self):
+        total_pasos = self._obtener_total_pasos_wizard()
+        if self.form_paso_actual > total_pasos:
+            self.form_paso_actual = total_pasos
+
     def _obtener_total_pasos_wizard(self) -> int:
-        return 2 if self.es_edicion else 3
+        total = 1
+        if self._mostrar_paso_plazas_wizard():
+            total += 1
+        if not self.es_edicion:
+            total += 1
+        return total
 
     def set_form_paso_actual(self, paso: int):
         """Permite navegación controlada entre pasos del wizard."""
@@ -1012,15 +1029,15 @@ class ContratosState(AuthState, CRUDStateMixin):
             )
 
     def validar_descripcion_objeto_campo(self):
-        """Valida descripción del objeto (obligatorio)"""
+        """Valida el objeto del contrato solo cuando el usuario captura un valor."""
         if not self.form_descripcion_objeto or not self.form_descripcion_objeto.strip():
-            self.error_descripcion_objeto = "La descripción del objeto es obligatoria"
-        else:
-            self.validar_y_asignar_error(
-                valor=self.form_descripcion_objeto,
-                validador=validar_descripcion_objeto,
-                error_attr="error_descripcion_objeto",
-            )
+            self.error_descripcion_objeto = ""
+            return
+        self.validar_y_asignar_error(
+            valor=self.form_descripcion_objeto,
+            validador=validar_descripcion_objeto,
+            error_attr="error_descripcion_objeto",
+        )
 
     def _usa_folio_en_formulario(self) -> bool:
         """El folio solo se captura manualmente durante la edición."""
@@ -1047,12 +1064,12 @@ class ContratosState(AuthState, CRUDStateMixin):
         # Limpiar todos los errores primero
         self._limpiar_errores()
 
-        # Campos siempre requeridos
+        # Validar base del formulario
         self.validar_empresa_id_campo()
         self.validar_tipo_contrato_campo()
         self.validar_modalidad_campo()
         self.validar_fecha_inicio_campo()
-        self.validar_descripcion_objeto_campo()  # Ahora es obligatorio
+        self.validar_descripcion_objeto_campo()
 
         # Validaciones condicionales según tipo de contrato
         es_servicios = self.form_tipo_contrato == TipoContrato.SERVICIOS.value
@@ -1138,8 +1155,7 @@ class ContratosState(AuthState, CRUDStateMixin):
             self.form_empresa_id and
             self.form_tipo_contrato and
             self.form_modalidad_adjudicacion and
-            self.form_fecha_inicio and
-            self.form_descripcion_objeto.strip()  # Ahora es obligatorio
+            self.form_fecha_inicio
         )
 
         # Campos condicionales según tipo de contrato
@@ -1179,6 +1195,10 @@ class ContratosState(AuthState, CRUDStateMixin):
         return not self.es_edicion
 
     @rx.var
+    def mostrar_paso_plazas(self) -> bool:
+        return self._mostrar_paso_plazas_wizard()
+
+    @rx.var
     def total_pasos_wizard(self) -> int:
         return self._obtener_total_pasos_wizard()
 
@@ -1194,9 +1214,19 @@ class ContratosState(AuthState, CRUDStateMixin):
     def titulo_paso_actual_wizard(self) -> str:
         if self.form_paso_actual == 1:
             return "Datos"
-        if self.form_paso_actual == 2:
+        if self.mostrar_paso_plazas and self.form_paso_actual == 2:
             return "Plazas"
         return "Entregables"
+
+    @rx.var
+    def paso_actual_wizard(self) -> str:
+        if self.form_paso_actual == 1:
+            return "datos"
+        if self.mostrar_paso_plazas and self.form_paso_actual == 2:
+            return "plazas"
+        if self.mostrar_paso_entregables:
+            return "entregables"
+        return "datos"
 
     @rx.var
     def vigencia_formulario_label(self) -> str:
@@ -1637,8 +1667,6 @@ class ContratosState(AuthState, CRUDStateMixin):
         if self.filtro_tipo_servicio_id != FILTRO_SIN_SELECCION:
             self.form_tipo_servicio_id = self.filtro_tipo_servicio_id
             await self.cargar_categorias_puesto()
-        # Establecer fecha de inicio con la fecha actual
-        self.form_fecha_inicio = date.today().isoformat()
         self.mostrar_modal_contrato = True
 
     async def abrir_modal_crear_portal(self):
@@ -1655,7 +1683,6 @@ class ContratosState(AuthState, CRUDStateMixin):
             self._limpiar_formulario()
             self.es_edicion = False
             self.form_empresa_id = str(self.id_empresa_actual)
-            self.form_fecha_inicio = date.today().isoformat()
             self.mostrar_modal_contrato = True
         except Exception as e:
             return self.manejar_error_con_toast(e, "al preparar el formulario de contrato")
@@ -1861,7 +1888,7 @@ class ContratosState(AuthState, CRUDStateMixin):
             tipo_duracion=tipo_duracion,
             fecha_inicio=date.fromisoformat(self.form_fecha_inicio) if self.form_fecha_inicio else None,
             fecha_fin=date.fromisoformat(self.form_fecha_fin) if self.form_fecha_fin else None,
-            descripcion_objeto=self.form_descripcion_objeto.strip(),  # Ahora es obligatorio
+            descripcion_objeto=self.form_descripcion_objeto.strip() or None,
             monto_minimo=monto_minimo,
             monto_maximo=monto_maximo,
             incluye_iva=self.form_incluye_iva,
@@ -1952,8 +1979,8 @@ class ContratosState(AuthState, CRUDStateMixin):
                     })
                 self.form_contrato_items = items_form
 
-            # tiene_personal: False para ADQUISICION
-            self.form_tiene_personal = not es_adquisicion
+            # En creación, "incluye personal" arranca apagado y el usuario decide activarlo.
+            self.form_tiene_personal = False
 
             # Abrir modal
             self.es_edicion = False
@@ -2185,7 +2212,7 @@ class ContratosState(AuthState, CRUDStateMixin):
         self.form_sede_campus = contrato.get("sede_campus", "") or ""
         self.form_requiere_poliza = contrato.get("requiere_poliza", False)
         self.form_poliza_detalle = contrato.get("poliza_detalle", "") or ""
-        self.form_tiene_personal = contrato.get("tiene_personal", True)
+        self.form_tiene_personal = contrato.get("tiene_personal", False)
         self.form_cantidad_plazas_minima = str(contrato.get("cantidad_plazas_minima", 0) or 0)
         self.form_cantidad_plazas_maxima = str(contrato.get("cantidad_plazas_maxima", 0) or 0)
         self.form_estatus = contrato.get("estatus", EstatusContrato.BORRADOR.value)
@@ -2268,7 +2295,7 @@ class ContratosState(AuthState, CRUDStateMixin):
                 ("Tipo de servicio", self.error_tipo_servicio_id),
                 ("Fecha de inicio", self.error_fecha_inicio),
                 ("Fecha de fin", self.error_fecha_fin),
-                ("Descripción del objeto", self.error_descripcion_objeto),
+                ("Objeto del contrato", self.error_descripcion_objeto),
             ]
             if self._usa_folio_en_formulario():
                 errores_paso.insert(3, ("Folio institución", self.error_folio_buap))
@@ -2355,7 +2382,7 @@ class ContratosState(AuthState, CRUDStateMixin):
             tipo_duracion=tipo_duracion,
             fecha_inicio=date.fromisoformat(self.form_fecha_inicio),
             fecha_fin=fecha_fin,
-            descripcion_objeto=self.form_descripcion_objeto.strip(),  # Ahora es obligatorio
+            descripcion_objeto=self.form_descripcion_objeto.strip() or None,
             monto_minimo=monto_minimo,
             monto_maximo=monto_maximo,
             incluye_iva=self.form_incluye_iva,
@@ -2435,7 +2462,7 @@ class ContratosState(AuthState, CRUDStateMixin):
             ("Tipo Contrato", self.error_tipo_contrato),
             ("Modalidad", self.error_modalidad_adjudicacion),
             ("Fecha inicio", self.error_fecha_inicio),
-            ("Descripción", self.error_descripcion_objeto),
+            ("Objeto del contrato", self.error_descripcion_objeto),
         )
         for etiqueta, error in errores_base:
             if error:

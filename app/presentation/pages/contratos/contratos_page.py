@@ -135,9 +135,22 @@ def fila_contrato(contrato: dict) -> rx.Component:
         rx.table.cell(
             rx.text(contrato["codigo"], weight="bold", size="2"),
         ),
-        # Concepto
+        # Objeto
         rx.table.cell(
-            rx.text(contrato["descripcion_objeto"], size="2"),
+            rx.text(
+                contrato["descripcion_objeto_display"],
+                size="2",
+                color=rx.cond(
+                    contrato["descripcion_objeto"],
+                    Colors.TEXT_PRIMARY,
+                    Colors.TEXT_MUTED,
+                ),
+                font_style=rx.cond(
+                    contrato["descripcion_objeto"],
+                    "normal",
+                    "italic",
+                ),
+            ),
         ),
         # Tipo de Contrato
         rx.table.cell(
@@ -173,7 +186,7 @@ def fila_contrato(contrato: dict) -> rx.Component:
 ENCABEZADOS_CONTRATOS = [
     {"nombre": "Inicio", "ancho": "100px"},
     {"nombre": "Código", "ancho": "130px"},
-    {"nombre": "Concepto", "ancho": "180px"},
+    {"nombre": "Objeto", "ancho": "180px"},
     {"nombre": "Tipo", "ancho": "100px"},
     {"nombre": "Monto", "ancho": "100px"},
     {"nombre": "Saldo", "ancho": "100px"},
@@ -254,14 +267,20 @@ def card_contrato(contrato: dict) -> rx.Component:
                         align="center",
                     ),
                 ),
-                rx.cond(
-                    contrato["descripcion_objeto"],
-                    rx.text(
+                rx.text(
+                    contrato["descripcion_objeto_display"],
+                    size="2",
+                    color=rx.cond(
                         contrato["descripcion_objeto"],
-                        size="2",
-                        color=Colors.TEXT_SECONDARY,
-                        style={"max_width": "100%", "overflow": "hidden", "text_overflow": "ellipsis"},
+                        Colors.TEXT_SECONDARY,
+                        Colors.TEXT_MUTED,
                     ),
+                    font_style=rx.cond(
+                        contrato["descripcion_objeto"],
+                        "normal",
+                        "italic",
+                    ),
+                    style={"max_width": "100%", "overflow": "hidden", "text_overflow": "ellipsis"},
                 ),
                 spacing="2",
                 align_items="start",
@@ -394,7 +413,7 @@ def contratos_page() -> rx.Component:
             ),
             toolbar=page_toolbar(
                 search_value=ContratosState.filtro_busqueda,
-                search_placeholder="Buscar por folio, empresa o concepto...",
+                search_placeholder="Buscar por folio, empresa u objeto...",
                 on_search_change=ContratosState.on_change_busqueda,
                 on_search_clear=ContratosState.limpiar_busqueda,
                 filters=filtros_contratos(),

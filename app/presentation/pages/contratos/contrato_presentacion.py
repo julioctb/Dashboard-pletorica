@@ -46,6 +46,13 @@ def _normalizar_fecha(valor: Any) -> date | None:
     return None
 
 
+def _normalizar_texto(valor: Any) -> str:
+    """Normaliza textos opcionales para evitar huecos silenciosos en UI."""
+    if not isinstance(valor, str):
+        return ""
+    return valor.strip()
+
+
 def enriquecer_contrato_presentacion(
     contrato: Any,
     *,
@@ -71,9 +78,14 @@ def enriquecer_contrato_presentacion(
     fecha_fin_normalizada = _normalizar_fecha(fecha_fin)
     monto_minimo = _get(contrato, "monto_minimo")
     monto_maximo = _get(contrato, "monto_maximo")
+    descripcion_objeto = _normalizar_texto(_get(contrato, "descripcion_objeto"))
 
     data["fecha_inicio_fmt"] = formatear_fecha(fecha_inicio)
     data["fecha_fin_fmt"] = formatear_fecha(fecha_fin)
+    data["descripcion_objeto"] = descripcion_objeto
+    data["descripcion_objeto_display"] = (
+        descripcion_objeto if descripcion_objeto else "Sin objeto capturado"
+    )
     data["monto_minimo_fmt"] = (
         formatear_moneda(str(monto_minimo))
         if monto_minimo is not None else "-"

@@ -299,6 +299,8 @@ class NominaConciliacionState(NominaBaseState):
             'Sistema — Percepciones', 'Sistema — Deducciones', 'Sistema — Neto',
             'CONTPAQi — Percepciones', 'CONTPAQi — Deducciones', 'CONTPAQi — Neto',
             'Diferencia Neto', 'Semáforo',
+            'Listo para timbrar', 'Art. 36 aplicado',
+            'IMSS Obrero absorbido', 'Observaciones fiscales',
         ]
         header_fill = PatternFill(
             start_color='1E40AF', end_color='1E40AF', fill_type='solid'
@@ -331,6 +333,14 @@ class NominaConciliacionState(NominaBaseState):
                 float(emp.get('cp_neto') or 0),
                 diff if diff >= 0 else 'Sin datos',
                 sem.upper(),
+                'SI' if emp.get('listo_para_timbrar') else 'NO',
+                'SI' if float(emp.get('imss_obrero_absorbido') or 0) > 0 else 'NO',
+                float(emp.get('imss_obrero_absorbido') or 0),
+                " | ".join(
+                    str(item.get('mensaje') or '').strip()
+                    for item in (emp.get('observaciones_fiscales') or [])
+                    if isinstance(item, dict) and str(item.get('mensaje') or '').strip()
+                ),
             ]
             for col, val in enumerate(vals, 1):
                 cell = ws.cell(row=row_idx, column=col, value=val)
@@ -376,8 +386,18 @@ class NominaConciliacionState(NominaBaseState):
         ws2['B9'] = self.semaforo_rojos
         ws2['A10'] = '% que cuadra'
         ws2['B10'] = f"{self.pct_cuadra}%"
+        ws2['A11'] = 'Listos para timbrar'
+        ws2['B11'] = sum(
+            1 for e in self.empleados_conciliacion if e.get('listo_para_timbrar')
+        )
+        ws2['A12'] = 'Con observaciones fiscales'
+        ws2['B12'] = sum(
+            1
+            for e in self.empleados_conciliacion
+            if e.get('observaciones_fiscales')
+        )
 
-        for row in ws2.iter_rows(min_row=1, max_row=10, min_col=1, max_col=1):
+        for row in ws2.iter_rows(min_row=1, max_row=12, min_col=1, max_col=1):
             for cell in row:
                 cell.font = Font(bold=True)
 

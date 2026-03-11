@@ -41,7 +41,12 @@ sys.modules.setdefault(
     ),
 )
 
-from app.core.enums import PeriodicidadNomina, ReglaCalculoQuincenal
+from app.core.catalogs import CatalogoISR, CatalogoSalarioMinimo, CatalogoUMA
+from app.core.enums import (
+    PeriodicidadNomina,
+    ReglaCalculoQuincenal,
+    TipoJornadaPlaza,
+)
 
 nomina_calculo_module = importlib.import_module("app.services.nomina_calculo_service")
 
@@ -257,3 +262,182 @@ def test_resolver_regla_quincenal_hereda_config_y_persiste_snapshot(monkeypatch)
     assert fake_client.updates["periodos_nomina"] == [
         {"regla_calculo_quincenal": "REAL"}
     ]
+
+
+def test_catalogos_fiscales_resuelven_por_fecha():
+    assert CatalogoUMA.diario_vigente("2026-01-15") == Decimal("113.14")
+    assert CatalogoUMA.diario_vigente("2026-02-15") == Decimal("118.57")
+    assert CatalogoSalarioMinimo.diario_vigente(
+        "2026-03-15",
+        zona_frontera=False,
+    ) == Decimal("315.04")
+    assert CatalogoSalarioMinimo.diario_vigente(
+        "2026-03-15",
+        zona_frontera=True,
+    ) == Decimal("440.87")
+    assert CatalogoISR.calcular_subsidio(
+        Decimal("10000"),
+        "2026-01-15",
+    ) == Decimal("536.21")
+    assert CatalogoISR.calcular_subsidio(
+        Decimal("10000"),
+        "2026-03-15",
+    ) == Decimal("541.40")
+
+
+def test_calculo_aplica_art36_en_salario_minimo_jornada_completa(monkeypatch):
+    _desactivar_isr_y_subsidio(monkeypatch)
+    fake_client = _FakeSupabaseClient({"nomina_movimientos": [_FakeResult([])]})
+    service = _build_service(fake_client)
+
+    captured = {}
+
+    def _fake_imss(**kwargs):
+        captured.update(kwargs)
+        return (
+            {
+                "excedente": 0.0,
+                "prest_dinero": 0.0,
+                "gastos_med": 0.0,
+                "invalidez_vida": 0.0,
+                "cesantia_vejez": 0.0,
+            },
+            45.67,
+        )
+
+    service.calculadora_imss = SimpleNamespace(calcular_obrero=_fake_imss)
+
+    nomina = {
+        "id": 801,
+        "empleado_id": 40,
+        "salario_diario": "315.04",
+        "salario_diario_integrado": "315.04",
+        "dias_trabajados": 15,
+        "dias_faltas": 0,
+        "dias_incapacidad": 0,
+        "dias_periodo": 15,
+        "horas_extra_dobles": 0,
+        "horas_extra_triples": 0,
+        "domingos_trabajados": 0,
+        "tipo_jornada": TipoJornadaPlaza.COMPLETA.value,
+        "factor_jornada": "1.0",
+    }
+    periodo = {
+        "id": 77,
+        "empresa_id": 7,
+        "fecha_pago": "2026-03-15",
+        "fecha_fin": "2026-03-15",
+        "periodicidad": PeriodicidadNomina.QUINCENAL.value,
+        "regla_calculo_quincenal": ReglaCalculoQuincenal.MIXTA.value,
+        "zona_frontera": False,
+        "aplicar_art_36": True,
+    }
+
+    result = asyncio.run(service._calcular_nomina_empleado(nomina, periodo))
+
+    assert captured["es_salario_minimo"] is True
+    assert captured["aplicar_art_36"] is True
+    movimientos = fake_client.inserts["nomina_movimientos"][0]
+    assert len(movimientos) == 1
+    assert movimientos[0]["concepto_id"] == 1
+    update = fake_client.updates["nominas_empleado"][0]
+    assert update["es_salario_minimo_art36"] is True
+    assert update["imss_obrero_absorbido"] == 45.67
+    assert update["listo_para_timbrar"] is True
+    assert result["listo_para_timbrar"] is True
+
+
+def test_calculo_no_absorbe_imss_si_art36_esta_desactivado(monkeypatch):
+    _desactivar_isr_y_subsidio(monkeypatch)
+    fake_client = _FakeSupabaseClient({"nomina_movimientos": [_FakeResult([])]})
+    service = _build_service(fake_client)
+
+    def _fake_imss(**kwargs):
+        return (
+            {
+                "excedente": 0.0,
+                "prest_dinero": 10.0,
+                "gastos_med": 5.0,
+                "invalidez_vida": 4.0,
+                "cesantia_vejez": 6.0,
+            },
+            0.0,
+        )
+
+    service.calculadora_imss = SimpleNamespace(calcular_obrero=_fake_imss)
+
+    nomina = {
+        "id": 802,
+        "empleado_id": 41,
+        "salario_diario": "315.04",
+        "salario_diario_integrado": "315.04",
+        "dias_trabajados": 15,
+        "dias_faltas": 0,
+        "dias_incapacidad": 0,
+        "dias_periodo": 15,
+        "horas_extra_dobles": 0,
+        "horas_extra_triples": 0,
+        "domingos_trabajados": 0,
+        "tipo_jornada": TipoJornadaPlaza.COMPLETA.value,
+        "factor_jornada": "1.0",
+    }
+    periodo = {
+        "id": 78,
+        "empresa_id": 7,
+        "fecha_pago": "2026-03-15",
+        "fecha_fin": "2026-03-15",
+        "periodicidad": PeriodicidadNomina.QUINCENAL.value,
+        "regla_calculo_quincenal": ReglaCalculoQuincenal.MIXTA.value,
+        "zona_frontera": False,
+        "aplicar_art_36": False,
+    }
+
+    asyncio.run(service._calcular_nomina_empleado(nomina, periodo))
+
+    movimientos = fake_client.inserts["nomina_movimientos"][0]
+    assert [mov["concepto_id"] for mov in movimientos] == [1, 8]
+    update = fake_client.updates["nominas_empleado"][0]
+    assert update["es_salario_minimo_art36"] is True
+    assert update["imss_obrero_absorbido"] == 0.0
+
+
+def test_calculo_future_catalog_marks_nomina_not_ready(monkeypatch):
+    _desactivar_isr_y_subsidio(monkeypatch)
+    fake_client = _FakeSupabaseClient({"nomina_movimientos": [_FakeResult([])]})
+    service = _build_service(fake_client)
+
+    nomina = {
+        "id": 803,
+        "empleado_id": 42,
+        "salario_diario": "500.00",
+        "salario_diario_integrado": "500.00",
+        "dias_trabajados": 15,
+        "dias_faltas": 0,
+        "dias_incapacidad": 0,
+        "dias_periodo": 15,
+        "horas_extra_dobles": 0,
+        "horas_extra_triples": 0,
+        "domingos_trabajados": 0,
+        "tipo_jornada": TipoJornadaPlaza.COMPLETA.value,
+        "factor_jornada": "1.0",
+    }
+    periodo = {
+        "id": 79,
+        "empresa_id": 7,
+        "fecha_pago": "2028-03-15",
+        "fecha_fin": "2028-03-15",
+        "periodicidad": PeriodicidadNomina.QUINCENAL.value,
+        "regla_calculo_quincenal": ReglaCalculoQuincenal.MIXTA.value,
+        "zona_frontera": False,
+        "aplicar_art_36": True,
+    }
+
+    result = asyncio.run(service._calcular_nomina_empleado(nomina, periodo))
+
+    update = fake_client.updates["nominas_empleado"][0]
+    assert update["listo_para_timbrar"] is False
+    assert any(
+        item["codigo"] == "CATALOGO_FISCAL_NO_VIGENTE"
+        for item in update["observaciones_fiscales"]
+    )
+    assert result["listo_para_timbrar"] is False

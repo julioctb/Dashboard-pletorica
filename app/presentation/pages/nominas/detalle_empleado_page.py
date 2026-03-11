@@ -201,6 +201,112 @@ def _resumen_totales() -> rx.Component:
     )
 
 
+def _panel_fiscal() -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.text("Pre-timbrado fiscal", size="3", weight="bold"),
+                rx.spacer(),
+                rx.cond(
+                    NominaContabilidadState.detalle_listo_para_timbrar,
+                    rx.badge("Listo para timbrar", color_scheme="green", size="2", variant="soft"),
+                    rx.badge("No listo", color_scheme="red", size="2", variant="soft"),
+                ),
+                width="100%",
+                align="center",
+            ),
+            rx.grid(
+                rx.vstack(
+                    rx.text("Jornada", size="1", color=Colors.TEXT_MUTED),
+                    rx.text(NominaContabilidadState.detalle_tipo_jornada_label, size="2", weight="medium"),
+                    spacing="1",
+                    align="start",
+                ),
+                rx.vstack(
+                    rx.text("Factor", size="1", color=Colors.TEXT_MUTED),
+                    rx.text(NominaContabilidadState.detalle_factor_jornada.to(str), size="2", weight="medium"),
+                    spacing="1",
+                    align="start",
+                ),
+                rx.vstack(
+                    rx.text("Mínimo aplicable", size="1", color=Colors.TEXT_MUTED),
+                    rx.text(
+                        "$" + NominaContabilidadState.detalle_salario_minimo_diario_aplicable.to(str),
+                        size="2",
+                        weight="medium",
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+                rx.vstack(
+                    rx.text("Art. 36", size="1", color=Colors.TEXT_MUTED),
+                    rx.cond(
+                        NominaContabilidadState.detalle_art36_aplico,
+                        rx.badge("Aplicado", color_scheme="green", size="1", variant="soft"),
+                        rx.cond(
+                            NominaContabilidadState.detalle_es_salario_minimo_art36,
+                            rx.badge("Elegible sin absorción", color_scheme="amber", size="1", variant="soft"),
+                            rx.badge("No aplica", color_scheme="gray", size="1", variant="soft"),
+                        ),
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+                rx.vstack(
+                    rx.text("IMSS absorbido", size="1", color=Colors.TEXT_MUTED),
+                    rx.text(
+                        "$" + NominaContabilidadState.detalle_imss_obrero_absorbido.to(str),
+                        size="2",
+                        weight="medium",
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+                columns="5",
+                spacing="5",
+                width="100%",
+            ),
+            rx.cond(
+                NominaContabilidadState.detalle_observaciones_fiscales.length() > 0,
+                rx.vstack(
+                    rx.foreach(
+                        NominaContabilidadState.detalle_observaciones_fiscales,
+                        _callout_observacion_fiscal,
+                    ),
+                    spacing="2",
+                    width="100%",
+                ),
+                rx.fragment(),
+            ),
+            spacing="4",
+            width="100%",
+        ),
+        padding=Spacing.LG,
+        background=Colors.SURFACE,
+        border=f"1px solid {Colors.BORDER}",
+        border_radius=Radius.LG,
+        width="100%",
+    )
+
+
+def _callout_observacion_fiscal(observacion: dict) -> rx.Component:
+    return rx.callout(
+        observacion["mensaje"],
+        icon=rx.cond(
+            observacion["severity"] == "error",
+            "triangle-alert",
+            "info",
+        ),
+        color_scheme=rx.cond(
+            observacion["severity"] == "error",
+            "red",
+            "amber",
+        ),
+        size="1",
+        width="100%",
+    )
+
+
 # =============================================================================
 # COMPUTED VARS PARA CONDICIONAR SECCIONES
 # Usamos len() Python-side en vars booleanas del state:
@@ -264,6 +370,7 @@ def detalle_empleado_page() -> rx.Component:
             ),
             content=rx.vstack(
                 _resumen_totales(),
+                _panel_fiscal(),
                 _seccion(
                     "Percepciones",
                     "trending-up",

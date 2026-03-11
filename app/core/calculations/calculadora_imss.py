@@ -28,7 +28,8 @@ class CalculadoraIMSS:
         self,
         sbc_diario: float,
         dias: int,
-        prima_riesgo: float
+        prima_riesgo: float,
+        uma_diaria: float | None = None,
     ) -> dict[str, float]:
         """
         Calcula todas las cuotas IMSS patronales.
@@ -63,8 +64,8 @@ class CalculadoraIMSS:
                 "riesgo_trabajo": float
             }
         """
-        uma = float(CatalogoUMA.DIARIO)
-        tres_uma = float(CatalogoUMA.TRES_UMA)
+        uma = float(uma_diaria if uma_diaria is not None else CatalogoUMA.DIARIO)
+        tres_uma = uma * 3
         excedente_base = max(0, sbc_diario - tres_uma)
 
         return {
@@ -93,7 +94,8 @@ class CalculadoraIMSS:
         sbc_diario: float,
         dias: int,
         es_salario_minimo: bool,
-        aplicar_art_36: bool
+        aplicar_art_36: bool,
+        uma_diaria: float | None = None,
     ) -> tuple[dict[str, float], float]:
         """
         Calcula cuotas IMSS obreras (descuentos al trabajador).
@@ -127,7 +129,8 @@ class CalculadoraIMSS:
             >>> cuotas, absorbido = calc.calcular_obrero(500.0, 30, False, True)
             >>> # Trabajador normal: cuotas con valores, absorbido = 0
         """
-        tres_uma = float(CatalogoUMA.TRES_UMA)
+        uma = float(uma_diaria if uma_diaria is not None else CatalogoUMA.DIARIO)
+        tres_uma = uma * 3
         excedente_base = max(0, sbc_diario - tres_uma)
 
         if es_salario_minimo and aplicar_art_36:

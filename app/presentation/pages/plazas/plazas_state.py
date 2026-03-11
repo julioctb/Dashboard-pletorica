@@ -11,7 +11,7 @@ import reflex as rx
 from app.core.exceptions import BusinessRuleError, DuplicateError
 from app.core.ui_helpers import FILTRO_TODOS
 from app.core.text_utils import formatear_fecha, formatear_moneda
-from app.entities import EstatusPlaza, PlazaUpdate
+from app.entities import EstatusPlaza, PlazaUpdate, TipoJornadaPlaza
 from app.presentation.components.shared.auth_state import AuthState
 from app.services import (
     categoria_puesto_service,
@@ -33,6 +33,8 @@ FORM_DEFAULTS = {
     "fecha_inicio": "",
     "fecha_fin": "",
     "salario_mensual": "",
+    "tipo_jornada": TipoJornadaPlaza.COMPLETA.value,
+    "factor_jornada": "1.00",
     "estatus": EstatusPlaza.VACANTE.value,
     "notas": "",
     "cantidad": "1",
@@ -111,6 +113,8 @@ class PlazasState(AuthState):
     form_fecha_inicio: str = ""
     form_fecha_fin: str = ""
     form_salario_mensual: str = ""
+    form_tipo_jornada: str = TipoJornadaPlaza.COMPLETA.value
+    form_factor_jornada: str = "1.00"
     form_estatus: str = EstatusPlaza.VACANTE.value
     form_notas: str = ""
     form_cantidad: str = "1"
@@ -125,6 +129,7 @@ class PlazasState(AuthState):
     error_categoria_puesto_id: str = ""
     error_fecha_inicio: str = ""
     error_salario_mensual: str = ""
+    error_factor_jornada: str = ""
     error_cantidad: str = ""
 
     # =========================================================================
@@ -443,6 +448,7 @@ class PlazasState(AuthState):
             bool(self.form_sede_id)
             and bool(self.form_fecha_inicio)
             and bool(self.form_salario_mensual)
+            and bool(self.form_factor_jornada)
             and not self.tiene_errores_en_campos(
                 [
                     "codigo",
@@ -450,6 +456,7 @@ class PlazasState(AuthState):
                     "categoria_puesto_id",
                     "fecha_inicio",
                     "salario_mensual",
+                    "factor_jornada",
                 ]
             )
             and not self.saving
@@ -569,6 +576,23 @@ class PlazasState(AuthState):
         self.form_salario_mensual = formatear_moneda(value) if value else ""
         self.error_salario_mensual = ""
 
+    def set_form_tipo_jornada(self, value: str):
+        self.form_tipo_jornada = value or TipoJornadaPlaza.COMPLETA.value
+        if self.form_tipo_jornada == TipoJornadaPlaza.COMPLETA.value:
+            self.form_factor_jornada = "1.00"
+        elif self.form_tipo_jornada == TipoJornadaPlaza.MEDIA_JORNADA.value:
+            self.form_factor_jornada = "0.50"
+        self.error_factor_jornada = ""
+
+    def set_form_factor_jornada(self, value: str):
+        valor = str(value or "").strip()
+        permitido = "".join(c for c in valor if c.isdigit() or c == ".")
+        if permitido.count(".") > 1:
+            primer, *resto = permitido.split(".")
+            permitido = primer + "." + "".join(resto)
+        self.form_factor_jornada = permitido
+        self.error_factor_jornada = ""
+
     def set_form_estatus(self, value: str):
         self.form_estatus = value or EstatusPlaza.VACANTE.value
 
@@ -661,6 +685,9 @@ class PlazasState(AuthState):
             formatear_fecha(plaza.fecha_fin) if plaza.fecha_fin else "-"
         )
         plaza_dict["salario_fmt"] = formatear_moneda(str(plaza.salario_mensual))
+        plaza_dict["tipo_jornada_label"] = TipoJornadaPlaza(
+            str(getattr(plaza.tipo_jornada, "value", plaza.tipo_jornada))
+        ).descripcion
         plaza_dict["sede_nombre"] = plaza_dict.get("sede_nombre") or "Sin sede"
         plaza_dict["sede_codigo"] = plaza_dict.get("sede_codigo") or ""
         plaza_dict["categoria_nombre"] = plaza_dict.get("categoria_nombre") or "Sin categoría"
@@ -680,6 +707,10 @@ class PlazasState(AuthState):
         self.form_fecha_inicio = str(plaza.get("fecha_inicio") or "")
         self.form_fecha_fin = str(plaza.get("fecha_fin") or "")
         self.form_salario_mensual = str(plaza.get("salario_mensual", "") or "0")
+        self.form_tipo_jornada = str(
+            plaza.get("tipo_jornada") or TipoJornadaPlaza.COMPLETA.value
+        )
+        self.form_factor_jornada = str(plaza.get("factor_jornada") or "1.0")
         self.form_estatus = plaza.get("estatus", EstatusPlaza.VACANTE.value)
         self.form_notas = plaza.get("notas", "") or ""
 
@@ -786,6 +817,7 @@ class PlazasState(AuthState):
                 "categoria_puesto_id",
                 "fecha_inicio",
                 "salario_mensual",
+                "factor_jornada",
                 "cantidad",
             ]
         )
@@ -1165,6 +1197,8 @@ class PlazasState(AuthState):
                     else None
                 ),
                 salario_mensual=self._parse_decimal(self.form_salario_mensual),
+                tipo_jornada=TipoJornadaPlaza(self.form_tipo_jornada),
+                factor_jornada=self._parse_decimal(self.form_factor_jornada),
                 estatus=EstatusPlaza(self.form_estatus) if self.form_estatus else None,
                 notas=self.form_notas.strip() or None,
             )

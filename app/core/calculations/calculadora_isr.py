@@ -13,6 +13,8 @@ Fecha: 2025-12-31 (Fase 2 de refactorización)
 Actualizado: 2026-01-17 (Migración a catálogos)
 """
 
+from decimal import Decimal
+
 from app.core.catalogs import CatalogoISR
 
 
@@ -27,7 +29,8 @@ class CalculadoraISR:
     def calcular(
         self,
         base_gravable: float,
-        es_salario_minimo: bool = False
+        es_salario_minimo: bool = False,
+        fecha_referencia=None,
     ) -> dict[str, float]:
         """
         Calcula ISR mensual con subsidio al empleo.
@@ -72,12 +75,16 @@ class CalculadoraISR:
         # ═════════════════════════════════════════════════════════════════════
         # CÁLCULO ISR CON TABLA PROGRESIVA
         # ═════════════════════════════════════════════════════════════════════
-        isr_calculado = self._buscar_en_tabla_isr(base_gravable)
+        isr_calculado = self._buscar_en_tabla_isr(base_gravable, fecha_referencia)
 
         # ═════════════════════════════════════════════════════════════════════
         # SUBSIDIO AL EMPLEO
         # ═════════════════════════════════════════════════════════════════════
-        subsidio = self._calcular_subsidio_empleo(base_gravable)
+        subsidio = self._calcular_subsidio_empleo(
+            base_gravable,
+            isr_calculado,
+            fecha_referencia,
+        )
 
         # ═════════════════════════════════════════════════════════════════════
         # ISR A RETENER (nunca negativo)
@@ -91,7 +98,7 @@ class CalculadoraISR:
             "isr_a_retener": isr_a_retener
         }
 
-    def _buscar_en_tabla_isr(self, base_gravable: float) -> float:
+    def _buscar_en_tabla_isr(self, base_gravable: float, fecha_referencia=None) -> float:
         """
         Busca en la tabla progresiva de ISR y calcula el impuesto.
 
@@ -106,6 +113,7 @@ class CalculadoraISR:
         Raises:
             ValueError: Si la tabla ISR está vacía o mal formada
         """
+        _ = fecha_referencia
         if not CatalogoISR.TABLA_MENSUAL:
             raise ValueError("Tabla ISR mensual no configurada")
 
@@ -130,7 +138,12 @@ class CalculadoraISR:
         isr = cuota_fija + (excedente * tasa)
         return round(isr, 2)
 
-    def _calcular_subsidio_empleo(self, base_gravable: float) -> float:
+    def _calcular_subsidio_empleo(
+        self,
+        base_gravable: float,
+        isr_calculado: float,
+        fecha_referencia=None,
+    ) -> float:
         """
         Calcula el subsidio al empleo según decreto vigente.
 
@@ -143,6 +156,12 @@ class CalculadoraISR:
         Returns:
             Monto del subsidio al empleo (0 si no aplica)
         """
-        if base_gravable <= float(CatalogoISR.LIMITE_SUBSIDIO):
-            return float(CatalogoISR.SUBSIDIO_MENSUAL)
-        return 0.0
+        if isr_calculado <= 0:
+            return 0.0
+        return float(
+            CatalogoISR.calcular_subsidio_aplicable(
+                base_gravable=Decimal(str(base_gravable)),
+                isr_causado=Decimal(str(isr_calculado)),
+                fecha_referencia=fecha_referencia,
+            )
+        )

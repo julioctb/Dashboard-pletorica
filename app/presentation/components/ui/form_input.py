@@ -2,6 +2,8 @@
 import reflex as rx
 from typing import Any
 
+from app.presentation.theme import Colors
+
 
 # =============================================================================
 # HELPERS INTERNOS
@@ -236,6 +238,7 @@ def form_select(
 
 def form_date(
     label: str = "",
+    placeholder: str = "DD/MM/AAAA",
     value: Any = "",
     on_change: callable = None,
     on_blur: callable = None,
@@ -249,21 +252,64 @@ def form_date(
 
     Args:
         label: Texto del label visible encima del input
+        placeholder: Texto guía mientras la fecha está vacía
         value: Variable de estado con la fecha (formato YYYY-MM-DD)
         on_change: Callback al cambiar fecha
         error: Variable con mensaje de error (opcional)
         required: Si True, muestra asterisco rojo en el label
         hint: Texto de ayuda debajo del input
     """
+    input_style = props.pop("style", {}) or {}
+    input_color = props.pop("color", rx.cond(value, Colors.TEXT_PRIMARY, Colors.TEXT_MUTED))
+    empty_text_color = "transparent"
+
     return form_field(
-        control=rx.input(
-            type="date",
-            value=value,
-            on_change=on_change,
-            on_blur=on_blur,
+        control=rx.box(
+            rx.cond(
+                value,
+                rx.fragment(),
+                rx.text(
+                    placeholder,
+                    size="2",
+                    color=Colors.TEXT_MUTED,
+                    position="absolute",
+                    top="50%",
+                    left="12px",
+                    transform="translateY(-50%)",
+                    pointer_events="none",
+                    z_index="1",
+                ),
+            ),
+            rx.input(
+                type="date",
+                placeholder=placeholder,
+                value=value,
+                on_change=on_change,
+                on_blur=on_blur,
+                width="100%",
+                size="2",
+                color=rx.cond(value, input_color, empty_text_color),
+                style={
+                    "&::-webkit-datetime-edit": {
+                        "color": rx.cond(value, input_color, empty_text_color),
+                    },
+                    "&::-webkit-date-and-time-value": {
+                        "textAlign": "left",
+                    },
+                    "&::-webkit-calendar-picker-indicator": {
+                        "opacity": "1",
+                    },
+                    **input_style,
+                },
+                **props
+            ),
+            position="relative",
             width="100%",
-            size="2",
-            **props
+            align_items="center",
+            justify_content="center",
+            min_height="36px",
+            display="flex",
+            overflow="hidden",
         ),
         label=label,
         required=required,

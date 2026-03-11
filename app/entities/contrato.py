@@ -96,11 +96,11 @@ class Contrato(BaseModel):
         description="Fecha de fin de vigencia (null si es indefinido)"
     )
     
-    # Descripción (obligatoria para nuevos contratos, pero permite NULL de BD legacy)
+    # Objeto del contrato (puede capturarse después, al asignar el folio institucional)
     descripcion_objeto: Optional[str] = Field(
         None,
         max_length=DESCRIPCION_OBJETO_MAX,
-        description="Descripción del objeto del contrato (obligatorio para nuevos)"
+        description="Objeto del contrato capturado por la institución"
     )
     
     # Montos
@@ -365,7 +365,11 @@ class ContratoCreate(BaseModel):
     tipo_duracion: Optional[TipoDuracion] = None  # Opcional para ADQUISICION
     fecha_inicio: date
     fecha_fin: Optional[date] = None
-    descripcion_objeto: str = Field(..., min_length=1, max_length=DESCRIPCION_OBJETO_MAX)  # Obligatorio
+    descripcion_objeto: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=DESCRIPCION_OBJETO_MAX,
+    )
     monto_minimo: Optional[Decimal] = Field(None, ge=0)
     monto_maximo: Optional[Decimal] = Field(None, ge=0)
     incluye_iva: bool = False

@@ -90,6 +90,27 @@ def _contenido_modal_plaza() -> rx.Component:
             on_change=PlazasState.set_form_salario_mensual,
             error=PlazasState.error_salario_mensual,
         ),
+        form_select(
+            label="Tipo de jornada",
+            required=True,
+            value=PlazasState.form_tipo_jornada,
+            on_change=PlazasState.set_form_tipo_jornada,
+            options=[
+                {"value": "COMPLETA", "label": "Jornada completa"},
+                {"value": "MEDIA_JORNADA", "label": "Media jornada"},
+                {"value": "POR_HORAS", "label": "Por horas"},
+            ],
+            hint="Completa fija factor 1.00 y media jornada fija factor 0.50.",
+        ),
+        form_input(
+            label="Factor de jornada",
+            required=True,
+            placeholder="Ej: 1.00 o 0.75",
+            value=PlazasState.form_factor_jornada,
+            on_change=PlazasState.set_form_factor_jornada,
+            error=PlazasState.error_factor_jornada,
+            hint="Solo aplica libremente para plazas por horas.",
+        ),
         form_input(
             label="Código",
             placeholder="Ej: PZA-001",
@@ -204,6 +225,22 @@ def _contenido_detalle_plaza() -> rx.Component:
                         PlazasState.plaza_seleccionada["salario_fmt"],
                         size="2",
                         weight="medium",
+                    ),
+                    width="100%",
+                ),
+                rx.hstack(
+                    rx.text("Jornada:", size="2", color="gray", width="120px"),
+                    rx.text(
+                        PlazasState.plaza_seleccionada["tipo_jornada_label"],
+                        size="2",
+                    ),
+                    width="100%",
+                ),
+                rx.hstack(
+                    rx.text("Factor:", size="2", color="gray", width="120px"),
+                    rx.text(
+                        PlazasState.plaza_seleccionada["factor_jornada"],
+                        size="2",
                     ),
                     width="100%",
                 ),

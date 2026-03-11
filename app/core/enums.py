@@ -124,6 +124,22 @@ class EstatusPlaza(str, Enum):
         return self == EstatusPlaza.VACANTE
 
 
+class TipoJornadaPlaza(str, Enum):
+    """Tipos de jornada permitidos para una plaza."""
+    COMPLETA = 'COMPLETA'
+    MEDIA_JORNADA = 'MEDIA_JORNADA'
+    POR_HORAS = 'POR_HORAS'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'COMPLETA': 'Jornada completa',
+            'MEDIA_JORNADA': 'Media jornada',
+            'POR_HORAS': 'Por horas',
+        }
+        return descripciones.get(self.value, self.value)
+
+
 # =============================================================================
 # ENUMS DE EMPLEADO
 # =============================================================================

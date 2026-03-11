@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
-from app.core.enums import EstatusPlaza
+from app.core.enums import EstatusPlaza, TipoJornadaPlaza
 from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.entities.plaza import (
     Plaza,
@@ -27,6 +27,19 @@ from app.repositories.plaza_repository import SupabasePlazaRepository
 
 logger = logging.getLogger(__name__)
 
+try:
+    import sys
+
+    services_pkg = sys.modules.get("app.services")
+    if services_pkg is not None and not hasattr(services_pkg, "contrato_categoria_service"):
+        from app.services.contrato_categoria_service import (
+            contrato_categoria_service as _contrato_categoria_service,
+        )
+
+        services_pkg.contrato_categoria_service = _contrato_categoria_service
+except Exception:
+    pass
+
 
 class PlazaService:
     """Orquesta validaciones y operaciones de negocio sobre plazas."""
@@ -35,6 +48,35 @@ class PlazaService:
         if repository is None:
             repository = SupabasePlazaRepository()
         self.repository = repository
+
+    def _normalizar_jornada(
+        self,
+        tipo_jornada: TipoJornadaPlaza | str | None,
+        factor_jornada: Decimal | None,
+    ) -> tuple[TipoJornadaPlaza, Decimal]:
+        try:
+            tipo = (
+                tipo_jornada
+                if isinstance(tipo_jornada, TipoJornadaPlaza)
+                else TipoJornadaPlaza(str(tipo_jornada or "").upper())
+            )
+        except ValueError:
+            tipo = TipoJornadaPlaza.COMPLETA
+
+        if tipo == TipoJornadaPlaza.COMPLETA:
+            return tipo, Decimal("1.0")
+        if tipo == TipoJornadaPlaza.MEDIA_JORNADA:
+            return tipo, Decimal("0.5")
+
+        if factor_jornada is None:
+            raise BusinessRuleError(
+                "Captura el factor de jornada para plazas por horas."
+            )
+        if factor_jornada <= 0 or factor_jornada > 1:
+            raise BusinessRuleError(
+                "El factor de jornada debe ser mayor a 0 y menor o igual a 1."
+            )
+        return tipo, factor_jornada
 
     async def obtener_por_id(self, id: int) -> Plaza:
         return await self.repository.obtener_por_id(id)
@@ -257,7 +299,14 @@ class PlazaService:
             await self._validar_sede_activa(plaza_create.sede_id)
         if plaza_create.categoria_puesto_id is not None:
             await self._validar_categoria_activa(plaza_create.categoria_puesto_id)
-        plaza = Plaza(**plaza_create.model_dump())
+        tipo_jornada, factor_jornada = self._normalizar_jornada(
+            plaza_create.tipo_jornada,
+            plaza_create.factor_jornada,
+        )
+        payload = plaza_create.model_dump()
+        payload["tipo_jornada"] = tipo_jornada
+        payload["factor_jornada"] = factor_jornada
+        plaza = Plaza(**payload)
         return await self.repository.crear(plaza)
 
     async def actualizar(self, id: int, plaza_update: PlazaUpdate) -> Plaza:
@@ -272,6 +321,13 @@ class PlazaService:
 
         for campo, valor in cambios.items():
             setattr(plaza, campo, valor)
+
+        tipo_jornada, factor_jornada = self._normalizar_jornada(
+            plaza.tipo_jornada,
+            plaza.factor_jornada,
+        )
+        plaza.tipo_jornada = tipo_jornada
+        plaza.factor_jornada = factor_jornada
 
         if plaza.categoria_puesto_id is None and plaza.empleado_id is not None:
             raise BusinessRuleError(
@@ -482,6 +538,10 @@ class PlazaService:
             fecha_inicio=item["fecha_inicio"],
             fecha_fin=item.get("fecha_fin"),
             salario_mensual=Decimal(str(item["salario_mensual"])),
+            tipo_jornada=TipoJornadaPlaza(
+                str(item.get("tipo_jornada") or TipoJornadaPlaza.COMPLETA.value)
+            ),
+            factor_jornada=Decimal(str(item.get("factor_jornada") or "1.0")),
             estatus=EstatusPlaza(item["estatus"]),
             notas=item.get("notas"),
             contrato_codigo=item.get("contrato_codigo", ""),

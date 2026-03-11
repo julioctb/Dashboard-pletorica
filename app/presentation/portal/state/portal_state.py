@@ -113,8 +113,9 @@ class PortalState(AuthState):
         Cambia la empresa activa desde el selector del sidebar.
 
         El select entrega string; se convierte a int y luego delega al
-        metodo heredado de AuthState. Al final redirige a la ruta actual
-        para re-ejecutar on_mount y recargar datos de la nueva empresa.
+        metodo heredado de AuthState. El shell del portal se remonta cuando
+        cambia `id_empresa_actual`, por lo que la página visible vuelve a
+        ejecutar su `on_mount` sin tener que redirigir a la misma ruta.
         """
         if not empresa_id_str:
             return
@@ -133,6 +134,8 @@ class PortalState(AuthState):
         if self.id_empresa_actual != empresa_id:
             return resultado
 
+        await self._cargar_contexto_portal_empresa()
+
         try:
             from app.services import user_service
 
@@ -142,10 +145,7 @@ class PortalState(AuthState):
         except Exception as e:
             logger.warning(f"No se pudo persistir cambio de empresa: {e}")
 
-        ruta_actual = self.router.route_id or "/portal"
-        if resultado:
-            return [resultado, rx.redirect(ruta_actual)]
-        return rx.redirect(ruta_actual)
+        return resultado
 
     async def _montar_pagina_portal(self, *operaciones):
         """

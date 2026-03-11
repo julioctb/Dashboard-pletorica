@@ -14,6 +14,8 @@ from .imss import CatalogoIMSS
 from .isr import CatalogoISR
 from .isn import CatalogoISN
 from .infonavit import CatalogoINFONAVIT
+from .salario_minimo import CatalogoSalarioMinimo
+from .politica import ContextoFiscalNomina, PoliticaFiscalResolver
 
 __all__ = [
     "CatalogoUMA",
@@ -21,4 +23,7 @@ __all__ = [
     "CatalogoISR",
     "CatalogoISN",
     "CatalogoINFONAVIT",
+    "CatalogoSalarioMinimo",
+    "ContextoFiscalNomina",
+    "PoliticaFiscalResolver",
 ]

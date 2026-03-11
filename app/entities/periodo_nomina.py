@@ -36,6 +36,8 @@ class PeriodoNomina(BaseModel):
     fecha_inicio: date
     fecha_fin: date
     fecha_pago: Optional[date] = None
+    zona_frontera: bool = False
+    aplicar_art_36: bool = True
 
     estatus: str = Field(default='BORRADOR')
 
@@ -45,6 +47,8 @@ class PeriodoNomina(BaseModel):
     total_otros_pagos: Decimal = Field(default=Decimal('0'), ge=0)
     total_neto: Decimal = Field(default=Decimal('0'), ge=0)
     total_empleados: int = Field(default=0, ge=0)
+    listo_para_timbrar: bool = False
+    total_empleados_con_observaciones_fiscales: int = Field(default=0, ge=0)
 
     # Workflow — quién envió / cerró
     creado_por: Optional[str] = None
@@ -93,6 +97,8 @@ class PeriodoNominaCreate(BaseModel):
     fecha_inicio: date
     fecha_fin: date
     fecha_pago: Optional[date] = None
+    zona_frontera: bool = False
+    aplicar_art_36: bool = True
     notas: Optional[str] = None
     creado_por: Optional[str] = None
     creado_por_nombre: Optional[str] = None
@@ -119,6 +125,8 @@ class PeriodoNominaUpdate(BaseModel):
     fecha_inicio: Optional[date] = None
     fecha_fin: Optional[date] = None
     fecha_pago: Optional[date] = None
+    zona_frontera: Optional[bool] = None
+    aplicar_art_36: Optional[bool] = None
     notas: Optional[str] = None
 
 
@@ -135,11 +143,15 @@ class PeriodoNominaResumen(BaseModel):
     fecha_inicio: date
     fecha_fin: date
     fecha_pago: Optional[date] = None
+    zona_frontera: bool = False
+    aplicar_art_36: bool = True
     estatus: str
     total_percepciones: Decimal = Decimal('0')
     total_deducciones: Decimal = Decimal('0')
     total_neto: Decimal = Decimal('0')
     total_empleados: int = 0
+    listo_para_timbrar: bool = False
+    total_empleados_con_observaciones_fiscales: int = 0
     creado_por: Optional[str] = None
     creado_por_nombre: Optional[str] = None
     fecha_creacion: Optional[datetime] = None

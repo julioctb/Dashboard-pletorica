@@ -54,7 +54,7 @@ from app.core.catalogs.nomina.periodos import (
     resolver_quincena_por_key,
 )
 from app.core.enums import PeriodicidadNomina, ReglaCalculoQuincenal
-from app.core.exceptions import DuplicateError
+from app.core.exceptions import BusinessRuleError, DuplicateError
 from app.core.text_utils import formatear_fecha, formatear_fecha_hora
 from app.entities.empleado_descuento_recurrente import EmpleadoDescuentoRecurrenteCreate
 
@@ -263,6 +263,35 @@ def test_calcular_fecha_pago_mensual_usa_mes_siguiente_si_el_dia_ya_pasara():
     assert fecha_pago.isoformat() == "2026-04-15"
 
 
+def test_no_permite_cerrar_periodo_si_no_esta_listo_para_timbrar():
+    fake_client = _FakeSupabaseClient(
+        {
+            "periodos_nomina": [
+                _FakeResult(
+                    [
+                        {
+                            "id": 501,
+                            "empresa_id": 7,
+                            "estatus": "CALCULADO",
+                            "listo_para_timbrar": False,
+                            "total_empleados_con_observaciones_fiscales": 2,
+                        }
+                    ]
+                )
+            ]
+        }
+    )
+    service = object.__new__(nomina_periodo_module.NominaPeriodoService)
+    service.supabase = fake_client
+    service.tabla = "periodos_nomina"
+    service.tabla_nom_emp = "nominas_empleado"
+
+    with pytest.raises(BusinessRuleError) as exc:
+        asyncio.run(service.transicionar_estatus(501, "CERRADO"))
+
+    assert "no está listo para timbrar" in str(exc.value)
+
+
 def test_resolver_quincena_por_key_genera_nombre_compacto_y_label_largo():
     quincena = resolver_quincena_por_key("2026-03-2Q")
 
@@ -413,6 +442,8 @@ def test_crear_periodo_configurado_persiste_auditoria_y_puebla_empleados(monkeyp
         "fecha_pago": "2026-03-15",
         "creado_por": "user-123",
         "creado_por_nombre": "Ana RRHH",
+        "zona_frontera": False,
+        "aplicar_art_36": True,
     }
     assert result["total_empleados_poblados"] == 12
 
