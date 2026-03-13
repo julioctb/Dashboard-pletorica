@@ -57,12 +57,37 @@ def _resumen_periodo() -> rx.Component:
                 align="start",
             ),
             rx.separator(orientation="vertical", size="2"),
-            # Periodicidad
             rx.vstack(
-                rx.text("Periodicidad", size="1", color=Colors.TEXT_MUTED),
-                rx.text(NominaRRHHState.periodo_actual['periodicidad'], size="3"),
+                rx.text("Tipo de corrida", size="1", color=Colors.TEXT_MUTED),
+                rx.text(
+                    NominaRRHHState.periodo_actual.get("tipo_periodo_label", "Ordinaria"),
+                    size="3",
+                ),
                 spacing="0",
                 align="start",
+            ),
+            rx.cond(
+                NominaRRHHState.periodo_actual_es_aguinaldo,
+                rx.fragment(
+                    rx.separator(orientation="vertical", size="2"),
+                    rx.vstack(
+                        rx.text("Días de aguinaldo", size="1", color=Colors.TEXT_MUTED),
+                        rx.cond(
+                            NominaRRHHState.periodo_actual.get("dias_aguinaldo_snapshot"),
+                            rx.text(
+                                NominaRRHHState.periodo_actual.get(
+                                    "dias_aguinaldo_snapshot"
+                                ).to(str),
+                                size="3",
+                                weight="medium",
+                            ),
+                            rx.text("15", size="3", weight="medium"),
+                        ),
+                        spacing="0",
+                        align="start",
+                    ),
+                ),
+                rx.fragment(),
             ),
             rx.separator(orientation="vertical", size="2"),
             rx.vstack(
@@ -194,6 +219,16 @@ ENCABEZADOS = [
     {"nombre": "Acciones", "ancho": "90px", "header_align": "center"},
 ]
 
+ENCABEZADOS_AGUINALDO = [
+    {"nombre": "Nombre", "ancho": "220px"},
+    {"nombre": "Ingreso vigente", "ancho": "120px", "header_align": "center"},
+    {"nombre": "Días laborados", "ancho": "110px", "header_align": "center"},
+    {"nombre": "Factor", "ancho": "90px", "header_align": "center"},
+    {"nombre": "Días aguinaldo", "ancho": "110px", "header_align": "center"},
+    {"nombre": "Monto bruto", "ancho": "130px", "header_align": "center"},
+    {"nombre": "Auto/Manual", "ancho": "110px", "header_align": "center"},
+]
+
 
 def _badge_descuento_rrhh(descuento: dict) -> rx.Component:
     """Badge con tooltip para descuentos RRHH del período."""
@@ -319,53 +354,124 @@ def _fila_empleado(empleado: dict) -> rx.Component:
     )
 
 
+def _fila_empleado_aguinaldo(empleado: dict) -> rx.Component:
+    return rx.table.row(
+        rx.table.cell(
+            rx.text(
+                empleado["nombre_empleado"],
+                size="2",
+                weight="medium",
+                max_width="220px",
+                overflow="hidden",
+                text_overflow="ellipsis",
+                white_space="nowrap",
+            ),
+        ),
+        _texto_celda_centrada(empleado["fecha_ingreso_vigente_aguinaldo_fmt"]),
+        _texto_celda_centrada(empleado["dias_laborados_aguinaldo"].to(str)),
+        _texto_celda_centrada(empleado["factor_proporcional_aguinaldo_fmt"]),
+        _texto_celda_centrada(empleado["dias_aguinaldo_snapshot"].to(str)),
+        _texto_celda_centrada(empleado["monto_aguinaldo_bruto_fmt"]),
+        _celda_centrada(
+            rx.badge(
+                rx.cond(
+                    empleado["modo_calculo_aguinaldo"] == "MANUAL",
+                    "Manual",
+                    "Auto",
+                ),
+                color_scheme=rx.cond(
+                    empleado["modo_calculo_aguinaldo"] == "MANUAL",
+                    "orange",
+                    "gray",
+                ),
+                variant="soft",
+                size="1",
+            ),
+        ),
+    )
+
+
 def _tabla_empleados() -> rx.Component:
-    return table_shell(
-        loading=NominaRRHHState.loading,
-        headers=ENCABEZADOS,
-        rows=NominaRRHHState.empleados_periodo_paginados,
-        row_renderer=_fila_empleado,
-        has_rows=NominaRRHHState.tiene_empleados_filtrados,
-        empty_component=rx.cond(
-            NominaRRHHState.filtro_busqueda_empleados != "",
-            tabla_vacia(mensaje="No hay empleados que coincidan con la búsqueda."),
-            tabla_vacia(mensaje="No hay empleados en este período"),
+    return rx.cond(
+        NominaRRHHState.periodo_actual_es_aguinaldo,
+        table_shell(
+            loading=NominaRRHHState.loading,
+            headers=ENCABEZADOS_AGUINALDO,
+            rows=NominaRRHHState.empleados_periodo_paginados,
+            row_renderer=_fila_empleado_aguinaldo,
+            has_rows=NominaRRHHState.tiene_empleados_filtrados,
+            empty_component=rx.cond(
+                NominaRRHHState.filtro_busqueda_empleados != "",
+                tabla_vacia(mensaje="No hay empleados que coincidan con la búsqueda."),
+                tabla_vacia(mensaje="No hay empleados en este período"),
+            ),
+            total_caption=NominaRRHHState.total_caption_empleados_preparacion,
+            footer_component=table_pagination(
+                current_page=NominaRRHHState.pagina_empleados_preparacion_actual,
+                total_pages=NominaRRHHState.total_paginas_empleados_preparacion,
+                page_numbers=NominaRRHHState.paginas_visibles_empleados_preparacion,
+                on_page_change=NominaRRHHState.ir_a_pagina_empleados_preparacion,
+                on_previous=NominaRRHHState.pagina_anterior_empleados_preparacion,
+                on_next=NominaRRHHState.pagina_siguiente_empleados_preparacion,
+                color_scheme="blue",
+            ),
+            loading_rows=5,
         ),
-        total_caption=NominaRRHHState.total_caption_empleados_preparacion,
-        footer_component=table_pagination(
-            current_page=NominaRRHHState.pagina_empleados_preparacion_actual,
-            total_pages=NominaRRHHState.total_paginas_empleados_preparacion,
-            page_numbers=NominaRRHHState.paginas_visibles_empleados_preparacion,
-            on_page_change=NominaRRHHState.ir_a_pagina_empleados_preparacion,
-            on_previous=NominaRRHHState.pagina_anterior_empleados_preparacion,
-            on_next=NominaRRHHState.pagina_siguiente_empleados_preparacion,
-            color_scheme="blue",
+        table_shell(
+            loading=NominaRRHHState.loading,
+            headers=ENCABEZADOS,
+            rows=NominaRRHHState.empleados_periodo_paginados,
+            row_renderer=_fila_empleado,
+            has_rows=NominaRRHHState.tiene_empleados_filtrados,
+            empty_component=rx.cond(
+                NominaRRHHState.filtro_busqueda_empleados != "",
+                tabla_vacia(mensaje="No hay empleados que coincidan con la búsqueda."),
+                tabla_vacia(mensaje="No hay empleados en este período"),
+            ),
+            total_caption=NominaRRHHState.total_caption_empleados_preparacion,
+            footer_component=table_pagination(
+                current_page=NominaRRHHState.pagina_empleados_preparacion_actual,
+                total_pages=NominaRRHHState.total_paginas_empleados_preparacion,
+                page_numbers=NominaRRHHState.paginas_visibles_empleados_preparacion,
+                on_page_change=NominaRRHHState.ir_a_pagina_empleados_preparacion,
+                on_previous=NominaRRHHState.pagina_anterior_empleados_preparacion,
+                on_next=NominaRRHHState.pagina_siguiente_empleados_preparacion,
+                color_scheme="blue",
+            ),
+            loading_rows=5,
         ),
-        loading_rows=5,
     )
 
 
 def _toolbar_tabla_empleados() -> rx.Component:
     return page_toolbar(
         search_value=NominaRRHHState.filtro_busqueda_empleados,
-        search_placeholder="Buscar por nombre o sede...",
+        search_placeholder=rx.cond(
+            NominaRRHHState.periodo_actual_es_aguinaldo,
+            "Buscar por nombre...",
+            "Buscar por nombre o sede...",
+        ),
         on_search_change=NominaRRHHState.set_filtro_busqueda_empleados,
         on_search_clear=lambda: NominaRRHHState.set_filtro_busqueda_empleados(""),
-        filters=filtros_inline(
-            rx.select.root(
-                rx.select.trigger(placeholder="Sede", width="220px"),
-                rx.select.content(
-                    rx.foreach(
-                        NominaRRHHState.opciones_sede_empleados_preparacion,
-                        lambda opcion: rx.select.item(
-                            opcion["label"],
-                            value=opcion["value"],
-                        ),
-                    )
+        filters=rx.cond(
+            NominaRRHHState.periodo_actual_es_aguinaldo,
+            rx.fragment(),
+            filtros_inline(
+                rx.select.root(
+                    rx.select.trigger(placeholder="Sede", width="220px"),
+                    rx.select.content(
+                        rx.foreach(
+                            NominaRRHHState.opciones_sede_empleados_preparacion,
+                            lambda opcion: rx.select.item(
+                                opcion["label"],
+                                value=opcion["value"],
+                            ),
+                        )
+                    ),
+                    value=NominaRRHHState.filtro_sede_empleados_preparacion,
+                    on_change=NominaRRHHState.set_filtro_sede_empleados_preparacion,
+                    size="2",
                 ),
-                value=NominaRRHHState.filtro_sede_empleados_preparacion,
-                on_change=NominaRRHHState.set_filtro_sede_empleados_preparacion,
-                size="2",
             ),
         ),
         show_view_toggle=False,

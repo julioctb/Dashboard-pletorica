@@ -23,7 +23,7 @@ from app.presentation.components.reusable import (
     employee_rfc_nss_row,
 )
 from app.presentation.components.ui import boton_cancelar, boton_guardar, identifier_badge
-from app.presentation.components.ui.form_input import select_items_from_options
+from app.presentation.components.ui.form_input import form_date, select_items_from_options
 from .components import estatus_badge, restriccion_badge
 
 
@@ -471,12 +471,24 @@ def modal_detalle_empleado() -> rx.Component:
                                     spacing="1",
                                 ),
                                 rx.vstack(
-                                    rx.text("Fecha Ingreso", size="1", color="gray"),
+                                    rx.text("Primer ingreso", size="1", color="gray"),
                                     rx.text(
                                         rx.cond(
-                                            EmpleadosState.empleado_seleccionado["fecha_ingreso"],
-                                            EmpleadosState.empleado_seleccionado["fecha_ingreso"],
+                                            EmpleadosState.empleado_seleccionado.get("fecha_ingreso", ""),
+                                            EmpleadosState.empleado_seleccionado.get("fecha_ingreso", ""),
                                             "No registrada",
+                                        ),
+                                        size="2",
+                                    ),
+                                    spacing="1",
+                                ),
+                                rx.vstack(
+                                    rx.text("Ingreso vigente", size="1", color="gray"),
+                                    rx.text(
+                                        rx.cond(
+                                            EmpleadosState.empleado_seleccionado.get("fecha_ingreso_vigente", ""),
+                                            EmpleadosState.empleado_seleccionado.get("fecha_ingreso_vigente", ""),
+                                            "No registrado",
                                         ),
                                         size="2",
                                     ),
@@ -634,25 +646,12 @@ def modal_baja() -> rx.Component:
                     width="100%",
                     spacing="1",
                 ),
-                rx.vstack(
-                    rx.text(
-                        "Fecha efectiva *",
-                        font_size=Typography.SIZE_SM,
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                    ),
-                    rx.input(
-                        type="date",
-                        value=EmpleadosState.form_fecha_efectiva,
-                        on_change=EmpleadosState.set_form_fecha_efectiva,
-                        width="100%",
-                    ),
-                    rx.text(
-                        "Fecha en que el empleado deja de trabajar. Si es hoy, dejar vacio.",
-                        font_size=Typography.SIZE_BASE,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    width="100%",
-                    spacing="1",
+                form_date(
+                    label="Fecha efectiva",
+                    required=True,
+                    value=EmpleadosState.form_fecha_efectiva,
+                    on_change=EmpleadosState.set_form_fecha_efectiva,
+                    hint="Fecha en que el empleado deja de trabajar. Si es hoy, dejar vacio.",
                 ),
                 rx.vstack(
                     rx.text(

@@ -13,6 +13,7 @@ from app.presentation.layout import (
 from app.presentation.components.ui import (
     acciones_filtros,
     filtros_inline,
+    filter_date_input,
     status_badge_reactive,
     table_shell,
     tabla_vacia,
@@ -349,27 +350,17 @@ def filtros_contratos() -> rx.Component:
     return filtros_inline(
         # Filtro de fecha inicio (rango)
         rx.hstack(
-            rx.vstack(
-                rx.text("Desde", size="1", color=Colors.TEXT_MUTED),
-                rx.input(
-                    type="date",
-                    value=ContratosState.filtro_fecha_desde,
-                    on_change=ContratosState.set_filtro_fecha_desde,
-                    width="140px",
-                    size="2",
-                ),
-                spacing="1",
+            filter_date_input(
+                label="Desde",
+                value=ContratosState.filtro_fecha_desde,
+                on_change=ContratosState.set_filtro_fecha_desde,
+                width="140px",
             ),
-            rx.vstack(
-                rx.text("Hasta", size="1", color=Colors.TEXT_MUTED),
-                rx.input(
-                    type="date",
-                    value=ContratosState.filtro_fecha_hasta,
-                    on_change=ContratosState.set_filtro_fecha_hasta,
-                    width="140px",
-                    size="2",
-                ),
-                spacing="1",
+            filter_date_input(
+                label="Hasta",
+                value=ContratosState.filtro_fecha_hasta,
+                on_change=ContratosState.set_filtro_fecha_hasta,
+                width="140px",
             ),
             spacing="2",
             align="end",

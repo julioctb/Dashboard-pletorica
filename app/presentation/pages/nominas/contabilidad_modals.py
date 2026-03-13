@@ -85,6 +85,70 @@ def modal_bono_empleado() -> rx.Component:
 
 
 # =============================================================================
+# MODAL — AJUSTE DE AGUINALDO
+# =============================================================================
+
+def modal_ajuste_aguinaldo() -> rx.Component:
+    """Modal para ajustar manualmente el bruto de aguinaldo."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title(
+                rx.hstack(
+                    rx.icon("gift", size=18, color=Colors.WARNING),
+                    rx.text("Ajuste de aguinaldo — "),
+                    rx.text(
+                        NominaContabilidadState.nombre_empleado_aguinaldo,
+                        color=Colors.PRIMARY,
+                    ),
+                    spacing="2",
+                    align="center",
+                ),
+            ),
+            rx.vstack(
+                rx.text(
+                    "Captura el monto bruto final de aguinaldo. El sistema recalculará la exención y el ISR del empleado.",
+                    size="2",
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                form_input(
+                    label="Monto bruto",
+                    required=True,
+                    placeholder="Ej: $ 8,500.00",
+                    value=NominaContabilidadState.form_monto_aguinaldo_bruto,
+                    on_change=NominaContabilidadState.set_form_monto_aguinaldo_bruto,
+                    error=NominaContabilidadState.error_monto_aguinaldo,
+                ),
+                form_input(
+                    label="Notas (opcional)",
+                    placeholder="Justificación del ajuste manual",
+                    value=NominaContabilidadState.form_notas_aguinaldo,
+                    on_change=NominaContabilidadState.set_form_notas_aguinaldo,
+                ),
+                width="100%",
+                spacing="4",
+            ),
+            rx.hstack(
+                boton_cancelar(on_click=NominaContabilidadState.cerrar_modal_aguinaldo),
+                rx.spacer(),
+                boton_guardar(
+                    texto="Guardar ajuste",
+                    texto_guardando="Guardando...",
+                    on_click=NominaContabilidadState.guardar_ajuste_aguinaldo,
+                    saving=NominaContabilidadState.saving,
+                ),
+                width="100%",
+                align="center",
+                spacing="3",
+                margin_top=Spacing.BASE,
+            ),
+            max_width="460px",
+        ),
+        open=NominaContabilidadState.mostrar_modal_aguinaldo,
+        on_open_change=rx.noop,
+    )
+
+
+# =============================================================================
 # DIALOG — EJECUTAR CÁLCULO
 # =============================================================================
 

@@ -4,17 +4,16 @@ Validadores de formulario para el módulo Cotizador.
 Funciones puras (sin efectos secundarios) que se llaman
 en on_blur y on_submit para dar feedback inmediato al usuario.
 """
-from datetime import date
 from typing import Optional
+
+from app.core.utils import parse_date_input
 
 
 def validar_fecha_inicio(valor: str) -> Optional[str]:
     """Valida que la fecha de inicio sea una fecha válida."""
     if not valor or not valor.strip():
         return "La fecha de inicio es requerida"
-    try:
-        date.fromisoformat(valor)
-    except ValueError:
+    if parse_date_input(valor) is None:
         return "Fecha de inicio inválida"
     return None
 
@@ -23,18 +22,14 @@ def validar_fecha_fin(valor_fin: str, valor_inicio: str) -> Optional[str]:
     """Valida que la fecha de fin sea posterior a la de inicio."""
     if not valor_fin or not valor_fin.strip():
         return "La fecha de fin es requerida"
-    try:
-        fin = date.fromisoformat(valor_fin)
-    except ValueError:
+    fin = parse_date_input(valor_fin)
+    if fin is None:
         return "Fecha de fin inválida"
 
     if valor_inicio:
-        try:
-            inicio = date.fromisoformat(valor_inicio)
-            if fin <= inicio:
-                return "La fecha de fin debe ser posterior a la de inicio"
-        except ValueError:
-            pass
+        inicio = parse_date_input(valor_inicio)
+        if inicio is not None and fin <= inicio:
+            return "La fecha de fin debe ser posterior a la de inicio"
     return None
 
 

@@ -8,6 +8,7 @@ from typing import List
 import reflex as rx
 
 from app.core.text_utils import formatear_fecha
+from app.core.utils import normalize_date_input, parse_date_input
 from app.core.enums import Estatus, TipoIncidencia
 from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.entities.asistencia import (
@@ -438,7 +439,7 @@ class AsistenciasState(PortalState):
 
     async def cambiar_fecha_operacion(self, value: str):
         """Actualiza fecha de operacion."""
-        self.fecha_operacion = value or date.today().isoformat()
+        self.fecha_operacion = normalize_date_input(value) or date.today().isoformat()
         await self._cargar_panel()
 
     async def abrir_jornada(self):
@@ -734,10 +735,10 @@ class AsistenciasState(PortalState):
         self.form_supervision_sede_id = value
 
     def set_form_supervision_fecha_inicio(self, value: str):
-        self.form_supervision_fecha_inicio = value or date.today().isoformat()
+        self.form_supervision_fecha_inicio = normalize_date_input(value) or date.today().isoformat()
 
     def set_form_supervision_fecha_fin(self, value: str):
-        self.form_supervision_fecha_fin = value or ""
+        self.form_supervision_fecha_fin = normalize_date_input(value)
 
     def set_form_supervision_activo(self, value: bool):
         self.form_supervision_activo = bool(value)
@@ -753,9 +754,9 @@ class AsistenciasState(PortalState):
                 empresa_id=self.id_empresa_actual,
                 supervisor_id=int(self.form_supervision_supervisor_id or 0),
                 sede_id=int(self.form_supervision_sede_id or 0),
-                fecha_inicio=date.fromisoformat(self.form_supervision_fecha_inicio),
+                fecha_inicio=parse_date_input(self.form_supervision_fecha_inicio),
                 fecha_fin=(
-                    date.fromisoformat(self.form_supervision_fecha_fin)
+                    parse_date_input(self.form_supervision_fecha_fin)
                     if self.form_supervision_fecha_fin
                     else None
                 ),
@@ -824,4 +825,4 @@ class AsistenciasState(PortalState):
         return Decimal(str(value or "0"))
 
     def _fecha_actual(self) -> date:
-        return date.fromisoformat(self.fecha_operacion)
+        return parse_date_input(self.fecha_operacion) or date.today()

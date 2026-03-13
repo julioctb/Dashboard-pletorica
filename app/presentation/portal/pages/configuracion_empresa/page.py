@@ -157,10 +157,37 @@ def _seccion_bloqueo_bancario() -> rx.Component:
     )
 
 
+def _seccion_aguinaldo() -> rx.Component:
+    return _card_shell(
+        rx.text(
+            "Prestaciones Anuales",
+            font_size=Typography.SIZE_LG,
+            font_weight=Typography.WEIGHT_BOLD,
+            color=Colors.TEXT_PRIMARY,
+        ),
+        rx.text(
+            "Los días de aguinaldo se usan como snapshot al generar la corrida especial anual en nómina.",
+            font_size=Typography.SIZE_SM,
+            color=Colors.TEXT_SECONDARY,
+        ),
+        rx.separator(),
+        form_input(
+            label="Días de aguinaldo",
+            value=ConfiguracionEmpresaState.form_dias_aguinaldo.to(str),
+            on_change=ConfiguracionEmpresaState.set_form_dias_aguinaldo,
+            type="number",
+            min="15",
+            max="90",
+            hint="Mínimo legal: 15 días.",
+        ),
+    )
+
+
 def _contenido_habilitado() -> rx.Component:
     return rx.vstack(
         _seccion_politica_nomina(),
         _seccion_reglas_pago(),
+        _seccion_aguinaldo(),
         _seccion_bloqueo_bancario(),
         rx.hstack(
             rx.spacer(),

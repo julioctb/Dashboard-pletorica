@@ -42,6 +42,17 @@ def acciones_empresa(empresa: dict) -> rx.Component:
 
     # Botones adicionales condicionales (solo con permiso operar)
     acciones_extra = [
+        tabla_action_button(
+            icon="folder-lock",
+            tooltip="Documentación anual",
+            on_click=rx.redirect(
+                "/empresas/"
+                + empresa["id"].to(str)
+                + "/documentacion"
+            ),
+            color_scheme="blue",
+            visible=EmpresasState.puede_operar_empresas,
+        ),
         # Reactivar (si inactivo + permiso operar)
         tabla_action_button(
             icon="rotate-ccw",

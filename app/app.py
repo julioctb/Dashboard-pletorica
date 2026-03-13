@@ -9,6 +9,7 @@ from .presentation.pages.admin.dashboard import super_admin_dashboard_page
 
 # BACKOFFICE — Operacion
 from .presentation.pages.empresas.empresas_page import empresas_page
+from .presentation.pages.empresas.empresa_documentacion_page import empresa_documentacion_page
 from .presentation.pages.contratos.contratos_page import contratos_page
 from .presentation.pages.pagos.pagos_page import pagos_page
 from .presentation.pages.entregables import entregables_page, entregable_detalle_page
@@ -65,6 +66,7 @@ from .presentation.portal.pages.mis_datos import mis_datos_page
 # PORTAL — Mi Empresa
 from .presentation.portal.pages.mi_empresa import mi_empresa_page
 from .presentation.portal.pages.configuracion_empresa import configuracion_empresa_page
+from .presentation.portal.pages.documentacion_empresa import documentacion_empresa_portal_page
 
 # PORTAL — RRHH
 from .presentation.portal.pages.mis_empleados import (
@@ -82,6 +84,9 @@ from .presentation.portal.pages.asistencias import asistencias_page
 
 # PORTAL — Administracion de empresa
 from .presentation.portal.pages.usuarios_empresa import usuarios_empresa_page
+from .presentation.pages.shared.empresa_documentacion_share_page import (
+    empresa_documentacion_share_page,
+)
 
 
 def index(content: rx.Component) -> rx.Component:
@@ -129,6 +134,10 @@ app.add_page(lambda: index(super_admin_dashboard_page()), route="/admin")
 # BACKOFFICE — Operacion
 # =============================================================================
 app.add_page(lambda: index(empresas_page()), route="/empresas")
+app.add_page(
+    lambda: index(empresa_documentacion_page()),
+    route="/empresas/[empresa_documentacion_empresa_id]/documentacion",
+)
 app.add_page(lambda: index(contratos_page()), route="/contratos")
 app.add_page(lambda: index(pagos_page()), route="/pagos")
 app.add_page(lambda: index(entregables_page()), route="/entregables")
@@ -189,6 +198,10 @@ app.add_page(lambda: portal_index(mi_perfil_page()), route="/portal/mi-perfil")
 # PORTAL — Empresa
 # =============================================================================
 app.add_page(lambda: portal_index(mi_empresa_page()), route="/portal/mi-empresa")
+app.add_page(
+    lambda: portal_index(documentacion_empresa_portal_page()),
+    route="/portal/documentacion-empresa",
+)
 app.add_page(lambda: portal_index(configuracion_empresa_page()), route="/portal/configuracion-empresa")
 app.add_page(lambda: portal_index(usuarios_empresa_page()), route="/portal/usuarios")
 
@@ -222,3 +235,11 @@ app.add_page(
 )
 app.add_page(lambda: portal_index(asistencias_page()), route="/portal/asistencias")
 app.add_page(lambda: portal_index(mis_entregables_page()), route="/portal/entregables")
+
+# =============================================================================
+# SHARED — Links públicos
+# =============================================================================
+app.add_page(
+    empresa_documentacion_share_page,
+    route="/share/empresa-documentacion/[share_token]",
+)

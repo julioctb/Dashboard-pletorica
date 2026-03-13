@@ -28,6 +28,7 @@ from app.core.exceptions import (
     BusinessRuleError,
 )
 from app.core.text_utils import formatear_fecha
+from app.core.utils import normalize_date_input, parse_date_input
 
 
 # ============================================================================
@@ -227,7 +228,7 @@ class RequisicionesState(AuthState):
     # SETTERS DE FORMULARIO
     # ========================
     def set_form_fecha_elaboracion(self, v: str):
-        self.form_fecha_elaboracion = v
+        self.form_fecha_elaboracion = normalize_date_input(v)
 
     def set_form_tipo_contratacion(self, v: str):
         self.form_tipo_contratacion = v
@@ -283,10 +284,10 @@ class RequisicionesState(AuthState):
             self.form_fecha_entrega_inicio = ""
 
     def set_form_fecha_entrega_inicio(self, v: str):
-        self.form_fecha_entrega_inicio = v
+        self.form_fecha_entrega_inicio = normalize_date_input(v)
 
     def set_form_fecha_entrega_fin(self, v: str):
-        self.form_fecha_entrega_fin = v
+        self.form_fecha_entrega_fin = normalize_date_input(v)
 
     def set_form_condiciones_entrega(self, v: str):
         self.form_condiciones_entrega = v
@@ -361,7 +362,7 @@ class RequisicionesState(AuthState):
         self.form_adjudicar_empresa_id = v
 
     def set_form_adjudicar_fecha(self, v: str):
-        self.form_adjudicar_fecha = v
+        self.form_adjudicar_fecha = normalize_date_input(v)
 
     # ========================
     # SETTERS DE UI
@@ -786,7 +787,7 @@ class RequisicionesState(AuthState):
         # Crear auto-borrador silencioso para obtener ID y habilitar archivos
         try:
             create_data = RequisicionCreate(
-                fecha_elaboracion=date.fromisoformat(self.form_fecha_elaboracion) if self.form_fecha_elaboracion else date.today(),
+                fecha_elaboracion=parse_date_input(self.form_fecha_elaboracion) if self.form_fecha_elaboracion else date.today(),
                 tipo_contratacion="ADQUISICION",
                 objeto_contratacion="(borrador)",
                 justificacion="(borrador)",
@@ -1092,7 +1093,7 @@ class RequisicionesState(AuthState):
             if self.es_edicion and self.id_requisicion_edicion:
                 # Actualizar requisición
                 update_data = RequisicionUpdate(
-                    fecha_elaboracion=date.fromisoformat(self.form_fecha_elaboracion) if self.form_fecha_elaboracion else None,
+                    fecha_elaboracion=parse_date_input(self.form_fecha_elaboracion),
                     tipo_contratacion=self.form_tipo_contratacion or None,
                     objeto_contratacion=self.form_objeto_contratacion or None,
                     justificacion=self.form_justificacion or None,
@@ -1110,8 +1111,8 @@ class RequisicionesState(AuthState):
                     asesor_email=self.form_asesor_email or None,
                     lugar_entrega=self.form_lugar_entrega or None,
                     inicio_desde_firma=self.form_inicio_desde_firma,
-                    fecha_entrega_inicio=date.fromisoformat(self.form_fecha_entrega_inicio) if self.form_fecha_entrega_inicio and not self.form_inicio_desde_firma else None,
-                    fecha_entrega_fin=date.fromisoformat(self.form_fecha_entrega_fin) if self.form_fecha_entrega_fin else None,
+                    fecha_entrega_inicio=parse_date_input(self.form_fecha_entrega_inicio) if self.form_fecha_entrega_inicio and not self.form_inicio_desde_firma else None,
+                    fecha_entrega_fin=parse_date_input(self.form_fecha_entrega_fin),
                     condiciones_entrega=self.form_condiciones_entrega or None,
                     tipo_garantia=self.form_tipo_garantia or None,
                     garantia_vigencia=self.form_garantia_vigencia or None,
@@ -1271,7 +1272,7 @@ class RequisicionesState(AuthState):
             req_id = self.requisicion_seleccionada.get("id")
             data = RequisicionAdjudicar(
                 empresa_id=self.parse_id(self.form_adjudicar_empresa_id),
-                fecha_adjudicacion=date.fromisoformat(self.form_adjudicar_fecha),
+                fecha_adjudicacion=parse_date_input(self.form_adjudicar_fecha),
             )
             await requisicion_service.adjudicar(req_id, data)
             self.cerrar_modal_adjudicar()

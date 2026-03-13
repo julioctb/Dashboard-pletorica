@@ -10,6 +10,7 @@ from datetime import date
 from app.presentation.components.shared.base_state import BaseState
 from app.services import pago_service
 from app.core.text_utils import formatear_moneda, formatear_fecha
+from app.core.utils import normalize_date_input, parse_date_input
 
 from app.entities import (
     PagoCreate,
@@ -93,7 +94,7 @@ class PagosState(BaseState):
     # SETTERS
     # ========================
     def set_form_fecha_pago(self, value):
-        self.form_fecha_pago = value if value else ""
+        self.form_fecha_pago = normalize_date_input(value)
 
     def set_form_monto(self, value):
         self.form_monto = formatear_moneda(value) if value else ""
@@ -311,7 +312,7 @@ class PagosState(BaseState):
         """Crea un nuevo pago"""
         pago_create = PagoCreate(
             contrato_id=self.contrato_id,
-            fecha_pago=date.fromisoformat(self.form_fecha_pago),
+            fecha_pago=parse_date_input(self.form_fecha_pago),
             monto=self._parse_decimal(self.form_monto),
             concepto=self.form_concepto.strip(),
             numero_factura=self.form_numero_factura.strip() or None,
@@ -328,7 +329,7 @@ class PagosState(BaseState):
             raise BusinessRuleError("No hay pago seleccionado")
 
         pago_update = PagoUpdate(
-            fecha_pago=date.fromisoformat(self.form_fecha_pago),
+            fecha_pago=parse_date_input(self.form_fecha_pago),
             monto=self._parse_decimal(self.form_monto),
             concepto=self.form_concepto.strip(),
             numero_factura=self.form_numero_factura.strip() or None,

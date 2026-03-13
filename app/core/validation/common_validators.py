@@ -24,6 +24,8 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
+from app.core.utils import parse_date_input
+
 
 # ============================================================================
 # UTILIDADES
@@ -112,7 +114,7 @@ def validar_fecha_requerida(fecha: str, nombre_campo: str = "fecha") -> str:
     Valida que una fecha requerida esté presente y tenga formato válido.
 
     Args:
-        fecha: Fecha en formato ISO (YYYY-MM-DD)
+        fecha: Fecha en formato ISO o DD/MM/AAAA
         nombre_campo: Nombre del campo para el mensaje de error
 
     Returns:
@@ -121,11 +123,9 @@ def validar_fecha_requerida(fecha: str, nombre_campo: str = "fecha") -> str:
     if not fecha or not fecha.strip():
         return f"La {nombre_campo} es obligatoria"
 
-    try:
-        date.fromisoformat(fecha)
+    if parse_date_input(fecha) is not None:
         return ""
-    except ValueError:
-        return f"Formato de {nombre_campo} inválido (use AAAA-MM-DD)"
+    return f"Formato de {nombre_campo} inválido (use DD/MM/AAAA)"
 
 
 def validar_fecha_no_futura(fecha: str, nombre_campo: str = "fecha") -> str:
@@ -133,7 +133,7 @@ def validar_fecha_no_futura(fecha: str, nombre_campo: str = "fecha") -> str:
     Valida que una fecha no sea futura (requerida).
 
     Args:
-        fecha: Fecha en formato ISO (YYYY-MM-DD)
+        fecha: Fecha en formato ISO o DD/MM/AAAA
         nombre_campo: Nombre del campo para el mensaje de error
 
     Returns:
@@ -142,13 +142,12 @@ def validar_fecha_no_futura(fecha: str, nombre_campo: str = "fecha") -> str:
     if not fecha or not fecha.strip():
         return f"La {nombre_campo} es obligatoria"
 
-    try:
-        fecha_date = date.fromisoformat(fecha)
-        if fecha_date > date.today():
-            return f"La {nombre_campo} no puede ser futura"
-        return ""
-    except ValueError:
-        return f"Formato de {nombre_campo} inválido"
+    fecha_date = parse_date_input(fecha)
+    if fecha_date is None:
+        return f"Formato de {nombre_campo} inválido (use DD/MM/AAAA)"
+    if fecha_date > date.today():
+        return f"La {nombre_campo} no puede ser futura"
+    return ""
 
 
 def validar_fecha_rango(
@@ -172,15 +171,14 @@ def validar_fecha_rango(
     if not fecha_inicio or not fecha_fin:
         return ""  # Si falta alguna, no se puede validar rango
 
-    try:
-        inicio = date.fromisoformat(fecha_inicio)
-        fin = date.fromisoformat(fecha_fin)
-
-        if fin < inicio:
-            return f"La {nombre_fin} no puede ser anterior a la {nombre_inicio}"
-        return ""
-    except ValueError:
+    inicio = parse_date_input(fecha_inicio)
+    fin = parse_date_input(fecha_fin)
+    if inicio is None or fin is None:
         return ""  # Errores de formato se manejan en validadores individuales
+
+    if fin < inicio:
+        return f"La {nombre_fin} no puede ser anterior a la {nombre_inicio}"
+    return ""
 
 
 # ============================================================================

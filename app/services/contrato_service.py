@@ -21,6 +21,7 @@ from app.entities.contrato_item import ContratoItem, ContratoItemCreate
 from app.repositories import SupabaseContratoRepository
 from app.core.exceptions import BusinessRuleError
 from app.services.contratos.items import ContratoItemService
+from app.services.contratos.lifecycle import ContratoLifecycleService
 from app.services.contratos.mutations import ContratoMutationService
 from app.services.contratos.queries import ContratoQueryService
 
@@ -43,6 +44,7 @@ class ContratoService:
         if repository is None:
             repository = SupabaseContratoRepository()
         self.repository = repository
+        self._lifecycle_service = ContratoLifecycleService()
         self._query_service = ContratoQueryService(self)
         self._mutation_service = ContratoMutationService(self)
         self._item_service = ContratoItemService(self)

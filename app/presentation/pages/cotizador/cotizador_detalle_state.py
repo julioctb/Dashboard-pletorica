@@ -9,6 +9,7 @@ from typing import TypedDict
 import reflex as rx
 
 from app.core.text_utils import formatear_fecha
+from app.core.utils import normalize_date_input, parse_date_input
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.pages.cotizador.cotizador_validators import (
     validar_fecha_inicio,
@@ -153,10 +154,10 @@ class CotizadorDetalleState(PortalState):
         self.form_partida_notas = value
 
     def set_form_edit_fecha_inicio(self, value: str):
-        self.form_edit_fecha_inicio = value
+        self.form_edit_fecha_inicio = normalize_date_input(value)
 
     def set_form_edit_fecha_fin(self, value: str):
-        self.form_edit_fecha_fin = value
+        self.form_edit_fecha_fin = normalize_date_input(value)
 
     def set_form_edit_destinatario_nombre(self, value: str):
         self.form_edit_destinatario_nombre = value
@@ -416,9 +417,9 @@ class CotizadorDetalleState(PortalState):
                 'aplicar_iva': self.form_edit_aplicar_iva,
             }
             if self.form_edit_fecha_inicio:
-                update_data['fecha_inicio_periodo'] = date_cls.fromisoformat(self.form_edit_fecha_inicio)
+                update_data['fecha_inicio_periodo'] = parse_date_input(self.form_edit_fecha_inicio)
             if self.form_edit_fecha_fin:
-                update_data['fecha_fin_periodo'] = date_cls.fromisoformat(self.form_edit_fecha_fin)
+                update_data['fecha_fin_periodo'] = parse_date_input(self.form_edit_fecha_fin)
             # Meses solo para PERSONAL
             if self.cotizacion.get('tipo') == 'PERSONAL' and self.form_edit_cantidad_meses:
                 try:

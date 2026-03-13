@@ -29,6 +29,14 @@ class EmpleadoMutationService:
     def __init__(self, root: "EmpleadoService"):
         self.root = root
 
+    @staticmethod
+    def _resolver_fecha_ingreso_vigente(
+        *,
+        fecha_historica: date,
+        fecha_vigente: Optional[date],
+    ) -> date:
+        return fecha_vigente or fecha_historica
+
     async def crear(self, empleado_create: EmpleadoCreate) -> Empleado:
         empleado_existente = await self.root.repository.obtener_por_curp(empleado_create.curp)
         if empleado_existente:
@@ -48,6 +56,7 @@ class EmpleadoMutationService:
 
         clave = await self.root.generar_clave(date.today().year)
 
+        fecha_ingreso = empleado_create.fecha_ingreso or date.today()
         empleado = Empleado(
             clave=clave,
             empresa_id=empleado_create.empresa_id,
@@ -63,7 +72,11 @@ class EmpleadoMutationService:
             email=empleado_create.email,
             direccion=empleado_create.direccion,
             contacto_emergencia=empleado_create.contacto_emergencia,
-            fecha_ingreso=empleado_create.fecha_ingreso or date.today(),
+            fecha_ingreso=fecha_ingreso,
+            fecha_ingreso_vigente=self._resolver_fecha_ingreso_vigente(
+                fecha_historica=fecha_ingreso,
+                fecha_vigente=empleado_create.fecha_ingreso_vigente,
+            ),
             notas=empleado_create.notas,
             cuenta_bancaria=empleado_create.cuenta_bancaria,
             banco=empleado_create.banco,
@@ -185,17 +198,26 @@ class EmpleadoMutationService:
         await self.root._validar_empresa(nueva_empresa_id)
         empresa_anterior_id = empleado.empresa_id
         empleado.empresa_id = nueva_empresa_id
+        fecha_reingreso = date.today()
 
         if datos_actualizados:
             update_data = datos_actualizados.model_dump(exclude_unset=True)
+            fecha_reingreso = (
+                update_data.get("fecha_ingreso_vigente")
+                or update_data.get("fecha_ingreso")
+                or fecha_reingreso
+            )
             for campo, valor in update_data.items():
                 if valor is not None:
+                    if campo == "fecha_ingreso":
+                        continue
                     setattr(empleado, campo, valor)
 
         if empleado.estatus != EstatusEmpleado.ACTIVO:
             empleado.estatus = EstatusEmpleado.ACTIVO
             empleado.fecha_baja = None
             empleado.motivo_baja = None
+        empleado.fecha_ingreso_vigente = fecha_reingreso
 
         empleado_actualizado = await self.root.repository.actualizar(empleado)
 
@@ -205,6 +227,7 @@ class EmpleadoMutationService:
                 empleado_id=empleado_id,
                 empresa_anterior_id=empresa_anterior_id,
                 plaza_id=None,
+                fecha=fecha_reingreso,
                 notas=(
                     f"Reingreso a empresa {nueva_empresa_id} "
                     f"desde empresa {empresa_anterior_id}"

@@ -9,6 +9,7 @@ import reflex as rx
 from app.presentation.components.ui import (
     metric_card,
     payroll_period_status_badge,
+    skeleton_tabla,
     tabla_vacia,
     table_cell_text_sm,
     table_shell,
@@ -107,6 +108,134 @@ def _metrica_shell(card: rx.Component) -> rx.Component:
         card,
         min_width="220px",
         flex="1 1 220px",
+        width="100%",
+    )
+
+
+def _metric_skeleton() -> rx.Component:
+    return rx.card(
+        rx.hstack(
+            rx.vstack(
+                rx.skeleton(width="110px", height="12px"),
+                rx.skeleton(width="92px", height="30px"),
+                rx.skeleton(width="140px", height="12px"),
+                spacing="2",
+                align="start",
+            ),
+            rx.spacer(),
+            rx.skeleton(width="48px", height="48px", border_radius=Radius.XL),
+            width="100%",
+            align="center",
+        ),
+        width="100%",
+        style={**CardStyles.BASE},
+    )
+
+
+def _selector_periodo_skeleton() -> rx.Component:
+    return rx.hstack(
+        rx.spacer(),
+        rx.hstack(
+            rx.skeleton(width="56px", height="14px"),
+            rx.skeleton(width="320px", height="36px", border_radius=Radius.MD),
+            spacing="2",
+            align="center",
+        ),
+        width="100%",
+        align="center",
+    )
+
+
+def _resumen_stat_card_skeleton() -> rx.Component:
+    return rx.box(
+        rx.hstack(
+            rx.vstack(
+                rx.skeleton(width="90px", height="12px"),
+                rx.skeleton(width="96px", height="28px"),
+                rx.skeleton(width="120px", height="12px"),
+                spacing="2",
+                align="start",
+            ),
+            rx.spacer(),
+            rx.skeleton(width="36px", height="36px", border_radius=Radius.FULL),
+            width="100%",
+            align="center",
+        ),
+        padding=Spacing.MD,
+        background=Colors.SECONDARY_LIGHT,
+        border=f"1px solid {Colors.BORDER}",
+        border_radius=Radius.MD,
+        min_width="160px",
+        flex="1 1 160px",
+        width="100%",
+    )
+
+
+def _panel_financiero_skeleton(*, mostrar_badge: bool, total_stats: int) -> rx.Component:
+    return _panel_shell(
+        rx.hstack(
+            rx.vstack(
+                rx.skeleton(width="132px", height="12px"),
+                rx.skeleton(width="220px", height="28px"),
+                spacing="2",
+                align="start",
+            ),
+            rx.spacer(),
+            rx.cond(
+                mostrar_badge,
+                rx.skeleton(width="92px", height="24px", border_radius=Radius.FULL),
+                rx.fragment(),
+            ),
+            width="100%",
+            align="center",
+            wrap="wrap",
+            spacing="2",
+        ),
+        rx.flex(
+            *[_resumen_stat_card_skeleton() for _ in range(total_stats)],
+            gap=Spacing.MD,
+            wrap="wrap",
+            width="100%",
+        ),
+    )
+
+
+def _table_panel_skeleton(titulo_width: str, headers: list[dict]) -> rx.Component:
+    return _panel_shell(
+        rx.hstack(
+            rx.skeleton(width="16px", height="16px", border_radius=Radius.SM),
+            rx.skeleton(width=titulo_width, height="16px"),
+            spacing="2",
+            align="center",
+        ),
+        skeleton_tabla(columnas=headers, filas=3),
+        min_width="320px",
+        flex="1 1 320px",
+    )
+
+
+def skeleton_dashboard_nomina() -> rx.Component:
+    return rx.vstack(
+        rx.flex(
+            _metrica_shell(_metric_skeleton()),
+            _metrica_shell(_metric_skeleton()),
+            _metrica_shell(_metric_skeleton()),
+            gap=Spacing.MD,
+            wrap="wrap",
+            width="100%",
+        ),
+        _selector_periodo_skeleton(),
+        _panel_financiero_skeleton(mostrar_badge=True, total_stats=5),
+        _panel_financiero_skeleton(mostrar_badge=True, total_stats=3),
+        rx.flex(
+            _table_panel_skeleton("120px", _COLS_TOP),
+            _table_panel_skeleton("190px", _COLS_INC),
+            gap=Spacing.MD,
+            wrap="wrap",
+            width="100%",
+            align_items="start",
+        ),
+        spacing="4",
         width="100%",
     )
 
@@ -571,11 +700,7 @@ def dashboard_nomina_page() -> rx.Component:
                     wrap="wrap",
                 ),
             ),
-            content=rx.cond(
-                NominaDashboardState.loading,
-                rx.center(rx.spinner(size="3"), padding_y="80px"),
-                _contenido_dashboard(),
-            ),
+            content=rx.cond(NominaDashboardState.loading, skeleton_dashboard_nomina(), _contenido_dashboard()),
         ),
         width="100%",
         min_height="100vh",

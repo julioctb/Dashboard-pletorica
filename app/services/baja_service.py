@@ -174,6 +174,8 @@ class BajaService:
                 'registrado_por': (
                     str(datos.registrado_por) if datos.registrado_por else None
                 ),
+                'es_automatica': bool(datos.es_automatica),
+                'contrato_id_origen': datos.contrato_id_origen,
             }
             result = self.supabase.table(self.tabla).insert(payload).execute()
             if not result.data:

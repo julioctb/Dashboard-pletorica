@@ -12,7 +12,9 @@ from typing import Optional
 
 import reflex as rx
 
-from app.core.enums import TipoJornadaPlaza
+from app.core.enums import TipoJornadaPlaza, TipoPeriodoNomina
+from app.core.text_utils import formatear_moneda
+from app.core.validation import limpiar_moneda
 from app.presentation.pages.nominas.base_state import NominaBaseState
 from app.services.nomina_periodo_service import nomina_periodo_service
 from app.services.nomina_calculo_service import nomina_calculo_service
@@ -57,6 +59,12 @@ class NominaContabilidadState(NominaBaseState):
     form_notas_bono: str = ""
     error_monto_bono: str = ""
 
+    mostrar_modal_aguinaldo: bool = False
+    empleado_aguinaldo: dict = {}
+    form_monto_aguinaldo_bruto: str = ""
+    form_notas_aguinaldo: str = ""
+    error_monto_aguinaldo: str = ""
+
     mostrar_dialog_ejecutar: bool = False
     mostrar_dialog_cerrar: bool = False
     mostrar_dialog_devolver: bool = False
@@ -97,8 +105,25 @@ class NominaContabilidadState(NominaBaseState):
         return self.periodo_actual.get('estatus') == 'CERRADO'
 
     @rx.var
+    def periodo_actual_es_aguinaldo(self) -> bool:
+        return (
+            str(self.periodo_actual.get('tipo_periodo') or "")
+            == TipoPeriodoNomina.AGUINALDO.value
+        )
+
+    @rx.var
     def puede_agregar_bonos(self) -> bool:
-        return self.periodo_actual.get('estatus') == 'EN_PROCESO_CONTABILIDAD'
+        return (
+            self.periodo_actual.get('estatus') == 'EN_PROCESO_CONTABILIDAD'
+            and not self.periodo_actual_es_aguinaldo
+        )
+
+    @rx.var
+    def puede_ajustar_aguinaldo(self) -> bool:
+        return (
+            self.periodo_actual_es_aguinaldo
+            and self.periodo_actual.get('estatus') != 'CERRADO'
+        )
 
     @rx.var
     def puede_calcular(self) -> bool:
@@ -262,6 +287,43 @@ class NominaContabilidadState(NominaBaseState):
         return float(self.empleado_detalle.get('imss_obrero_absorbido') or 0)
 
     @rx.var
+    def detalle_es_aguinaldo(self) -> bool:
+        return bool(self.empleado_detalle.get('es_aguinaldo', False))
+
+    @rx.var
+    def detalle_fecha_ingreso_vigente_aguinaldo(self) -> str:
+        return str(self.empleado_detalle.get('fecha_ingreso_vigente_aguinaldo_fmt') or "Sin dato")
+
+    @rx.var
+    def detalle_dias_laborados_aguinaldo(self) -> int:
+        return int(self.empleado_detalle.get('dias_laborados_aguinaldo') or 0)
+
+    @rx.var
+    def detalle_factor_proporcional_aguinaldo(self) -> float:
+        return float(self.empleado_detalle.get('factor_proporcional_aguinaldo') or 0)
+
+    @rx.var
+    def detalle_dias_aguinaldo_snapshot(self) -> int:
+        return int(self.empleado_detalle.get('dias_aguinaldo_snapshot') or 0)
+
+    @rx.var
+    def detalle_monto_aguinaldo_bruto(self) -> str:
+        valor_fmt = str(self.empleado_detalle.get('monto_aguinaldo_bruto_fmt') or "").strip()
+        if valor_fmt:
+            return valor_fmt
+        return formatear_moneda(
+            str(self.empleado_detalle.get('monto_aguinaldo_bruto') or "0")
+        )
+
+    @rx.var
+    def detalle_modo_calculo_aguinaldo_label(self) -> str:
+        return (
+            "Manual"
+            if str(self.empleado_detalle.get('modo_calculo_aguinaldo') or "") == "MANUAL"
+            else "Automático"
+        )
+
+    @rx.var
     def detalle_observaciones_fiscales(self) -> list[dict]:
         return [
             item
@@ -291,6 +353,10 @@ class NominaContabilidadState(NominaBaseState):
         return self.empleado_bono.get('nombre_empleado', '')
 
     @rx.var
+    def nombre_empleado_aguinaldo(self) -> str:
+        return self.empleado_aguinaldo.get('nombre_empleado', '')
+
+    @rx.var
     def opciones_conceptos_contabilidad(self) -> list[dict]:
         return CONCEPTOS_CONTABILIDAD
 
@@ -307,6 +373,13 @@ class NominaContabilidadState(NominaBaseState):
 
     def set_form_notas_bono(self, v: str):
         self.form_notas_bono = v
+
+    def set_form_monto_aguinaldo_bruto(self, v: str):
+        self.form_monto_aguinaldo_bruto = formatear_moneda(v) if v else ""
+        self.error_monto_aguinaldo = ""
+
+    def set_form_notas_aguinaldo(self, v: str):
+        self.form_notas_aguinaldo = v
 
     # =========================================================================
     # MONTAJE
@@ -560,6 +633,12 @@ class NominaContabilidadState(NominaBaseState):
         self.empleado_bono = {}
 
     async def guardar_bono(self):
+        if self.periodo_actual_es_aguinaldo:
+            yield self.mostrar_mensaje(
+                "La corrida de aguinaldo no admite bonos manuales.",
+                "warning",
+            )
+            return
         if not self.form_concepto_bono_clave:
             yield self.mostrar_mensaje("Selecciona el tipo de bono", "error")
             return
@@ -606,6 +685,76 @@ class NominaContabilidadState(NominaBaseState):
             yield self.mostrar_mensaje("Bono aplicado correctamente", "success")
         except Exception as e:
             self.manejar_error(e, "guardar bono")
+        finally:
+            self.saving = False
+
+    async def abrir_modal_aguinaldo(self, empleado: dict):
+        self.empleado_aguinaldo = empleado
+        monto_actual = empleado.get("monto_aguinaldo_override")
+        if monto_actual is None:
+            monto_actual = empleado.get("monto_aguinaldo_bruto")
+        self.form_monto_aguinaldo_bruto = formatear_moneda(str(monto_actual or ""))
+        self.form_notas_aguinaldo = str(
+            empleado.get("notas_aguinaldo_override") or ""
+        )
+        self.error_monto_aguinaldo = ""
+        self.mostrar_modal_aguinaldo = True
+
+    def cerrar_modal_aguinaldo(self):
+        self.mostrar_modal_aguinaldo = False
+        self.empleado_aguinaldo = {}
+        self.form_monto_aguinaldo_bruto = ""
+        self.form_notas_aguinaldo = ""
+        self.error_monto_aguinaldo = ""
+
+    async def guardar_ajuste_aguinaldo(self):
+        nomina_empleado_id = self.empleado_aguinaldo.get('id')
+        if not nomina_empleado_id:
+            return
+        if not self.puede_ajustar_aguinaldo:
+            yield self.mostrar_mensaje(
+                "El ajuste manual de aguinaldo ya no está disponible para este período.",
+                "warning",
+            )
+            return
+        if not self.form_monto_aguinaldo_bruto.strip():
+            self.error_monto_aguinaldo = "El monto es obligatorio"
+            return
+        try:
+            monto = Decimal(str(limpiar_moneda(self.form_monto_aguinaldo_bruto) or "0"))
+            if monto <= 0:
+                self.error_monto_aguinaldo = "El monto debe ser mayor a 0"
+                return
+        except Exception:
+            self.error_monto_aguinaldo = "Monto inválido"
+            return
+
+        self.saving = True
+        try:
+            await nomina_calculo_service.guardar_override_aguinaldo(
+                int(nomina_empleado_id),
+                monto_bruto=monto,
+                notas=self.form_notas_aguinaldo,
+            )
+            periodo_id = self.periodo_actual.get('id')
+            if periodo_id:
+                self.periodo_actual = await nomina_periodo_service.obtener_periodo(periodo_id)
+                await self._cargar_empleados(periodo_id)
+            if self.empleado_detalle and self.empleado_detalle.get('id') == nomina_empleado_id:
+                actualizado = next(
+                    (
+                        item for item in self.empleados_periodo
+                        if item.get('id') == nomina_empleado_id
+                    ),
+                    None,
+                )
+                if actualizado is not None:
+                    self.empleado_detalle = actualizado
+                    await self._cargar_movimientos(int(nomina_empleado_id))
+            self.cerrar_modal_aguinaldo()
+            yield self.mostrar_mensaje("Ajuste de aguinaldo guardado correctamente", "success")
+        except Exception as e:
+            self.manejar_error(e, "guardar ajuste de aguinaldo")
         finally:
             self.saving = False
 

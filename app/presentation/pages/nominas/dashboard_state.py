@@ -14,6 +14,7 @@ from typing import Optional
 import reflex as rx
 
 from app.database import db_manager
+from app.core.enums import TipoPeriodoNomina
 from app.presentation.pages.nominas.base_state import NominaBaseState
 from app.services.configuracion_operativa_service import configuracion_operativa_service
 from app.services.nomina_periodo_service import nomina_periodo_service
@@ -46,9 +47,17 @@ class NominaDashboardState(NominaBaseState):
             "id": str((periodo or {}).get("id", "") or ""),
         }
 
+    def _periodos_ordinarios_catalogo(self) -> list[dict]:
+        return [
+            periodo
+            for periodo in self.periodos_catalogo
+            if str(periodo.get("tipo_periodo") or TipoPeriodoNomina.ORDINARIA.value)
+            == TipoPeriodoNomina.ORDINARIA.value
+        ]
+
     def _periodos_filtrados(self, anio: Optional[str] = None) -> list[dict]:
         valor_anio = str(anio or self.filtro_anio or date.today().year)
-        periodos = self.periodos_catalogo
+        periodos = self._periodos_ordinarios_catalogo()
         if self.filtro_contrato_nomina_id:
             periodos = [
                 periodo
@@ -66,7 +75,7 @@ class NominaDashboardState(NominaBaseState):
         periodicidad_actual = str(periodo_actual.get("periodicidad", "") or "")
         periodo_id = str(periodo_actual.get("id", "") or "")
 
-        for periodo in self.periodos_catalogo:
+        for periodo in self._periodos_ordinarios_catalogo():
             if str(periodo.get("id", "") or "") == periodo_id:
                 continue
             if self.filtro_contrato_nomina_id and (
@@ -92,7 +101,7 @@ class NominaDashboardState(NominaBaseState):
     @rx.var
     def anios_disponibles(self) -> list[dict]:
         anios = {str(date.today().year)}
-        periodos = self.periodos_catalogo
+        periodos = self._periodos_ordinarios_catalogo()
         if self.filtro_contrato_nomina_id:
             periodos = [
                 periodo

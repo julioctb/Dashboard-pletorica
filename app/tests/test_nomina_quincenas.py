@@ -53,7 +53,11 @@ from app.core.catalogs.nomina.periodos import (
     resolver_periodo_por_key,
     resolver_quincena_por_key,
 )
-from app.core.enums import PeriodicidadNomina, ReglaCalculoQuincenal
+from app.core.enums import (
+    PeriodicidadNomina,
+    ReglaCalculoQuincenal,
+    TipoPeriodoNomina,
+)
 from app.core.exceptions import BusinessRuleError, DuplicateError
 from app.core.text_utils import formatear_fecha, formatear_fecha_hora
 from app.entities.empleado_descuento_recurrente import EmpleadoDescuentoRecurrenteCreate
@@ -434,6 +438,8 @@ def test_crear_periodo_configurado_persiste_auditoria_y_puebla_empleados(monkeyp
         "empresa_id": 7,
         "nombre": "1A Quincena Marzo 2026",
         "periodicidad": "QUINCENAL",
+        "tipo_periodo": "ORDINARIA",
+        "ejercicio_fiscal": 2026,
         "regla_calculo_quincenal": "MIXTA",
         "fecha_inicio": "2026-03-01",
         "fecha_fin": "2026-03-15",
@@ -446,6 +452,114 @@ def test_crear_periodo_configurado_persiste_auditoria_y_puebla_empleados(monkeyp
         "aplicar_art_36": True,
     }
     assert result["total_empleados_poblados"] == 12
+
+
+def test_listar_ejercicios_aguinaldo_disponibles_excluye_existentes(monkeypatch):
+    fake_client = _FakeSupabaseClient(
+        {
+            "periodos_nomina": [
+                _FakeResult([{"ejercicio_fiscal": 2026}]),
+            ]
+        }
+    )
+    service = object.__new__(nomina_periodo_module.NominaPeriodoService)
+    service.supabase = fake_client
+    service.tabla = "periodos_nomina"
+    service.tabla_nom_emp = "nominas_empleado"
+
+    class _FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 5, 10)
+
+    async def _fake_modulo_activo(_empresa_id: int):
+        return None
+
+    async def _fake_config_fiscal(_empresa_id: int):
+        return SimpleNamespace(dias_aguinaldo=20)
+
+    monkeypatch.setattr(nomina_periodo_module, "date", _FakeDate)
+    monkeypatch.setattr(service, "_asegurar_modulo_nomina_activo", _fake_modulo_activo)
+    monkeypatch.setattr(service, "_obtener_configuracion_fiscal", _fake_config_fiscal)
+
+    result = asyncio.run(service.listar_ejercicios_aguinaldo_disponibles(7))
+
+    assert [item["ejercicio_fiscal"] for item in result] == [2025, 2027]
+    assert all(item["tipo_periodo"] == TipoPeriodoNomina.AGUINALDO.value for item in result)
+    assert all(item["dias_aguinaldo_snapshot"] == 20 for item in result)
+
+
+def test_crear_periodo_configurado_aguinaldo_es_global_y_no_requiere_contrato(monkeypatch):
+    fake_client = _FakeSupabaseClient(
+        {
+            "periodos_nomina": [
+                _FakeResult(
+                    [
+                        {
+                            "id": 80,
+                            "empresa_id": 7,
+                            "nombre": "Aguinaldo 2026",
+                            "periodicidad": "MENSUAL",
+                            "tipo_periodo": "AGUINALDO",
+                            "ejercicio_fiscal": 2026,
+                            "dias_aguinaldo_snapshot": 18,
+                            "fecha_inicio": "2026-01-01",
+                            "fecha_fin": "2026-12-31",
+                            "fecha_pago": "2026-12-20",
+                        }
+                    ]
+                )
+            ]
+        }
+    )
+    service = object.__new__(nomina_periodo_module.NominaPeriodoService)
+    service.supabase = fake_client
+    service.tabla = "periodos_nomina"
+    service.tabla_nom_emp = "nominas_empleado"
+
+    async def _fake_config(_empresa_id: int):
+        return _config_quincenal()
+
+    async def _fake_config_fiscal(_empresa_id: int):
+        return SimpleNamespace(dias_aguinaldo=18, zona_frontera=False, aplicar_art_36=True)
+
+    async def _fake_poblar_empleados(periodo_id: int) -> int:
+        assert periodo_id == 80
+        return 6
+
+    monkeypatch.setattr(service, "_obtener_configuracion_nomina", _fake_config)
+    monkeypatch.setattr(service, "_obtener_configuracion_fiscal", _fake_config_fiscal)
+    monkeypatch.setattr(service, "poblar_empleados", _fake_poblar_empleados)
+
+    result = asyncio.run(
+        service.crear_periodo_configurado(
+            empresa_id=7,
+            tipo_corrida=TipoPeriodoNomina.AGUINALDO.value,
+            ejercicio_fiscal=2026,
+            fecha_pago_override=None,
+            usuario_id="user-123",
+            usuario_nombre="Ana RRHH",
+        )
+    )
+
+    assert fake_client.last_insert == {
+        "empresa_id": 7,
+        "nombre": "Aguinaldo 2026",
+        "periodicidad": "MENSUAL",
+        "tipo_periodo": "AGUINALDO",
+        "ejercicio_fiscal": 2026,
+        "dias_aguinaldo_snapshot": 18,
+        "fecha_inicio": "2026-01-01",
+        "fecha_fin": "2026-12-31",
+        "estatus": "BORRADOR",
+        "fecha_pago": "2026-12-20",
+        "creado_por": "user-123",
+        "creado_por_nombre": "Ana RRHH",
+        "zona_frontera": False,
+        "aplicar_art_36": True,
+    }
+    assert result["tipo_periodo"] == TipoPeriodoNomina.AGUINALDO.value
+    assert result["total_empleados_poblados"] == 6
 
 
 def test_crear_periodo_configurado_rechaza_duplicados_por_rango(monkeypatch):

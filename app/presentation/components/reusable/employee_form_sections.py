@@ -4,7 +4,7 @@ from typing import Any
 
 import reflex as rx
 
-from app.presentation.components.ui.form_input import select_items_from_options
+from app.presentation.components.ui.form_input import form_date, select_items_from_options
 from app.presentation.theme import Colors, Typography
 
 
@@ -84,31 +84,14 @@ def employee_date_field(
     helper_text: Any = None,
 ) -> rx.Component:
     """Campo de fecha reutilizable con label y helper opcional."""
-    return rx.vstack(
-        rx.text(
-            f"{label} *" if required else label,
-            font_size=Typography.SIZE_SM,
-            font_weight=Typography.WEIGHT_MEDIUM,
-        ),
-        rx.input(
-            type="date",
-            value=value,
-            on_change=on_change,
-            on_blur=on_blur,
-            width="100%",
-        ),
-        rx.cond(
-            error != "",
-            rx.text(
-                error,
-                font_size=Typography.SIZE_XS,
-                color=Colors.ERROR,
-            ),
-            rx.fragment(),
-        ) if error is not None else rx.fragment(),
-        helper_text if helper_text is not None else rx.fragment(),
-        width="100%",
-        spacing="1",
+    return form_date(
+        label=label,
+        value=value,
+        on_change=on_change,
+        on_blur=on_blur,
+        error=error,
+        required=required,
+        hint=helper_text if helper_text is not None else "",
     )
 
 
@@ -376,30 +359,13 @@ def employee_birth_gender_row(
         opciones_genero = []
 
     return rx.hstack(
-        rx.vstack(
-            rx.text(
-                "Fecha de Nacimiento *" if fecha_required else "Fecha de Nacimiento",
-                font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
-            ),
-            rx.input(
-                type="date",
-                value=fecha_value,
-                on_change=fecha_on_change,
-                on_blur=fecha_on_blur,
-                width="100%",
-            ),
-            rx.cond(
-                fecha_error != "",
-                rx.text(
-                    fecha_error,
-                    font_size=Typography.SIZE_XS,
-                    color=Colors.ERROR,
-                ),
-                rx.fragment(),
-            ) if fecha_error is not None else rx.fragment(),
-            width="100%",
-            spacing="1",
+        employee_date_field(
+            label="Fecha de Nacimiento",
+            value=fecha_value,
+            on_change=fecha_on_change,
+            on_blur=fecha_on_blur,
+            error=fecha_error,
+            required=fecha_required,
         ),
         rx.vstack(
             rx.text(

@@ -20,6 +20,9 @@ class ContratoQueryService:
     async def _sincronizar_vigencia_automatica(self) -> None:
         """Actualiza estatus vencidos antes de cualquier lectura del módulo."""
         await self.root.repository.sincronizar_vigencia_automatica()
+        lifecycle_service = getattr(self.root, "_lifecycle_service", None)
+        if lifecycle_service is not None:
+            await lifecycle_service.procesar_bajas_por_fin_contrato()
 
     async def obtener_por_id(self, contrato_id: int) -> Contrato:
         await self._sincronizar_vigencia_automatica()

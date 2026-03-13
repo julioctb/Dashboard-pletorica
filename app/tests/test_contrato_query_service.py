@@ -27,11 +27,23 @@ class FakeContratoRepository:
         return []
 
 
+class FakeLifecycleService:
+    """Servicio fake para validar el cierre laboral automático."""
+
+    def __init__(self):
+        self.calls = []
+
+    async def procesar_bajas_por_fin_contrato(self):
+        self.calls.append(("procesar_bajas_por_fin_contrato",))
+
+
 class FakeContratoRoot:
     """Servicio root fake con solo el repositorio requerido."""
 
-    def __init__(self):
+    def __init__(self, with_lifecycle: bool = False):
         self.repository = FakeContratoRepository()
+        if with_lifecycle:
+            self._lifecycle_service = FakeLifecycleService()
 
 
 class TestContratoQueryService:
@@ -82,4 +94,18 @@ class TestContratoQueryService:
         assert root.repository.calls == [
             ("sincronizar_vigencia_automatica",),
             ("buscar_por_texto", "BUAP", 5),
+        ]
+
+    def test_sincronizacion_dispara_cierre_laboral_automatico(self):
+        root = FakeContratoRoot(with_lifecycle=True)
+        service = ContratoQueryService(root)
+
+        asyncio.run(service.obtener_todos())
+
+        assert root.repository.calls == [
+            ("sincronizar_vigencia_automatica",),
+            ("obtener_todos", False, None, 0),
+        ]
+        assert root._lifecycle_service.calls == [
+            ("procesar_bajas_por_fin_contrato",)
         ]

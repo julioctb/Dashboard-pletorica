@@ -111,6 +111,7 @@ class Empleado(BaseModel):
     # Estado laboral
     estatus: EstatusEmpleado = Field(default=EstatusEmpleado.ACTIVO)
     fecha_ingreso: date = Field(default_factory=date.today)
+    fecha_ingreso_vigente: date = Field(default_factory=date.today)
     fecha_baja: Optional[date] = None
     motivo_baja: Optional[MotivoBaja] = None
 
@@ -230,9 +231,12 @@ class Empleado(BaseModel):
     @field_validator('fecha_baja', mode='after')
     @classmethod
     def validar_fecha_baja(cls, v: Optional[date], info) -> Optional[date]:
-        """Valida que fecha_baja sea >= fecha_ingreso."""
-        if v and 'fecha_ingreso' in info.data:
-            fecha_ingreso = info.data['fecha_ingreso']
+        """Valida que fecha_baja sea >= fecha_ingreso_vigente."""
+        if v and ('fecha_ingreso_vigente' in info.data or 'fecha_ingreso' in info.data):
+            fecha_ingreso = (
+                info.data.get('fecha_ingreso_vigente')
+                or info.data.get('fecha_ingreso')
+            )
             if fecha_ingreso and v < fecha_ingreso:
                 raise ValueError('Fecha de baja no puede ser anterior a fecha de ingreso')
         return v
@@ -279,9 +283,9 @@ class Empleado(BaseModel):
         return edad
 
     def antiguedad_dias(self) -> int:
-        """Calcula días de antigüedad desde fecha_ingreso."""
+        """Calcula días de antigüedad desde el ingreso vigente."""
         fecha_fin = self.fecha_baja or date.today()
-        return (fecha_fin - self.fecha_ingreso).days
+        return (fecha_fin - (self.fecha_ingreso_vigente or self.fecha_ingreso)).days
 
     def antiguedad_anios(self) -> float:
         """Calcula años de antigüedad."""
@@ -362,6 +366,7 @@ class EmpleadoCreate(BaseModel):
     direccion: Optional[str] = Field(None, max_length=DIRECCION_MAX)
     contacto_emergencia: Optional[str] = Field(None, max_length=CONTACTO_EMERGENCIA_MAX)
     fecha_ingreso: Optional[date] = None
+    fecha_ingreso_vigente: Optional[date] = None
     notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
     cuenta_bancaria: Optional[str] = Field(None, max_length=CUENTA_BANCARIA_MAX)
     banco: Optional[str] = Field(None, max_length=BANCO_MAX)
@@ -438,6 +443,7 @@ class EmpleadoUpdate(BaseModel):
     contacto_emergencia: Optional[str] = Field(None, max_length=CONTACTO_EMERGENCIA_MAX)
     estatus: Optional[EstatusEmpleado] = None
     fecha_ingreso: Optional[date] = None
+    fecha_ingreso_vigente: Optional[date] = None
     fecha_baja: Optional[date] = None
     motivo_baja: Optional[MotivoBaja] = None
     notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
@@ -521,6 +527,7 @@ class EmpleadoResumen(BaseModel):
     estatus: EstatusEmpleado
     is_restricted: bool = False
     fecha_ingreso: date
+    fecha_ingreso_vigente: Optional[date] = None
     telefono: Optional[str] = None
     email: Optional[str] = None
     estatus_onboarding: Optional[str] = None
@@ -551,6 +558,7 @@ class EmpleadoResumen(BaseModel):
             estatus=empleado.estatus,
             is_restricted=empleado.is_restricted,
             fecha_ingreso=empleado.fecha_ingreso,
+            fecha_ingreso_vigente=empleado.fecha_ingreso_vigente,
             telefono=empleado.telefono,
             email=empleado.email,
             estatus_onboarding=empleado.estatus_onboarding,
@@ -590,6 +598,7 @@ class EmpleadoResumen(BaseModel):
             estatus=data['estatus'],
             is_restricted=data.get('is_restricted', False),
             fecha_ingreso=data['fecha_ingreso'],
+            fecha_ingreso_vigente=data.get('fecha_ingreso_vigente'),
             telefono=data.get('telefono'),
             email=data.get('email'),
             estatus_onboarding=data.get('estatus_onboarding'),

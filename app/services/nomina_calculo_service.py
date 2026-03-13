@@ -19,8 +19,10 @@ from typing import Optional
 
 from app.database import db_manager
 from app.core.enums import (
+    ModoCalculoAguinaldo,
     PeriodicidadNomina,
     ReglaCalculoQuincenal,
+    TipoPeriodoNomina,
     TipoJornadaPlaza,
 )
 from app.core.exceptions import DatabaseError, NotFoundError, BusinessRuleError
@@ -41,7 +43,7 @@ logger = logging.getLogger(__name__)
 _CLAVES_SISTEMA = {
     'SUELDO', 'HORAS_EXTRA_DOBLES', 'HORAS_EXTRA_TRIPLES',
     'PRIMA_DOMINICAL', 'DESCUENTO_FALTAS', 'DESCUENTO_INCAPACIDAD',
-    'ISR', 'IMSS_OBRERO', 'SUBSIDIO_EMPLEO',
+    'ISR', 'IMSS_OBRERO', 'SUBSIDIO_EMPLEO', 'AGUINALDO',
 }
 
 # Factor por periodicidad para proyectar base gravable a mensual
@@ -179,15 +181,7 @@ class NominaCalculoService:
         await self._cargar_concepto_ids()
 
         # Obtener nomina_empleado
-        res = (
-            self.supabase.table('nominas_empleado')
-            .select('*')
-            .eq('id', nomina_empleado_id)
-            .execute()
-        )
-        if not res.data:
-            raise NotFoundError(f"NominaEmpleado {nomina_empleado_id} no encontrada")
-        nomina = res.data[0]
+        nomina = await self._obtener_nomina_empleado(nomina_empleado_id)
 
         # Obtener período
         periodo = await self._obtener_periodo(nomina['periodo_id'])
@@ -195,6 +189,37 @@ class NominaCalculoService:
         resultado = await self._calcular_nomina_empleado(nomina, periodo)
         await self._reconsolidar_periodo(nomina['periodo_id'], estatus='CALCULADO')
         return resultado
+
+    async def guardar_override_aguinaldo(
+        self,
+        nomina_empleado_id: int,
+        *,
+        monto_bruto: Decimal,
+        notas: Optional[str] = None,
+    ) -> dict:
+        """Guarda un ajuste manual de aguinaldo y recalcula el recibo."""
+        nomina = await self._obtener_nomina_empleado(nomina_empleado_id)
+        periodo = await self._obtener_periodo(nomina['periodo_id'])
+        if self._normalizar_tipo_periodo(periodo.get('tipo_periodo')) != TipoPeriodoNomina.AGUINALDO.value:
+            raise BusinessRuleError(
+                "El ajuste manual solo aplica a corridas especiales de aguinaldo."
+            )
+
+        payload = {
+            'modo_calculo_aguinaldo': ModoCalculoAguinaldo.MANUAL.value,
+            'monto_aguinaldo_override': str(
+                Decimal(str(monto_bruto)).quantize(
+                    Decimal('0.01'),
+                    rounding=ROUND_HALF_UP,
+                )
+            ),
+            'notas_aguinaldo_override': str(notas or "").strip() or None,
+        }
+        self.supabase.table('nominas_empleado').update(payload).eq(
+            'id',
+            nomina_empleado_id,
+        ).execute()
+        return await self.recalcular_empleado(nomina_empleado_id)
 
     async def obtener_desglose(self, nomina_empleado_id: int) -> list[dict]:
         """
@@ -237,6 +262,15 @@ class NominaCalculoService:
         if isinstance(periodicidad, PeriodicidadNomina):
             return periodicidad.value
         return str(periodicidad or PeriodicidadNomina.QUINCENAL.value)
+
+    @staticmethod
+    def _normalizar_tipo_periodo(valor: object) -> str:
+        if isinstance(valor, TipoPeriodoNomina):
+            return valor.value
+        try:
+            return TipoPeriodoNomina(str(valor or "").upper()).value
+        except ValueError:
+            return TipoPeriodoNomina.ORDINARIA.value
 
     @staticmethod
     def _normalizar_regla_calculo_quincenal(valor: object) -> str:
@@ -489,6 +523,238 @@ class NominaCalculoService:
             "observaciones_fiscales": observaciones,
         }
 
+    def _persistir_nomina_calculada(
+        self,
+        *,
+        nomina_id: int,
+        percepciones: Decimal,
+        deducciones: Decimal,
+        otros_pagos: Decimal,
+        neto: Decimal,
+        snapshot_fiscal: dict[str, object],
+        observaciones_fiscales: list[dict[str, str]],
+        listo_para_timbrar: bool,
+        imss_obrero_absorbido: Decimal = Decimal("0"),
+        extras_update: Optional[dict[str, object]] = None,
+    ) -> dict:
+        payload = {
+            'total_percepciones': float(percepciones),
+            'total_deducciones': float(deducciones),
+            'total_otros_pagos': float(otros_pagos),
+            'total_neto': float(max(neto, Decimal('0'))),
+            'estatus': 'CALCULADO',
+            'tipo_jornada': snapshot_fiscal["tipo_jornada"],
+            'factor_jornada': float(snapshot_fiscal["factor_jornada"]),
+            'salario_minimo_diario_aplicable': float(
+                snapshot_fiscal["salario_minimo_diario_aplicable"]
+            ),
+            'es_salario_minimo_art36': snapshot_fiscal["es_salario_minimo_art36"],
+            'imss_obrero_absorbido': float(_round2(Decimal(str(imss_obrero_absorbido or 0)))),
+            'listo_para_timbrar': listo_para_timbrar,
+            'observaciones_fiscales': observaciones_fiscales,
+        }
+        if extras_update:
+            payload.update(extras_update)
+
+        self.supabase.table('nominas_empleado').update(payload).eq('id', nomina_id).execute()
+
+        return {
+            'nomina_empleado_id': nomina_id,
+            'total_percepciones': percepciones,
+            'total_deducciones': deducciones,
+            'total_otros_pagos': otros_pagos,
+            'total_neto': max(neto, Decimal('0')),
+            'listo_para_timbrar': listo_para_timbrar,
+            'tiene_observaciones_fiscales': bool(observaciones_fiscales),
+        }
+
+    def _sumar_totales_con_movimientos(
+        self,
+        *,
+        movimientos_sistema: list[dict],
+        manuales: list[dict],
+    ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+        percepciones = sum(
+            (
+                Decimal(str(m['monto_gravable'])) + Decimal(str(m['monto_exento']))
+                for m in movimientos_sistema
+                if m['tipo'] == 'PERCEPCION'
+            ),
+            Decimal('0'),
+        )
+        percepciones += sum(
+            (
+                Decimal(str(m['monto']))
+                for m in manuales
+                if m['tipo'] == 'PERCEPCION'
+            ),
+            Decimal('0'),
+        )
+
+        deducciones = sum(
+            (
+                Decimal(str(m['monto']))
+                for m in movimientos_sistema
+                if m['tipo'] == 'DEDUCCION'
+            ),
+            Decimal('0'),
+        )
+        deducciones += sum(
+            (
+                Decimal(str(m['monto']))
+                for m in manuales
+                if m['tipo'] == 'DEDUCCION'
+            ),
+            Decimal('0'),
+        )
+
+        otros_pagos = sum(
+            (
+                Decimal(str(m['monto']))
+                for m in movimientos_sistema
+                if m['tipo'] == 'OTRO_PAGO'
+            ),
+            Decimal('0'),
+        )
+        otros_pagos += sum(
+            (
+                Decimal(str(m['monto']))
+                for m in manuales
+                if m['tipo'] == 'OTRO_PAGO'
+            ),
+            Decimal('0'),
+        )
+
+        percepciones = _round2(percepciones)
+        deducciones = _round2(deducciones)
+        otros_pagos = _round2(otros_pagos)
+        neto = _round2(percepciones - deducciones + otros_pagos)
+        return percepciones, deducciones, otros_pagos, neto
+
+    async def _leer_movimientos_manuales(self, nomina_id: int) -> list[dict]:
+        res_manual = (
+            self.supabase.table('nomina_movimientos')
+            .select('tipo, monto, origen')
+            .eq('nomina_empleado_id', nomina_id)
+            .neq('origen', 'SISTEMA')
+            .execute()
+        )
+        return res_manual.data or []
+
+    async def _calcular_nomina_aguinaldo(
+        self,
+        *,
+        nomina: dict,
+        periodo: dict,
+        contexto_fiscal: ContextoFiscalNomina,
+        snapshot_fiscal: dict[str, object],
+    ) -> dict:
+        nomina_id = nomina['id']
+        uma_diario = contexto_fiscal.uma_diaria
+        try:
+            modo = ModoCalculoAguinaldo(
+                str(
+                    nomina.get('modo_calculo_aguinaldo')
+                    or ModoCalculoAguinaldo.AUTO.value
+                ).upper()
+            ).value
+        except ValueError:
+            modo = ModoCalculoAguinaldo.AUTO.value
+        monto_bruto = Decimal(
+            str(
+                nomina.get('monto_aguinaldo_override')
+                if modo == ModoCalculoAguinaldo.MANUAL.value
+                and nomina.get('monto_aguinaldo_override') is not None
+                else nomina.get('monto_aguinaldo_bruto') or 0
+            )
+        ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        movimientos_sistema: list[dict] = []
+        if monto_bruto > 0:
+            gravable, exento = self._calcular_exencion('AGUINALDO', monto_bruto, uma_diario)
+            movimientos_sistema.append(
+                self._mov(
+                    nomina_id,
+                    'AGUINALDO',
+                    'PERCEPCION',
+                    monto_bruto,
+                    gravable,
+                    exento,
+                )
+            )
+        else:
+            gravable = Decimal('0')
+
+        # Aguinaldo es una corrida especial y no debe depender de la periodicidad
+        # ordinaria configurada para la empresa.
+        factor = Decimal('1')
+        base_mensual = _round2(gravable * factor)
+        isr_mensual = self._calcular_isr_mensual_con_fecha(
+            base_mensual,
+            contexto_fiscal.fecha_referencia,
+        )
+        subsidio_mensual_aplicable = self._calcular_subsidio_mensual_aplicable(
+            base_mensual,
+            isr_mensual,
+            contexto_fiscal.fecha_referencia,
+        )
+        isr_periodo = _round2(isr_mensual / factor) if factor else Decimal('0')
+        subsidio_periodo = _round2(subsidio_mensual_aplicable / factor) if factor else Decimal('0')
+
+        if isr_periodo > 0:
+            movimientos_sistema.append(
+                self._mov(
+                    nomina_id, 'ISR', 'DEDUCCION',
+                    isr_periodo, Decimal('0'), Decimal('0')
+                )
+            )
+        if subsidio_periodo > 0:
+            movimientos_sistema.append(
+                self._mov(
+                    nomina_id, 'SUBSIDIO_EMPLEO', 'OTRO_PAGO',
+                    subsidio_periodo, Decimal('0'), Decimal('0')
+                )
+            )
+
+        if movimientos_sistema:
+            registros_bd = [
+                {k: float(v) if isinstance(v, Decimal) else v for k, v in m.items()}
+                for m in movimientos_sistema
+            ]
+            self.supabase.table('nomina_movimientos').insert(registros_bd).execute()
+
+        manuales = await self._leer_movimientos_manuales(nomina_id)
+        percepciones, deducciones, otros_pagos, neto = self._sumar_totales_con_movimientos(
+            movimientos_sistema=movimientos_sistema,
+            manuales=manuales,
+        )
+        observaciones_fiscales = snapshot_fiscal["observaciones_fiscales"]
+        listo_para_timbrar = not any(
+            str(item.get("severity") or "").lower() == "error"
+            for item in observaciones_fiscales
+            if isinstance(item, dict)
+        )
+        return self._persistir_nomina_calculada(
+            nomina_id=nomina_id,
+            percepciones=percepciones,
+            deducciones=deducciones,
+            otros_pagos=otros_pagos,
+            neto=neto,
+            snapshot_fiscal=snapshot_fiscal,
+            observaciones_fiscales=observaciones_fiscales,
+            listo_para_timbrar=listo_para_timbrar,
+            imss_obrero_absorbido=Decimal('0'),
+            extras_update={
+                'modo_calculo_aguinaldo': modo,
+                'monto_aguinaldo_bruto': float(
+                    Decimal(str(nomina.get('monto_aguinaldo_bruto') or 0)).quantize(
+                        Decimal('0.01'),
+                        rounding=ROUND_HALF_UP,
+                    )
+                ),
+            },
+        )
+
     async def _calcular_nomina_empleado(self, nomina: dict, periodo: dict) -> dict:
         """
         Flujo completo de cálculo para un empleado.
@@ -514,6 +780,7 @@ class NominaCalculoService:
         horas_triples = Decimal(str(nomina.get('horas_extra_triples') or 0))
         domingos = int(nomina.get('domingos_trabajados') or 0)
         periodicidad = self._normalizar_periodicidad(periodo.get('periodicidad'))
+        tipo_periodo = self._normalizar_tipo_periodo(periodo.get('tipo_periodo'))
         regla_calculo_quincenal = await self._resolver_regla_calculo_quincenal_periodo(
             periodo
         )
@@ -543,6 +810,14 @@ class NominaCalculoService:
         self.supabase.table('nomina_movimientos').delete().eq(
             'nomina_empleado_id', nomina_id
         ).eq('origen', 'SISTEMA').eq('es_automatico', True).execute()
+
+        if tipo_periodo == TipoPeriodoNomina.AGUINALDO.value:
+            return await self._calcular_nomina_aguinaldo(
+                nomina=nomina,
+                periodo=periodo,
+                contexto_fiscal=contexto_fiscal,
+                snapshot_fiscal=snapshot_fiscal,
+            )
 
         # ── 2. Calcular percepciones automáticas ─────────────────────────────
         movimientos_sistema: list[dict] = []
@@ -679,71 +954,13 @@ class NominaCalculoService:
             self.supabase.table('nomina_movimientos').insert(registros_bd).execute()
 
         # ── 8. Leer movimientos manuales existentes (RRHH y Contabilidad) ────
-        res_manual = (
-            self.supabase.table('nomina_movimientos')
-            .select('tipo, monto, origen')
-            .eq('nomina_empleado_id', nomina_id)
-            .neq('origen', 'SISTEMA')
-            .execute()
-        )
-        manuales = res_manual.data or []
+        manuales = await self._leer_movimientos_manuales(nomina_id)
 
         # ── 9. Calcular totales consolidados ──────────────────────────────────
-        percepciones = sum(
-            (
-                Decimal(str(m['monto_gravable'])) + Decimal(str(m['monto_exento']))
-                for m in movimientos_sistema
-                if m['tipo'] == 'PERCEPCION'
-            ),
-            Decimal('0'),
+        percepciones, deducciones, otros_pagos, neto = self._sumar_totales_con_movimientos(
+            movimientos_sistema=movimientos_sistema,
+            manuales=manuales,
         )
-        percepciones += sum(
-            (
-                Decimal(str(m['monto']))
-                for m in manuales
-                if m['tipo'] == 'PERCEPCION'
-            ),
-            Decimal('0'),
-        )
-
-        deducciones = sum(
-            (
-                Decimal(str(m['monto']))
-                for m in movimientos_sistema
-                if m['tipo'] == 'DEDUCCION'
-            ),
-            Decimal('0'),
-        )
-        deducciones += sum(
-            (
-                Decimal(str(m['monto']))
-                for m in manuales
-                if m['tipo'] == 'DEDUCCION'
-            ),
-            Decimal('0'),
-        )
-
-        otros_pagos = sum(
-            (
-                Decimal(str(m['monto']))
-                for m in movimientos_sistema
-                if m['tipo'] == 'OTRO_PAGO'
-            ),
-            Decimal('0'),
-        )
-        otros_pagos += sum(
-            (
-                Decimal(str(m['monto']))
-                for m in manuales
-                if m['tipo'] == 'OTRO_PAGO'
-            ),
-            Decimal('0'),
-        )
-
-        neto = _round2(percepciones - deducciones + otros_pagos)
-        percepciones = _round2(percepciones)
-        deducciones = _round2(deducciones)
-        otros_pagos = _round2(otros_pagos)
 
         observaciones_fiscales = snapshot_fiscal["observaciones_fiscales"]
         listo_para_timbrar = not any(
@@ -753,34 +970,17 @@ class NominaCalculoService:
         )
 
         # ── 10. Actualizar nominas_empleado ────────────────────────────────────
-        self.supabase.table('nominas_empleado').update({
-            'total_percepciones': float(percepciones),
-            'total_deducciones': float(deducciones),
-            'total_otros_pagos': float(otros_pagos),
-            'total_neto': float(max(neto, Decimal('0'))),
-            'estatus': 'CALCULADO',
-            'tipo_jornada': snapshot_fiscal["tipo_jornada"],
-            'factor_jornada': float(snapshot_fiscal["factor_jornada"]),
-            'salario_minimo_diario_aplicable': float(
-                snapshot_fiscal["salario_minimo_diario_aplicable"]
-            ),
-            'es_salario_minimo_art36': snapshot_fiscal["es_salario_minimo_art36"],
-            'imss_obrero_absorbido': float(
-                _round2(Decimal(str(imss_obrero_absorbido or 0)))
-            ),
-            'listo_para_timbrar': listo_para_timbrar,
-            'observaciones_fiscales': observaciones_fiscales,
-        }).eq('id', nomina_id).execute()
-
-        return {
-            'nomina_empleado_id': nomina_id,
-            'total_percepciones': percepciones,
-            'total_deducciones': deducciones,
-            'total_otros_pagos': otros_pagos,
-            'total_neto': max(neto, Decimal('0')),
-            'listo_para_timbrar': listo_para_timbrar,
-            'tiene_observaciones_fiscales': bool(observaciones_fiscales),
-        }
+        return self._persistir_nomina_calculada(
+            nomina_id=nomina_id,
+            percepciones=percepciones,
+            deducciones=deducciones,
+            otros_pagos=otros_pagos,
+            neto=neto,
+            snapshot_fiscal=snapshot_fiscal,
+            observaciones_fiscales=observaciones_fiscales,
+            listo_para_timbrar=listo_para_timbrar,
+            imss_obrero_absorbido=Decimal(str(imss_obrero_absorbido or 0)),
+        )
 
     # =========================================================================
     # HELPERS
@@ -927,6 +1127,17 @@ class NominaCalculoService:
         )
         if not result.data:
             raise NotFoundError(f"Período de nómina {periodo_id} no encontrado")
+        return result.data[0]
+
+    async def _obtener_nomina_empleado(self, nomina_empleado_id: int) -> dict:
+        result = (
+            self.supabase.table('nominas_empleado')
+            .select('*')
+            .eq('id', nomina_empleado_id)
+            .execute()
+        )
+        if not result.data:
+            raise NotFoundError(f"NominaEmpleado {nomina_empleado_id} no encontrada")
         return result.data[0]
 
     async def _obtener_nominas_del_periodo(self, periodo_id: int) -> list[dict]:

@@ -917,6 +917,218 @@ class TipoDocumentoEmpleado(str, Enum):
         )
 
 
+class TipoDocumentoEmpresa(str, Enum):
+    """Tipos de documento del expediente anual de una empresa."""
+
+    ACTA_CONSTITUTIVA = "ACTA_CONSTITUTIVA"
+    IDENTIFICACION_OFICIAL = "IDENTIFICACION_OFICIAL"
+    CONSTANCIA_SITUACION_FISCAL = "CONSTANCIA_SITUACION_FISCAL"
+    COMPROBANTE_DOMICILIO = "COMPROBANTE_DOMICILIO"
+    OPINION_CUMPLIMIENTO_SAT = "OPINION_CUMPLIMIENTO_SAT"
+    OPINION_POSITIVA_IMSS = "OPINION_POSITIVA_IMSS"
+    ADEUDO_INFONAVIT = "ADEUDO_INFONAVIT"
+    NO_ADEUDO_ESTADO = "NO_ADEUDO_ESTADO"
+    PADRON_PROVEEDORES_BUAP = "PADRON_PROVEEDORES_BUAP"
+    REPSE = "REPSE"
+    MANIFESTACION_69B_CFF = "MANIFESTACION_69B_CFF"
+    MANIFESTACION_77_LAASSP = "MANIFESTACION_77_LAASSP"
+    MANIFESTACION_69B_77 = "MANIFESTACION_69B_77"
+    DECLARACION_ANUAL = "DECLARACION_ANUAL"
+    ACUSE_DECLARACION_ANUAL = "ACUSE_DECLARACION_ANUAL"
+    DECLARACION_MENSUAL = "DECLARACION_MENSUAL"
+    ACUSE_DECLARACION_MENSUAL = "ACUSE_DECLARACION_MENSUAL"
+    CURRICULUM_EMPRESARIAL = "CURRICULUM_EMPRESARIAL"
+    FACTURAS_CONTRATOS = "FACTURAS_CONTRATOS"
+    COMPRANET = "COMPRANET"
+    COTIZACION = "COTIZACION"
+    DOCUMENTO_ADICIONAL = "DOCUMENTO_ADICIONAL"
+
+    @property
+    def numero(self) -> int:
+        orden = {
+            "ACTA_CONSTITUTIVA": 1,
+            "IDENTIFICACION_OFICIAL": 2,
+            "CONSTANCIA_SITUACION_FISCAL": 3,
+            "COMPROBANTE_DOMICILIO": 4,
+            "OPINION_CUMPLIMIENTO_SAT": 5,
+            "OPINION_POSITIVA_IMSS": 6,
+            "ADEUDO_INFONAVIT": 7,
+            "NO_ADEUDO_ESTADO": 8,
+            "PADRON_PROVEEDORES_BUAP": 9,
+            "REPSE": 10,
+            "MANIFESTACION_69B_CFF": 11,
+            "MANIFESTACION_77_LAASSP": 12,
+            "MANIFESTACION_69B_77": 13,
+            "DECLARACION_ANUAL": 14,
+            "ACUSE_DECLARACION_ANUAL": 15,
+            "DECLARACION_MENSUAL": 16,
+            "ACUSE_DECLARACION_MENSUAL": 17,
+            "CURRICULUM_EMPRESARIAL": 18,
+            "FACTURAS_CONTRATOS": 19,
+            "COMPRANET": 20,
+            "COTIZACION": 21,
+            "DOCUMENTO_ADICIONAL": 22,
+        }
+        return orden[self.value]
+
+    @property
+    def es_obligatorio(self) -> bool:
+        """REPSE y registros auxiliares no cuentan como requisito base obligatorio."""
+        return self not in {
+            TipoDocumentoEmpresa.REPSE,
+            TipoDocumentoEmpresa.MANIFESTACION_69B_77,
+            TipoDocumentoEmpresa.DOCUMENTO_ADICIONAL,
+        }
+
+    @property
+    def es_anual(self) -> bool:
+        """Documentos persistentes se reutilizan entre años hasta que se actualicen."""
+        return self not in {
+            TipoDocumentoEmpresa.ACTA_CONSTITUTIVA,
+            TipoDocumentoEmpresa.IDENTIFICACION_OFICIAL,
+            TipoDocumentoEmpresa.MANIFESTACION_69B_CFF,
+            TipoDocumentoEmpresa.MANIFESTACION_77_LAASSP,
+            TipoDocumentoEmpresa.MANIFESTACION_69B_77,
+        }
+
+    @property
+    def es_visible_en_checklist(self) -> bool:
+        """Valores auxiliares/legado no se renderizan como fila base del checklist."""
+        return self not in {
+            TipoDocumentoEmpresa.MANIFESTACION_69B_77,
+            TipoDocumentoEmpresa.DOCUMENTO_ADICIONAL,
+        }
+
+    def etiqueta(self, anio: int | None = None) -> str:
+        """Descripción legible del documento."""
+        if self == TipoDocumentoEmpresa.DECLARACION_ANUAL and anio is not None:
+            return (
+                "Copia de la declaración anual de impuestos federales "
+                f"del ejercicio fiscal {anio - 1}"
+            )
+        if self == TipoDocumentoEmpresa.ACUSE_DECLARACION_ANUAL and anio is not None:
+            return (
+                "Acuse de recibo de la declaración anual de impuestos federales "
+                f"del ejercicio fiscal {anio - 1}"
+            )
+        if self == TipoDocumentoEmpresa.DECLARACION_MENSUAL and anio is not None:
+            return (
+                "Copia de la última declaración mensual de impuestos federales "
+                f"del ejercicio fiscal {anio}"
+            )
+        if self == TipoDocumentoEmpresa.ACUSE_DECLARACION_MENSUAL and anio is not None:
+            return (
+                "Acuse de recibo de la última declaración mensual de impuestos federales "
+                f"del ejercicio fiscal {anio}"
+            )
+
+        descripciones = {
+            "ACTA_CONSTITUTIVA": "Acta constitutiva de la empresa",
+            "IDENTIFICACION_OFICIAL": (
+                "Identificación oficial vigente con fotografía del representante"
+            ),
+            "CONSTANCIA_SITUACION_FISCAL": "Constancia de situación fiscal",
+            "COMPROBANTE_DOMICILIO": "Comprobante de domicilio",
+            "OPINION_CUMPLIMIENTO_SAT": "Opinión de cumplimiento SAT",
+            "OPINION_POSITIVA_IMSS": "Opinión positiva IMSS",
+            "ADEUDO_INFONAVIT": "Constancia de no adeudo INFONAVIT",
+            "NO_ADEUDO_ESTADO": "Constancia de no adeudo del Gobierno del Estado",
+            "PADRON_PROVEEDORES_BUAP": "Constancia de inscripción al padrón BUAP",
+            "REPSE": "Comprobante de registro REPSE",
+            "MANIFESTACION_69B_CFF": "Manifestación legal art. 69-B del CFF",
+            "MANIFESTACION_77_LAASSP": "Manifestación legal art. 77 de la LAASSP",
+            "MANIFESTACION_69B_77": "Manifestación legal (legado 69-B / art. 77)",
+            "CURRICULUM_EMPRESARIAL": "Currículum empresarial del proveedor",
+            "FACTURAS_CONTRATOS": "Facturas y/o contratos celebrados",
+            "COMPRANET": "Registro único de proveedores y contratistas (COMPRANET)",
+            "COTIZACION": "Cotización",
+            "DOCUMENTO_ADICIONAL": "Documento adicional configurable",
+        }
+        return descripciones.get(self.value, self.value)
+
+    @property
+    def descripcion(self) -> str:
+        return self.etiqueta()
+
+    def ayuda(self, anio: int | None = None) -> str:
+        """Texto guía mostrado en la UI; no se valida automáticamente en v1."""
+        ayudas = {
+            "ACTA_CONSTITUTIVA": (
+                "PDF legible del acta constitutiva vigente. Los complementos se pueden "
+                "agregar como documentos adicionales por empresa."
+            ),
+            "IDENTIFICACION_OFICIAL": (
+                "IFE/INE, pasaporte o cédula profesional del representante legal."
+            ),
+            "CONSTANCIA_SITUACION_FISCAL": (
+                "Emitida por el SAT, con antigüedad no mayor a 30 días previos a la requisición."
+            ),
+            "COMPROBANTE_DOMICILIO": (
+                "Recibo de luz, agua o predial con antigüedad no mayor a 3 meses. "
+                "Si es arrendado, agregar contrato de arrendamiento."
+            ),
+            "OPINION_CUMPLIMIENTO_SAT": (
+                "Emitida por el SAT en sentido positivo; debe estar vigente desde la "
+                "presentación de la requisición hasta la firma del contrato."
+            ),
+            "OPINION_POSITIVA_IMSS": (
+                "Opinión positiva del IMSS vigente desde antes de la adjudicación "
+                "y hasta la fecha de firma del contrato."
+            ),
+            "ADEUDO_INFONAVIT": (
+                "Constancia de adeudo INFONAVIT vigente desde la presentación de la "
+                "requisición y hasta la firma del contrato."
+            ),
+            "NO_ADEUDO_ESTADO": (
+                "Constancia de no adeudo vigente para proveedores del Gobierno del Estado."
+            ),
+            "PADRON_PROVEEDORES_BUAP": (
+                "Constancia de inscripción al Padrón de Proveedores de la BUAP."
+            ),
+            "REPSE": (
+                "Documento opcional en v1. Solo aplica para proveedores de servicios "
+                "especializados u obras especializadas."
+            ),
+            "MANIFESTACION_69B_CFF": (
+                "Manifestación legal firmada respecto al artículo 69-B del Código Fiscal "
+                "de la Federación."
+            ),
+            "MANIFESTACION_77_LAASSP": (
+                "Manifestación legal firmada respecto al artículo 77 de la Ley de "
+                "Adquisiciones, Arrendamientos y Servicios del Sector Público."
+            ),
+            "MANIFESTACION_69B_77": (
+                "Documento legado: la nueva carga separa 69-B y artículo 77 en dos archivos."
+            ),
+            "DECLARACION_ANUAL": (
+                f"Declaración anual del ejercicio fiscal {anio - 1}."
+                if anio is not None
+                else "Declaración anual del ejercicio fiscal anterior."
+            ),
+            "ACUSE_DECLARACION_ANUAL": (
+                f"Acuse de recibo de la declaración anual del ejercicio fiscal {anio - 1}."
+                if anio is not None
+                else "Acuse de la declaración anual del ejercicio fiscal anterior."
+            ),
+            "DECLARACION_MENSUAL": (
+                f"Última declaración mensual del ejercicio fiscal {anio}."
+                if anio is not None
+                else "Última declaración mensual del ejercicio fiscal seleccionado."
+            ),
+            "ACUSE_DECLARACION_MENSUAL": (
+                f"Acuse de la última declaración mensual del ejercicio fiscal {anio}."
+                if anio is not None
+                else "Acuse de la última declaración mensual del ejercicio fiscal seleccionado."
+            ),
+            "CURRICULUM_EMPRESARIAL": "Resumen del perfil y experiencia empresarial del proveedor.",
+            "FACTURAS_CONTRATOS": "Copias simples de al menos dos facturas y/o contratos celebrados.",
+            "COMPRANET": "Registro único de proveedores y contratistas (COMPRANET).",
+            "COTIZACION": "Cotización emitida por la empresa proveedora.",
+            "DOCUMENTO_ADICIONAL": "Documento configurable por empresa.",
+        }
+        return ayudas.get(self.value, self.etiqueta(anio))
+
+
 class EstatusDocumento(str, Enum):
     """Estados de revisión de un documento de empleado."""
     PENDIENTE_REVISION = 'PENDIENTE_REVISION'
@@ -1045,6 +1257,34 @@ class ReglaCalculoQuincenal(str, Enum):
         descripciones = {
             'REAL': 'Real por días',
             'MIXTA': 'Base fija quincenal',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class TipoPeriodoNomina(str, Enum):
+    """Clasificación funcional del período de nómina."""
+    ORDINARIA = 'ORDINARIA'
+    AGUINALDO = 'AGUINALDO'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'ORDINARIA': 'Ordinaria',
+            'AGUINALDO': 'Aguinaldo',
+        }
+        return descripciones.get(self.value, self.value)
+
+
+class ModoCalculoAguinaldo(str, Enum):
+    """Origen del monto bruto usado para el aguinaldo."""
+    AUTO = 'AUTO'
+    MANUAL = 'MANUAL'
+
+    @property
+    def descripcion(self) -> str:
+        descripciones = {
+            'AUTO': 'Automático',
+            'MANUAL': 'Manual',
         }
         return descripciones.get(self.value, self.value)
 

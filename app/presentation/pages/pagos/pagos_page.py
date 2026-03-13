@@ -7,6 +7,7 @@ from app.presentation.pages.pagos.pagos_state import PagosPageState
 from app.presentation.components.ui import (
     acciones_filtros,
     filtros_inline,
+    filter_date_input,
     tabla_vacia,
     table_shell,
     table_cell_text_sm,
@@ -120,28 +121,18 @@ def _filtros() -> rx.Component:
             size="2",
         ),
         # Fecha desde
-        rx.vstack(
-            rx.text("Desde", size="1", color=Colors.TEXT_MUTED),
-            rx.input(
-                type="date",
-                value=PagosPageState.filtro_fecha_desde,
-                on_change=PagosPageState.set_filtro_fecha_desde,
-                width="140px",
-                size="2",
-            ),
-            spacing="1",
+        filter_date_input(
+            label="Desde",
+            value=PagosPageState.filtro_fecha_desde,
+            on_change=PagosPageState.set_filtro_fecha_desde,
+            width="140px",
         ),
         # Fecha hasta
-        rx.vstack(
-            rx.text("Hasta", size="1", color=Colors.TEXT_MUTED),
-            rx.input(
-                type="date",
-                value=PagosPageState.filtro_fecha_hasta,
-                on_change=PagosPageState.set_filtro_fecha_hasta,
-                width="140px",
-                size="2",
-            ),
-            spacing="1",
+        filter_date_input(
+            label="Hasta",
+            value=PagosPageState.filtro_fecha_hasta,
+            on_change=PagosPageState.set_filtro_fecha_hasta,
+            width="140px",
         ),
         acciones_filtros(
             on_apply=PagosPageState.aplicar_filtros,

@@ -9,6 +9,13 @@ from .codigo_generator import (
     normalizar_texto,
     PALABRAS_IGNORAR,
 )
+from .date_input import (
+    DATE_INPUT_DISPLAY_FORMAT,
+    format_date_input_display,
+    get_date_input_inline_error,
+    normalize_date_input,
+    parse_date_input,
+)
 
 __all__ = [
     "generar_candidatos_codigo",
@@ -17,4 +24,9 @@ __all__ = [
     "extraer_palabras_significativas",
     "normalizar_texto",
     "PALABRAS_IGNORAR",
+    "DATE_INPUT_DISPLAY_FORMAT",
+    "format_date_input_display",
+    "get_date_input_inline_error",
+    "normalize_date_input",
+    "parse_date_input",
 ]

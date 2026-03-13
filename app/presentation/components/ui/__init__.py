@@ -7,6 +7,7 @@ from .form_input import (
     form_select,
     form_textarea,
     form_date,
+    filter_date_input,
     form_row,
     select_items_from_options,
 )
@@ -106,6 +107,7 @@ __all__ = [
     'form_select',
     'form_textarea',
     'form_date',
+    'filter_date_input',
     'form_row',
     'select_items_from_options',
     'accumulating_select',

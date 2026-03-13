@@ -19,6 +19,7 @@ from app.presentation.pages.nominas.dashboard_page import (
     grid_cards_operativas,
     resumen_financiero_periodo,
     selector_periodo,
+    skeleton_dashboard_nomina,
 )
 from app.presentation.pages.nominas.dashboard_state import NominaDashboardState
 from app.presentation.pages.nominas.nomina_contabilidad_state import NominaContabilidadState
@@ -86,15 +87,29 @@ def _fila_periodo(periodo: dict) -> rx.Component:
     total_empleados = periodo.get("total_empleados", 0).to(int)
     return rx.table.row(
         rx.table.cell(
-            rx.text(
-                periodo["nombre"],
-                size="2",
-                weight="medium",
-                color=Colors.TEXT_PRIMARY,
-                max_width="220px",
-                overflow="hidden",
-                text_overflow="ellipsis",
-                white_space="nowrap",
+            rx.vstack(
+                rx.text(
+                    periodo["nombre"],
+                    size="2",
+                    weight="medium",
+                    color=Colors.TEXT_PRIMARY,
+                    max_width="220px",
+                    overflow="hidden",
+                    text_overflow="ellipsis",
+                    white_space="nowrap",
+                ),
+                rx.cond(
+                    periodo["es_aguinaldo"],
+                    rx.badge(
+                        "Aguinaldo",
+                        color_scheme="amber",
+                        variant="soft",
+                        size="1",
+                    ),
+                    rx.fragment(),
+                ),
+                spacing="1",
+                align="start",
             ),
         ),
         rx.table.cell(
@@ -218,34 +233,41 @@ def _tabla_periodos() -> rx.Component:
 
 
 def _bloque_dashboard() -> rx.Component:
-    return rx.vstack(
-        callout_warning_operativo(),
-        grid_cards_operativas(),
+    return rx.box(
         rx.cond(
-            NominaDashboardState.tiene_periodos_disponibles,
+            NominaDashboardState.loading,
+            skeleton_dashboard_nomina(),
             rx.vstack(
-                rx.hstack(
-                    rx.spacer(),
-                    selector_periodo(),
-                    width="100%",
-                    align="center",
+                callout_warning_operativo(),
+                grid_cards_operativas(),
+                rx.cond(
+                    NominaDashboardState.tiene_periodos_disponibles,
+                    rx.vstack(
+                        rx.hstack(
+                            rx.spacer(),
+                            selector_periodo(),
+                            width="100%",
+                            align="center",
+                        ),
+                        resumen_financiero_periodo(),
+                        card_comparativo(),
+                        spacing="3",
+                        width="100%",
+                    ),
+                    rx.callout.root(
+                        rx.callout.icon(rx.icon("calendar-range", size=16)),
+                        rx.callout.text(
+                            "No hay periodos ordinarios creados para el ano seleccionado. Puedes cambiar el filtro o generar una nueva nomina."
+                        ),
+                        color_scheme="blue",
+                        variant="soft",
+                        width="100%",
+                    ),
                 ),
-                resumen_financiero_periodo(),
-                card_comparativo(),
                 spacing="3",
                 width="100%",
             ),
-            rx.callout.root(
-                rx.callout.icon(rx.icon("calendar-range", size=16)),
-                rx.callout.text(
-                    "No hay periodos creados para el ano seleccionado. Puedes cambiar el filtro o generar una nueva nomina."
-                ),
-                color_scheme="blue",
-                variant="soft",
-                width="100%",
-            ),
         ),
-        spacing="3",
         width="100%",
         padding_bottom=Spacing.MD,
     )

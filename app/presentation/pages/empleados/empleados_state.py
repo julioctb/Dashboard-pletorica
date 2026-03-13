@@ -23,6 +23,7 @@ from app.services.empleado_descuento_recurrente_service import (
     empleado_descuento_recurrente_service,
 )
 from app.core.text_utils import formatear_fecha, formatear_fecha_hora
+from app.core.utils import normalize_date_input, parse_date_input
 from app.core.enums import EstatusEmpleado, GeneroEmpleado, MotivoBaja
 
 from app.entities import (
@@ -268,7 +269,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         self._set_form_upper_field("form_apellido_materno", value)
 
     def set_form_fecha_nacimiento(self, value: str):
-        self._set_form_plain_field("form_fecha_nacimiento", value)
+        self._set_form_plain_field("form_fecha_nacimiento", normalize_date_input(value))
 
     def set_form_genero(self, value: str):
         self._set_form_plain_field("form_genero", value)
@@ -292,7 +293,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         self._set_form_plain_field("form_motivo_baja", value)
 
     def set_form_fecha_efectiva(self, value: str):
-        self._set_form_plain_field("form_fecha_efectiva", value)
+        self._set_form_plain_field("form_fecha_efectiva", normalize_date_input(value))
 
     def set_form_notas_baja(self, value: str):
         self._set_form_plain_field("form_notas_baja", value)
@@ -636,6 +637,14 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 "estatus": empleado.estatus,
                 "fecha_ingreso": formatear_fecha(empleado.fecha_ingreso) if empleado.fecha_ingreso else "",
                 "fecha_ingreso_iso": empleado.fecha_ingreso.isoformat() if empleado.fecha_ingreso else "",
+                "fecha_ingreso_vigente": (
+                    formatear_fecha(empleado.fecha_ingreso_vigente)
+                    if empleado.fecha_ingreso_vigente else ""
+                ),
+                "fecha_ingreso_vigente_iso": (
+                    empleado.fecha_ingreso_vigente.isoformat()
+                    if empleado.fecha_ingreso_vigente else ""
+                ),
                 "telefono": empleado.telefono or "",
                 "email": empleado.email or "",
                 "rfc": empleado.rfc or "",
@@ -987,7 +996,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         fecha_efectiva = date.today()
         if self.form_fecha_efectiva:
             try:
-                fecha_efectiva = date.fromisoformat(self.form_fecha_efectiva)
+                fecha_efectiva = parse_date_input(self.form_fecha_efectiva)
             except ValueError:
                 yield rx.toast.error("Fecha efectiva invalida")
                 return
@@ -1141,6 +1150,10 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 "empresa_nombre": empresas_cache.get(emp.empresa_id, "N/A") if emp.empresa_id is not None else "Sin asignar",
                 "estatus": emp.estatus,
                 "fecha_ingreso": formatear_fecha(emp.fecha_ingreso) if emp.fecha_ingreso else "",
+                "fecha_ingreso_vigente": (
+                    formatear_fecha(emp.fecha_ingreso_vigente)
+                    if emp.fecha_ingreso_vigente else ""
+                ),
                 "telefono": emp.telefono or "",
                 "email": emp.email or "",
                 "rfc": emp.rfc or "",

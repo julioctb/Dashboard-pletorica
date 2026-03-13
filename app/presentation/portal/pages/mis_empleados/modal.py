@@ -364,8 +364,15 @@ def modal_detalle_empleado() -> rx.Component:
                                 MisEmpleadosState.empleado_detalle.get("nss", ""),
                             ),
                             _campo_detalle(
-                                "Fecha de ingreso",
+                                "Primer ingreso",
                                 MisEmpleadosState.empleado_detalle.get("fecha_ingreso", ""),
+                            ),
+                            _campo_detalle(
+                                "Ingreso vigente",
+                                MisEmpleadosState.empleado_detalle.get(
+                                    "fecha_ingreso_vigente",
+                                    "",
+                                ),
                             ),
                             _campo_detalle(
                                 "Telefono",

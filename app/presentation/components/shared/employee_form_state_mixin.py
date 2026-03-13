@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Callable, Sequence
 
+from app.core.utils import normalize_date_input, parse_date_input
 from app.core.validation import (
     normalizar_clabe_interbancaria,
     normalizar_cuenta_bancaria,
@@ -188,12 +189,12 @@ class EmployeeFormStateMixin:
             "apellido_paterno": self.form_apellido_paterno or None,
             "apellido_materno": self.form_apellido_materno or None,
             "fecha_ingreso": (
-                date.fromisoformat(self.form_fecha_ingreso)
+                parse_date_input(self.form_fecha_ingreso)
                 if self.form_fecha_ingreso
                 else None
             ),
             "fecha_nacimiento": (
-                date.fromisoformat(self.form_fecha_nacimiento)
+                parse_date_input(self.form_fecha_nacimiento)
                 if self.form_fecha_nacimiento
                 else None
             ),
@@ -253,7 +254,7 @@ class EmployeeFormStateMixin:
 
     def _set_form_fecha_ingreso_value(self, value: str) -> None:
         """Actualiza fecha_ingreso y conserva el prefilling de descuentos nuevos."""
-        self.form_fecha_ingreso = value if value else ""
+        self.form_fecha_ingreso = normalize_date_input(value)
         if hasattr(self, "error_fecha_ingreso"):
             self.error_fecha_ingreso = ""
 
@@ -282,7 +283,10 @@ class EmployeeFormStateMixin:
         if not hasattr(self, attr):
             return
 
-        setattr(self, attr, value if value else "")
+        if field_name in {"inicio", "fin"}:
+            setattr(self, attr, normalize_date_input(value))
+        else:
+            setattr(self, attr, value if value else "")
         if hasattr(self, "error_descuentos_recurrentes"):
             self.error_descuentos_recurrentes = ""
 
@@ -357,9 +361,7 @@ class EmployeeFormStateMixin:
                 setattr(self, error_attr, "La fecha de ingreso es obligatoria")
             return False
 
-        try:
-            date.fromisoformat(self.form_fecha_ingreso)
-        except ValueError:
+        if parse_date_input(self.form_fecha_ingreso) is None:
             if hasattr(self, error_attr):
                 setattr(self, error_attr, "La fecha de ingreso no es válida")
             return False
@@ -414,9 +416,9 @@ class EmployeeFormStateMixin:
                         empleado_id=empleado_id,
                         concepto_clave=meta["concepto_clave"],
                         monto_periodico=monto,
-                        fecha_inicio=date.fromisoformat(fecha_inicio_valor),
+                        fecha_inicio=parse_date_input(fecha_inicio_valor),
                         fecha_fin=(
-                            date.fromisoformat(fecha_fin)
+                            parse_date_input(fecha_fin)
                             if fecha_fin
                             else None
                         ),

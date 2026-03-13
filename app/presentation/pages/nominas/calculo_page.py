@@ -11,6 +11,7 @@ import reflex as rx
 
 from app.presentation.pages.nominas.nomina_contabilidad_state import NominaContabilidadState
 from app.presentation.pages.nominas.contabilidad_modals import (
+    modal_ajuste_aguinaldo,
     modal_bono_empleado,
     dialog_ejecutar_calculo,
     dialog_cerrar_periodo,
@@ -364,6 +365,20 @@ def _fila_empleado_calculo(empleado: dict) -> rx.Component:
                     ),
                     rx.fragment(),
                 ),
+                rx.cond(
+                    NominaContabilidadState.puede_ajustar_aguinaldo,
+                    rx.tooltip(
+                        rx.icon_button(
+                            rx.icon("gift", size=15),
+                            size="2",
+                            variant="soft",
+                            color_scheme="orange",
+                            on_click=NominaContabilidadState.abrir_modal_aguinaldo(empleado),
+                        ),
+                        content="Ajustar aguinaldo",
+                    ),
+                    rx.fragment(),
+                ),
                 # Detalle de movimientos
                 rx.tooltip(
                     rx.icon_button(
@@ -562,6 +577,7 @@ def calculo_nomina_page() -> rx.Component:
                 _tabla_empleados_calculo(),
                 _seccion_layouts(),
                 # Modales y dialogs
+                modal_ajuste_aguinaldo(),
                 modal_bono_empleado(),
                 dialog_ejecutar_calculo(),
                 dialog_cerrar_periodo(),

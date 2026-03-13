@@ -1,6 +1,7 @@
 """Componentes de formulario reutilizables con labels visibles."""
 import reflex as rx
 from typing import Any
+from reflex.vars.base import Var, var_operation, var_operation_return
 
 from app.presentation.theme import Colors
 
@@ -74,6 +75,44 @@ def select_items_from_options(options: Any) -> rx.Component:
             rx.select.item(opt["label"], value=opt["value"]),
             rx.fragment(),
         ),
+    )
+
+
+@var_operation
+def _date_display_var(value: Any) -> Var:
+    """Retorna el valor visible DD/MM/AAAA preservando capturas parciales."""
+    return var_operation_return(
+        js_expression=(
+            f"(() => {{"
+            f"const raw = ((({value}) ?? '') + '').trim();"
+            f"if (!raw) return '';"
+            f"if (/^\\d{{4}}-\\d{{2}}-\\d{{2}}$/.test(raw)) {{"
+            f"const [year, month, day] = raw.split('-');"
+            f"return `${{day}}/${{month}}/${{year}}`;"
+            f"}}"
+            f"return raw;"
+            f"}})()"
+        ),
+        var_type=str,
+    )
+
+
+@var_operation
+def _date_inline_error_var(value: Any) -> Var:
+    """Expone error inline cuando el año está incompleto."""
+    return var_operation_return(
+        js_expression=(
+            f"(() => {{"
+            f"const raw = ((({value}) ?? '') + '').trim();"
+            f"if (!raw) return '';"
+            f"const parts = raw.split('/');"
+            f"if (parts.length !== 3) return '';"
+            f"const year = (parts[2] || '').trim();"
+            f"if (/^\\d{{1,3}}$/.test(year)) return 'Capture el año completo en formato AAAA';"
+            f"return '';"
+            f"}})()"
+        ),
+        var_type=str,
     )
 
 
@@ -236,6 +275,46 @@ def form_select(
     )
 
 
+def _date_control(
+    *,
+    placeholder: str = "DD/MM/AAAA",
+    value: Any = "",
+    on_change: callable = None,
+    on_blur: callable = None,
+    width: str = "100%",
+    size: str = "2",
+    error: Any = None,
+    **props,
+) -> rx.Component:
+    """Control base de fecha reutilizable para formularios y filtros inline."""
+    input_style = props.pop("style", {}) or {}
+    display_value = _date_display_var(value)
+    input_color = props.pop(
+        "color",
+        rx.cond(display_value != "", Colors.TEXT_PRIMARY, Colors.TEXT_MUTED),
+    )
+    return rx.input(
+        type="text",
+        value=display_value,
+        placeholder=placeholder,
+        on_change=on_change,
+        on_blur=on_blur,
+        width=width,
+        size=size,
+        color=input_color,
+        input_mode="numeric",
+        max_length=10,
+        background=Colors.SURFACE,
+        border_color=(
+            rx.cond(error != "", "var(--red-8)", Colors.BORDER)
+            if error is not None
+            else Colors.BORDER
+        ),
+        style=input_style,
+        **props,
+    )
+
+
 def form_date(
     label: str = "",
     placeholder: str = "DD/MM/AAAA",
@@ -259,62 +338,56 @@ def form_date(
         required: Si True, muestra asterisco rojo en el label
         hint: Texto de ayuda debajo del input
     """
-    input_style = props.pop("style", {}) or {}
-    input_color = props.pop("color", rx.cond(value, Colors.TEXT_PRIMARY, Colors.TEXT_MUTED))
-    empty_text_color = "transparent"
-
+    inline_error = _date_inline_error_var(value)
+    effective_error = (
+        rx.cond(inline_error != "", inline_error, error)
+        if error is not None
+        else inline_error
+    )
     return form_field(
-        control=rx.box(
-            rx.cond(
-                value,
-                rx.fragment(),
-                rx.text(
-                    placeholder,
-                    size="2",
-                    color=Colors.TEXT_MUTED,
-                    position="absolute",
-                    top="50%",
-                    left="12px",
-                    transform="translateY(-50%)",
-                    pointer_events="none",
-                    z_index="1",
-                ),
-            ),
-            rx.input(
-                type="date",
-                placeholder=placeholder,
-                value=value,
-                on_change=on_change,
-                on_blur=on_blur,
-                width="100%",
-                size="2",
-                color=rx.cond(value, input_color, empty_text_color),
-                style={
-                    "&::-webkit-datetime-edit": {
-                        "color": rx.cond(value, input_color, empty_text_color),
-                    },
-                    "&::-webkit-date-and-time-value": {
-                        "textAlign": "left",
-                    },
-                    "&::-webkit-calendar-picker-indicator": {
-                        "opacity": "1",
-                    },
-                    **input_style,
-                },
-                **props
-            ),
-            position="relative",
-            width="100%",
-            align_items="center",
-            justify_content="center",
-            min_height="36px",
-            display="flex",
-            overflow="hidden",
+        control=_date_control(
+            placeholder=placeholder,
+            value=value,
+            on_change=on_change,
+            on_blur=on_blur,
+            error=effective_error,
+            **props,
         ),
         label=label,
         required=required,
-        error=error,
+        error=effective_error,
         hint=hint,
+    )
+
+
+def filter_date_input(
+    label: str,
+    value: Any = "",
+    on_change: callable = None,
+    placeholder: str = "DD/MM/AAAA",
+    width: str = "140px",
+    **props,
+) -> rx.Component:
+    """Campo de fecha compacto para filtros inline."""
+    inline_error = _date_inline_error_var(value)
+    return rx.vstack(
+        rx.text(label, size="1", color=Colors.TEXT_MUTED),
+        _date_control(
+            placeholder=placeholder,
+            value=value,
+            on_change=on_change,
+            error=inline_error,
+            width=width,
+            **props,
+        ),
+        rx.text(
+            inline_error,
+            size="1",
+            color="var(--red-9)",
+            min_height="1em",
+            visibility=rx.cond(inline_error != "", "visible", "hidden"),
+        ),
+        spacing="1",
     )
 
 

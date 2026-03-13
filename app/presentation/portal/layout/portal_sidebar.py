@@ -223,6 +223,12 @@ def _portal_navigation() -> rx.Component:
                 "building-2",
                 "/portal/mi-empresa",
             ),
+            _cond_item(
+                AuthState.es_admin_empresa,
+                "Documentación",
+                "folder-lock",
+                "/portal/documentacion-empresa",
+            ),
             _cond_item(AuthState.es_admin_empresa, "Usuarios", "users-round", "/portal/usuarios"),
             _cond_item(AuthState.puede_configurar_empresa, "Configuracion", "settings", "/portal/configuracion-empresa"),
         ),

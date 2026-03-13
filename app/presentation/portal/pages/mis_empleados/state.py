@@ -8,6 +8,7 @@ from typing import List
 import reflex as rx
 
 from app.core.text_utils import formatear_fecha, formatear_fecha_hora
+from app.core.utils import normalize_date_input, parse_date_input
 from app.core.enums import GeneroEmpleado
 from app.presentation.components.shared import (
     EMPLOYEE_BULK_UPLOAD_ID,
@@ -72,6 +73,7 @@ def _empty_empleado_detalle() -> dict:
         "direccion": "",
         "notas": "",
         "fecha_ingreso": "",
+        "fecha_ingreso_vigente": "",
         "contacto_nombre": "",
         "contacto_telefono": "",
         "contacto_parentesco": "",
@@ -264,7 +266,7 @@ class MisEmpleadosState(
         self._set_form_fecha_ingreso_value(value)
 
     def set_form_fecha_nacimiento(self, value: str):
-        self._set_form_plain_field("form_fecha_nacimiento", value)
+        self._set_form_plain_field("form_fecha_nacimiento", normalize_date_input(value))
 
     def set_form_genero(self, value: str):
         self._set_form_plain_field("form_genero", value)
@@ -319,7 +321,7 @@ class MisEmpleadosState(
         self.error_motivo_baja = ""
 
     def set_form_fecha_efectiva_baja(self, value: str):
-        self._set_form_plain_field("form_fecha_efectiva_baja", value)
+        self._set_form_plain_field("form_fecha_efectiva_baja", normalize_date_input(value))
         self.error_fecha_efectiva_baja = ""
 
     def set_form_notas_baja(self, value: str):
@@ -943,7 +945,7 @@ class MisEmpleadosState(
                     "curp": self.form_curp,
                     "nombre": self.form_nombre,
                     "apellido_paterno": self.form_apellido_paterno,
-                    "fecha_nacimiento": date.fromisoformat(self.form_fecha_nacimiento),
+                    "fecha_nacimiento": parse_date_input(self.form_fecha_nacimiento),
                     "genero": self.form_genero,
                     "telefono": self.form_telefono,
                 }
@@ -1013,6 +1015,10 @@ class MisEmpleadosState(
                 "rfc": empleado.rfc,
                 "nss": empleado.nss,
                 "fecha_ingreso": str(empleado.fecha_ingreso) if empleado.fecha_ingreso else "",
+                "fecha_ingreso_vigente": (
+                    str(empleado.fecha_ingreso_vigente)
+                    if empleado.fecha_ingreso_vigente else ""
+                ),
                 "fecha_nacimiento": str(empleado.fecha_nacimiento) if empleado.fecha_nacimiento else "",
                 "genero": empleado.genero,
                 "telefono": empleado.telefono,
@@ -1111,7 +1117,7 @@ class MisEmpleadosState(
         fecha_efectiva = date.today()
         if self.form_fecha_efectiva_baja:
             try:
-                fecha_efectiva = date.fromisoformat(self.form_fecha_efectiva_baja)
+                fecha_efectiva = parse_date_input(self.form_fecha_efectiva_baja)
             except ValueError:
                 self.error_fecha_efectiva_baja = "Fecha efectiva inválida"
                 yield rx.toast.error("Fecha efectiva inválida")
@@ -1272,6 +1278,8 @@ class MisEmpleadosState(
             "clave": resumen.get("clave", "") or "",
             "nombre_completo": resumen.get("nombre_completo", "") or "",
             "estatus": resumen.get("estatus", "") or "",
+            "fecha_ingreso": resumen.get("fecha_ingreso", "") or "",
+            "fecha_ingreso_vigente": resumen.get("fecha_ingreso_vigente", "") or "",
             "telefono": resumen.get("telefono", "") or "",
             "email": resumen.get("email", "") or "",
             "is_restricted": bool(resumen.get("is_restricted", False)),
@@ -1312,6 +1320,10 @@ class MisEmpleadosState(
             "direccion": empleado.direccion or "",
             "notas": empleado.notas or "",
             "fecha_ingreso": formatear_fecha(empleado.fecha_ingreso) if empleado.fecha_ingreso else "",
+            "fecha_ingreso_vigente": (
+                formatear_fecha(empleado.fecha_ingreso_vigente)
+                if empleado.fecha_ingreso_vigente else ""
+            ),
             "contacto_nombre": contacto_nombre,
             "contacto_telefono": contacto_telefono,
             "contacto_parentesco": contacto_parentesco,

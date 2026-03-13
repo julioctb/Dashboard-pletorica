@@ -23,9 +23,11 @@ from app.core.catalogs.nomina import (
 from app.core.catalogs.fiscal import PoliticaFiscalResolver
 from app.core.enums import (
     EstatusPlaza,
+    ModoCalculoAguinaldo,
     PeriodicidadNomina,
     ReglaCalculoQuincenal,
     TipoJornadaPlaza,
+    TipoPeriodoNomina,
 )
 from app.core.exceptions import (
     BusinessRuleError,
@@ -33,7 +35,7 @@ from app.core.exceptions import (
     DuplicateError,
     NotFoundError,
 )
-from app.core.text_utils import formatear_moneda, normalizar_mayusculas
+from app.core.text_utils import formatear_fecha, formatear_moneda, normalizar_mayusculas
 from app.core.catalogs.sistema.tolerancias import Tolerancias
 from app.database import db_manager
 from app.entities.empleado_descuento_recurrente import (
@@ -342,6 +344,7 @@ class NominaPeriodoService:
             self.supabase.table(self.tabla)
             .select(
                 "empresa_id, contrato_id, fecha_fin, fecha_pago, periodicidad, "
+                "tipo_periodo, ejercicio_fiscal, dias_aguinaldo_snapshot, "
                 "regla_calculo_quincenal, listo_para_timbrar, "
                 "total_empleados_con_observaciones_fiscales"
             )
@@ -411,6 +414,22 @@ class NominaPeriodoService:
                 periodo.get("periodicidad"),
                 periodo.get("regla_calculo_quincenal"),
                 r.get("dias_trabajados"),
+            )
+            r["tipo_periodo"] = str(
+                periodo.get("tipo_periodo") or TipoPeriodoNomina.ORDINARIA.value
+            )
+            r["es_aguinaldo"] = (
+                r["tipo_periodo"] == TipoPeriodoNomina.AGUINALDO.value
+            )
+            r["fecha_ingreso_vigente_aguinaldo_fmt"] = formatear_fecha(
+                r.get("fecha_ingreso_vigente_aguinaldo"),
+                valor_vacio="Sin dato",
+            )
+            r["monto_aguinaldo_bruto_fmt"] = formatear_moneda(
+                f'{float(r.get("monto_aguinaldo_bruto") or 0):.2f}'
+            )
+            r["factor_proporcional_aguinaldo_fmt"] = (
+                f'{float(r.get("factor_proporcional_aguinaldo") or 0):.4f}'
             )
             observaciones = r.get("observaciones_fiscales") or []
             r["observaciones_fiscales"] = observaciones
@@ -513,6 +532,74 @@ class NominaPeriodoService:
             field="periodo_key",
             value=nombre,
         )
+
+    @staticmethod
+    def _normalizar_tipo_periodo(
+        valor: object,
+    ) -> TipoPeriodoNomina:
+        if isinstance(valor, TipoPeriodoNomina):
+            return valor
+        try:
+            return TipoPeriodoNomina(str(valor or "").upper())
+        except ValueError:
+            return TipoPeriodoNomina.ORDINARIA
+
+    @staticmethod
+    def _rango_ejercicio_fiscal(ejercicio_fiscal: int) -> tuple[date, date]:
+        return date(ejercicio_fiscal, 1, 1), date(ejercicio_fiscal, 12, 31)
+
+    def _construir_periodo_aguinaldo_option(
+        self,
+        *,
+        ejercicio_fiscal: int,
+        fecha_pago_sugerida: date,
+        dias_aguinaldo: int,
+    ) -> dict[str, str | int]:
+        fecha_inicio, fecha_fin = self._rango_ejercicio_fiscal(ejercicio_fiscal)
+        return {
+            "key": f"AGUINALDO:{ejercicio_fiscal}",
+            "value": f"AGUINALDO:{ejercicio_fiscal}",
+            "label": f"Aguinaldo {ejercicio_fiscal}",
+            "nombre": f"Aguinaldo {ejercicio_fiscal}",
+            "tipo_periodo": TipoPeriodoNomina.AGUINALDO.value,
+            "periodicidad": PeriodicidadNomina.MENSUAL.value,
+            "fecha_inicio": fecha_inicio.isoformat(),
+            "fecha_fin": fecha_fin.isoformat(),
+            "fecha_pago_sugerida": fecha_pago_sugerida.isoformat(),
+            "ejercicio_fiscal": ejercicio_fiscal,
+            "dias_aguinaldo_snapshot": dias_aguinaldo,
+        }
+
+    async def listar_ejercicios_aguinaldo_disponibles(self, empresa_id: int) -> list[dict]:
+        """Catálogo de ejercicios disponibles para la corrida anual de aguinaldo."""
+        await self._asegurar_modulo_nomina_activo(empresa_id)
+        config_fiscal = await self._obtener_configuracion_fiscal(empresa_id)
+        hoy = date.today()
+        ejercicios = list(range(hoy.year - 1, hoy.year + 2))
+
+        result = (
+            self.supabase.table(self.tabla)
+            .select("ejercicio_fiscal")
+            .eq("empresa_id", empresa_id)
+            .eq("tipo_periodo", TipoPeriodoNomina.AGUINALDO.value)
+            .execute()
+        )
+        existentes = {
+            int(item.get("ejercicio_fiscal"))
+            for item in (result.data or [])
+            if item.get("ejercicio_fiscal") is not None
+        }
+
+        dias_aguinaldo = int(getattr(config_fiscal, "dias_aguinaldo", 15) or 15)
+        return [
+            self._construir_periodo_aguinaldo_option(
+                ejercicio_fiscal=ejercicio,
+                fecha_pago_sugerida=date(ejercicio, 12, 20),
+                dias_aguinaldo=dias_aguinaldo,
+            )
+            for ejercicio in ejercicios
+            if ejercicio not in existentes
+        ]
 
     @staticmethod
     def _leer_config(config: object, campo: str, default):
@@ -695,6 +782,9 @@ class NominaPeriodoService:
         fecha_inicio: date,
         fecha_fin: date,
         periodicidad: str = 'QUINCENAL',
+        tipo_periodo: str = TipoPeriodoNomina.ORDINARIA.value,
+        ejercicio_fiscal: Optional[int] = None,
+        dias_aguinaldo_snapshot: Optional[int] = None,
         regla_calculo_quincenal: Optional[str] = None,
         contrato_id: Optional[int] = None,
         fecha_pago: Optional[date] = None,
@@ -720,10 +810,14 @@ class NominaPeriodoService:
             'empresa_id': empresa_id,
             'nombre': nombre,
             'periodicidad': periodicidad,
+            'tipo_periodo': tipo_periodo,
+            'ejercicio_fiscal': ejercicio_fiscal or fecha_inicio.year,
             'fecha_inicio': fecha_inicio.isoformat(),
             'fecha_fin': fecha_fin.isoformat(),
             'estatus': 'BORRADOR',
         }
+        if dias_aguinaldo_snapshot is not None:
+            datos['dias_aguinaldo_snapshot'] = dias_aguinaldo_snapshot
         if regla_calculo_quincenal is not None:
             datos['regla_calculo_quincenal'] = regla_calculo_quincenal
         if contrato_id is not None:
@@ -816,55 +910,90 @@ class NominaPeriodoService:
     async def crear_periodo_configurado(
         self,
         empresa_id: int,
-        periodo_key: str,
+        periodo_key: str = "",
         contrato_id: Optional[int] = None,
         fecha_pago_override: Optional[date] = None,
         usuario_id: Optional[str] = None,
         usuario_nombre: Optional[str] = None,
         notas: Optional[str] = None,
+        tipo_corrida: str = TipoPeriodoNomina.ORDINARIA.value,
+        ejercicio_fiscal: Optional[int] = None,
     ) -> dict:
         """Crea un periodo usando la política activa de nómina de la empresa."""
+        tipo_periodo = self._normalizar_tipo_periodo(tipo_corrida)
         config = await self._obtener_configuracion_nomina(empresa_id)
         config_fiscal = await self._obtener_configuracion_fiscal(empresa_id)
         periodicidad, politica_kwargs = self._contexto_politica_nomina(config)
-        contrato_id_resuelto = await self._resolver_contrato_nomina_id_periodo(
-            empresa_id,
-            contrato_id,
-        )
-        periodo_calculado = resolver_periodo_por_key(
-            periodo_key,
-            periodicidad,
-            **politica_kwargs,
-        )
 
-        fecha_pago = fecha_pago_override or periodo_calculado.fecha_pago_sugerida
-        if fecha_pago < periodo_calculado.fecha_inicio:
-            raise BusinessRuleError(
-                "fecha_pago debe ser mayor o igual a la fecha de inicio del periodo"
+        if tipo_periodo == TipoPeriodoNomina.AGUINALDO:
+            ejercicio = int(ejercicio_fiscal or date.today().year)
+            fecha_inicio_aguinaldo, fecha_fin_aguinaldo = self._rango_ejercicio_fiscal(
+                ejercicio
+            )
+            fecha_pago = fecha_pago_override or date(ejercicio, 12, 20)
+            if fecha_pago < fecha_inicio_aguinaldo:
+                raise BusinessRuleError(
+                    "fecha_pago debe ser mayor o igual a la fecha de inicio del periodo"
+                )
+            dias_aguinaldo = int(getattr(config_fiscal, "dias_aguinaldo", 15) or 15)
+            periodo = await self.crear_periodo(
+                empresa_id=empresa_id,
+                nombre=f"Aguinaldo {ejercicio}",
+                fecha_inicio=fecha_inicio_aguinaldo,
+                fecha_fin=fecha_fin_aguinaldo,
+                periodicidad=PeriodicidadNomina.MENSUAL.value,
+                tipo_periodo=tipo_periodo.value,
+                ejercicio_fiscal=ejercicio,
+                dias_aguinaldo_snapshot=dias_aguinaldo,
+                contrato_id=None,
+                fecha_pago=fecha_pago,
+                notas=notas,
+                creado_por=usuario_id,
+                creado_por_nombre=usuario_nombre,
+                zona_frontera=bool(getattr(config_fiscal, "zona_frontera", False)),
+                aplicar_art_36=bool(getattr(config_fiscal, "aplicar_art_36", True)),
+            )
+        else:
+            contrato_id_resuelto = await self._resolver_contrato_nomina_id_periodo(
+                empresa_id,
+                contrato_id,
+            )
+            periodo_calculado = resolver_periodo_por_key(
+                periodo_key,
+                periodicidad,
+                **politica_kwargs,
             )
 
-        periodo = await self.crear_periodo(
-            empresa_id=empresa_id,
-            nombre=periodo_calculado.nombre,
-            fecha_inicio=periodo_calculado.fecha_inicio,
-            fecha_fin=periodo_calculado.fecha_fin,
-            periodicidad=periodo_calculado.periodicidad.value,
-            regla_calculo_quincenal=self._snapshot_regla_calculo_quincenal(
-                periodo_calculado.periodicidad,
-                config,
-            ),
-            contrato_id=contrato_id_resuelto,
-            fecha_pago=fecha_pago,
-            notas=notas,
-            creado_por=usuario_id,
-            creado_por_nombre=usuario_nombre,
-            zona_frontera=bool(getattr(config_fiscal, "zona_frontera", False)),
-            aplicar_art_36=bool(getattr(config_fiscal, "aplicar_art_36", True)),
-        )
-        await self._sincronizar_contrato_nomina_configurado(
-            empresa_id,
-            contrato_id_resuelto,
-        )
+            fecha_pago = fecha_pago_override or periodo_calculado.fecha_pago_sugerida
+            if fecha_pago < periodo_calculado.fecha_inicio:
+                raise BusinessRuleError(
+                    "fecha_pago debe ser mayor o igual a la fecha de inicio del periodo"
+                )
+
+            periodo = await self.crear_periodo(
+                empresa_id=empresa_id,
+                nombre=periodo_calculado.nombre,
+                fecha_inicio=periodo_calculado.fecha_inicio,
+                fecha_fin=periodo_calculado.fecha_fin,
+                periodicidad=periodo_calculado.periodicidad.value,
+                tipo_periodo=tipo_periodo.value,
+                ejercicio_fiscal=periodo_calculado.fecha_inicio.year,
+                regla_calculo_quincenal=self._snapshot_regla_calculo_quincenal(
+                    periodo_calculado.periodicidad,
+                    config,
+                ),
+                contrato_id=contrato_id_resuelto,
+                fecha_pago=fecha_pago,
+                notas=notas,
+                creado_por=usuario_id,
+                creado_por_nombre=usuario_nombre,
+                zona_frontera=bool(getattr(config_fiscal, "zona_frontera", False)),
+                aplicar_art_36=bool(getattr(config_fiscal, "aplicar_art_36", True)),
+            )
+            await self._sincronizar_contrato_nomina_configurado(
+                empresa_id,
+                contrato_id_resuelto,
+            )
         total_empleados = await self.poblar_empleados(periodo['id'])
         return {
             **periodo,
@@ -955,6 +1084,10 @@ class NominaPeriodoService:
             DatabaseError: Si hay error de BD.
         """
         periodo = await self.obtener_periodo(periodo_id)
+        tipo_periodo = self._normalizar_tipo_periodo(periodo.get("tipo_periodo"))
+        if tipo_periodo == TipoPeriodoNomina.AGUINALDO:
+            return await self._poblar_empleados_aguinaldo(periodo)
+
         empresa_id = periodo['empresa_id']
         contrato_id = periodo.get('contrato_id')
         fecha_inicio = periodo['fecha_inicio']
@@ -1185,6 +1318,180 @@ class NominaPeriodoService:
             logger.error(f"Error poblando empleados del período {periodo_id}: {e}")
             raise DatabaseError(f"Error poblando empleados del período: {e}")
 
+    async def _poblar_empleados_aguinaldo(self, periodo: dict) -> int:
+        """Genera snapshots anuales para la corrida especial de aguinaldo."""
+        periodo_id = int(periodo["id"])
+        empresa_id = int(periodo["empresa_id"])
+        ejercicio_fiscal = int(periodo.get("ejercicio_fiscal") or date.today().year)
+        fecha_pago = periodo.get("fecha_pago") or periodo.get("fecha_fin")
+        fecha_referencia_plaza = fecha_pago or date(ejercicio_fiscal, 12, 31).isoformat()
+
+        try:
+            plaza_snapshot_por_empleado = self._mapear_plaza_vigente_por_empleado(
+                empresa_id=empresa_id,
+                fecha_referencia=fecha_referencia_plaza,
+                contrato_id=None,
+            )
+            empleado_ids_con_plaza = list(plaza_snapshot_por_empleado.keys())
+            if not empleado_ids_con_plaza:
+                self._actualizar_total_empleados_periodo(periodo_id, 0)
+                return 0
+
+            fiscal_periodo = await self._resolver_contexto_fiscal_periodo(periodo)
+            contexto_fiscal = fiscal_periodo["contexto"]
+            inicio_ejercicio, fin_ejercicio = self._rango_ejercicio_fiscal(ejercicio_fiscal)
+            dias_ejercicio = (fin_ejercicio - inicio_ejercicio).days + 1
+            dias_aguinaldo = int(periodo.get("dias_aguinaldo_snapshot") or 15)
+
+            res_emp = (
+                self.supabase.table("empleados")
+                .select(
+                    "id, nombre, apellido_paterno, banco, clabe_interbancaria, "
+                    "fecha_ingreso, fecha_ingreso_vigente"
+                )
+                .eq("empresa_id", empresa_id)
+                .eq("estatus", "ACTIVO")
+                .in_("id", empleado_ids_con_plaza)
+                .execute()
+            )
+            empleados = res_emp.data or []
+            if not empleados:
+                self._actualizar_total_empleados_periodo(periodo_id, 0)
+                return 0
+
+            registros: list[dict] = []
+            for emp in empleados:
+                emp_id = int(emp["id"])
+                snapshot_plaza = plaza_snapshot_por_empleado.get(emp_id, {})
+                salario_diario = float(snapshot_plaza.get("salario_diario") or 0.0)
+                if salario_diario <= 0:
+                    continue
+
+                fecha_ingreso_vigente_raw = (
+                    emp.get("fecha_ingreso_vigente") or emp.get("fecha_ingreso")
+                )
+                if not fecha_ingreso_vigente_raw:
+                    continue
+                fecha_ingreso_vigente = date.fromisoformat(str(fecha_ingreso_vigente_raw))
+                inicio_calculo = max(fecha_ingreso_vigente, inicio_ejercicio)
+                if inicio_calculo > fin_ejercicio:
+                    dias_laborados = 0
+                else:
+                    dias_laborados = (fin_ejercicio - inicio_calculo).days + 1
+
+                factor_proporcional = (
+                    Decimal(str(dias_laborados)) / Decimal(str(dias_ejercicio))
+                ).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+                monto_bruto = (
+                    Decimal(str(salario_diario))
+                    * Decimal(str(dias_aguinaldo))
+                    * factor_proporcional
+                ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+                tipo_jornada = self._normalizar_tipo_jornada(
+                    snapshot_plaza.get("tipo_jornada")
+                )
+                factor_jornada = self._normalizar_factor_jornada(
+                    snapshot_plaza.get("factor_jornada"),
+                    tipo_jornada,
+                )
+                salario_minimo_diario = Decimal(
+                    str(contexto_fiscal.salario_minimo_diario_aplicable or 0)
+                ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                salario_minimo_proporcional = self._salario_minimo_proporcional_diario(
+                    salario_minimo_diario,
+                    factor_jornada,
+                )
+                observaciones_fiscales: list[dict[str, str]] = []
+                if not contexto_fiscal.vigencia_soportada and contexto_fiscal.mensaje_vigencia:
+                    observaciones_fiscales.append(
+                        self._observacion_fiscal(
+                            codigo="CATALOGO_FISCAL_NO_VIGENTE",
+                            mensaje=contexto_fiscal.mensaje_vigencia,
+                            severidad="error",
+                        )
+                    )
+
+                salario_diario_decimal = Decimal(str(salario_diario)).quantize(
+                    Decimal("0.01"),
+                    rounding=ROUND_HALF_UP,
+                )
+                if salario_diario_decimal < salario_minimo_proporcional and not Tolerancias.es_salario_minimo(
+                    salario_diario_decimal,
+                    salario_minimo_proporcional,
+                ):
+                    observaciones_fiscales.append(
+                        self._observacion_fiscal(
+                            codigo="SALARIO_BAJO_MINIMO_PROPORCIONAL",
+                            mensaje=(
+                                "El salario diario de la plaza está por debajo del mínimo "
+                                "proporcional para la jornada capturada."
+                            ),
+                            severidad="warning",
+                        )
+                    )
+
+                registros.append(
+                    {
+                        "periodo_id": periodo_id,
+                        "empleado_id": emp_id,
+                        "empresa_id": empresa_id,
+                        "estatus": "PENDIENTE",
+                        "salario_diario": salario_diario,
+                        "salario_diario_integrado": salario_diario,
+                        "dias_periodo": dias_ejercicio,
+                        "dias_trabajados": dias_laborados,
+                        "dias_faltas": 0,
+                        "dias_incapacidad": 0,
+                        "dias_vacaciones": 0,
+                        "horas_extra_dobles": 0.0,
+                        "horas_extra_triples": 0.0,
+                        "domingos_trabajados": 0,
+                        "tipo_jornada": tipo_jornada,
+                        "factor_jornada": factor_jornada,
+                        "salario_minimo_diario_aplicable": float(salario_minimo_diario),
+                        "es_salario_minimo_art36": False,
+                        "imss_obrero_absorbido": 0.0,
+                        "fecha_ingreso_vigente_aguinaldo": fecha_ingreso_vigente.isoformat(),
+                        "dias_aguinaldo_snapshot": dias_aguinaldo,
+                        "dias_laborados_aguinaldo": dias_laborados,
+                        "factor_proporcional_aguinaldo": float(factor_proporcional),
+                        "monto_aguinaldo_bruto": float(monto_bruto),
+                        "modo_calculo_aguinaldo": ModoCalculoAguinaldo.AUTO.value,
+                        "monto_aguinaldo_override": None,
+                        "notas_aguinaldo_override": None,
+                        "listo_para_timbrar": False,
+                        "observaciones_fiscales": observaciones_fiscales,
+                        "banco_destino": emp.get("banco"),
+                        "clabe_destino": emp.get("clabe_interbancaria"),
+                    }
+                )
+
+            if not registros:
+                self._actualizar_total_empleados_periodo(periodo_id, 0)
+                return 0
+
+            result = (
+                self.supabase.table(self.tabla_nom_emp)
+                .upsert(registros, on_conflict="periodo_id,empleado_id")
+                .execute()
+            )
+            total = len(result.data) if result.data else len(registros)
+            self._actualizar_total_empleados_periodo(periodo_id, total)
+            logger.info(
+                "Período de aguinaldo %s: %s empleado(s) poblado(s)",
+                periodo_id,
+                total,
+            )
+            return total
+        except Exception as exc:
+            logger.error(
+                "Error poblando empleados del aguinaldo %s: %s",
+                periodo_id,
+                exc,
+            )
+            raise DatabaseError(f"Error poblando empleados del aguinaldo: {exc}")
+
     async def _materializar_descuentos_recurrentes_rrhh(self, periodo: dict) -> int:
         """Genera snapshot de descuentos recurrentes vigentes al iniciar preparación."""
         from app.services.empleado_descuento_recurrente_service import (
@@ -1333,7 +1640,11 @@ class NominaPeriodoService:
                 f"{PeriodoNomina.TRANSICIONES_VALIDAS.get(estatus_actual, [])}"
             )
 
-        if nuevo_estatus == 'EN_PREPARACION_RRHH':
+        if (
+            nuevo_estatus == 'EN_PREPARACION_RRHH'
+            and self._normalizar_tipo_periodo(periodo.get("tipo_periodo"))
+            == TipoPeriodoNomina.ORDINARIA
+        ):
             await self._materializar_descuentos_recurrentes_rrhh(periodo)
         elif nuevo_estatus == 'CERRADO' and not bool(periodo.get('listo_para_timbrar', False)):
             total_obs = int(periodo.get('total_empleados_con_observaciones_fiscales') or 0)
@@ -1407,6 +1718,7 @@ class NominaPeriodoService:
         empresa_id: int,
         estatus: Optional[str] = None,
         estatuses: Optional[list[str]] = None,
+        tipo_periodo: Optional[str] = None,
     ) -> list[dict]:
         """Lista períodos de una empresa."""
         try:
@@ -1420,6 +1732,11 @@ class NominaPeriodoService:
                 query = query.eq('estatus', estatus)
             elif estatuses:
                 query = query.in_('estatus', estatuses)
+            if tipo_periodo:
+                query = query.eq(
+                    'tipo_periodo',
+                    self._normalizar_tipo_periodo(tipo_periodo).value,
+                )
             result = query.execute()
             return result.data or []
         except Exception as e:

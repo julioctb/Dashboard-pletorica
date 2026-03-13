@@ -48,6 +48,13 @@ def _indicador_pasos() -> rx.Component:
     def _paso(numero: int, titulo: str) -> rx.Component:
         es_activo = ContratosState.form_paso_actual >= numero
         es_actual = ContratosState.form_paso_actual == numero
+        es_navegable = rx.match(
+            numero,
+            (1, True),
+            (2, ContratosState.puede_navegar_a_paso_2_wizard),
+            (3, ContratosState.puede_navegar_a_paso_3_wizard),
+            False,
+        )
         on_click_paso = ContratosState.set_form_paso_actual(numero)
 
         return rx.hstack(
@@ -63,8 +70,10 @@ def _indicador_pasos() -> rx.Component:
                 background=rx.cond(es_activo, Colors.PRIMARY, Colors.SECONDARY_LIGHT),
                 color=rx.cond(es_activo, Colors.TEXT_INVERSE, Colors.TEXT_SECONDARY),
                 border=f"1px solid {Colors.BORDER}",
-                cursor="pointer",
+                cursor=rx.cond(es_navegable, "pointer", "not-allowed"),
                 flex_shrink="0",
+                opacity=rx.cond(es_navegable, "1", "0.55"),
+                pointer_events=rx.cond(es_navegable, "auto", "none"),
                 on_click=on_click_paso,
             ),
             rx.text(
@@ -72,9 +81,11 @@ def _indicador_pasos() -> rx.Component:
                 size="2",
                 weight=rx.cond(es_actual, "bold", "medium"),
                 color=rx.cond(es_activo, Colors.TEXT_PRIMARY, Colors.TEXT_MUTED),
-                cursor="pointer",
+                cursor=rx.cond(es_navegable, "pointer", "not-allowed"),
                 user_select="none",
                 transition="color 0.2s ease",
+                opacity=rx.cond(es_navegable, "1", "0.6"),
+                pointer_events=rx.cond(es_navegable, "auto", "none"),
                 _hover={
                     "color": rx.cond(es_activo, Colors.PRIMARY_HOVER, Colors.TEXT_PRIMARY),
                 },
@@ -864,6 +875,19 @@ def modal_contrato() -> rx.Component:
                         rx.fragment(),
                     ),
                     rx.cond(
+                        ~ContratosState.es_edicion,
+                        boton_guardar(
+                            texto="Guardar borrador",
+                            texto_guardando="Guardando...",
+                            on_click=ContratosState.guardar_borrador_contrato,
+                            saving=ContratosState.saving,
+                            disabled=~ContratosState.puede_guardar_borrador_contrato,
+                            color_scheme="gray",
+                            variant="soft",
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.cond(
                         ContratosState.es_ultimo_paso_wizard,
                         boton_guardar(
                             texto=rx.cond(
@@ -881,7 +905,7 @@ def modal_contrato() -> rx.Component:
                             texto_guardando="Siguiente",
                             on_click=ContratosState.ir_paso_siguiente,
                             saving=False,
-                            disabled=False,
+                            disabled=~ContratosState.puede_avanzar_paso_actual_wizard,
                         ),
                     ),
                     spacing="3",

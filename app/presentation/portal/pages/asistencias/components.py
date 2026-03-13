@@ -8,7 +8,9 @@ from app.presentation.components.ui import (
     boton_cancelar,
     boton_guardar,
     empty_state_card,
+    filter_date_input,
     filtros_inline,
+    form_date,
     metric_card,
     table_shell,
     tabla_action_button,
@@ -181,12 +183,11 @@ def filtros_asistencias() -> rx.Component:
         _selector_contrato(),
         rx.cond(
             ~AsistenciasState.panel_es_configuracion,
-            rx.input(
-                type="date",
+            filter_date_input(
+                label="Fecha",
                 value=AsistenciasState.fecha_operacion,
                 on_change=AsistenciasState.cambiar_fecha_operacion,
                 width="180px",
-                size="2",
             ),
             rx.fragment(),
         ),
@@ -1126,27 +1127,15 @@ def modal_supervision() -> rx.Component:
                     width="100%",
                 ),
                 rx.hstack(
-                    rx.vstack(
-                        _field_label("Fecha inicio"),
-                        rx.input(
-                            type="date",
-                            value=AsistenciasState.form_supervision_fecha_inicio,
-                            on_change=AsistenciasState.set_form_supervision_fecha_inicio,
-                            width="100%",
-                        ),
-                        spacing="1",
-                        width="100%",
+                    form_date(
+                        label="Fecha inicio",
+                        value=AsistenciasState.form_supervision_fecha_inicio,
+                        on_change=AsistenciasState.set_form_supervision_fecha_inicio,
                     ),
-                    rx.vstack(
-                        _field_label("Fecha fin"),
-                        rx.input(
-                            type="date",
-                            value=AsistenciasState.form_supervision_fecha_fin,
-                            on_change=AsistenciasState.set_form_supervision_fecha_fin,
-                            width="100%",
-                        ),
-                        spacing="1",
-                        width="100%",
+                    form_date(
+                        label="Fecha fin",
+                        value=AsistenciasState.form_supervision_fecha_fin,
+                        on_change=AsistenciasState.set_form_supervision_fecha_fin,
                     ),
                     spacing="3",
                     width="100%",

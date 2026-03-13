@@ -29,7 +29,7 @@ def modal_crear_periodo() -> rx.Component:
         rx.dialog.content(
             rx.dialog.title("Nueva nómina"),
             rx.dialog.description(
-                "Selecciona el contrato base, el período calculado del mes actual, valida la auditoría y confirma la fecha de pago.",
+                NominaRRHHState.descripcion_modal_periodo,
                 margin_bottom="16px",
             ),
             rx.cond(
@@ -43,27 +43,53 @@ def modal_crear_periodo() -> rx.Component:
             ),
             rx.vstack(
                 form_select(
-                    label="Contrato base de nomina",
+                    label="Tipo de corrida",
                     required=True,
-                    placeholder="Selecciona un contrato activo con personal",
-                    value=NominaRRHHState.form_contrato_nomina_id,
-                    on_change=NominaRRHHState.set_form_contrato_nomina_id,
-                    options=NominaRRHHState.contratos_nomina_opciones,
-                    error=NominaRRHHState.error_contrato_nomina,
-                    hint="Solo se muestran contratos activos con personal habilitado.",
-                ),
-                form_select(
-                    label="Período",
-                    required=True,
-                    placeholder="Selecciona un período",
-                    value=NominaRRHHState.form_periodo_key,
-                    on_change=NominaRRHHState.set_form_periodo_key,
-                    options=NominaRRHHState.periodos_disponibles_catalogo,
-                    error=NominaRRHHState.error_periodo,
-                    hint="Solo se muestran periodos no creados del mes actual según la política activa.",
+                    placeholder="Selecciona el tipo de corrida",
+                    value=NominaRRHHState.form_tipo_corrida,
+                    on_change=NominaRRHHState.set_form_tipo_corrida,
+                    options=NominaRRHHState.opciones_tipo_corrida,
+                    error=NominaRRHHState.error_tipo_corrida,
                 ),
                 rx.cond(
-                    ~NominaRRHHState.tiene_contratos_nomina,
+                    ~NominaRRHHState.es_form_aguinaldo,
+                    form_select(
+                        label="Contrato base de nomina",
+                        required=True,
+                        placeholder="Selecciona un contrato activo con personal",
+                        value=NominaRRHHState.form_contrato_nomina_id,
+                        on_change=NominaRRHHState.set_form_contrato_nomina_id,
+                        options=NominaRRHHState.contratos_nomina_opciones,
+                        error=NominaRRHHState.error_contrato_nomina,
+                        hint="Solo se muestran contratos activos con personal habilitado.",
+                    ),
+                    rx.fragment(),
+                ),
+                rx.cond(
+                    NominaRRHHState.es_form_aguinaldo,
+                    form_select(
+                        label="Ejercicio fiscal",
+                        required=True,
+                        placeholder="Selecciona un ejercicio fiscal",
+                        value=NominaRRHHState.form_ejercicio_fiscal,
+                        on_change=NominaRRHHState.set_form_ejercicio_fiscal,
+                        options=NominaRRHHState.ejercicios_aguinaldo_catalogo,
+                        error=NominaRRHHState.error_ejercicio_fiscal,
+                        hint="Se genera una sola corrida anual de aguinaldo por empresa y ejercicio.",
+                    ),
+                    form_select(
+                        label="Período",
+                        required=True,
+                        placeholder="Selecciona un período",
+                        value=NominaRRHHState.form_periodo_key,
+                        on_change=NominaRRHHState.set_form_periodo_key,
+                        options=NominaRRHHState.periodos_disponibles_catalogo,
+                        error=NominaRRHHState.error_periodo,
+                        hint="Solo se muestran periodos no creados del mes actual según la política activa.",
+                    ),
+                ),
+                rx.cond(
+                    (~NominaRRHHState.es_form_aguinaldo) & ~NominaRRHHState.tiene_contratos_nomina,
                     rx.callout.root(
                         rx.callout.icon(rx.icon("triangle-alert", size=16)),
                         rx.callout.text(
@@ -76,11 +102,24 @@ def modal_crear_periodo() -> rx.Component:
                     rx.fragment(),
                 ),
                 rx.cond(
-                    ~NominaRRHHState.tiene_periodos_disponibles,
+                    (~NominaRRHHState.es_form_aguinaldo) & ~NominaRRHHState.tiene_periodos_disponibles,
                     rx.callout.root(
                         rx.callout.icon(rx.icon("calendar-range", size=16)),
                         rx.callout.text(
                             "No hay periodos disponibles para el mes actual o falta configurar la política de nómina."
+                        ),
+                        color_scheme="gray",
+                        variant="soft",
+                        width="100%",
+                    ),
+                    rx.fragment(),
+                ),
+                rx.cond(
+                    NominaRRHHState.es_form_aguinaldo & ~NominaRRHHState.tiene_ejercicios_aguinaldo,
+                    rx.callout.root(
+                        rx.callout.icon(rx.icon("gift", size=16)),
+                        rx.callout.text(
+                            "No hay ejercicios disponibles para generar la corrida anual de aguinaldo."
                         ),
                         color_scheme="gray",
                         variant="soft",

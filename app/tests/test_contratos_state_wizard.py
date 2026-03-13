@@ -8,11 +8,20 @@ class _DummyWizardContratosState:
     _usa_folio_en_formulario = (
         contratos_state_module.ContratosState._usa_folio_en_formulario
     )
+    _errores_paso_datos_formulario = (
+        contratos_state_module.ContratosState._errores_paso_datos_formulario
+    )
 
     def __init__(self, *, es_edicion: bool):
         self.es_edicion = es_edicion
+        self.form_empresa_id = ""
+        self.form_folio_buap = ""
         self.form_tipo_contrato = contratos_state_module.TipoContrato.SERVICIOS.value
+        self.form_tipo_servicio_id = ""
+        self.form_fecha_inicio = ""
         self.form_fecha_fin = ""
+        self.form_tipo_duracion = ""
+        self.form_descripcion_objeto = ""
         self.error_empresa_id = ""
         self.error_tipo_contrato = ""
         self.error_tipo_servicio_id = ""
@@ -70,12 +79,13 @@ def test_validar_paso_datos_creacion_omite_folio():
 
 def test_validar_paso_datos_edicion_mantiene_validacion_de_folio():
     dummy = _DummyWizardContratosState(es_edicion=True)
+    dummy.form_folio_buap = "X" * 200
 
     result = dummy._validar_paso(1)
 
     assert dummy.folio_validado is True
     assert dummy.error_folio_buap == "Formato inválido"
-    assert "Folio institución: Formato inválido" in result
+    assert "Folio institución:" in result
 
 
 class _DummyDescripcionOpcionalState:
@@ -126,20 +136,45 @@ class _DummyWizardLayoutState:
         self.form_paso_actual = paso_actual
 
 
+class _DummyContratoDateSetterState:
+    def __init__(self):
+        self.form_fecha_inicio = ""
+        self.form_fecha_fin = ""
+
+    def _sincronizar_tipo_duracion(self):
+        pass
+
+
 class _DummyWizardRequiredFieldsState:
     _validar_paso = contratos_state_module.ContratosState._validar_paso
     _usa_folio_en_formulario = (
         contratos_state_module.ContratosState._usa_folio_en_formulario
     )
+    _errores_paso_datos_formulario = (
+        contratos_state_module.ContratosState._errores_paso_datos_formulario
+    )
+    _errores_paso_plazas_formulario = (
+        contratos_state_module.ContratosState._errores_paso_plazas_formulario
+    )
+    _errores_guardado_borrador_formulario = (
+        contratos_state_module.ContratosState._errores_guardado_borrador_formulario
+    )
+    _usa_desglose_categorias_plazas = lambda self: False
 
     def __init__(self, tipo_contrato: str):
         self.es_edicion = False
+        self.saving = False
         self.form_tipo_contrato = tipo_contrato
         self.form_empresa_id = ""
         self.form_tipo_servicio_id = ""
         self.form_fecha_inicio = ""
         self.form_fecha_fin = ""
         self.form_descripcion_objeto = ""
+        self.form_tipo_duracion = ""
+        self.form_tiene_personal = False
+        self.form_cantidad_plazas_minima = ""
+        self.form_cantidad_plazas_maxima = ""
+        self.form_paso_actual = 1
         self.error_empresa_id = ""
         self.error_tipo_contrato = ""
         self.error_tipo_servicio_id = ""
@@ -184,6 +219,36 @@ class _DummyWizardRequiredFieldsState:
     def _validar_campo(self, campo: str):
         if campo == "folio_buap":
             self.error_folio_buap = ""
+
+    @property
+    def puede_avanzar_desde_datos_wizard(self):
+        return contratos_state_module.ContratosState.puede_avanzar_desde_datos_wizard.fget(self)
+
+    @property
+    def puede_avanzar_desde_plazas_wizard(self):
+        return contratos_state_module.ContratosState.puede_avanzar_desde_plazas_wizard.fget(self)
+
+
+def test_setters_de_fecha_normalizan_captura_manual():
+    dummy = _DummyContratoDateSetterState()
+
+    contratos_state_module.ContratosState.set_form_fecha_inicio.fn(dummy, "13/03/2026")
+    contratos_state_module.ContratosState.set_form_fecha_fin.fn(dummy, "15/03/2026")
+
+    assert dummy.form_fecha_inicio == "2026-03-13"
+    assert dummy.form_fecha_fin == "2026-03-15"
+
+
+def test_setters_de_fecha_conservan_captura_parcial():
+    dummy = _DummyContratoDateSetterState()
+
+    contratos_state_module.ContratosState.set_form_fecha_inicio.fn(dummy, "13/03/")
+
+    assert dummy.form_fecha_inicio == "13/03/"
+
+    @property
+    def puede_guardar_borrador_contrato(self):
+        return contratos_state_module.ContratosState.puede_guardar_borrador_contrato.fget(self)
 
 
 class _DummyWizardNextStepState(_DummyWizardRequiredFieldsState):
@@ -304,3 +369,57 @@ def test_click_en_paso_2_no_avanza_si_hay_pendientes_en_datos():
     assert "Empresa:" in mensaje
     assert "Tipo de servicio:" in mensaje
     assert "Fecha de inicio:" in mensaje
+
+
+def test_paso_2_permanece_bloqueado_si_datos_esta_incompleto():
+    dummy = _DummyWizardRequiredFieldsState(
+        contratos_state_module.TipoContrato.SERVICIOS.value
+    )
+
+    assert contratos_state_module.ContratosState.puede_avanzar_desde_datos_wizard.fget(dummy) is False
+    assert contratos_state_module.ContratosState.puede_navegar_a_paso_2_wizard.fget(dummy) is False
+
+
+def test_paso_2_se_habilita_solo_cuando_datos_esta_completo():
+    dummy = _DummyWizardRequiredFieldsState(
+        contratos_state_module.TipoContrato.SERVICIOS.value
+    )
+    dummy.form_empresa_id = "1"
+    dummy.form_tipo_servicio_id = "2"
+    dummy.form_fecha_inicio = "2026-03-12"
+
+    assert contratos_state_module.ContratosState.puede_avanzar_desde_datos_wizard.fget(dummy) is True
+    assert contratos_state_module.ContratosState.puede_navegar_a_paso_2_wizard.fget(dummy) is True
+
+
+def test_guardar_borrador_requiere_minimo_del_paso_datos():
+    dummy = _DummyWizardRequiredFieldsState(
+        contratos_state_module.TipoContrato.SERVICIOS.value
+    )
+
+    assert contratos_state_module.ContratosState.puede_guardar_borrador_contrato.fget(dummy) is False
+
+
+def test_guardar_borrador_se_habilita_con_datos_minimos_validos():
+    dummy = _DummyWizardRequiredFieldsState(
+        contratos_state_module.TipoContrato.SERVICIOS.value
+    )
+    dummy.form_empresa_id = "1"
+    dummy.form_tipo_servicio_id = "2"
+    dummy.form_fecha_inicio = "2026-03-12"
+
+    assert contratos_state_module.ContratosState.puede_guardar_borrador_contrato.fget(dummy) is True
+
+
+def test_guardar_borrador_se_bloquea_si_plazas_queda_incompleto():
+    dummy = _DummyWizardRequiredFieldsState(
+        contratos_state_module.TipoContrato.SERVICIOS.value
+    )
+    dummy.form_empresa_id = "1"
+    dummy.form_tipo_servicio_id = "2"
+    dummy.form_fecha_inicio = "2026-03-12"
+    dummy.form_tiene_personal = True
+    dummy.form_cantidad_plazas_minima = "5"
+    dummy.form_cantidad_plazas_maxima = ""
+
+    assert contratos_state_module.ContratosState.puede_guardar_borrador_contrato.fget(dummy) is False

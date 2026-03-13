@@ -10,7 +10,10 @@ from typing import ClassVar, Optional
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
-from app.core.enums import ReglaCalculoQuincenal
+from app.core.enums import (
+    ReglaCalculoQuincenal,
+    TipoPeriodoNomina,
+)
 
 
 class PeriodoNomina(BaseModel):
@@ -32,6 +35,9 @@ class PeriodoNomina(BaseModel):
 
     nombre: str = Field(..., max_length=100, description="Nombre descriptivo del período")
     periodicidad: str = Field(default='QUINCENAL')
+    tipo_periodo: TipoPeriodoNomina = Field(default=TipoPeriodoNomina.ORDINARIA)
+    ejercicio_fiscal: Optional[int] = None
+    dias_aguinaldo_snapshot: Optional[int] = Field(default=None, ge=15)
     regla_calculo_quincenal: Optional[ReglaCalculoQuincenal] = None
     fecha_inicio: date
     fecha_fin: date
@@ -93,6 +99,9 @@ class PeriodoNominaCreate(BaseModel):
     contrato_id: Optional[int] = None
     nombre: str = Field(..., max_length=100)
     periodicidad: str = Field(default='QUINCENAL')
+    tipo_periodo: TipoPeriodoNomina = Field(default=TipoPeriodoNomina.ORDINARIA)
+    ejercicio_fiscal: Optional[int] = None
+    dias_aguinaldo_snapshot: Optional[int] = Field(default=None, ge=15)
     regla_calculo_quincenal: Optional[ReglaCalculoQuincenal] = None
     fecha_inicio: date
     fecha_fin: date
@@ -121,6 +130,9 @@ class PeriodoNominaUpdate(BaseModel):
 
     nombre: Optional[str] = Field(None, max_length=100)
     periodicidad: Optional[str] = None
+    tipo_periodo: Optional[TipoPeriodoNomina] = None
+    ejercicio_fiscal: Optional[int] = None
+    dias_aguinaldo_snapshot: Optional[int] = Field(default=None, ge=15)
     regla_calculo_quincenal: Optional[ReglaCalculoQuincenal] = None
     fecha_inicio: Optional[date] = None
     fecha_fin: Optional[date] = None
@@ -139,6 +151,9 @@ class PeriodoNominaResumen(BaseModel):
     contrato_id: Optional[int] = None
     nombre: str
     periodicidad: str
+    tipo_periodo: TipoPeriodoNomina = TipoPeriodoNomina.ORDINARIA
+    ejercicio_fiscal: Optional[int] = None
+    dias_aguinaldo_snapshot: Optional[int] = None
     regla_calculo_quincenal: Optional[ReglaCalculoQuincenal] = None
     fecha_inicio: date
     fecha_fin: date

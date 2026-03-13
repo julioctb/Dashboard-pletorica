@@ -289,6 +289,95 @@ def _panel_fiscal() -> rx.Component:
     )
 
 
+def _panel_aguinaldo() -> rx.Component:
+    return rx.cond(
+        NominaContabilidadState.detalle_es_aguinaldo,
+        rx.box(
+            rx.vstack(
+                rx.hstack(
+                    rx.text("Resumen de aguinaldo", size="3", weight="bold"),
+                    rx.spacer(),
+                    rx.badge(
+                        NominaContabilidadState.detalle_modo_calculo_aguinaldo_label,
+                        color_scheme=rx.cond(
+                            NominaContabilidadState.detalle_modo_calculo_aguinaldo_label == "Manual",
+                            "orange",
+                            "gray",
+                        ),
+                        size="2",
+                        variant="soft",
+                    ),
+                    width="100%",
+                    align="center",
+                ),
+                rx.grid(
+                    rx.vstack(
+                        rx.text("Ingreso vigente", size="1", color=Colors.TEXT_MUTED),
+                        rx.text(
+                            NominaContabilidadState.detalle_fecha_ingreso_vigente_aguinaldo,
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    rx.vstack(
+                        rx.text("Días laborados", size="1", color=Colors.TEXT_MUTED),
+                        rx.text(
+                            NominaContabilidadState.detalle_dias_laborados_aguinaldo.to(str),
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    rx.vstack(
+                        rx.text("Factor", size="1", color=Colors.TEXT_MUTED),
+                        rx.text(
+                            NominaContabilidadState.detalle_factor_proporcional_aguinaldo.to(str),
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    rx.vstack(
+                        rx.text("Días de aguinaldo", size="1", color=Colors.TEXT_MUTED),
+                        rx.text(
+                            NominaContabilidadState.detalle_dias_aguinaldo_snapshot.to(str),
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    rx.vstack(
+                        rx.text("Monto bruto", size="1", color=Colors.TEXT_MUTED),
+                        rx.text(
+                            NominaContabilidadState.detalle_monto_aguinaldo_bruto,
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    columns="5",
+                    spacing="5",
+                    width="100%",
+                ),
+                spacing="4",
+                width="100%",
+            ),
+            padding=Spacing.LG,
+            background=Colors.SURFACE,
+            border=f"1px solid {Colors.BORDER}",
+            border_radius=Radius.LG,
+            width="100%",
+        ),
+        rx.fragment(),
+    )
+
+
 def _callout_observacion_fiscal(observacion: dict) -> rx.Component:
     return rx.callout(
         observacion["mensaje"],
@@ -370,6 +459,7 @@ def detalle_empleado_page() -> rx.Component:
             ),
             content=rx.vstack(
                 _resumen_totales(),
+                _panel_aguinaldo(),
                 _panel_fiscal(),
                 _seccion(
                     "Percepciones",

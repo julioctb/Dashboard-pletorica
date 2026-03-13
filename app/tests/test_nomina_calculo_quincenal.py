@@ -116,6 +116,7 @@ def _build_service(fake_client: _FakeSupabaseClient):
         "ISR": 7,
         "IMSS_OBRERO": 8,
         "SUBSIDIO_EMPLEO": 9,
+        "AGUINALDO": 10,
     }
     return service
 
@@ -441,3 +442,78 @@ def test_calculo_future_catalog_marks_nomina_not_ready(monkeypatch):
         for item in update["observaciones_fiscales"]
     )
     assert result["listo_para_timbrar"] is False
+
+
+def test_calculo_aguinaldo_manual_usa_override_y_no_depende_de_periodicidad(monkeypatch):
+    _desactivar_isr_y_subsidio(monkeypatch)
+    fake_client = _FakeSupabaseClient({"nomina_movimientos": [_FakeResult([])]})
+    service = _build_service(fake_client)
+
+    nomina = {
+        "id": 901,
+        "empleado_id": 51,
+        "salario_diario": "300.00",
+        "salario_diario_integrado": "300.00",
+        "monto_aguinaldo_bruto": "4500.00",
+        "monto_aguinaldo_override": "5200.00",
+        "modo_calculo_aguinaldo": "MANUAL",
+        "tipo_jornada": TipoJornadaPlaza.COMPLETA.value,
+        "factor_jornada": "1.0",
+    }
+    periodo = {
+        "id": 81,
+        "empresa_id": 7,
+        "tipo_periodo": "AGUINALDO",
+        "periodicidad": PeriodicidadNomina.SEMANAL.value,
+        "fecha_pago": "2026-12-20",
+        "fecha_fin": "2026-12-31",
+        "zona_frontera": False,
+        "aplicar_art_36": True,
+    }
+
+    result = asyncio.run(service._calcular_nomina_empleado(nomina, periodo))
+
+    movimientos = fake_client.inserts["nomina_movimientos"][0]
+    assert [mov["concepto_id"] for mov in movimientos] == [10]
+    assert movimientos[0]["monto"] == 5200.0
+    update = fake_client.updates["nominas_empleado"][0]
+    assert update["modo_calculo_aguinaldo"] == "MANUAL"
+    assert update["monto_aguinaldo_bruto"] == 4500.0
+    assert update["imss_obrero_absorbido"] == 0.0
+    assert result["total_percepciones"] == Decimal("5200.00")
+    assert result["total_deducciones"] == Decimal("0.00")
+
+
+def test_guardar_override_aguinaldo_persiste_manual_y_recalcula(monkeypatch):
+    fake_client = _FakeSupabaseClient()
+    service = _build_service(fake_client)
+
+    async def _fake_nomina(_nomina_id: int):
+        return {"id": 777, "periodo_id": 81}
+
+    async def _fake_periodo(_periodo_id: int):
+        return {"id": 81, "tipo_periodo": "AGUINALDO"}
+
+    async def _fake_recalculo(_nomina_id: int):
+        return {"ok": True}
+
+    monkeypatch.setattr(service, "_obtener_nomina_empleado", _fake_nomina)
+    monkeypatch.setattr(service, "_obtener_periodo", _fake_periodo)
+    monkeypatch.setattr(service, "recalcular_empleado", _fake_recalculo)
+
+    result = asyncio.run(
+        service.guardar_override_aguinaldo(
+            777,
+            monto_bruto=Decimal("6123.45"),
+            notas="Ajuste autorizado",
+        )
+    )
+
+    assert fake_client.updates["nominas_empleado"] == [
+        {
+            "modo_calculo_aguinaldo": "MANUAL",
+            "monto_aguinaldo_override": "6123.45",
+            "notas_aguinaldo_override": "Ajuste autorizado",
+        }
+    ]
+    assert result == {"ok": True}

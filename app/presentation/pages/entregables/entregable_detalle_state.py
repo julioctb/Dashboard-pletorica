@@ -13,6 +13,7 @@ from app.services import entregable_service, archivo_service
 from app.entities.archivo import EntidadArchivo
 from app.core.exceptions import NotFoundError, BusinessRuleError
 from app.core.text_utils import formatear_moneda
+from app.core.utils import normalize_date_input, parse_date_input
 
 
 class EntregableDetalleState(AuthState):
@@ -65,7 +66,9 @@ class EntregableDetalleState(AuthState):
 
     @staticmethod
     def _validar_fecha_pago_requerida(valor: str) -> str:
-        return "" if valor else "La fecha de pago es requerida"
+        if not valor:
+            return "La fecha de pago es requerida"
+        return "" if parse_date_input(valor) is not None else "La fecha de pago no es válida"
 
     def set_monto_a_aprobar(self, value: str):
         self.monto_a_aprobar = formatear_moneda(value) if value else ""
@@ -80,7 +83,7 @@ class EntregableDetalleState(AuthState):
         self.limpiar_errores_campos(["observaciones_prefactura"])
 
     def set_fecha_pago(self, value: str):
-        self.fecha_pago = value
+        self.fecha_pago = normalize_date_input(value)
         self.limpiar_errores_campos(["fecha_pago"])
 
     def set_referencia_pago(self, value: str):
@@ -551,7 +554,9 @@ class EntregableDetalleState(AuthState):
         self.procesando = True
         try:
             from datetime import date as date_type
-            fecha = date_type.fromisoformat(self.fecha_pago)
+            fecha = parse_date_input(self.fecha_pago)
+            if fecha is None:
+                raise ValueError("Fecha inválida")
             usuario_id = self._obtener_usuario_actual()
             await entregable_service.registrar_pago(
                 entregable_id=self.current_id,

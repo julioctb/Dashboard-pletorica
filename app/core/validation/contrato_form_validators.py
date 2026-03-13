@@ -1,5 +1,4 @@
 """Validadores de formulario (UI) para Contratos, centralizados en core.validation."""
-from datetime import date
 
 from .validator_factory import crear_validador
 from .fields_catalog import (
@@ -24,6 +23,7 @@ from app.core.error_messages import (
     MSG_TIEMPO_DETERMINADO_SIN_FIN,
     MSG_MONTO_MAX_MENOR_MIN,
 )
+from app.core.utils import parse_date_input
 
 
 validar_codigo_contrato = crear_validador(CAMPO_CODIGO_CONTRATO)
@@ -64,10 +64,8 @@ def validar_fecha_fin_contrato(fecha_fin: str, fecha_inicio: str, tipo_duracion:
         return MSG_TIEMPO_DETERMINADO_SIN_FIN
     if not fecha_fin:
         return ""
-    try:
-        date.fromisoformat(fecha_fin)
-    except ValueError:
-        return "Formato de fecha inválido (use AAAA-MM-DD)"
+    if parse_date_input(fecha_fin) is None:
+        return "Formato de fecha inválido (use DD/MM/AAAA)"
     if validar_fecha_rango(fecha_inicio, fecha_fin, nombre_inicio="fecha de inicio", nombre_fin="fecha de fin"):
         return MSG_FECHA_FIN_ANTERIOR
     return ""

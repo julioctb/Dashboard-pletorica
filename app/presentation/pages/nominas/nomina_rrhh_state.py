@@ -13,7 +13,9 @@ import reflex as rx
 
 from app.core.ui_helpers import FILTRO_TODOS, rango_paginacion
 from app.core.text_utils import formatear_fecha, formatear_fecha_hora, formatear_moneda
+from app.core.utils import normalize_date_input, parse_date_input
 from app.core.validation import limpiar_moneda
+from app.core.enums import TipoPeriodoNomina
 from app.entities.empleado_descuento_recurrente import DESCUENTOS_RECURRENTES_POR_CLAVE
 from app.presentation.pages.nominas.base_state import NominaBaseState
 from app.services.configuracion_operativa_service import configuracion_operativa_service
@@ -62,15 +64,20 @@ class NominaRRHHState(NominaBaseState):
     # =========================================================================
     # FORMULARIO — Período
     # =========================================================================
+    form_tipo_corrida: str = TipoPeriodoNomina.ORDINARIA.value
     periodos_disponibles_catalogo: list[dict] = []
+    ejercicios_aguinaldo_catalogo: list[dict] = []
     contratos_nomina_opciones: list[dict] = []
     form_contrato_nomina_id: str = ""
     form_periodo_key: str = ""
+    form_ejercicio_fiscal: str = ""
     form_fecha_generacion_preview: str = ""
     form_generado_por_preview: str = ""
     form_fecha_pago: str = ""
+    error_tipo_corrida: str = ""
     error_contrato_nomina: str = ""
     error_periodo: str = ""
+    error_ejercicio_fiscal: str = ""
     error_fecha_pago: str = ""
 
     # =========================================================================
@@ -118,7 +125,10 @@ class NominaRRHHState(NominaBaseState):
 
     @rx.var
     def puede_editar_descuentos(self) -> bool:
-        return self.periodo_actual.get('estatus') == 'EN_PREPARACION_RRHH'
+        return (
+            self.periodo_actual.get('estatus') == 'EN_PREPARACION_RRHH'
+            and not self.periodo_actual_es_aguinaldo
+        )
 
     @rx.var
     def puede_enviar_a_contabilidad(self) -> bool:
@@ -142,6 +152,13 @@ class NominaRRHHState(NominaBaseState):
     @rx.var
     def tiene_empleados(self) -> bool:
         return len(self.empleados_periodo) > 0
+
+    @rx.var
+    def periodo_actual_es_aguinaldo(self) -> bool:
+        return (
+            str(self.periodo_actual.get("tipo_periodo") or "")
+            == TipoPeriodoNomina.AGUINALDO.value
+        )
 
     @rx.var
     def opciones_sede_empleados_preparacion(self) -> list[dict]:
@@ -291,11 +308,57 @@ class NominaRRHHState(NominaBaseState):
         return len(self.periodos_disponibles_catalogo) > 0
 
     @rx.var
+    def tiene_ejercicios_aguinaldo(self) -> bool:
+        return len(self.ejercicios_aguinaldo_catalogo) > 0
+
+    @rx.var
     def tiene_contratos_nomina(self) -> bool:
         return len(self.contratos_nomina_opciones) > 0
 
     @rx.var
+    def es_form_aguinaldo(self) -> bool:
+        return self.form_tipo_corrida == TipoPeriodoNomina.AGUINALDO.value
+
+    @rx.var
+    def opciones_tipo_corrida(self) -> list[dict]:
+        return [
+            {"label": "Ordinaria", "value": TipoPeriodoNomina.ORDINARIA.value},
+            {"label": "Aguinaldo", "value": TipoPeriodoNomina.AGUINALDO.value},
+        ]
+
+    @rx.var
+    def opciones_periodo_modal(self) -> list[dict]:
+        return (
+            self.ejercicios_aguinaldo_catalogo
+            if self.es_form_aguinaldo
+            else self.periodos_disponibles_catalogo
+        )
+
+    @rx.var
+    def tiene_opciones_modal_periodo(self) -> bool:
+        return len(self.opciones_periodo_modal) > 0
+
+    @rx.var
+    def descripcion_modal_periodo(self) -> str:
+        if self.es_form_aguinaldo:
+            return (
+                "Genera la corrida especial anual de aguinaldo, valida la auditoría "
+                "y confirma la fecha de pago."
+            )
+        return (
+            "Selecciona el contrato base, el período calculado del mes actual, "
+            "valida la auditoría y confirma la fecha de pago."
+        )
+
+    @rx.var
     def puede_generar_periodo(self) -> bool:
+        if self.es_form_aguinaldo:
+            return bool(
+                self.puede_acceder_rrhh
+                and self.tiene_ejercicios_aguinaldo
+                and str(self.form_ejercicio_fiscal or "").strip()
+                and str(self.form_fecha_pago or "").strip()
+            )
         return bool(
             self.puede_acceder_rrhh
             and self.tiene_contratos_nomina
@@ -341,8 +404,26 @@ class NominaRRHHState(NominaBaseState):
         self.error_contrato_nomina = ""
         self.limpiar_mensajes()
 
+    def set_form_tipo_corrida(self, value: str):
+        valor = str(value or TipoPeriodoNomina.ORDINARIA.value).upper()
+        if valor not in (
+            TipoPeriodoNomina.ORDINARIA.value,
+            TipoPeriodoNomina.AGUINALDO.value,
+        ):
+            valor = TipoPeriodoNomina.ORDINARIA.value
+        self.form_tipo_corrida = valor
+        self.form_periodo_key = ""
+        self.form_ejercicio_fiscal = ""
+        self.form_fecha_pago = ""
+        self.error_tipo_corrida = ""
+        self.error_periodo = ""
+        self.error_ejercicio_fiscal = ""
+        self.error_fecha_pago = ""
+        self.limpiar_mensajes()
+        self._autoseleccionar_catalogo_modal()
+
     def _obtener_periodo_disponible_por_key(self, periodo_key: str) -> Optional[dict]:
-        for item in self.periodos_disponibles_catalogo:
+        for item in self.opciones_periodo_modal:
             if item.get("key") == periodo_key:
                 return item
         return None
@@ -356,8 +437,18 @@ class NominaRRHHState(NominaBaseState):
         if periodo and periodo.get("fecha_pago_sugerida"):
             self.form_fecha_pago = str(periodo["fecha_pago_sugerida"])
 
+    def set_form_ejercicio_fiscal(self, value: str):
+        self.form_ejercicio_fiscal = value or ""
+        self.error_ejercicio_fiscal = ""
+        self.limpiar_mensajes()
+        periodo = self._obtener_periodo_disponible_por_key(
+            f"AGUINALDO:{self.form_ejercicio_fiscal}"
+        )
+        if periodo and periodo.get("fecha_pago_sugerida"):
+            self.form_fecha_pago = str(periodo["fecha_pago_sugerida"])
+
     def set_form_fecha_pago(self, v: str):
-        self.form_fecha_pago = v
+        self.form_fecha_pago = normalize_date_input(v)
         self.error_fecha_pago = ""
         self.limpiar_mensajes()
 
@@ -418,10 +509,18 @@ class NominaRRHHState(NominaBaseState):
             data = periodo.model_dump(mode="json")
         else:
             data = dict(periodo or {})
+        tipo_periodo = str(
+            data.get("tipo_periodo") or TipoPeriodoNomina.ORDINARIA.value
+        )
         try:
             total_neto = float(data.get("total_neto") or 0)
         except (TypeError, ValueError):
             total_neto = 0.0
+        data["tipo_periodo"] = tipo_periodo
+        data["es_aguinaldo"] = tipo_periodo == TipoPeriodoNomina.AGUINALDO.value
+        data["tipo_periodo_label"] = (
+            "Aguinaldo" if data["es_aguinaldo"] else "Ordinaria"
+        )
         data["fecha_inicio_fmt"] = formatear_fecha(data.get("fecha_inicio"))
         data["fecha_fin_fmt"] = formatear_fecha(data.get("fecha_fin"))
         data["fecha_pago_fmt"] = formatear_fecha(
@@ -506,6 +605,17 @@ class NominaRRHHState(NominaBaseState):
             self.periodos_disponibles_catalogo = []
             self.manejar_error(e, "cargar periodos disponibles")
 
+    async def _cargar_ejercicios_aguinaldo(self):
+        try:
+            self.ejercicios_aguinaldo_catalogo = (
+                await nomina_periodo_service.listar_ejercicios_aguinaldo_disponibles(
+                    self.id_empresa_actual
+                )
+            )
+        except Exception as e:
+            self.ejercicios_aguinaldo_catalogo = []
+            self.manejar_error(e, "cargar ejercicios de aguinaldo")
+
     async def _cargar_contratos_filtro_nomina(self):
         try:
             self.contratos_filtro_nomina_opciones = (
@@ -571,6 +681,32 @@ class NominaRRHHState(NominaBaseState):
             str(self.usuario_actual.get("nombre_completo", "") or "").strip() or "Sin dato"
         )
 
+    def _resolver_tipo_corrida_inicial(self) -> str:
+        if self.periodos_disponibles_catalogo:
+            return TipoPeriodoNomina.ORDINARIA.value
+        if self.ejercicios_aguinaldo_catalogo:
+            return TipoPeriodoNomina.AGUINALDO.value
+        return TipoPeriodoNomina.ORDINARIA.value
+
+    def _autoseleccionar_catalogo_modal(self):
+        if self.es_form_aguinaldo:
+            if self.form_ejercicio_fiscal:
+                return
+            if len(self.ejercicios_aguinaldo_catalogo) == 1:
+                opcion = self.ejercicios_aguinaldo_catalogo[0]
+                self.form_ejercicio_fiscal = str(opcion.get("ejercicio_fiscal") or "")
+                if opcion.get("fecha_pago_sugerida"):
+                    self.form_fecha_pago = str(opcion["fecha_pago_sugerida"])
+            return
+
+        if self.form_periodo_key:
+            return
+        if len(self.periodos_disponibles_catalogo) == 1:
+            opcion = self.periodos_disponibles_catalogo[0]
+            self.form_periodo_key = str(opcion.get("key") or "")
+            if opcion.get("fecha_pago_sugerida"):
+                self.form_fecha_pago = str(opcion["fecha_pago_sugerida"])
+
     # =========================================================================
     # CRUD PERÍODOS
     # =========================================================================
@@ -581,14 +717,31 @@ class NominaRRHHState(NominaBaseState):
         self._prellenar_datos_generacion_periodo()
         await self._cargar_contratos_nomina()
         await self._cargar_periodos_disponibles()
-        if not self.contratos_nomina_opciones:
+        await self._cargar_ejercicios_aguinaldo()
+        self.form_tipo_corrida = self._resolver_tipo_corrida_inicial()
+        self._autoseleccionar_catalogo_modal()
+        if (
+            self.form_tipo_corrida == TipoPeriodoNomina.ORDINARIA.value
+            and not self.contratos_nomina_opciones
+        ):
             self.mostrar_mensaje(
                 "No hay contratos activos con personal disponibles para generar nómina.",
                 "warning",
             )
-        elif not self.periodos_disponibles_catalogo:
+        elif (
+            self.form_tipo_corrida == TipoPeriodoNomina.ORDINARIA.value
+            and not self.periodos_disponibles_catalogo
+        ):
             self.mostrar_mensaje(
                 "No hay periodos disponibles para generar en el mes actual.",
+                "warning",
+            )
+        elif (
+            self.form_tipo_corrida == TipoPeriodoNomina.AGUINALDO.value
+            and not self.ejercicios_aguinaldo_catalogo
+        ):
+            self.mostrar_mensaje(
+                "No hay ejercicios de aguinaldo disponibles para generar.",
                 "warning",
             )
         self.mostrar_modal_periodo = True
@@ -605,47 +758,81 @@ class NominaRRHHState(NominaBaseState):
         self._limpiar_form_periodo()
 
     def _limpiar_form_periodo(self):
+        self.form_tipo_corrida = TipoPeriodoNomina.ORDINARIA.value
         self.periodos_disponibles_catalogo = []
+        self.ejercicios_aguinaldo_catalogo = []
         self.contratos_nomina_opciones = []
         self.form_contrato_nomina_id = ""
         self.form_periodo_key = ""
+        self.form_ejercicio_fiscal = ""
         self.form_fecha_generacion_preview = ""
         self.form_generado_por_preview = ""
         self.form_fecha_pago = ""
+        self.error_tipo_corrida = ""
         self.error_contrato_nomina = ""
         self.error_periodo = ""
+        self.error_ejercicio_fiscal = ""
         self.error_fecha_pago = ""
         self.limpiar_mensajes()
 
-    def _validar_form_periodo(self) -> Optional[tuple[str, date]]:
+    def _validar_form_periodo(self) -> Optional[dict]:
         """Valida el formulario de alta de periodo calculado."""
+        self.error_tipo_corrida = ""
         self.error_contrato_nomina = ""
         self.error_periodo = ""
+        self.error_ejercicio_fiscal = ""
         self.error_fecha_pago = ""
         self.limpiar_mensajes()
 
-        if not self.form_contrato_nomina_id:
+        if not self.form_tipo_corrida:
+            self.error_tipo_corrida = "Selecciona un tipo de corrida"
+            self.mostrar_mensaje("Selecciona el tipo de corrida.", "error")
+            return None
+
+        if not self.es_form_aguinaldo and not self.form_contrato_nomina_id:
             self.error_contrato_nomina = "Selecciona un contrato base"
             self.mostrar_mensaje("Selecciona un contrato base de nómina.", "error")
             return None
 
-        if not self.form_periodo_key:
-            self.error_periodo = "Selecciona un periodo"
-            self.mostrar_mensaje("Selecciona un periodo disponible.", "error")
-            return None
+        if self.es_form_aguinaldo:
+            if not self.form_ejercicio_fiscal:
+                self.error_ejercicio_fiscal = "Selecciona un ejercicio"
+                self.mostrar_mensaje("Selecciona el ejercicio fiscal.", "error")
+                return None
+            periodo = self._obtener_periodo_disponible_por_key(
+                f"AGUINALDO:{self.form_ejercicio_fiscal}"
+            )
+            if not periodo:
+                self.error_ejercicio_fiscal = "El ejercicio seleccionado ya no está disponible"
+                self.mostrar_mensaje(
+                    "Recarga el catálogo y selecciona otro ejercicio.",
+                    "error",
+                )
+                return None
+            try:
+                fecha_inicio = date.fromisoformat(str(periodo["fecha_inicio"]))
+            except ValueError:
+                self.error_ejercicio_fiscal = "El ejercicio seleccionado no es válido"
+                self.mostrar_mensaje("El ejercicio seleccionado es inválido.", "error")
+                return None
+        else:
+            if not self.form_periodo_key:
+                self.error_periodo = "Selecciona un periodo"
+                self.mostrar_mensaje("Selecciona un periodo disponible.", "error")
+                return None
 
-        periodo = self._obtener_periodo_disponible_por_key(self.form_periodo_key)
-        if not periodo:
-            self.error_periodo = "El periodo seleccionado ya no está disponible"
-            self.mostrar_mensaje("Recarga el catálogo y selecciona otro periodo.", "error")
-            return None
+            periodo = self._obtener_periodo_disponible_por_key(self.form_periodo_key)
+            if not periodo:
+                self.error_periodo = "El periodo seleccionado ya no está disponible"
+                self.mostrar_mensaje("Recarga el catálogo y selecciona otro periodo.", "error")
+                return None
 
-        try:
-            fecha_inicio = date.fromisoformat(str(periodo["fecha_inicio"]))
-        except ValueError:
-            self.error_periodo = "El periodo seleccionado no tiene fechas válidas"
-            self.mostrar_mensaje("El periodo seleccionado es inválido.", "error")
-            return None
+            try:
+                fecha_inicio = date.fromisoformat(str(periodo["fecha_inicio"]))
+            except ValueError:
+                self.error_periodo = "El periodo seleccionado no tiene fechas válidas"
+                self.mostrar_mensaje("El periodo seleccionado es inválido.", "error")
+                return None
 
         if not self.form_fecha_pago:
             self.error_fecha_pago = "La fecha de pago es obligatoria"
@@ -653,7 +840,9 @@ class NominaRRHHState(NominaBaseState):
             return None
 
         try:
-            fecha_pago = date.fromisoformat(self.form_fecha_pago)
+            fecha_pago = parse_date_input(self.form_fecha_pago)
+            if fecha_pago is None:
+                raise ValueError
         except ValueError:
             self.error_fecha_pago = "La fecha de pago no es válida"
             self.mostrar_mensaje("Corrige la fecha de pago.", "error")
@@ -664,7 +853,17 @@ class NominaRRHHState(NominaBaseState):
             self.mostrar_mensaje("Corrige la fecha de pago.", "error")
             return None
 
-        return self.form_periodo_key, fecha_pago
+        return {
+            "tipo_corrida": self.form_tipo_corrida,
+            "periodo_key": self.form_periodo_key,
+            "ejercicio_fiscal": (
+                int(self.form_ejercicio_fiscal) if self.form_ejercicio_fiscal else None
+            ),
+            "contrato_id": (
+                int(self.form_contrato_nomina_id) if self.form_contrato_nomina_id else None
+            ),
+            "fecha_pago": fecha_pago,
+        }
 
     async def crear_periodo(self):
         """Crea período, pobla empleados y refresca la lista."""
@@ -672,8 +871,13 @@ class NominaRRHHState(NominaBaseState):
         if not valores:
             return
 
-        periodo_key, fecha_pago = valores
-        contrato_id = int(self.form_contrato_nomina_id)
+        periodo_key = str(valores.get("periodo_key") or "")
+        contrato_id = valores.get("contrato_id")
+        fecha_pago = valores["fecha_pago"]
+        tipo_corrida = str(
+            valores.get("tipo_corrida") or TipoPeriodoNomina.ORDINARIA.value
+        )
+        ejercicio_fiscal = valores.get("ejercicio_fiscal")
 
         self.saving = True
         try:
@@ -684,6 +888,8 @@ class NominaRRHHState(NominaBaseState):
                 fecha_pago_override=fecha_pago,
                 usuario_id=str(self.usuario_actual.get('id', '') or '') or None,
                 usuario_nombre=self.form_generado_por_preview or None,
+                tipo_corrida=tipo_corrida,
+                ejercicio_fiscal=ejercicio_fiscal,
             )
             total_empleados = int(periodo.get('total_empleados_poblados') or 0)
 

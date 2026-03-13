@@ -12,8 +12,10 @@ import reflex as rx
 
 from app.core.enums import PeriodicidadNomina
 from app.core.enums import ReglaCalculoQuincenal
+from app.entities.configuracion_fiscal_empresa import ConfiguracionFiscalEmpresaUpdate
 from app.entities.configuracion_operativa_empresa import ConfiguracionOperativaEmpresaUpdate
 from app.presentation.portal.state.portal_state import PortalState
+from app.services.configuracion_fiscal_service import configuracion_fiscal_service
 from app.services.configuracion_operativa_service import configuracion_operativa_service
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,7 @@ class ConfiguracionEmpresaState(PortalState):
     form_dia_pago_2q: int = 0
     form_dia_pago_semanal: int = 5
     form_dia_pago_mensual: int = 0
+    form_dias_aguinaldo: int = 15
 
     def set_form_tipo_nomina(self, value: str):
         self.form_tipo_nomina = value or PeriodicidadNomina.QUINCENAL.value
@@ -77,6 +80,9 @@ class ConfiguracionEmpresaState(PortalState):
 
     def set_form_dia_pago_mensual(self, value: str):
         self.set_int_attr("form_dia_pago_mensual", value, 0)
+
+    def set_form_dias_aguinaldo(self, value: str):
+        self.set_int_attr("form_dias_aguinaldo", value, 15)
 
     @rx.var
     def tipos_nomina_options(self) -> list[dict]:
@@ -122,6 +128,7 @@ class ConfiguracionEmpresaState(PortalState):
                 self.form_dia_pago_2q != self.config.get("dia_pago_segunda_quincena", 0),
                 self.form_dia_pago_semanal != self.config.get("dia_pago_semanal", 5),
                 self.form_dia_pago_mensual != self.config.get("dia_pago_mensual", 0),
+                self.form_dias_aguinaldo != self.config.get("dias_aguinaldo", 15),
             )
         )
 
@@ -145,7 +152,13 @@ class ConfiguracionEmpresaState(PortalState):
             config = await configuracion_operativa_service.obtener_o_crear_default(
                 self.id_empresa_actual
             )
-            self.config = config.model_dump(mode="json")
+            config_fiscal = await configuracion_fiscal_service.obtener_o_crear_default(
+                self.id_empresa_actual
+            )
+            self.config = {
+                **config.model_dump(mode="json"),
+                **config_fiscal.model_dump(mode="json"),
+            }
             self.config_cargada = True
 
             self.form_tipo_nomina = str(
@@ -162,6 +175,7 @@ class ConfiguracionEmpresaState(PortalState):
             self.form_dia_pago_2q = config.dia_pago_segunda_quincena
             self.form_dia_pago_semanal = int(config.dia_pago_semanal or 5)
             self.form_dia_pago_mensual = int(config.dia_pago_mensual or 0)
+            self.form_dias_aguinaldo = int(getattr(config_fiscal, "dias_aguinaldo", 15) or 15)
         except Exception as e:
             logger.error("Error cargando config operativa empresa: %s", e)
             self.config = {}
@@ -190,7 +204,16 @@ class ConfiguracionEmpresaState(PortalState):
                 self.id_empresa_actual,
                 datos,
             )
-            self.config = config.model_dump(mode="json")
+            config_fiscal = await configuracion_fiscal_service.crear_o_actualizar(
+                self.id_empresa_actual,
+                ConfiguracionFiscalEmpresaUpdate(
+                    dias_aguinaldo=self.form_dias_aguinaldo,
+                ),
+            )
+            self.config = {
+                **config.model_dump(mode="json"),
+                **config_fiscal.model_dump(mode="json"),
+            }
             self.config_cargada = True
 
             return rx.toast.success("Politica de nomina guardada")

@@ -183,6 +183,10 @@ class Contrato(BaseModel):
         description="Fecha de registro en el sistema"
     )
     fecha_actualizacion: Optional[datetime] = None
+    fin_contrato_procesado_at: Optional[datetime] = Field(
+        None,
+        description="Marca idempotente del cierre laboral automático por fin de contrato",
+    )
 
     # ==========================================
     # VALIDADORES

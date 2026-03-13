@@ -8,6 +8,7 @@ from decimal import Decimal
 from datetime import date
 
 from app.presentation.components.shared.base_state import BaseState
+from app.core.utils import normalize_date_input, parse_date_input
 from app.services import pago_service, contrato_service
 from app.core.text_utils import formatear_moneda, formatear_fecha
 from app.core.ui_helpers import FILTRO_TODOS
@@ -67,7 +68,9 @@ class PagosPageState(BaseState):
 
     @staticmethod
     def _validar_fecha_pago(valor: str) -> str:
-        return "" if valor else "La fecha es obligatoria"
+        if not valor:
+            return "La fecha es obligatoria"
+        return "" if parse_date_input(valor) is not None else "La fecha no es válida"
 
     @staticmethod
     def _validar_monto(valor: str) -> str:
@@ -92,17 +95,17 @@ class PagosPageState(BaseState):
         self.filtro_contrato_id = value if value else FILTRO_TODOS
 
     def set_filtro_fecha_desde(self, value: str):
-        self.filtro_fecha_desde = value if value else ""
+        self.filtro_fecha_desde = normalize_date_input(value)
 
     def set_filtro_fecha_hasta(self, value: str):
-        self.filtro_fecha_hasta = value if value else ""
+        self.filtro_fecha_hasta = normalize_date_input(value)
 
     def set_form_contrato_id(self, value: str):
         self.form_contrato_id = value
         self.limpiar_errores_campos(["contrato_id"])
 
     def set_form_fecha_pago(self, value: str):
-        self.form_fecha_pago = value
+        self.form_fecha_pago = normalize_date_input(value)
         self.limpiar_errores_campos(["fecha_pago"])
 
     def set_form_monto(self, value: str):
@@ -140,8 +143,16 @@ class PagosPageState(BaseState):
             if self.filtro_contrato_id and self.filtro_contrato_id != FILTRO_TODOS:
                 contrato_id = int(self.filtro_contrato_id)
 
-            fecha_desde = self.filtro_fecha_desde or None
-            fecha_hasta = self.filtro_fecha_hasta or None
+            fecha_desde = (
+                normalize_date_input(self.filtro_fecha_desde)
+                if parse_date_input(self.filtro_fecha_desde) is not None
+                else None
+            )
+            fecha_hasta = (
+                normalize_date_input(self.filtro_fecha_hasta)
+                if parse_date_input(self.filtro_fecha_hasta) is not None
+                else None
+            )
 
             pagos_data = await pago_service.obtener_todos(
                 contrato_id=contrato_id,

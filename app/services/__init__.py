@@ -181,6 +181,12 @@ from app.services.empleado_documento_service import (
     empleado_documento_service,
 )
 
+# Empresa Documento
+from app.services.empresa_documento_service import (
+    EmpresaDocumentoService,
+    empresa_documento_service,
+)
+
 # Baja Empleado
 from app.services.baja_service import (
     BajaService,

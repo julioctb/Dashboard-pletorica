@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class EntidadArchivo(str, Enum):
     """Tipos de entidad que pueden tener archivos."""
 
+    EMPRESA = "EMPRESA"
     REQUISICION = "REQUISICION"
     REQUISICION_ITEM = "REQUISICION_ITEM"
     REPORTE = "REPORTE"

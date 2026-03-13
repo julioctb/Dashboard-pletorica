@@ -43,6 +43,8 @@ class BajaEmpleado(BaseModel):
     requiere_sustitucion: Optional[bool] = None
     estatus: EstatusBaja = EstatusBaja.INICIADA
     registrado_por: Optional[UUID] = None
+    es_automatica: bool = False
+    contrato_id_origen: Optional[int] = None
     fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None
 
@@ -50,7 +52,8 @@ class BajaEmpleado(BaseModel):
     @classmethod
     def fecha_efectiva_no_anterior_a_registro(cls, v, info):
         fecha_reg = info.data.get('fecha_registro', date.today())
-        if v < fecha_reg:
+        es_automatica = bool(info.data.get('es_automatica', False))
+        if v < fecha_reg and not es_automatica:
             raise ValueError('La fecha efectiva no puede ser anterior a la fecha de registro')
         return v
 
@@ -130,6 +133,8 @@ class BajaEmpleadoCreate(BaseModel):
     fecha_efectiva: date
     notas: Optional[str] = Field(default=None, max_length=2000)
     registrado_por: Optional[UUID] = None
+    es_automatica: bool = False
+    contrato_id_origen: Optional[int] = None
 
 
 class BajaEmpleadoResumen(BaseModel):
@@ -146,3 +151,5 @@ class BajaEmpleadoResumen(BaseModel):
     dias_para_liquidar: int = 0
     requiere_sustitucion: Optional[bool] = None
     fue_comunicada: bool = False
+    es_automatica: bool = False
+    contrato_id_origen: Optional[int] = None

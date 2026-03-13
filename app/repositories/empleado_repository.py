@@ -495,6 +495,7 @@ class SupabaseEmpleadoRepository:
                     'empresa_nombre': empresa_nombre,
                     'estatus': data['estatus'],
                     'fecha_ingreso': data['fecha_ingreso'],
+                    'fecha_ingreso_vigente': data.get('fecha_ingreso_vigente'),
                     'telefono': data.get('telefono'),
                     'email': data.get('email'),
                 })

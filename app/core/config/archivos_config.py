@@ -33,6 +33,7 @@ class ArchivosConfig:
 
     # === LIMITES CANTIDAD POR ENTIDAD ===
     MAX_ARCHIVOS_POR_ENTIDAD: dict = {
+        "EMPRESA": 500,
         "REQUISICION": 10,
         "REQUISICION_ITEM": 5,
         "REPORTE": 20,
@@ -70,6 +71,7 @@ class ArchivosConfig:
         - empleados/EMP-001/foto.webp
         """
         rutas = {
+            "EMPRESA": f"empresas/{identificador}/{sub_identificador}/{nombre_archivo}",
             "REQUISICION": f"requisiciones/{identificador}/general/{nombre_archivo}",
             "REQUISICION_ITEM": f"requisiciones/{identificador}/items/{sub_identificador}/{nombre_archivo}",
             "REPORTE": f"reportes/{identificador}/{nombre_archivo}",

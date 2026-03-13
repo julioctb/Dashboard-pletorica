@@ -2,6 +2,8 @@
 import re
 from datetime import date
 
+from app.core.utils import parse_date_input
+
 from .constants import (
     CURP_PATTERN,
     RFC_PERSONA_PATTERN,
@@ -184,7 +186,9 @@ def validar_fecha_nacimiento_empleado(
         return error
 
     try:
-        fecha_obj = date.fromisoformat(fecha)
+        fecha_obj = parse_date_input(fecha)
+        if fecha_obj is None:
+            return "Fecha con formato inválido"
         hoy = date.today()
         edad = hoy.year - fecha_obj.year
         if (hoy.month, hoy.day) < (fecha_obj.month, fecha_obj.day):

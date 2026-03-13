@@ -29,7 +29,11 @@ from app.services import (
     plaza_service,
 )
 from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
-from app.core.utils import generar_candidatos_codigo
+from app.core.utils import (
+    generar_candidatos_codigo,
+    normalize_date_input,
+    parse_date_input,
+)
 
 from app.entities import (
     ContratoCreate,
@@ -311,10 +315,10 @@ class ContratosState(AuthState, CRUDStateMixin):
         self.incluir_inactivos = value
 
     def set_filtro_fecha_desde(self, value: str):
-        self.filtro_fecha_desde = value if value else ""
+        self.filtro_fecha_desde = normalize_date_input(value)
 
     def set_filtro_fecha_hasta(self, value: str):
-        self.filtro_fecha_hasta = value if value else ""
+        self.filtro_fecha_hasta = normalize_date_input(value)
 
     # View toggle heredado de BaseState
 
@@ -408,10 +412,10 @@ class ContratosState(AuthState, CRUDStateMixin):
         self.form_modalidad_adjudicacion = value if value else ""
 
     def set_form_fecha_inicio(self, value):
-        self.form_fecha_inicio = value if value else ""
+        self.form_fecha_inicio = normalize_date_input(value)
 
     def set_form_fecha_fin(self, value):
-        self.form_fecha_fin = value if value else ""
+        self.form_fecha_fin = normalize_date_input(value)
         self._sincronizar_tipo_duracion()
 
     def set_form_descripcion_objeto(self, value):
@@ -948,6 +952,106 @@ class ContratosState(AuthState, CRUDStateMixin):
         self.limpiar_mensajes()
         self.form_paso_actual -= 1
 
+    def _errores_paso_datos_formulario(self) -> list[str]:
+        """Calcula pendientes del paso Datos sin mutar el state."""
+        errores = []
+
+        if error := validar_empresa_id(self.form_empresa_id):
+            errores.append(f"Empresa: {error}")
+        if error := validar_tipo_contrato(self.form_tipo_contrato):
+            errores.append(f"Tipo de contrato: {error}")
+
+        if self._usa_folio_en_formulario():
+            if error := validar_folio_buap(self.form_folio_buap):
+                errores.append(f"Folio institución: {error}")
+
+        if error := validar_fecha_inicio(self.form_fecha_inicio):
+            errores.append(f"Fecha de inicio: {error}")
+
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
+            if error := validar_tipo_servicio_id(self.form_tipo_servicio_id):
+                errores.append(f"Tipo de servicio: {error}")
+
+        if self.form_fecha_fin:
+            error_fecha_fin = validar_fecha_fin(
+                self.form_fecha_fin,
+                self.form_fecha_inicio,
+                self.form_tipo_duracion,
+            )
+            if error_fecha_fin:
+                errores.append(f"Fecha de fin: {error_fecha_fin}")
+
+        descripcion_objeto = str(self.form_descripcion_objeto or "").strip()
+        if descripcion_objeto:
+            if error := validar_descripcion_objeto(descripcion_objeto):
+                errores.append(f"Objeto del contrato: {error}")
+
+        return errores
+
+    def _errores_paso_plazas_formulario(self) -> list[str]:
+        """Calcula pendientes del paso Plazas sin mutar el state."""
+        if not (self.form_tipo_contrato == TipoContrato.SERVICIOS.value and self.form_tiene_personal):
+            return []
+
+        if self._usa_desglose_categorias_plazas():
+            return []
+
+        errores = []
+        if self.form_cantidad_plazas_minima == "":
+            errores.append("Plazas mínimas: La cantidad mínima de plazas es obligatoria")
+        if self.form_cantidad_plazas_maxima == "":
+            errores.append("Plazas máximas: La cantidad máxima de plazas es obligatoria")
+        elif self.form_cantidad_plazas_minima != "":
+            minimo = int(self.form_cantidad_plazas_minima or "0")
+            maximo = int(self.form_cantidad_plazas_maxima or "0")
+            if maximo < minimo:
+                errores.append(
+                    "Plazas máximas: La cantidad máxima debe ser mayor o igual a la mínima"
+                )
+
+        return errores
+
+    def _errores_guardado_borrador_formulario(self) -> list[str]:
+        """
+        Calcula el mínimo de errores que impiden guardar un contrato en borrador.
+
+        El borrador permite omitir pasos posteriores, pero debe conservar datos
+        suficientes para generar código y persistir un contrato consistente.
+        """
+        errores = list(self._errores_paso_datos_formulario())
+        errores.extend(self._errores_paso_plazas_formulario())
+        return errores
+
+    def _validar_guardado_borrador_contrato(self) -> str:
+        """Valida solo el mínimo requerido para persistir un borrador."""
+        self._limpiar_errores()
+        self.validar_empresa_id_campo()
+        self.validar_tipo_contrato_campo()
+        self.validar_fecha_inicio_campo()
+        self.validar_descripcion_objeto_campo()
+
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
+            self.validar_tipo_servicio_id_campo()
+            if self.form_fecha_fin:
+                self.validar_fecha_fin_campo()
+            else:
+                self.error_fecha_fin = ""
+        else:
+            self.error_tipo_servicio_id = ""
+            if self.form_fecha_fin:
+                self.validar_fecha_fin_campo()
+            else:
+                self.error_fecha_fin = ""
+
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value and self.form_tiene_personal:
+            self.validar_cantidad_plazas_minima_campo()
+            self.validar_cantidad_plazas_maxima_campo()
+        else:
+            self.error_cantidad_plazas_minima = ""
+            self.error_cantidad_plazas_maxima = ""
+
+        return "; ".join(self._errores_guardado_borrador_formulario())
+
     # ========================
     # VALIDACIÓN EN TIEMPO REAL
     # ========================
@@ -1211,6 +1315,41 @@ class ContratosState(AuthState, CRUDStateMixin):
         return self.form_paso_actual == self.total_pasos_wizard
 
     @rx.var
+    def puede_avanzar_desde_datos_wizard(self) -> bool:
+        return len(self._errores_paso_datos_formulario()) == 0
+
+    @rx.var
+    def puede_avanzar_desde_plazas_wizard(self) -> bool:
+        return len(self._errores_paso_plazas_formulario()) == 0
+
+    @rx.var
+    def puede_navegar_a_paso_2_wizard(self) -> bool:
+        return self.form_paso_actual >= 2 or self.puede_avanzar_desde_datos_wizard
+
+    @rx.var
+    def puede_navegar_a_paso_3_wizard(self) -> bool:
+        return self.form_paso_actual >= 3 or (
+            self.puede_avanzar_desde_datos_wizard
+            and self.puede_avanzar_desde_plazas_wizard
+        )
+
+    @rx.var
+    def puede_avanzar_paso_actual_wizard(self) -> bool:
+        if self.form_paso_actual == 1:
+            return self.puede_avanzar_desde_datos_wizard
+        if self.paso_actual_wizard == "plazas":
+            return self.puede_avanzar_desde_plazas_wizard
+        return True
+
+    @rx.var
+    def puede_guardar_borrador_contrato(self) -> bool:
+        return (
+            not self.es_edicion
+            and not self.saving
+            and len(self._errores_guardado_borrador_formulario()) == 0
+        )
+
+    @rx.var
     def titulo_paso_actual_wizard(self) -> str:
         if self.form_paso_actual == 1:
             return "Datos"
@@ -1234,9 +1373,8 @@ class ContratosState(AuthState, CRUDStateMixin):
         if not self.form_fecha_fin:
             return "VIGENTE"
 
-        try:
-            fecha_fin = date.fromisoformat(self.form_fecha_fin)
-        except ValueError:
+        fecha_fin = parse_date_input(self.form_fecha_fin)
+        if fecha_fin is None:
             return "VIGENTE"
 
         return "VENCIDO" if fecha_fin < date.today() else "VIGENTE"
@@ -1564,9 +1702,9 @@ class ContratosState(AuthState, CRUDStateMixin):
             fecha_desde = None
             fecha_hasta = None
             if self.filtro_fecha_desde:
-                fecha_desde = date.fromisoformat(self.filtro_fecha_desde)
+                fecha_desde = parse_date_input(self.filtro_fecha_desde)
             if self.filtro_fecha_hasta:
-                fecha_hasta = date.fromisoformat(self.filtro_fecha_hasta)
+                fecha_hasta = parse_date_input(self.filtro_fecha_hasta)
 
             contratos = await contrato_service.buscar_con_filtros(
                 texto=self.filtro_busqueda or None,
@@ -1835,7 +1973,54 @@ class ContratosState(AuthState, CRUDStateMixin):
         finally:
             self.saving = False
 
-    async def _crear_contrato(self):
+    async def guardar_borrador_contrato(self):
+        """Guarda un nuevo contrato en borrador con validación mínima."""
+        try:
+            self._asegurar_permiso_operar_contratos()
+
+            if self.es_edicion:
+                return
+
+            mensaje_error = self._validar_guardado_borrador_contrato()
+            if mensaje_error:
+                yield self.crear_toast(
+                    mensaje_error,
+                    "error",
+                    duration=5000,
+                )
+                return
+
+            self.saving = True
+            yield
+
+            if self.form_requisicion_id:
+                mensaje = await self._crear_contrato_desde_requisicion(borrador=True)
+            else:
+                mensaje = await self._crear_contrato(borrador=True)
+
+            self.cerrar_modal_contrato()
+            await self._fetch_contratos()
+
+            yield self.crear_toast(
+                mensaje,
+                "success",
+                duration=3000,
+            )
+
+            if self.es_contexto_portal:
+                from app.presentation.portal.pages.mis_contratos import MisContratosState
+
+                yield MisContratosState.cargar_contratos
+
+        except DuplicateError as e:
+            self.error_codigo = f"El código '{self.form_codigo}' ya existe"
+            yield self.manejar_error_con_toast(e, "al guardar borrador de contrato")
+        except Exception as e:
+            yield self.manejar_error_con_toast(e, "al guardar borrador de contrato")
+        finally:
+            self.saving = False
+
+    async def _crear_contrato(self, *, borrador: bool = False):
         """Crear nuevo contrato"""
         codigo_empresa, clave_servicio = self._resolver_codigos_contrato()
 
@@ -1850,6 +2035,9 @@ class ContratosState(AuthState, CRUDStateMixin):
 
         await self._guardar_categorias_contrato_configuradas(contrato_creado.id)
         await self._guardar_entregables_configurados(contrato_creado.id)
+
+        if borrador:
+            return f"Contrato '{contrato_creado.codigo}' guardado como borrador"
 
         return f"Contrato '{contrato_creado.codigo}' creado exitosamente"
 
@@ -1886,8 +2074,8 @@ class ContratosState(AuthState, CRUDStateMixin):
             tipo_contrato=TipoContrato(self.form_tipo_contrato) if self.form_tipo_contrato else None,
             modalidad_adjudicacion=ModalidadAdjudicacion(self.form_modalidad_adjudicacion) if self.form_modalidad_adjudicacion else None,
             tipo_duracion=tipo_duracion,
-            fecha_inicio=date.fromisoformat(self.form_fecha_inicio) if self.form_fecha_inicio else None,
-            fecha_fin=date.fromisoformat(self.form_fecha_fin) if self.form_fecha_fin else None,
+            fecha_inicio=parse_date_input(self.form_fecha_inicio),
+            fecha_fin=parse_date_input(self.form_fecha_fin),
             descripcion_objeto=self.form_descripcion_objeto.strip() or None,
             monto_minimo=monto_minimo,
             monto_maximo=monto_maximo,
@@ -1989,7 +2177,7 @@ class ContratosState(AuthState, CRUDStateMixin):
         except Exception as e:
             self.manejar_error(e, "al cargar datos de requisición")
 
-    async def _crear_contrato_desde_requisicion(self) -> str:
+    async def _crear_contrato_desde_requisicion(self, *, borrador: bool = False) -> str:
         """
         Crea contrato vinculado a requisición con items de contrato.
         Se usa cuando form_requisicion_id está presente.
@@ -2030,6 +2218,9 @@ class ContratosState(AuthState, CRUDStateMixin):
 
         await self._guardar_categorias_contrato_configuradas(contrato_creado.id)
         await self._guardar_entregables_configurados(contrato_creado.id)
+
+        if borrador:
+            return f"Contrato '{contrato_creado.codigo}' guardado como borrador"
 
         return f"Contrato '{contrato_creado.codigo}' creado desde requisición"
 
@@ -2288,23 +2479,7 @@ class ContratosState(AuthState, CRUDStateMixin):
                 else:
                     self.error_fecha_fin = ""
 
-            errores = []
-            errores_paso = [
-                ("Empresa", self.error_empresa_id),
-                ("Tipo de contrato", self.error_tipo_contrato),
-                ("Tipo de servicio", self.error_tipo_servicio_id),
-                ("Fecha de inicio", self.error_fecha_inicio),
-                ("Fecha de fin", self.error_fecha_fin),
-                ("Objeto del contrato", self.error_descripcion_objeto),
-            ]
-            if self._usa_folio_en_formulario():
-                errores_paso.insert(3, ("Folio institución", self.error_folio_buap))
-
-            for etiqueta, error in errores_paso:
-                if error:
-                    errores.append(f"{etiqueta}: {error}")
-
-            return "; ".join(errores)
+            return "; ".join(self._errores_paso_datos_formulario())
 
         if paso == 2:
             self.error_cantidad_plazas_minima = ""
@@ -2315,16 +2490,7 @@ class ContratosState(AuthState, CRUDStateMixin):
 
             self.validar_cantidad_plazas_minima_campo()
             self.validar_cantidad_plazas_maxima_campo()
-
-            errores = []
-            for etiqueta, error in (
-                ("Plazas mínimas", self.error_cantidad_plazas_minima),
-                ("Plazas máximas", self.error_cantidad_plazas_maxima),
-            ):
-                if error:
-                    errores.append(f"{etiqueta}: {error}")
-
-            return "; ".join(errores)
+            return "; ".join(self._errores_paso_plazas_formulario())
 
         return ""
 
@@ -2349,7 +2515,7 @@ class ContratosState(AuthState, CRUDStateMixin):
         # fecha_fin: según tipo_duracion
         fecha_fin = None
         if self.form_fecha_fin:
-            fecha_fin = date.fromisoformat(self.form_fecha_fin)
+            fecha_fin = parse_date_input(self.form_fecha_fin)
         if tipo_duracion == TipoDuracion.TIEMPO_DETERMINADO and not fecha_fin:
             raise BusinessRuleError("Los contratos de tiempo determinado deben tener fecha de fin")
 
@@ -2380,7 +2546,7 @@ class ContratosState(AuthState, CRUDStateMixin):
             tipo_contrato=TipoContrato(self.form_tipo_contrato),
             modalidad_adjudicacion=ModalidadAdjudicacion(self.form_modalidad_adjudicacion),
             tipo_duracion=tipo_duracion,
-            fecha_inicio=date.fromisoformat(self.form_fecha_inicio),
+            fecha_inicio=parse_date_input(self.form_fecha_inicio),
             fecha_fin=fecha_fin,
             descripcion_objeto=self.form_descripcion_objeto.strip() or None,
             monto_minimo=monto_minimo,

@@ -11,6 +11,7 @@ import reflex as rx
 from app.core.exceptions import BusinessRuleError, DuplicateError
 from app.core.ui_helpers import FILTRO_TODOS
 from app.core.text_utils import formatear_fecha, formatear_moneda
+from app.core.utils import normalize_date_input, parse_date_input
 from app.entities import EstatusPlaza, PlazaUpdate, TipoJornadaPlaza
 from app.presentation.components.shared.auth_state import AuthState
 from app.services import (
@@ -566,11 +567,11 @@ class PlazasState(AuthState):
         self.error_categoria_puesto_id = ""
 
     def set_form_fecha_inicio(self, value: str):
-        self.form_fecha_inicio = value or ""
+        self.form_fecha_inicio = normalize_date_input(value)
         self.error_fecha_inicio = ""
 
     def set_form_fecha_fin(self, value: str):
-        self.form_fecha_fin = value or ""
+        self.form_fecha_fin = normalize_date_input(value)
 
     def set_form_salario_mensual(self, value: str):
         self.form_salario_mensual = formatear_moneda(value) if value else ""
@@ -1187,12 +1188,12 @@ class PlazasState(AuthState):
                 sede_id=self.parse_id(self.form_sede_id),
                 categoria_puesto_id=self.parse_id(self.form_categoria_puesto_id),
                 fecha_inicio=(
-                    date.fromisoformat(self.form_fecha_inicio)
+                    parse_date_input(self.form_fecha_inicio)
                     if self.form_fecha_inicio
                     else None
                 ),
                 fecha_fin=(
-                    date.fromisoformat(self.form_fecha_fin)
+                    parse_date_input(self.form_fecha_fin)
                     if self.form_fecha_fin
                     else None
                 ),
