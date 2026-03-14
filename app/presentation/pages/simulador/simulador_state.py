@@ -1,14 +1,14 @@
 """Estado para el simulador de costo patronal"""
 import reflex as rx
 
-from app.presentation.components.shared.base_state import BaseState
+from app.presentation.components.shared.auth_state import AuthState
 from app.entities.costo_patronal import ConfiguracionEmpresa, Trabajador
 from app.core.calculations import CalculadoraCostoPatronal
-from app.core.ui_options import obtener_clave_estado
+from app.core.ui_options import ESTADOS_DISPLAY, obtener_clave_estado
 from app.core.catalogs import CatalogoPrestaciones
 
 
-class SimuladorState(BaseState):
+class SimuladorState(AuthState):
     """Estado para el simulador de costo patronal"""
 
     # ─────────────────────────────────────────────────────────────────
@@ -73,12 +73,48 @@ class SimuladorState(BaseState):
     # ─────────────────────────────────────────────────────────────────
     # MÉTODOS
     # ─────────────────────────────────────────────────────────────────
+
+    async def on_mount_simulador(self):
+        """Precarga defaults visibles y prima de riesgo desde la empresa activa."""
+        resultado = await self.verificar_y_redirigir()
+        if resultado:
+            self.loading = False
+            yield resultado
+            return
+
+        await self._aplicar_defaults_empresa_activa()
+        self.loading = False
+        yield
+
+    async def _aplicar_defaults_empresa_activa(self):
+        """Mantiene Puebla por default y toma prima de riesgo de la empresa activa si existe."""
+        self.estado = "puebla"
+        self.prima_riesgo = 2.5984
+
+        if not self.id_empresa_actual:
+            return
+
+        try:
+            from app.services import empresa_service
+
+            empresa = await empresa_service.obtener_por_id(self.id_empresa_actual)
+            prima_empresa = empresa.get_prima_riesgo_porcentaje()
+            if prima_empresa is not None:
+                self.prima_riesgo = prima_empresa
+        except Exception:
+            # Mantener defaults visibles si no se puede resolver la empresa activa.
+            pass
     
     @rx.var
     def calc_salario_diario(self) -> float:
         if self.tipo_salario_calculo == 'Salario Mínimo':
             return float(CatalogoPrestaciones.SALARIO_MINIMO_GENERAL)
         return round(self.salario_mensual / 30,2) if self.salario_mensual else 0.0
+
+    @rx.var
+    def estado_display(self) -> str:
+        """Valor visible del select de estado."""
+        return ESTADOS_DISPLAY.get(self.estado, "Puebla")
 
     def calcular(self):
         """Ejecuta el cálculo de costo patronal"""

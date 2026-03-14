@@ -228,6 +228,7 @@ app.add_page(lambda: portal_index(conciliacion_nomina_page()), route="/portal/no
 # PORTAL — Contratos y entregables
 # =============================================================================
 app.add_page(lambda: portal_index(mis_contratos_page()), route="/portal/contratos")
+app.add_page(lambda: portal_index(simulador_page()), route="/portal/simulador")
 app.add_page(lambda: portal_index(cotizador_page()), route="/portal/cotizador")
 app.add_page(
     lambda: portal_index(cotizador_detalle_page()),

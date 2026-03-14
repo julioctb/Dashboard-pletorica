@@ -158,6 +158,12 @@ def _portal_navigation() -> rx.Component:
             "Comercial",
             _cond_item(
                 AuthState.es_admin_empresa,
+                "Simulador",
+                "calculator",
+                "/portal/simulador",
+            ),
+            _cond_item(
+                AuthState.es_admin_empresa,
                 "Cotizador",
                 "file-spreadsheet",
                 "/portal/cotizador",

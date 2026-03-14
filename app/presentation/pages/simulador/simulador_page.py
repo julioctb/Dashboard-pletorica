@@ -26,10 +26,9 @@ def formulario_empresa() -> rx.Component:
                 form_select(
                     label="Estado",
                     placeholder="Selecciona un estado",
-                    value=SimuladorState.estado,
+                    value=SimuladorState.estado_display,
                     on_change=SimuladorState.set_estado_display,
                     options=OPCIONES_ESTADOS,
-                    default_value="Puebla",
                 ),
                 form_input(
                     label="Prima de riesgo (%)",
@@ -309,51 +308,56 @@ def desglose_detallado() -> rx.Component:
 
 def simulador_page() -> rx.Component:
     """Pagina del simulador del costo patronal"""
-    return rx.vstack(
-        page_header(
-            icono='calculator',
-            titulo='Simulador de Costo Patronal',
-            subtitulo='Proyección 2026'
-        ),
-
-        rx.hstack(
-            # Columna izquierda: Formularios, resumen y botones (ancho fijo)
-            rx.vstack(
-                formulario_empresa(),
-                formulario_trabajador(),
-                # Botones
-                rx.hstack(
-                    rx.button(
-                        'Calcular',
-                        on_click=SimuladorState.calcular,
-                        loading=SimuladorState.is_calculating,
-                        color_scheme='blue',
-                        size='3'
-                    ),
-                    rx.button(
-                        'Limpiar',
-                        on_click=SimuladorState.limpiar,
-                        color_scheme='gray',
-                        size='3'
-                    ),
-                    spacing='3',
-                    margin_top='1em'
-                ),
-                resumen_destacado(),
-
-                spacing='4',
-                width='45%',
-                min_width='600px',
-                align='start',
+    return rx.box(
+        rx.vstack(
+            page_header(
+                icono='calculator',
+                titulo='Simulador de Costo Patronal',
+                subtitulo='Proyección 2026'
             ),
 
-            # Columna derecha: Desglose detallado (ancho flexible)
-            desglose_detallado(),
+            rx.hstack(
+                # Columna izquierda: Formularios, resumen y botones (ancho fijo)
+                rx.vstack(
+                    formulario_empresa(),
+                    formulario_trabajador(),
+                    # Botones
+                    rx.hstack(
+                        rx.button(
+                            'Calcular',
+                            on_click=SimuladorState.calcular,
+                            loading=SimuladorState.is_calculating,
+                            color_scheme='blue',
+                            size='3'
+                        ),
+                        rx.button(
+                            'Limpiar',
+                            on_click=SimuladorState.limpiar,
+                            color_scheme='gray',
+                            size='3'
+                        ),
+                        spacing='3',
+                        margin_top='1em'
+                    ),
+                    resumen_destacado(),
 
-            spacing='6',
-            align='start',
-            width='100%',
+                    spacing='4',
+                    width='45%',
+                    min_width='600px',
+                    align='start',
+                ),
+
+                # Columna derecha: Desglose detallado (ancho flexible)
+                desglose_detallado(),
+
+                spacing='6',
+                align='start',
+                width='100%',
+            ),
+            width="100%",
         ),
+        on_mount=SimuladorState.on_mount_simulador,
+        width="100%",
     )
 
 
