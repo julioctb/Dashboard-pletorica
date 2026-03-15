@@ -7,6 +7,7 @@ from app.presentation.components.ui import table_shell
 from app.presentation.components.ui.modals import modal_confirmar_eliminar as modal_eliminar_generico
 from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.pages.contratos.pagos_state import PagosState
+from app.presentation.theme import Colors
 
 
 def resumen_pagos() -> rx.Component:
@@ -32,7 +33,7 @@ def resumen_pagos() -> rx.Component:
             # Saldo Pendiente
             rx.vstack(
                 rx.text("Saldo Pendiente", size="1", color="gray"),
-                rx.text(PagosState.saldo_pendiente, weight="bold", size="3", color="orange"),
+                rx.text(PagosState.saldo_pendiente, weight="bold", size="3", color=Colors.WARNING),
                 spacing="1",
                 align="center",
             ),

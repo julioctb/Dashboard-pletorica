@@ -45,7 +45,7 @@ def badge_modalidad(modalidad: str) -> rx.Component:
     return rx.match(
         modalidad,
         ("ADJUDICACION_DIRECTA", rx.badge("Directa", color_scheme="blue", size="1")),
-        ("INVITACION_3", rx.badge("Inv. 3", color_scheme="purple", size="1")),
+        ("INVITACION_3", rx.badge("Inv. 3", color_scheme="amber", size="1")),
         ("LICITACION_PUBLICA", rx.badge("Licitación", color_scheme="green", size="1")),
         rx.badge(modalidad, color_scheme="gray", size="1"),
     )
@@ -75,7 +75,7 @@ def acciones_contrato(contrato: dict) -> rx.Component:
             icon="credit-card",
             tooltip="Pagos",
             on_click=lambda: PagosState.abrir_modal_pagos(contrato),
-            color_scheme="purple",
+            color_scheme="sky",
             visible=puede_ver_pagos,
         ),
         # Editar
@@ -99,7 +99,7 @@ def acciones_contrato(contrato: dict) -> rx.Component:
             icon="pause",
             tooltip="Suspender",
             on_click=lambda: ContratosState.suspender_contrato(contrato),
-            color_scheme="orange",
+            color_scheme="amber",
             visible=es_activo & AuthState.puede_operar_contratos,
         ),
         # Reactivar
@@ -163,7 +163,7 @@ def fila_contrato(contrato: dict) -> rx.Component:
         ),
         # Saldo Pendiente
         rx.table.cell(
-            rx.text(contrato["saldo_pendiente_fmt"], size="2", color="orange"),
+            rx.text(contrato["saldo_pendiente_fmt"], size="2", color=Colors.WARNING),
         ),
         # Empresa
         rx.table.cell(
@@ -254,7 +254,7 @@ def card_contrato(contrato: dict) -> rx.Component:
                 rx.hstack(
                     rx.icon("wallet", size=14, color=Colors.TEXT_MUTED),
                     rx.text("Saldo:", size="2", color=Colors.TEXT_SECONDARY),
-                    rx.text(contrato["saldo_pendiente_fmt"], size="2", color="orange"),
+                    rx.text(contrato["saldo_pendiente_fmt"], size="2", color=Colors.WARNING),
                     spacing="2",
                     align="center",
                 ),

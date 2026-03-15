@@ -15,7 +15,9 @@ import reflex as rx
 
 from app.database import db_manager
 from app.core.enums import TipoPeriodoNomina
+from app.core.text_utils import formatear_moneda
 from app.presentation.pages.nominas.base_state import NominaBaseState
+from app.services.contrato_categoria_service import contrato_categoria_service
 from app.services.configuracion_operativa_service import configuracion_operativa_service
 from app.services.nomina_periodo_service import nomina_periodo_service
 
@@ -36,6 +38,10 @@ class NominaDashboardState(NominaBaseState):
     resumen_periodo: dict = {}
     desglose_isr: float = 0.0
     desglose_imss: float = 0.0
+    categorias_contrato_catalogo: list[dict] = []
+    empleados_periodo_catalogo: list[dict] = []
+    movimientos_periodo: dict = {}
+    permisos_periodo: int = 0
     top_empleados: list[dict] = []
     empleados_con_incidencias: list[dict] = []
     periodo_anterior: dict = {}
@@ -94,6 +100,9 @@ class NominaDashboardState(NominaBaseState):
         self.resumen_periodo = {}
         self.desglose_isr = 0.0
         self.desglose_imss = 0.0
+        self.empleados_periodo_catalogo = []
+        self.movimientos_periodo = {}
+        self.permisos_periodo = 0
         self.top_empleados = []
         self.empleados_con_incidencias = []
         self.periodo_anterior = {}
@@ -127,6 +136,16 @@ class NominaDashboardState(NominaBaseState):
         return len(self.contratos_nomina_opciones) > 0
 
     @rx.var
+    def contrato_activo_label(self) -> str:
+        contrato_id = str(self.filtro_contrato_nomina_id or "")
+        if not contrato_id:
+            return "Sin contrato seleccionado"
+        for contrato in self.contratos_nomina_opciones:
+            if str(contrato.get("value") or "") == contrato_id:
+                return str(contrato.get("label") or "Sin contrato seleccionado")
+        return "Sin contrato seleccionado"
+
+    @rx.var
     def tiene_resumen_operativo(self) -> bool:
         return bool(self.resumen_operativo_actual)
 
@@ -142,7 +161,27 @@ class NominaDashboardState(NominaBaseState):
     def valor_activos_card(self) -> str:
         if not self.metricas_contrato_disponibles:
             return "Sin configurar"
-        return f"{self.activos} / {self.total_plazas}"
+        return f"{self.activos_plantilla} / {self.total_plazas}"
+
+    @rx.var
+    def activos_plantilla(self) -> int:
+        if self.tiene_resumen:
+            return self.total_empleados_kpi
+        return self.activos
+
+    @rx.var
+    def cobertura_plazas_pct(self) -> int:
+        if self.total_plazas <= 0:
+            return 0
+        return round((self.activos_plantilla / self.total_plazas) * 100)
+
+    @rx.var
+    def cobertura_plazas_width(self) -> str:
+        return f"{self.cobertura_plazas_pct}%"
+
+    @rx.var
+    def cobertura_plazas_hint(self) -> str:
+        return f"{self.cobertura_plazas_pct}% cobertura"
 
     @rx.var
     def valor_inasistencias_card(self) -> str:
@@ -189,6 +228,16 @@ class NominaDashboardState(NominaBaseState):
         return float(self.resumen_periodo.get("total_neto") or 0)
 
     @rx.var
+    def total_neto_kpi_fmt(self) -> str:
+        return formatear_moneda(f"{self.total_neto_kpi:.2f}")
+
+    @rx.var
+    def neto_a_dispersar_display(self) -> str:
+        if self.periodo_estatus_actual == "BORRADOR" and self.total_neto_kpi <= 0:
+            return "—"
+        return self.total_neto_kpi_fmt
+
+    @rx.var
     def total_retenciones_isr(self) -> float:
         return self.desglose_isr
 
@@ -199,6 +248,23 @@ class NominaDashboardState(NominaBaseState):
     @rx.var
     def total_empleados_kpi(self) -> int:
         return int(self.resumen_periodo.get("total_empleados") or len(self.top_empleados) or 0)
+
+    @rx.var
+    def total_empleados_anterior(self) -> int:
+        return int(self.periodo_anterior.get("total_empleados") or 0)
+
+    @rx.var
+    def delta_empleados(self) -> int:
+        return self.total_empleados_kpi - self.total_empleados_anterior
+
+    @rx.var
+    def delta_empleados_label(self) -> str:
+        delta = self.delta_empleados
+        if delta == 0:
+            return "Sin cambio"
+        if delta > 0:
+            return f"+{delta} vs anterior"
+        return f"{delta} vs anterior"
 
     @rx.var
     def neto_anterior(self) -> float:
@@ -217,6 +283,201 @@ class NominaDashboardState(NominaBaseState):
     @rx.var
     def variacion_es_aumento(self) -> bool:
         return self.variacion_neto_monto > 0
+
+    @rx.var
+    def delta_neto_label(self) -> str:
+        delta = self.variacion_neto_monto
+        if delta == 0:
+            return "Sin cambio vs anterior"
+        monto = formatear_moneda(f"{abs(delta):.2f}")
+        prefijo = "+" if delta > 0 else "-"
+        return f"{prefijo}{monto} vs anterior"
+
+    @rx.var
+    def referencia_periodo_anterior_label(self) -> str:
+        nombre = str(self.periodo_anterior.get("nombre") or "").strip()
+        if not nombre:
+            return ""
+        return f"Comparado contra {nombre}"
+
+    @rx.var
+    def categorias_plantilla(self) -> list[dict]:
+        conteos: dict[int, int] = {}
+        for empleado in self.empleados_periodo_catalogo:
+            categoria_id = int(empleado.get("categoria_puesto_id") or 0)
+            if categoria_id <= 0:
+                continue
+            conteos[categoria_id] = conteos.get(categoria_id, 0) + 1
+
+        if self.categorias_contrato_catalogo:
+            return [
+                {
+                    "id": categoria["id"],
+                    "label": categoria["label"],
+                    "valor": conteos.get(int(categoria["id"]), 0),
+                }
+                for categoria in self.categorias_contrato_catalogo
+            ]
+
+        agregados: dict[str, int] = {}
+        for empleado in self.empleados_periodo_catalogo:
+            nombre = str(empleado.get("categoria_nombre") or "").strip() or "Sin categoría"
+            agregados[nombre] = agregados.get(nombre, 0) + 1
+        return [
+            {"id": nombre, "label": nombre, "valor": total}
+            for nombre, total in agregados.items()
+        ]
+
+    @rx.var
+    def total_transferencia_empleados(self) -> int:
+        return len(
+            [
+                emp
+                for emp in self.empleados_periodo_catalogo
+                if str(emp.get("clabe_destino") or "").strip()
+                or str(emp.get("banco_destino") or "").strip()
+            ]
+        )
+
+    @rx.var
+    def monto_transferencia_total(self) -> float:
+        return round(
+            sum(
+                float(emp.get("total_neto") or 0)
+                for emp in self.empleados_periodo_catalogo
+                if str(emp.get("clabe_destino") or "").strip()
+                or str(emp.get("banco_destino") or "").strip()
+            ),
+            2,
+        )
+
+    @rx.var
+    def monto_transferencia_total_fmt(self) -> str:
+        return formatear_moneda(f"{self.monto_transferencia_total:.2f}")
+
+    @rx.var
+    def total_efectivo_empleados(self) -> int:
+        return max(self.total_empleados_kpi - self.total_transferencia_empleados, 0)
+
+    @rx.var
+    def monto_efectivo_total(self) -> float:
+        return round(
+            sum(
+                float(emp.get("total_neto") or 0)
+                for emp in self.empleados_periodo_catalogo
+                if not (
+                    str(emp.get("clabe_destino") or "").strip()
+                    or str(emp.get("banco_destino") or "").strip()
+                )
+            ),
+            2,
+        )
+
+    @rx.var
+    def monto_efectivo_total_fmt(self) -> str:
+        return formatear_moneda(f"{self.monto_efectivo_total:.2f}")
+
+    @rx.var
+    def altas_periodo(self) -> int:
+        return int(self.movimientos_periodo.get("altas") or 0)
+
+    @rx.var
+    def bajas_periodo(self) -> int:
+        return int(self.movimientos_periodo.get("bajas") or 0)
+
+    @rx.var
+    def total_movimientos_periodo(self) -> int:
+        return int(self.movimientos_periodo.get("total") or 0)
+
+    @rx.var
+    def hint_movimientos_periodo(self) -> str:
+        return f"{self.altas_periodo} altas · {self.bajas_periodo} bajas"
+
+    @rx.var
+    def total_faltas_periodo(self) -> int:
+        return int(
+            sum(int(emp.get("dias_faltas") or 0) for emp in self.empleados_periodo_catalogo)
+        )
+
+    @rx.var
+    def empleados_con_faltas_periodo(self) -> int:
+        return len(
+            [
+                emp
+                for emp in self.empleados_periodo_catalogo
+                if int(emp.get("dias_faltas") or 0) > 0
+            ]
+        )
+
+    @rx.var
+    def hint_faltas_periodo(self) -> str:
+        empleados = self.empleados_con_faltas_periodo
+        if empleados <= 0:
+            return ""
+        return f"{empleados} empleado(s)"
+
+    @rx.var
+    def total_incapacidades_dias(self) -> int:
+        return int(
+            sum(
+                int(emp.get("dias_incapacidad") or 0)
+                for emp in self.empleados_periodo_catalogo
+            )
+        )
+
+    @rx.var
+    def empleados_con_incapacidades_periodo(self) -> int:
+        return len(
+            [
+                emp
+                for emp in self.empleados_periodo_catalogo
+                if int(emp.get("dias_incapacidad") or 0) > 0
+            ]
+        )
+
+    @rx.var
+    def hint_incapacidades_periodo(self) -> str:
+        empleados = self.empleados_con_incapacidades_periodo
+        dias = self.total_incapacidades_dias
+        if empleados <= 0 or dias <= 0:
+            return ""
+        sufijo = "s" if empleados != 1 else ""
+        return f"{empleados} empleado{sufijo} · {dias} día(s)"
+
+    @rx.var
+    def total_horas_extra_periodo(self) -> float:
+        return round(
+            sum(
+                float(emp.get("horas_extra_dobles") or 0)
+                + float(emp.get("horas_extra_triples") or 0)
+                for emp in self.empleados_periodo_catalogo
+            ),
+            2,
+        )
+
+    @rx.var
+    def empleados_con_horas_extra_periodo(self) -> int:
+        return len(
+            [
+                emp
+                for emp in self.empleados_periodo_catalogo
+                if (
+                    float(emp.get("horas_extra_dobles") or 0)
+                    + float(emp.get("horas_extra_triples") or 0)
+                ) > 0
+            ]
+        )
+
+    @rx.var
+    def hint_horas_extra_periodo(self) -> str:
+        empleados = self.empleados_con_horas_extra_periodo
+        if empleados <= 0:
+            return ""
+        return f"{empleados} empleado(s)"
+
+    @rx.var
+    def total_permisos_periodo(self) -> int:
+        return int(self.permisos_periodo or 0)
 
     @rx.var
     def tiene_comparativo(self) -> bool:
@@ -242,6 +503,10 @@ class NominaDashboardState(NominaBaseState):
     def periodo_estatus_actual(self) -> str:
         return str(self.resumen_periodo.get("estatus") or "")
 
+    @rx.var
+    def periodo_actual_header_label(self) -> str:
+        return str(self.resumen_periodo.get("nombre") or "Sin período seleccionado")
+
     async def on_mount_dashboard(self):
         resultado = await self.validar_contexto_nomina()
         if resultado:
@@ -262,13 +527,14 @@ class NominaDashboardState(NominaBaseState):
         finally:
             self.loading = False
 
-    async def seleccionar_periodo(self, periodo_id: str):
-        if not periodo_id:
+    async def seleccionar_periodo(self, periodo_id: object):
+        periodo_id_str = str(periodo_id or "").strip()
+        if not periodo_id_str:
             self._limpiar_resumen_financiero()
             return
 
-        self.periodo_seleccionado_id = periodo_id
-        await self._cargar_datos_periodo(int(periodo_id))
+        self.periodo_seleccionado_id = periodo_id_str
+        await self._cargar_datos_periodo(int(periodo_id_str))
 
     async def _cargar_dashboard(self):
         self.loading = True
@@ -317,7 +583,20 @@ class NominaDashboardState(NominaBaseState):
             self.resumen_periodo = dict(periodo or {})
 
             empleados_periodo = await nomina_periodo_service.obtener_empleados_periodo(periodo_id)
+            self.empleados_periodo_catalogo = empleados_periodo
             self.resumen_periodo["total_empleados"] = len(empleados_periodo)
+            self.movimientos_periodo = await nomina_periodo_service.obtener_movimientos_periodo(
+                self.id_empresa_actual,
+                contrato_id=periodo.get("contrato_id"),
+                fecha_inicio=str(periodo.get("fecha_inicio") or ""),
+                fecha_fin=str(periodo.get("fecha_fin") or ""),
+            )
+            self.permisos_periodo = await nomina_periodo_service.contar_permisos_periodo(
+                self.id_empresa_actual,
+                contrato_id=periodo.get("contrato_id"),
+                fecha_inicio=str(periodo.get("fecha_inicio") or ""),
+                fecha_fin=str(periodo.get("fecha_fin") or ""),
+            )
 
             await self._cargar_desglose_conceptos(periodo_id)
 
@@ -374,6 +653,30 @@ class NominaDashboardState(NominaBaseState):
                 contrato_id=contrato_id,
             )
         )
+        await self._cargar_categorias_contrato(contrato_id)
+
+    async def _cargar_categorias_contrato(self, contrato_id: Optional[int]) -> None:
+        if contrato_id is None:
+            self.categorias_contrato_catalogo = []
+            return
+        try:
+            categorias = await contrato_categoria_service.obtener_resumen_de_contrato(
+                int(contrato_id)
+            )
+            self.categorias_contrato_catalogo = [
+                {
+                    "id": str(categoria.categoria_puesto_id),
+                    "label": str(categoria.categoria_nombre or "Sin categoría"),
+                }
+                for categoria in categorias
+            ]
+        except Exception as e:
+            logger.warning(
+                "No se pudieron cargar categorías del contrato %s: %s",
+                contrato_id,
+                e,
+            )
+            self.categorias_contrato_catalogo = []
 
     async def _cargar_desglose_conceptos(self, periodo_id: int) -> None:
         """Suma ISR e IMSS filtrando movimientos por clave de concepto."""

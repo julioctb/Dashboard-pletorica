@@ -278,7 +278,7 @@ class NominaPeriodoService:
             self.supabase.table("plazas")
             .select(
                 "id, empleado_id, salario_mensual, fecha_inicio, sede_id, "
-                "tipo_jornada, factor_jornada"
+                "tipo_jornada, factor_jornada, categoria_puesto_id"
             )
             .in_("contrato_id", contrato_ids)
             .eq("estatus", EstatusPlaza.OCUPADA.value)
@@ -318,6 +318,7 @@ class NominaPeriodoService:
             snapshot_por_empleado[int(empleado_id)] = {
                 "plaza_id": item.get("id"),
                 "sede_id": item.get("sede_id"),
+                "categoria_puesto_id": item.get("categoria_puesto_id"),
                 "salario_diario": self._salario_diario_desde_mensual(
                     item.get("salario_mensual")
                 ),
@@ -364,7 +365,13 @@ class NominaPeriodoService:
             for snapshot in plaza_por_empleado.values()
             if snapshot.get("sede_id") is not None
         }
+        categoria_ids = {
+            int(snapshot.get("categoria_puesto_id"))
+            for snapshot in plaza_por_empleado.values()
+            if snapshot.get("categoria_puesto_id") is not None
+        }
         sedes_map: dict[int, str] = {}
+        categorias_map: dict[int, str] = {}
         if sede_ids:
             try:
                 sedes_result = (
@@ -388,6 +395,26 @@ class NominaPeriodoService:
                     periodo_id,
                     exc,
                 )
+        if categoria_ids:
+            try:
+                categorias_result = (
+                    self.supabase.table("categorias_puesto")
+                    .select("id, nombre")
+                    .in_("id", list(categoria_ids))
+                    .execute()
+                )
+                categorias_map = {
+                    int(categoria.get("id")): str(categoria.get("nombre") or "").strip()
+                    or "Sin categoría"
+                    for categoria in (categorias_result.data or [])
+                    if categoria.get("id") is not None
+                }
+            except Exception as exc:
+                logger.warning(
+                    "No se pudo resolver la categoría de plazas del período %s: %s",
+                    periodo_id,
+                    exc,
+                )
 
         result = (
             self.supabase.table(self.tabla_nom_emp)
@@ -405,10 +432,17 @@ class NominaPeriodoService:
             r['clave_empleado'] = emp.get('clave', '')
             snapshot_plaza = plaza_por_empleado.get(int(r.get("empleado_id") or 0), {})
             sede_id = snapshot_plaza.get("sede_id")
+            categoria_puesto_id = snapshot_plaza.get("categoria_puesto_id")
             r["sede_nombre"] = (
                 sedes_map.get(int(sede_id), "SIN SEDE")
                 if sede_id is not None
                 else "SIN SEDE"
+            )
+            r["categoria_puesto_id"] = int(categoria_puesto_id or 0)
+            r["categoria_nombre"] = (
+                categorias_map.get(int(categoria_puesto_id), "Sin categoría")
+                if categoria_puesto_id is not None
+                else "Sin categoría"
             )
             r["dias_trabajados_ui"] = self._dias_trabajados_ui_periodo(
                 periodo.get("periodicidad"),
@@ -1766,6 +1800,102 @@ class NominaPeriodoService:
         except Exception as e:
             logger.error(f"Error obteniendo empleados del período {periodo_id}: {e}")
             raise DatabaseError(f"Error obteniendo empleados del período: {e}")
+
+    async def obtener_movimientos_periodo(
+        self,
+        empresa_id: int,
+        *,
+        contrato_id: Optional[int],
+        fecha_inicio: str,
+        fecha_fin: str,
+    ) -> dict:
+        """Cuenta altas y bajas del período para el contrato seleccionado."""
+        resumen = {"altas": 0, "bajas": 0, "total": 0}
+        if contrato_id is None or not fecha_inicio or not fecha_fin:
+            return resumen
+
+        try:
+            plazas_result = (
+                self.supabase.table("plazas")
+                .select("id")
+                .eq("contrato_id", int(contrato_id))
+                .execute()
+            )
+            plaza_ids = [
+                int(item["id"])
+                for item in (plazas_result.data or [])
+                if item.get("id") is not None
+            ]
+
+            altas = 0
+            if plaza_ids:
+                altas_result = (
+                    self.supabase.table("historial_laboral")
+                    .select("id", count="exact")
+                    .in_("plaza_id", plaza_ids)
+                    .in_("tipo_movimiento", ["ALTA", "REINGRESO"])
+                    .gte("fecha_inicio", fecha_inicio)
+                    .lte("fecha_inicio", fecha_fin)
+                    .execute()
+                )
+                altas = int(altas_result.count or 0)
+
+            bajas_result = (
+                self.supabase.table("bajas_empleado")
+                .select("id", count="exact")
+                .eq("empresa_id", empresa_id)
+                .eq("contrato_id_origen", int(contrato_id))
+                .gte("fecha_efectiva", fecha_inicio)
+                .lte("fecha_efectiva", fecha_fin)
+                .execute()
+            )
+            bajas = int(bajas_result.count or 0)
+            resumen["altas"] = altas
+            resumen["bajas"] = bajas
+            resumen["total"] = altas + bajas
+            return resumen
+        except Exception as exc:
+            logger.warning(
+                "No se pudieron calcular movimientos del período (%s, contrato %s): %s",
+                empresa_id,
+                contrato_id,
+                exc,
+            )
+            return resumen
+
+    async def contar_permisos_periodo(
+        self,
+        empresa_id: int,
+        *,
+        contrato_id: Optional[int],
+        fecha_inicio: str,
+        fecha_fin: str,
+    ) -> int:
+        """Cuenta permisos con y sin goce dentro del rango del período."""
+        if not fecha_inicio or not fecha_fin:
+            return 0
+
+        try:
+            query = (
+                self.supabase.table("registros_asistencia")
+                .select("id", count="exact")
+                .eq("empresa_id", empresa_id)
+                .in_("tipo_registro", ["PERMISO_CON_GOCE", "PERMISO_SIN_GOCE"])
+                .gte("fecha", fecha_inicio)
+                .lte("fecha", fecha_fin)
+            )
+            if contrato_id is not None:
+                query = query.eq("contrato_id", int(contrato_id))
+            result = query.execute()
+            return int(result.count or 0)
+        except Exception as exc:
+            logger.warning(
+                "No se pudieron contar permisos del período (%s, contrato %s): %s",
+                empresa_id,
+                contrato_id,
+                exc,
+            )
+            return 0
 
     async def obtener_resumen_operativo_actual(
         self,

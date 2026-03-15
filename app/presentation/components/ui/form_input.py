@@ -3,14 +3,19 @@ import reflex as rx
 from typing import Any
 from reflex.vars.base import Var, var_operation, var_operation_return
 
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Typography
 
 
 # =============================================================================
 # HELPERS INTERNOS
 # =============================================================================
 
-def _render_label(label: str, required: Any = False, error: Any = None) -> rx.Component:
+def _render_label(
+    label: str,
+    required: Any = False,
+    error: Any = None,
+    label_variant: str = "default",
+) -> rx.Component:
     """Renderiza label encima del input. Cambia a rojo si hay error."""
     if not label:
         return rx.fragment()
@@ -28,16 +33,32 @@ def _render_label(label: str, required: Any = False, error: Any = None) -> rx.Co
             )
         )
 
-    color = "var(--gray-11)"
+    base_color = Colors.TEXT_SECONDARY if label_variant == "wizard" else "var(--gray-11)"
+    color = base_color
     if error is not None:
-        color = rx.cond(error != "", "var(--red-9)", "var(--gray-11)")
+        color = rx.cond(error != "", "var(--red-9)", base_color)
 
-    return rx.text(
-        *parts,
-        size="2",
-        weight="medium",
-        color=color,
-    )
+    label_props = {
+        "color": color,
+    }
+    if label_variant == "wizard":
+        label_props.update(
+            {
+                "font_size": "11px",
+                "font_weight": Typography.WEIGHT_MEDIUM,
+                "text_transform": "uppercase",
+                "letter_spacing": "0.04em",
+            }
+        )
+    else:
+        label_props.update(
+            {
+                "size": "2",
+                "weight": "medium",
+            }
+        )
+
+    return rx.text(*parts, **label_props)
 
 
 def _render_footer(error: Any = None, hint: Any = "") -> rx.Component:
@@ -127,6 +148,7 @@ def form_field(
     error: Any = None,
     hint: Any = "",
     spacing: str = "1",
+    label_variant: str = "default",
     **layout_props,
 ) -> rx.Component:
     """Wrapper base para campos con label, control y footer consistente."""
@@ -137,7 +159,7 @@ def form_field(
         **layout_props,
     }
     return rx.vstack(
-        _render_label(label, required, error),
+        _render_label(label, required, error, label_variant=label_variant),
         control,
         _render_footer(error, hint),
         **props,
@@ -153,6 +175,7 @@ def form_input(
     label: str = "",
     required: Any = False,
     hint: Any = "",
+    label_variant: str = "default",
     **props
 ) -> rx.Component:
     """
@@ -184,6 +207,7 @@ def form_input(
         required=required,
         error=error,
         hint=hint,
+        label_variant=label_variant,
     )
 
 
@@ -198,6 +222,7 @@ def form_textarea(
     label: str = "",
     required: Any = False,
     hint: Any = "",
+    label_variant: str = "default",
     **props
 ) -> rx.Component:
     """
@@ -230,6 +255,7 @@ def form_textarea(
         required=required,
         error=error,
         hint=hint,
+        label_variant=label_variant,
     )
 
 
@@ -242,6 +268,7 @@ def form_select(
     label: str = "",
     required: Any = False,
     hint: Any = "",
+    label_variant: str = "default",
     **props
 ) -> rx.Component:
     """
@@ -272,6 +299,7 @@ def form_select(
         required=required,
         error=error,
         hint=hint,
+        label_variant=label_variant,
     )
 
 
@@ -324,6 +352,7 @@ def form_date(
     error: Any = None,
     required: Any = False,
     hint: Any = "",
+    label_variant: str = "default",
     **props
 ) -> rx.Component:
     """
@@ -357,6 +386,7 @@ def form_date(
         required=required,
         error=effective_error,
         hint=hint,
+        label_variant=label_variant,
     )
 
 
@@ -388,6 +418,31 @@ def filter_date_input(
             visibility=rx.cond(inline_error != "", "visible", "hidden"),
         ),
         spacing="1",
+    )
+
+
+def compact_date_input(
+    value: Any = "",
+    on_change: callable = None,
+    placeholder: str = "DD/MM/AAAA",
+    width: str = "140px",
+    error: Any = None,
+    **props,
+) -> rx.Component:
+    """Campo de fecha compacto sin label para toolbars y filtros densos."""
+    inline_error = _date_inline_error_var(value)
+    effective_error = (
+        rx.cond(inline_error != "", inline_error, error)
+        if error is not None
+        else inline_error
+    )
+    return _date_control(
+        placeholder=placeholder,
+        value=value,
+        on_change=on_change,
+        error=effective_error,
+        width=width,
+        **props,
     )
 
 

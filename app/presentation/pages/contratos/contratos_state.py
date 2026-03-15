@@ -264,6 +264,7 @@ class ContratosState(AuthState, CRUDStateMixin):
     form_entregable_requerido: bool = True
     form_entregable_descripcion: str = ""
     form_entregable_instrucciones: str = ""
+    mostrar_form_agregar_entregable: bool = False
 
     # ========================
     # ERRORES DE VALIDACIÓN
@@ -569,6 +570,12 @@ class ContratosState(AuthState, CRUDStateMixin):
 
     def set_form_entregable_instrucciones(self, value):
         self.form_entregable_instrucciones = value if value else ""
+
+    def mostrar_form_entregable(self):
+        self.mostrar_form_agregar_entregable = True
+
+    def ocultar_form_entregable(self):
+        self._limpiar_form_entregable()
 
     # --- Formulario: setters con lógica de negocio (mantener explícitos) ---
     def set_form_tipo_contrato(self, value):
@@ -2324,6 +2331,7 @@ class ContratosState(AuthState, CRUDStateMixin):
         self.form_entregable_requerido = True
         self.form_entregable_descripcion = ""
         self.form_entregable_instrucciones = ""
+        self.mostrar_form_agregar_entregable = False
 
     # ========================
     # HELPERS

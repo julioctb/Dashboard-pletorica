@@ -14,6 +14,7 @@ from app.presentation.components.ui import (
     table_shell,
 )
 from app.presentation.pages.contratos.contratos_state import ContratosState
+from app.presentation.pages.contratos.contrato_detail_sections import contrato_detail_info_sections
 from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 
@@ -45,9 +46,9 @@ def _tarjeta_paso(
 def _indicador_pasos() -> rx.Component:
     """Indicador compacto del wizard de contratos."""
 
-    def _paso(numero: int, titulo: str) -> rx.Component:
-        es_activo = ContratosState.form_paso_actual >= numero
+    def _paso(numero: int) -> rx.Component:
         es_actual = ContratosState.form_paso_actual == numero
+        es_completado = ContratosState.form_paso_actual > numero
         es_navegable = rx.match(
             numero,
             (1, True),
@@ -57,89 +58,76 @@ def _indicador_pasos() -> rx.Component:
         )
         on_click_paso = ContratosState.set_form_paso_actual(numero)
 
-        return rx.hstack(
-            rx.center(
-                rx.text(
-                    str(numero),
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_BOLD,
-                ),
-                width="32px",
-                height="32px",
-                border_radius="999px",
-                background=rx.cond(es_activo, Colors.PRIMARY, Colors.SECONDARY_LIGHT),
-                color=rx.cond(es_activo, Colors.TEXT_INVERSE, Colors.TEXT_SECONDARY),
-                border=f"1px solid {Colors.BORDER}",
-                cursor=rx.cond(es_navegable, "pointer", "not-allowed"),
-                flex_shrink="0",
-                opacity=rx.cond(es_navegable, "1", "0.55"),
-                pointer_events=rx.cond(es_navegable, "auto", "none"),
-                on_click=on_click_paso,
-            ),
+        return rx.center(
             rx.text(
-                titulo,
-                size="2",
-                weight=rx.cond(es_actual, "bold", "medium"),
-                color=rx.cond(es_activo, Colors.TEXT_PRIMARY, Colors.TEXT_MUTED),
-                cursor=rx.cond(es_navegable, "pointer", "not-allowed"),
-                user_select="none",
-                transition="color 0.2s ease",
-                opacity=rx.cond(es_navegable, "1", "0.6"),
-                pointer_events=rx.cond(es_navegable, "auto", "none"),
-                _hover={
-                    "color": rx.cond(es_activo, Colors.PRIMARY_HOVER, Colors.TEXT_PRIMARY),
-                },
-                on_click=on_click_paso,
+                str(numero),
+                font_size=Typography.SIZE_XS,
+                font_weight=Typography.WEIGHT_SEMIBOLD,
             ),
-            spacing="2",
-            align="center",
+            width="28px",
+            height="28px",
+            border_radius="999px",
+            background=rx.cond(
+                es_actual,
+                Colors.PRIMARY,
+                rx.cond(es_completado, Colors.PRIMARY_LIGHTER, Colors.SURFACE),
+            ),
+            color=rx.cond(
+                es_actual,
+                Colors.TEXT_INVERSE,
+                rx.cond(es_completado, Colors.PRIMARY, Colors.TEXT_SECONDARY),
+            ),
+            border=rx.cond(
+                es_actual,
+                f"1px solid {Colors.PRIMARY}",
+                rx.cond(
+                    es_completado,
+                    f"1px solid {Colors.PRIMARY_LIGHT}",
+                    f"1px solid {Colors.BORDER}",
+                ),
+            ),
+            cursor=rx.cond(es_navegable, "pointer", "not-allowed"),
+            flex_shrink="0",
+            opacity=rx.cond(es_navegable, "1", "0.55"),
+            pointer_events=rx.cond(es_navegable, "auto", "none"),
+            transition="all 180ms ease",
+            on_click=on_click_paso,
         )
 
-    def _conector() -> rx.Component:
+    def _conector(activo: rx.Var | bool = False) -> rx.Component:
         return rx.box(
-            flex="1",
-            min_width="24px",
+            width="32px",
             height="1px",
-            background=Colors.BORDER,
+            background=rx.cond(activo, Colors.PRIMARY_LIGHT, Colors.BORDER),
+            flex_shrink="0",
         )
 
-    pasos_uno = rx.hstack(
-        _paso(1, "Datos"),
-        width="100%",
-        justify="center",
-        align="center",
-    )
+    pasos_uno = rx.hstack(_paso(1), spacing="0", align="center")
 
     pasos_dos = rx.hstack(
-        _paso(1, "Datos"),
-        _conector(),
-        _paso(2, "Plazas"),
-        width="100%",
-        justify="center",
+        _paso(1),
+        _conector(ContratosState.form_paso_actual >= 2),
+        _paso(2),
         align="center",
-        spacing="3",
+        spacing="2",
     )
 
     pasos_dos_sin_plazas = rx.hstack(
-        _paso(1, "Datos"),
-        _conector(),
-        _paso(2, "Entregables"),
-        width="100%",
-        justify="center",
+        _paso(1),
+        _conector(ContratosState.form_paso_actual >= 2),
+        _paso(2),
         align="center",
-        spacing="3",
+        spacing="2",
     )
 
     pasos_tres = rx.hstack(
-        _paso(1, "Datos"),
-        _conector(),
-        _paso(2, "Plazas"),
-        _conector(),
-        _paso(3, "Entregables"),
-        width="100%",
-        justify="center",
+        _paso(1),
+        _conector(ContratosState.form_paso_actual >= 2),
+        _paso(2),
+        _conector(ContratosState.form_paso_actual >= 3),
+        _paso(3),
         align="center",
-        spacing="3",
+        spacing="2",
     )
 
     return rx.box(
@@ -148,8 +136,8 @@ def _indicador_pasos() -> rx.Component:
             rx.cond(ContratosState.mostrar_paso_entregables, pasos_tres, pasos_dos),
             rx.cond(ContratosState.mostrar_paso_entregables, pasos_dos_sin_plazas, pasos_uno),
         ),
-        width="100%",
-        padding_y=Spacing.XS,
+        width="auto",
+        flex_shrink="0",
     )
 
 
@@ -160,6 +148,7 @@ def _paso_contrato() -> rx.Component:
         form_input(
             label="Empresa",
             required=True,
+            label_variant="wizard",
             value=ContratosState.nombre_empresa_formulario,
             error=ContratosState.error_empresa_id,
             hint="Se usa la empresa precargada para este contrato.",
@@ -168,6 +157,7 @@ def _paso_contrato() -> rx.Component:
         form_select(
             label="Empresa",
             required=True,
+            label_variant="wizard",
             placeholder="Seleccione empresa",
             value=ContratosState.form_empresa_id,
             on_change=ContratosState.set_form_empresa_id,
@@ -179,6 +169,7 @@ def _paso_contrato() -> rx.Component:
     def _campo_folio() -> rx.Component:
         return form_input(
             label="Folio institución",
+            label_variant="wizard",
             placeholder="Ej: INST-2026-001",
             value=ContratosState.form_folio_buap,
             on_change=ContratosState.set_form_folio_buap,
@@ -226,6 +217,7 @@ def _paso_contrato() -> rx.Component:
                 form_select(
                     label="Tipo de contrato",
                     required=True,
+                    label_variant="wizard",
                     placeholder="Seleccione tipo",
                     value=ContratosState.form_tipo_contrato,
                     on_change=ContratosState.set_form_tipo_contrato,
@@ -248,6 +240,7 @@ def _paso_contrato() -> rx.Component:
                         form_select(
                             label="Tipo de servicio",
                             required=True,
+                            label_variant="wizard",
                             placeholder="Seleccione tipo de servicio",
                             value=ContratosState.form_tipo_servicio_id,
                             on_change=ContratosState.set_form_tipo_servicio_id,
@@ -268,6 +261,7 @@ def _paso_contrato() -> rx.Component:
             ),
             form_textarea(
                 label="Objeto del contrato",
+                label_variant="wizard",
                 placeholder="Ej: Servicio integral de limpieza en instalaciones administrativas.",
                 value=ContratosState.form_descripcion_objeto,
                 on_change=ContratosState.set_form_descripcion_objeto,
@@ -284,6 +278,7 @@ def _paso_contrato() -> rx.Component:
                 form_date(
                     label="Fecha de inicio",
                     required=True,
+                    label_variant="wizard",
                     value=ContratosState.form_fecha_inicio,
                     on_change=ContratosState.set_form_fecha_inicio,
                     on_blur=ContratosState.validar_fecha_inicio_campo,
@@ -291,6 +286,7 @@ def _paso_contrato() -> rx.Component:
                 ),
                 form_date(
                     label="Fecha fin",
+                    label_variant="wizard",
                     value=ContratosState.form_fecha_fin,
                     on_change=ContratosState.set_form_fecha_fin,
                     on_blur=ContratosState.validar_fecha_fin_campo,
@@ -313,375 +309,706 @@ def _paso_plazas() -> rx.Component:
     totales_bloqueados = ContratosState.usa_desglose_categorias_plazas
     puede_configurar_desglose = plazas_habilitadas & (ContratosState.form_tipo_servicio_id != "")
 
-    return _tarjeta_paso(
-        "Plazas",
-        "Defina el rango total de plazas o desglose el personal por categoría.",
+    def _label_campo(texto: str, *, required: bool = False) -> rx.Component:
+        return rx.hstack(
+            rx.text(
+                texto,
+                font_size="11px",
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_SECONDARY,
+                text_transform="uppercase",
+                letter_spacing="0.04em",
+            ),
+            rx.cond(
+                required,
+                rx.text("*", font_size="11px", color="var(--red-9)", weight="medium"),
+                rx.fragment(),
+            ),
+            spacing="1",
+            align="center",
+            width="100%",
+        )
+
+    def _campo_shell(
+        titulo: str,
+        control: rx.Component,
+        *,
+        required: bool = False,
+        width: str = "100%",
+    ) -> rx.Component:
+        return rx.vstack(
+            _label_campo(titulo, required=required),
+            control,
+            spacing="1",
+            align="stretch",
+            width=width,
+        )
+
+    def _seccion_shell(
+        titulo: str,
+        descripcion: str,
+        contenido: rx.Component,
+        *,
+        action: rx.Component | None = None,
+    ) -> rx.Component:
+        return rx.box(
+            rx.vstack(
+                rx.hstack(
+                    rx.vstack(
+                        rx.text(
+                            titulo,
+                            size="3",
+                            weight="medium",
+                            color=Colors.TEXT_PRIMARY,
+                            letter_spacing=Typography.LETTER_SPACING_TIGHT,
+                        ),
+                        rx.text(
+                            descripcion,
+                            font_size=Typography.SIZE_XS,
+                            color=Colors.TEXT_MUTED,
+                        ),
+                        spacing="1",
+                        align="start",
+                        width="100%",
+                    ),
+                    rx.spacer(),
+                    action if action is not None else rx.fragment(),
+                    width="100%",
+                    align="center",
+                ),
+                contenido,
+                spacing="3",
+                width="100%",
+                align="stretch",
+            ),
+            width="100%",
+            padding=Spacing.BASE,
+            border=f"1px solid {Colors.BORDER}",
+            border_radius=Radius.LG,
+            background=Colors.SURFACE,
+        )
+
+    def _dato_resumen(titulo: str, valor: rx.Var | str) -> rx.Component:
+        return rx.vstack(
+            rx.text(
+                titulo,
+                font_size="10px",
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_MUTED,
+                text_transform="uppercase",
+                letter_spacing="0.04em",
+            ),
+            rx.text(
+                valor,
+                font_size=Typography.SIZE_XL,
+                font_weight=Typography.WEIGHT_SEMIBOLD,
+                color=Colors.TEXT_PRIMARY,
+                letter_spacing=Typography.LETTER_SPACING_TIGHT,
+                style={"fontVariantNumeric": "tabular-nums"},
+            ),
+            spacing="0",
+            align="start",
+            width="100%",
+            min_width="0",
+        )
+
+    resumen_compacto = rx.box(
         rx.vstack(
-            feedback_callout(
-                rx.cond(
-                    plazas_habilitadas,
-                    "Puede usar un rango global o un desglose por categoría. Si agrega categorías, los totales y montos del contrato se calculan automáticamente.",
-                    "Este contrato no generará plazas mientras 'Incluye personal' esté desactivado.",
-                ),
-                "info",
+            rx.text(
+                "Resumen",
+                size="2",
+                weight="medium",
+                color=Colors.TEXT_PRIMARY,
+                letter_spacing=Typography.LETTER_SPACING_TIGHT,
             ),
             rx.hstack(
-                rx.card(
-                    rx.vstack(
-                        rx.text("Total mínimo", size="1", color=Colors.TEXT_SECONDARY),
-                        rx.text(
-                            rx.cond(
-                                ContratosState.form_cantidad_plazas_minima != "",
-                                ContratosState.form_cantidad_plazas_minima,
-                                "0",
-                            ),
-                            size="6",
-                            weight="bold",
-                            color=Colors.TEXT_PRIMARY,
+                rx.box(
+                    _dato_resumen(
+                        "Plazas mínimas",
+                        rx.cond(
+                            ContratosState.form_cantidad_plazas_minima != "",
+                            ContratosState.form_cantidad_plazas_minima,
+                            "0",
                         ),
-                        rx.text(
-                            rx.cond(
-                                totales_bloqueados,
-                                "Derivado del desglose por categoría",
-                                "Configuración global del contrato",
-                            ),
-                            size="1",
-                            color=Colors.TEXT_MUTED,
-                        ),
-                        spacing="1",
-                        align="start",
                     ),
-                    width="100%",
-                    variant="surface",
+                    flex="1",
+                    min_width="0",
                 ),
-                rx.card(
-                    rx.vstack(
-                        rx.text("Total máximo", size="1", color=Colors.TEXT_SECONDARY),
-                        rx.text(
-                            rx.cond(
-                                ContratosState.form_cantidad_plazas_maxima != "",
-                                ContratosState.form_cantidad_plazas_maxima,
-                                "0",
-                            ),
-                            size="6",
-                            weight="bold",
-                            color=Colors.TEXT_PRIMARY,
+                rx.box(width="1px", height="32px", background=Colors.BORDER, flex_shrink="0"),
+                rx.box(
+                    _dato_resumen(
+                        "Plazas máximas",
+                        rx.cond(
+                            ContratosState.form_cantidad_plazas_maxima != "",
+                            ContratosState.form_cantidad_plazas_maxima,
+                            "0",
                         ),
-                        rx.text(
-                            "Sincroniza la materialización de plazas vacantes",
-                            size="1",
-                            color=Colors.TEXT_MUTED,
-                        ),
-                        spacing="1",
-                        align="start",
                     ),
-                    width="100%",
-                    variant="surface",
+                    flex="1",
+                    min_width="0",
                 ),
-                spacing="3",
-                width="100%",
-                align="stretch",
-            ),
-            rx.hstack(
-                rx.card(
-                    rx.vstack(
-                        rx.text("Monto mínimo", size="1", color=Colors.TEXT_SECONDARY),
-                        rx.text(
-                            rx.cond(
-                                ContratosState.form_monto_minimo != "",
-                                ContratosState.form_monto_minimo,
-                                "$ 0",
-                            ),
-                            size="5",
-                            weight="bold",
-                            color=Colors.TEXT_PRIMARY,
+                rx.box(width="1px", height="32px", background=Colors.BORDER, flex_shrink="0"),
+                rx.box(
+                    _dato_resumen(
+                        "Monto mínimo",
+                        rx.cond(
+                            ContratosState.form_monto_minimo != "",
+                            ContratosState.form_monto_minimo,
+                            "$ 0",
                         ),
-                        rx.text(
-                            "Suma de costo x plazas mínimas por categoría",
-                            size="1",
-                            color=Colors.TEXT_MUTED,
-                        ),
-                        spacing="1",
-                        align="start",
                     ),
-                    width="100%",
-                    variant="surface",
+                    flex="1",
+                    min_width="0",
                 ),
-                rx.card(
-                    rx.vstack(
-                        rx.text("Monto máximo", size="1", color=Colors.TEXT_SECONDARY),
-                        rx.text(
-                            rx.cond(
-                                ContratosState.form_monto_maximo != "",
-                                ContratosState.form_monto_maximo,
-                                "$ 0",
-                            ),
-                            size="5",
-                            weight="bold",
-                            color=Colors.TEXT_PRIMARY,
+                rx.box(width="1px", height="32px", background=Colors.BORDER, flex_shrink="0"),
+                rx.box(
+                    _dato_resumen(
+                        "Monto máximo",
+                        rx.cond(
+                            ContratosState.form_monto_maximo != "",
+                            ContratosState.form_monto_maximo,
+                            "$ 0",
                         ),
-                        rx.text(
-                            "Suma de costo x plazas máximas por categoría",
-                            size="1",
-                            color=Colors.TEXT_MUTED,
-                        ),
-                        spacing="1",
-                        align="start",
                     ),
-                    width="100%",
-                    variant="surface",
-                ),
-                spacing="3",
-                width="100%",
-                align="stretch",
-            ),
-            rx.hstack(
-                form_input(
-                    label="Plazas mínimas",
-                    required=plazas_habilitadas,
-                    placeholder="0",
-                    value=ContratosState.form_cantidad_plazas_minima,
-                    on_change=ContratosState.set_form_cantidad_plazas_minima,
-                    on_blur=ContratosState.validar_cantidad_plazas_minima_campo,
-                    error=ContratosState.error_cantidad_plazas_minima,
-                    type="number",
-                    min="0",
-                    disabled=(~plazas_habilitadas) | totales_bloqueados,
-                    hint=rx.cond(
-                        totales_bloqueados,
-                        "Se calcula automáticamente desde las categorías capturadas abajo.",
-                        "Capture el total mínimo si no desea desglosarlo por categoría.",
-                    ),
-                ),
-                form_input(
-                    label="Plazas máximas",
-                    required=plazas_habilitadas,
-                    placeholder="0",
-                    value=ContratosState.form_cantidad_plazas_maxima,
-                    on_change=ContratosState.set_form_cantidad_plazas_maxima,
-                    on_blur=ContratosState.validar_cantidad_plazas_maxima_campo,
-                    error=ContratosState.error_cantidad_plazas_maxima,
-                    hint="Debe ser mayor o igual que el mínimo.",
-                    type="number",
-                    min="0",
-                    disabled=(~plazas_habilitadas) | totales_bloqueados,
+                    flex="1",
+                    min_width="0",
                 ),
                 spacing="3",
                 width="100%",
                 align="start",
+                wrap="nowrap",
             ),
-            rx.separator(),
-            rx.vstack(
-                rx.hstack(
+            rx.text(
+                rx.cond(
+                    totales_bloqueados,
+                    "Calculado a partir del desglose por categorías",
+                    "Basado en el rango global capturado",
+                ),
+                font_size="11px",
+                color=Colors.TEXT_MUTED,
+                text_align="center",
+                width="100%",
+            ),
+            spacing="3",
+            width="100%",
+            align="start",
+        ),
+        width="100%",
+        padding=Spacing.BASE,
+        background=Colors.SECONDARY_LIGHT,
+        border_radius=Radius.LG,
+    )
+
+    def _fila_categoria_configurada(item: dict) -> rx.Component:
+        return rx.box(
+            rx.hstack(
+                rx.box(
                     rx.vstack(
-                        rx.text("Desglose por categoría", size="3", weight="bold"),
                         rx.text(
-                            "Asigne plazas mínimas y máximas por perfil operativo.",
-                            size="1",
-                            color=Colors.TEXT_SECONDARY,
+                            item["categoria_nombre"],
+                            size="2",
+                            weight="medium",
+                            color=Colors.TEXT_PRIMARY,
                         ),
-                        spacing="1",
-                        align="start",
-                    ),
-                    rx.spacer(),
-                    rx.cond(
-                        plazas_habilitadas,
                         rx.cond(
-                            ContratosState.mostrar_form_nueva_categoria,
-                            boton_cancelar(
-                                texto="Usar catálogo",
-                                size="1",
-                                on_click=ContratosState.ocultar_form_crear_categoria_contrato,
+                            item["categoria_clave"] != "",
+                            rx.text(
+                                item["categoria_clave"],
+                                font_size="11px",
+                                color=Colors.TEXT_MUTED,
                             ),
-                            boton_cancelar(
-                                texto="Nueva categoría",
-                                size="1",
-                                on_click=ContratosState.mostrar_form_crear_categoria_contrato,
-                            ),
+                            rx.fragment(),
                         ),
-                        rx.fragment(),
+                        spacing="0",
+                        align="start",
+                        width="100%",
                     ),
-                    width="100%",
-                    align="center",
+                    flex="2",
+                    min_width="0",
                 ),
-                rx.cond(
-                    plazas_habilitadas,
-                    rx.cond(
-                        puede_configurar_desglose,
-                        rx.vstack(
-                            rx.cond(
-                                ContratosState.mostrar_form_nueva_categoria,
-                                rx.vstack(
-                                    feedback_callout(
-                                        "La nueva categoría se creará dentro del tipo de servicio seleccionado y quedará disponible para futuros contratos.",
-                                        "info",
-                                    ),
-                                    rx.hstack(
-                                        form_input(
-                                            label="Nombre de categoría",
-                                            required=True,
-                                            placeholder="Ej: JARDINERO A",
-                                            value=ContratosState.form_nueva_categoria_nombre,
-                                            on_change=ContratosState.set_form_nueva_categoria_nombre,
-                                            error=ContratosState.error_nueva_categoria_nombre,
-                                        ),
-                                        form_input(
-                                            label="Clave",
-                                            required=True,
-                                            placeholder="Ej: JARA",
-                                            value=ContratosState.form_nueva_categoria_clave,
-                                            on_change=ContratosState.set_form_nueva_categoria_clave,
-                                            error=ContratosState.error_nueva_categoria_clave,
-                                            max_length=5,
-                                        ),
-                                        spacing="3",
-                                        width="100%",
-                                        align="start",
-                                    ),
-                                    spacing="3",
-                                    width="100%",
-                                ),
-                                form_select(
-                                    label="Categoría",
-                                    required=True,
-                                    placeholder="Seleccione categoría",
-                                    value=ContratosState.form_categoria_puesto_id,
-                                    on_change=ContratosState.set_form_categoria_puesto_id,
-                                    options=ContratosState.opciones_categoria_puesto_para_contrato,
-                                    error=ContratosState.error_categoria_contrato_id,
-                                    hint="Solo se muestran categorías activas del tipo de servicio seleccionado.",
-                                ),
-                            ),
-                            rx.hstack(
-                                form_input(
-                                    label="Plazas mínimas",
-                                    required=True,
-                                    placeholder="0",
-                                    value=ContratosState.form_categoria_contrato_minima,
-                                    on_change=ContratosState.set_form_categoria_contrato_minima,
-                                    error=ContratosState.error_categoria_contrato_minima,
-                                    type="number",
-                                    min="0",
-                                ),
-                                form_input(
-                                    label="Plazas máximas",
-                                    required=True,
-                                    placeholder="0",
-                                    value=ContratosState.form_categoria_contrato_maxima,
-                                    on_change=ContratosState.set_form_categoria_contrato_maxima,
-                                    error=ContratosState.error_categoria_contrato_maxima,
-                                    type="number",
-                                    min="0",
-                                ),
-                                form_input(
-                                    label="Costo por categoría",
-                                    required=True,
-                                    placeholder="0.00",
-                                    value=ContratosState.form_categoria_contrato_costo,
-                                    on_change=ContratosState.set_form_categoria_contrato_costo,
-                                    error=ContratosState.error_categoria_contrato_costo,
-                                    hint="Costo contractual por persona/mes. No se copia al salario de la plaza.",
-                                ),
-                                rx.box(
-                                    boton_guardar(
-                                        texto=rx.cond(
-                                            ContratosState.mostrar_form_nueva_categoria,
-                                            "Crear y agregar",
-                                            "Agregar categoría",
-                                        ),
-                                        texto_guardando="Agregando...",
-                                        on_click=ContratosState.agregar_categoria_contrato,
-                                        saving=ContratosState.guardando_categoria_contrato,
-                                        disabled=~ContratosState.puede_agregar_categoria_contrato,
-                                        variant="soft",
-                                        size="2",
-                                    ),
-                                    padding_top="26px",
-                                ),
-                                spacing="3",
-                                width="100%",
-                                align="start",
-                            ),
-                            spacing="3",
-                            width="100%",
-                        ),
-                        feedback_callout(
-                            "Seleccione el tipo de servicio en el paso Datos para habilitar el catálogo de categorías.",
-                            "warning",
-                        ),
+                rx.box(
+                    rx.text(
+                        rx.cond(item["costo_unitario"], item["costo_unitario"], "-"),
+                        size="2",
+                        color=Colors.TEXT_PRIMARY,
+                        style={"fontVariantNumeric": "tabular-nums"},
                     ),
-                    feedback_callout(
-                        "El desglose por categoría solo aplica cuando el contrato de servicios incluye personal.",
-                        "warning",
-                    ),
+                    flex="1",
+                    text_align="right",
                 ),
-                rx.cond(
-                    ContratosState.tiene_categorias_contrato_configuradas,
-                    table_shell(
-                        loading=False,
-                        has_rows=True,
-                        empty_component=rx.fragment(),
-                        header_cells=[
-                            rx.table.column_header_cell("Clave", width="90px"),
-                            rx.table.column_header_cell("Categoría"),
-                            rx.table.column_header_cell("Mín.", width="80px"),
-                            rx.table.column_header_cell("Máx.", width="80px"),
-                            rx.table.column_header_cell("Costo", width="120px"),
-                            rx.table.column_header_cell("Acciones", width="96px"),
-                        ],
-                        body_component=rx.foreach(
-                            ContratosState.form_categorias_contrato,
-                            lambda item: rx.table.row(
-                                rx.table.cell(
-                                    rx.badge(
-                                        item["categoria_clave"],
-                                        color_scheme="blue",
-                                        variant="soft",
-                                        size="1",
-                                    ),
-                                ),
-                                rx.table.cell(
-                                    rx.text(item["categoria_nombre"], size="2"),
-                                ),
-                                rx.table.cell(
-                                    rx.text(item["cantidad_minima"], size="2"),
-                                ),
-                                rx.table.cell(
-                                    rx.text(item["cantidad_maxima"], size="2"),
-                                ),
-                                rx.table.cell(
-                                    rx.text(
-                                        rx.cond(
-                                            item["costo_unitario"],
-                                            item["costo_unitario"],
-                                            "-",
-                                        ),
-                                        size="2",
-                                    ),
-                                ),
-                                rx.table.cell(
-                                    boton_eliminar(
-                                        texto="Quitar",
-                                        texto_eliminando="Quitar",
-                                        on_click=lambda: ContratosState.quitar_categoria_contrato(item["uid"]),
-                                        saving=False,
-                                        size="1",
-                                        variant="soft",
-                                    ),
-                                ),
-                            ),
-                        ),
-                        table_size="1",
+                rx.box(
+                    rx.text(
+                        item["cantidad_minima"],
+                        size="2",
+                        color=Colors.TEXT_PRIMARY,
+                        style={"fontVariantNumeric": "tabular-nums"},
                     ),
-                    empty_state_card(
-                        title="Sin categorías configuradas",
-                        description="Puede dejar solo el total global o capturar un desglose por categoría para derivar automáticamente las plazas mínimas y máximas.",
-                        icon="users",
+                    flex="1",
+                    text_align="right",
+                ),
+                rx.box(
+                    rx.text(
+                        item["cantidad_maxima"],
+                        size="2",
+                        color=Colors.TEXT_PRIMARY,
+                        style={"fontVariantNumeric": "tabular-nums"},
                     ),
+                    flex="1",
+                    text_align="right",
+                ),
+                rx.box(
+                    rx.icon_button(
+                        rx.icon("x", size=14),
+                        size="1",
+                        variant="ghost",
+                        color_scheme="gray",
+                        on_click=lambda: ContratosState.quitar_categoria_contrato(item["uid"]),
+                        opacity="0.72",
+                    ),
+                    width="28px",
+                    flex_shrink="0",
+                    display="flex",
+                    justify_content="flex-end",
                 ),
                 spacing="3",
                 width="100%",
+                align="center",
             ),
+            width="100%",
+            padding_y=Spacing.MD,
+            border_top=f"1px solid {Colors.BORDER}",
+        )
+
+    lista_categorias = rx.cond(
+        ContratosState.tiene_categorias_contrato_configuradas,
+        rx.vstack(
+            rx.hstack(
+                rx.box(
+                    rx.text(
+                        "Categoría",
+                        font_size="11px",
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_MUTED,
+                        text_transform="uppercase",
+                        letter_spacing="0.04em",
+                    ),
+                    flex="2",
+                    min_width="0",
+                ),
+                rx.box(
+                    rx.text(
+                        "Costo",
+                        font_size="11px",
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_MUTED,
+                        text_transform="uppercase",
+                        letter_spacing="0.04em",
+                        text_align="right",
+                    ),
+                    flex="1",
+                ),
+                rx.box(
+                    rx.text(
+                        "Mín.",
+                        font_size="11px",
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_MUTED,
+                        text_transform="uppercase",
+                        letter_spacing="0.04em",
+                        text_align="right",
+                    ),
+                    flex="1",
+                ),
+                rx.box(
+                    rx.text(
+                        "Máx.",
+                        font_size="11px",
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_MUTED,
+                        text_transform="uppercase",
+                        letter_spacing="0.04em",
+                        text_align="right",
+                    ),
+                    flex="1",
+                ),
+                rx.box(width="28px", flex_shrink="0"),
+                spacing="3",
+                width="100%",
+            ),
+            rx.foreach(ContratosState.form_categorias_contrato, _fila_categoria_configurada),
+            spacing="0",
+            width="100%",
+        ),
+        rx.box(
+            rx.vstack(
+                rx.icon("layout-grid", size=36, color=Colors.TEXT_MUTED),
+                rx.text(
+                    "Sin categorías configuradas",
+                    size="2",
+                    weight="medium",
+                    color=Colors.TEXT_PRIMARY,
+                ),
+                rx.text(
+                    "Se usará el rango global de abajo",
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.TEXT_MUTED,
+                    text_align="center",
+                ),
+                spacing="2",
+                width="100%",
+                align="center",
+                justify="center",
+            ),
+            width="100%",
+            min_height="140px",
+            display="flex",
+            align_items="center",
+            justify_content="center",
+        ),
+    )
+
+    formulario_catalogo = rx.box(
+        rx.vstack(
+            rx.grid(
+                _campo_shell(
+                    "Categoría",
+                    form_select(
+                        label="",
+                        placeholder="Seleccione categoría",
+                        value=ContratosState.form_categoria_puesto_id,
+                        on_change=ContratosState.set_form_categoria_puesto_id,
+                        options=ContratosState.opciones_categoria_puesto_para_contrato,
+                        error=ContratosState.error_categoria_contrato_id,
+                    ),
+                    required=True,
+                ),
+                _campo_shell(
+                    "Costo",
+                    form_input(
+                        label="",
+                        placeholder="0.00",
+                        value=ContratosState.form_categoria_contrato_costo,
+                        on_change=ContratosState.set_form_categoria_contrato_costo,
+                        error=ContratosState.error_categoria_contrato_costo,
+                    ),
+                    required=True,
+                ),
+                grid_template_columns="minmax(0, 1.8fr) minmax(180px, 1fr)",
+                column_gap=Spacing.MD,
+                row_gap=Spacing.MD,
+                width="100%",
+                align_items="start",
+            ),
+            rx.grid(
+                _campo_shell(
+                    "Plazas mínimas",
+                    form_input(
+                        label="",
+                        placeholder="0",
+                        value=ContratosState.form_categoria_contrato_minima,
+                        on_change=ContratosState.set_form_categoria_contrato_minima,
+                        error=ContratosState.error_categoria_contrato_minima,
+                        type="number",
+                        min="0",
+                    ),
+                    required=True,
+                ),
+                _campo_shell(
+                    "Plazas máximas",
+                    form_input(
+                        label="",
+                        placeholder="0",
+                        value=ContratosState.form_categoria_contrato_maxima,
+                        on_change=ContratosState.set_form_categoria_contrato_maxima,
+                        error=ContratosState.error_categoria_contrato_maxima,
+                        type="number",
+                        min="0",
+                    ),
+                    required=True,
+                ),
+                rx.box(
+                    rx.button(
+                        "Agregar",
+                        on_click=ContratosState.agregar_categoria_contrato,
+                        disabled=~ContratosState.puede_agregar_categoria_contrato,
+                        color_scheme="blue",
+                        size="2",
+                        width="100%",
+                    ),
+                    width="100%",
+                    padding_top="19px",
+                ),
+                grid_template_columns="minmax(0, 1fr) minmax(0, 1fr) 160px",
+                column_gap=Spacing.MD,
+                row_gap=Spacing.MD,
+                width="100%",
+                align_items="start",
+            ),
+            rx.text(
+                "Costo contractual por persona/mes. No se copia al salario de la plaza.",
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_MUTED,
+            ),
+            spacing="3",
+            width="100%",
+            align="start",
+        ),
+        width="100%",
+        padding=Spacing.MD,
+        background=Colors.SECONDARY_LIGHT,
+        border_radius=Radius.MD,
+    )
+
+    formulario_nueva_categoria = rx.box(
+        rx.vstack(
+            rx.text(
+                "La nueva categoría quedará disponible en el catálogo del tipo de servicio seleccionado.",
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_MUTED,
+            ),
+            rx.grid(
+                _campo_shell(
+                    "Nombre de categoría",
+                    form_input(
+                        label="",
+                        placeholder="Nombre de categoría",
+                        value=ContratosState.form_nueva_categoria_nombre,
+                        on_change=ContratosState.set_form_nueva_categoria_nombre,
+                        error=ContratosState.error_nueva_categoria_nombre,
+                    ),
+                    required=True,
+                ),
+                _campo_shell(
+                    "Clave",
+                    form_input(
+                        label="",
+                        placeholder="Clave",
+                        value=ContratosState.form_nueva_categoria_clave,
+                        on_change=ContratosState.set_form_nueva_categoria_clave,
+                        error=ContratosState.error_nueva_categoria_clave,
+                        max_length=5,
+                    ),
+                    required=True,
+                ),
+                grid_template_columns="minmax(0, 2fr) minmax(140px, 1fr)",
+                column_gap=Spacing.MD,
+                row_gap=Spacing.MD,
+                width="100%",
+                align_items="start",
+            ),
+            rx.grid(
+                _campo_shell(
+                    "Costo",
+                    form_input(
+                        label="",
+                        placeholder="0.00",
+                        value=ContratosState.form_categoria_contrato_costo,
+                        on_change=ContratosState.set_form_categoria_contrato_costo,
+                        error=ContratosState.error_categoria_contrato_costo,
+                    ),
+                    required=True,
+                ),
+                _campo_shell(
+                    "Plazas mínimas",
+                    form_input(
+                        label="",
+                        placeholder="0",
+                        value=ContratosState.form_categoria_contrato_minima,
+                        on_change=ContratosState.set_form_categoria_contrato_minima,
+                        error=ContratosState.error_categoria_contrato_minima,
+                        type="number",
+                        min="0",
+                    ),
+                    required=True,
+                ),
+                _campo_shell(
+                    "Plazas máximas",
+                    form_input(
+                        label="",
+                        placeholder="0",
+                        value=ContratosState.form_categoria_contrato_maxima,
+                        on_change=ContratosState.set_form_categoria_contrato_maxima,
+                        error=ContratosState.error_categoria_contrato_maxima,
+                        type="number",
+                        min="0",
+                    ),
+                    required=True,
+                ),
+                grid_template_columns="repeat(3, minmax(0, 1fr))",
+                column_gap=Spacing.MD,
+                row_gap=Spacing.MD,
+                width="100%",
+                align_items="start",
+            ),
+            rx.hstack(
+                rx.spacer(),
+                rx.button(
+                    "Cancelar",
+                    variant="ghost",
+                    color_scheme="gray",
+                    size="2",
+                    on_click=ContratosState.ocultar_form_crear_categoria_contrato,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                boton_guardar(
+                    texto="Agregar categoría",
+                    texto_guardando="Agregando...",
+                    on_click=ContratosState.agregar_categoria_contrato,
+                    saving=ContratosState.guardando_categoria_contrato,
+                    disabled=~ContratosState.puede_agregar_categoria_contrato,
+                    size="2",
+                ),
+                spacing="2",
+                width="100%",
+                align="center",
+            ),
+            spacing="3",
+            width="100%",
+            align="start",
+        ),
+        width="100%",
+        padding=Spacing.MD,
+        background=Colors.SECONDARY_LIGHT,
+        border_radius=Radius.MD,
+    )
+
+    bloque_categorias = _seccion_shell(
+        "Categorías",
+        "Desglose las plazas por categoría o use el rango global.",
+        rx.vstack(
+            rx.cond(
+                plazas_habilitadas,
+                rx.cond(
+                    puede_configurar_desglose,
+                    rx.vstack(
+                        rx.cond(
+                            ContratosState.mostrar_form_nueva_categoria,
+                            formulario_nueva_categoria,
+                            formulario_catalogo,
+                        ),
+                        lista_categorias,
+                        spacing="3",
+                        width="100%",
+                    ),
+                    rx.box(
+                        rx.text(
+                            "Seleccione el tipo de servicio en el paso Datos para habilitar el catálogo de categorías.",
+                            font_size=Typography.SIZE_XS,
+                            color=Colors.TEXT_SECONDARY,
+                        ),
+                        width="100%",
+                        padding=Spacing.MD,
+                        background=Colors.SECONDARY_LIGHT,
+                        border_radius=Radius.MD,
+                    ),
+                ),
+                rx.box(
+                    rx.text(
+                        "El desglose por categoría solo aplica cuando el contrato de servicios incluye personal.",
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    width="100%",
+                    padding=Spacing.MD,
+                    background=Colors.SECONDARY_LIGHT,
+                    border_radius=Radius.MD,
+                ),
+            ),
+            spacing="3",
+            width="100%",
+            align="stretch",
+        ),
+        action=rx.cond(
+            puede_configurar_desglose,
+            rx.cond(
+                ContratosState.mostrar_form_nueva_categoria,
+                rx.button(
+                    "Usar catálogo",
+                    variant="ghost",
+                    size="1",
+                    color_scheme="gray",
+                    on_click=ContratosState.ocultar_form_crear_categoria_contrato,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                rx.button(
+                    rx.icon("plus", size=13),
+                    "Agregar",
+                    variant="outline",
+                    size="1",
+                    color_scheme="gray",
+                    on_click=ContratosState.mostrar_form_crear_categoria_contrato,
+                ),
+            ),
+            rx.fragment(),
+        ),
+    )
+
+    bloque_rango_global = _seccion_shell(
+        "Rango global",
+        "Capture el total de plazas si no necesita desglosarlas por categoría.",
+        rx.cond(
+            totales_bloqueados,
+            rx.box(
+                rx.text(
+                    "Este rango se calcula automáticamente a partir de las categorías capturadas.",
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                width="100%",
+                padding=Spacing.MD,
+                background=Colors.SECONDARY_LIGHT,
+                border_radius=Radius.MD,
+                opacity="0.88",
+            ),
+            rx.grid(
+                _campo_shell(
+                    "Plazas mínimas",
+                    form_input(
+                        label="",
+                        required=plazas_habilitadas,
+                        placeholder="0",
+                        value=ContratosState.form_cantidad_plazas_minima,
+                        on_change=ContratosState.set_form_cantidad_plazas_minima,
+                        on_blur=ContratosState.validar_cantidad_plazas_minima_campo,
+                        error=ContratosState.error_cantidad_plazas_minima,
+                        type="number",
+                        min="0",
+                        disabled=~plazas_habilitadas,
+                    ),
+                    required=True,
+                ),
+                _campo_shell(
+                    "Plazas máximas",
+                    form_input(
+                        label="",
+                        required=plazas_habilitadas,
+                        placeholder="0",
+                        value=ContratosState.form_cantidad_plazas_maxima,
+                        on_change=ContratosState.set_form_cantidad_plazas_maxima,
+                        on_blur=ContratosState.validar_cantidad_plazas_maxima_campo,
+                        error=ContratosState.error_cantidad_plazas_maxima,
+                        type="number",
+                        min="0",
+                        disabled=~plazas_habilitadas,
+                    ),
+                    required=True,
+                ),
+                grid_template_columns="repeat(2, minmax(0, 1fr))",
+                column_gap=Spacing.MD,
+                row_gap=Spacing.MD,
+                width="100%",
+                align_items="start",
+            ),
+        ),
+    )
+
+    return _tarjeta_paso(
+        "Plazas",
+        "Configure el rango global o desglose las plazas por categoría cuando necesite mayor detalle.",
+        rx.vstack(
+            bloque_categorias,
+            bloque_rango_global,
+            resumen_compacto,
             spacing="4",
             width="100%",
         ),
@@ -690,122 +1017,316 @@ def _paso_plazas() -> rx.Component:
 
 def _fila_config_entregable(config: dict) -> rx.Component:
     """Fila de tipo de entregable configurado"""
-    return rx.hstack(
-        rx.vstack(
-            rx.hstack(
-                rx.text(config["tipo_label"], weight="medium", size="2"),
-                rx.cond(
-                    config["requerido"],
-                    rx.badge("Requerido", color_scheme="red", size="1"),
-                    rx.badge("Opcional", color_scheme="gray", size="1"),
+    return rx.box(
+        rx.hstack(
+            rx.vstack(
+                rx.hstack(
+                    rx.text(
+                        config["tipo_label"],
+                        font_size="13px",
+                        weight="medium",
+                        color=Colors.TEXT_PRIMARY,
+                    ),
+                    rx.badge(
+                        config["periodicidad_label"],
+                        color_scheme="gray",
+                        variant="soft",
+                        size="1",
+                    ),
+                    rx.cond(
+                        config["requerido"],
+                        rx.badge("Requerido", color_scheme="amber", variant="soft", size="1"),
+                        rx.fragment(),
+                    ),
+                    spacing="2",
+                    align="center",
+                    wrap="wrap",
                 ),
-                spacing="2",
-                align="center",
+                rx.cond(
+                    config["descripcion"],
+                    rx.text(
+                        config["descripcion"],
+                        font_size=Typography.SIZE_XS,
+                        color=Colors.TEXT_MUTED,
+                    ),
+                    rx.fragment(),
+                ),
+                spacing="1",
+                align="start",
+                width="100%",
             ),
-            rx.text(config["periodicidad_label"], size="1", color=Colors.TEXT_MUTED),
-            rx.cond(
-                config["descripcion"],
-                rx.text(config["descripcion"], size="1", color=Colors.TEXT_SECONDARY),
-                rx.fragment(),
+            rx.spacer(),
+            rx.icon_button(
+                rx.icon("x", size=14),
+                size="1",
+                variant="ghost",
+                color_scheme="gray",
+                opacity="0.72",
+                on_click=lambda: ContratosState.eliminar_tipo_entregable(config["tipo_entregable"]),
             ),
-            spacing="0",
-            align="start",
-        ),
-        rx.spacer(),
-        boton_cancelar(
-            texto="Quitar",
-            size="1",
-            on_click=lambda: ContratosState.eliminar_tipo_entregable(config["tipo_entregable"]),
+            spacing="3",
+            width="100%",
+            align="center",
         ),
         width="100%",
-        padding="3",
-        background=Colors.SECONDARY_LIGHT,
-        border=f"1px solid {Colors.BORDER}",
-        border_radius=Radius.MD,
-        align="center",
+        padding_y=Spacing.MD,
+        border_bottom=f"1px solid {Colors.BORDER}",
     )
 
 
 def _paso_entregables() -> rx.Component:
     """Paso 3: configuración inicial de entregables."""
-    return _tarjeta_paso(
-        "Entregables",
-        "Configure los tipos de entregable que el proveedor deberá presentar.",
-        rx.vstack(
-            feedback_callout(
-                "Puede dejar este paso vacío si el contrato no requiere entregables configurables desde el alta.",
-                "info",
+    def _label_campo(texto: str, *, required: bool = False) -> rx.Component:
+        return rx.hstack(
+            rx.text(
+                texto,
+                font_size="11px",
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_SECONDARY,
+                text_transform="uppercase",
+                letter_spacing="0.04em",
             ),
             rx.cond(
-                ContratosState.tiene_config_entregables,
-                rx.vstack(
-                    rx.text("Tipos configurados", size="2", weight="bold"),
-                    rx.foreach(
-                        ContratosState.config_entregables,
-                        _fila_config_entregable,
-                    ),
-                    spacing="2",
-                    width="100%",
-                ),
-                empty_state_card(
-                    title="Sin entregables configurados",
-                    description="Agregue uno o más tipos si este contrato debe generar entregables periódicos.",
-                    icon="files",
-                ),
+                required,
+                rx.text("*", font_size="11px", color="var(--red-9)", weight="medium"),
+                rx.fragment(),
             ),
-            rx.separator(),
+            spacing="1",
+            align="center",
+            width="100%",
+        )
+
+    def _campo_shell(
+        titulo: str,
+        control: rx.Component,
+        *,
+        required: bool = False,
+    ) -> rx.Component:
+        return rx.vstack(
+            _label_campo(titulo, required=required),
+            control,
+            spacing="1",
+            width="100%",
+            align="stretch",
+        )
+
+    def _seccion_shell(
+        titulo: str,
+        descripcion: str,
+        contenido: rx.Component,
+        *,
+        action: rx.Component | None = None,
+    ) -> rx.Component:
+        return rx.box(
             rx.vstack(
-                rx.text("Agregar tipo de entregable", size="2", weight="bold"),
                 rx.hstack(
+                    rx.vstack(
+                        rx.text(
+                            titulo,
+                            size="3",
+                            weight="medium",
+                            color=Colors.TEXT_PRIMARY,
+                            letter_spacing=Typography.LETTER_SPACING_TIGHT,
+                        ),
+                        rx.text(
+                            descripcion,
+                            font_size=Typography.SIZE_XS,
+                            color=Colors.TEXT_MUTED,
+                        ),
+                        spacing="1",
+                        align="start",
+                        width="100%",
+                    ),
+                    rx.spacer(),
+                    action if action is not None else rx.fragment(),
+                    width="100%",
+                    align="center",
+                ),
+                contenido,
+                spacing="3",
+                width="100%",
+                align="stretch",
+            ),
+            width="100%",
+            padding=Spacing.BASE,
+            border=f"1px solid {Colors.BORDER}",
+            border_radius=Radius.LG,
+            background=Colors.SURFACE,
+        )
+
+    formulario_entregable = rx.box(
+        rx.vstack(
+            rx.grid(
+                _campo_shell(
+                    "Tipo",
                     form_select(
-                        label="Tipo",
+                        label="",
                         required=True,
                         placeholder="Seleccione tipo",
                         value=ContratosState.form_tipo_entregable,
                         on_change=ContratosState.set_form_tipo_entregable,
                         options=ContratosState.opciones_tipo_entregable,
                     ),
+                    required=True,
+                ),
+                _campo_shell(
+                    "Periodicidad",
                     form_select(
-                        label="Periodicidad",
+                        label="",
                         required=True,
                         placeholder="Seleccione periodicidad",
                         value=ContratosState.form_periodicidad_entregable,
                         on_change=ContratosState.set_form_periodicidad_entregable,
                         options=ContratosState.opciones_periodicidad_entregable,
                     ),
-                    spacing="3",
-                    width="100%",
-                    align="start",
+                    required=True,
                 ),
+                grid_template_columns="repeat(2, minmax(0, 1fr))",
+                column_gap=Spacing.MD,
+                row_gap=Spacing.MD,
+                width="100%",
+                align_items="start",
+            ),
+            _campo_shell(
+                "Descripción personalizada",
+                form_input(
+                    label="",
+                    placeholder="Ej: Fotografías mensuales del servicio",
+                    value=ContratosState.form_entregable_descripcion,
+                    on_change=ContratosState.set_form_entregable_descripcion,
+                ),
+            ),
+            _campo_shell(
+                "Instrucciones para el proveedor",
+                form_textarea(
+                    label="",
+                    placeholder="Ej: Subir evidencia fechada y con nombre del área atendida.",
+                    value=ContratosState.form_entregable_instrucciones,
+                    on_change=ContratosState.set_form_entregable_instrucciones,
+                    rows="3",
+                    style={"resize": "vertical"},
+                ),
+            ),
+            rx.hstack(
                 rx.checkbox(
                     "Requerido para aprobar el periodo",
                     checked=ContratosState.form_entregable_requerido,
                     on_change=ContratosState.set_form_entregable_requerido,
                 ),
-                form_input(
-                    label="Descripción personalizada",
-                    placeholder="Ej: Fotografías mensuales del servicio",
-                    value=ContratosState.form_entregable_descripcion,
-                    on_change=ContratosState.set_form_entregable_descripcion,
-                ),
-                form_textarea(
-                    label="Instrucciones para el proveedor",
-                    placeholder="Ej: Subir evidencia fechada y con nombre del área atendida.",
-                    value=ContratosState.form_entregable_instrucciones,
-                    on_change=ContratosState.set_form_entregable_instrucciones,
-                    rows="3",
-                ),
-                boton_guardar(
-                    texto="Agregar tipo",
-                    texto_guardando="Agregar tipo",
-                    on_click=ContratosState.agregar_tipo_entregable,
-                    saving=False,
-                    disabled=~ContratosState.puede_agregar_entregable,
-                    variant="soft",
+                rx.spacer(),
+                rx.button(
+                    "Cancelar",
+                    variant="ghost",
+                    color_scheme="gray",
                     size="2",
+                    on_click=ContratosState.ocultar_form_entregable,
+                    color=Colors.TEXT_SECONDARY,
                 ),
-                spacing="3",
+                rx.button(
+                    "Agregar",
+                    color_scheme="blue",
+                    size="2",
+                    on_click=ContratosState.agregar_tipo_entregable,
+                    disabled=~ContratosState.puede_agregar_entregable,
+                ),
+                spacing="2",
                 width="100%",
+                align="center",
+            ),
+            spacing="3",
+            width="100%",
+            align="stretch",
+        ),
+        width="100%",
+        padding=Spacing.MD,
+        background=Colors.SECONDARY_LIGHT,
+        border_radius=Radius.MD,
+    )
+
+    lista_entregables = rx.cond(
+        ContratosState.tiene_config_entregables,
+        rx.vstack(
+            rx.foreach(
+                ContratosState.config_entregables,
+                _fila_config_entregable,
+            ),
+            spacing="0",
+            width="100%",
+        ),
+        rx.box(
+            rx.vstack(
+                rx.icon("file-text", size=36, color=Colors.TEXT_MUTED),
+                rx.text(
+                    "Sin entregables configurados",
+                    size="2",
+                    weight="medium",
+                    color=Colors.TEXT_PRIMARY,
+                ),
+                rx.text(
+                    "Este paso es opcional; puede configurarlos después.",
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.TEXT_MUTED,
+                    text_align="center",
+                ),
+                spacing="2",
+                width="100%",
+                align="center",
+            ),
+            width="100%",
+            min_height="140px",
+            display="flex",
+            align_items="center",
+            justify_content="center",
+        ),
+    )
+
+    return _tarjeta_paso(
+        "Entregables",
+        "Configure los tipos de entregable que el proveedor deberá presentar.",
+        rx.vstack(
+            _seccion_shell(
+                "Entregables",
+                "Tipos de entregable que el proveedor deberá presentar.",
+                rx.vstack(
+                    rx.cond(
+                        ContratosState.mostrar_form_agregar_entregable,
+                        formulario_entregable,
+                        rx.fragment(),
+                    ),
+                    lista_entregables,
+                    spacing="3",
+                    width="100%",
+                    align="stretch",
+                ),
+                action=rx.cond(
+                    ContratosState.mostrar_form_agregar_entregable,
+                    rx.fragment(),
+                    rx.button(
+                        rx.icon("plus", size=13),
+                        "Agregar tipo",
+                        variant="outline",
+                        size="1",
+                        color_scheme="gray",
+                        on_click=ContratosState.mostrar_form_entregable,
+                    ),
+                ),
+            ),
+            rx.box(
+                rx.hstack(
+                    rx.icon("info", size=16, color=Colors.INFO),
+                    rx.text(
+                        "Puede dejar este paso vacío si el contrato no requiere entregables configurables desde el alta.",
+                        font_size="12.5px",
+                        color=Colors.INFO,
+                    ),
+                    spacing="2",
+                    width="100%",
+                    align="center",
+                ),
+                width="100%",
+                padding=Spacing.MD,
+                background=Colors.INFO_LIGHT,
+                border_radius=Radius.MD,
             ),
             spacing="4",
             width="100%",
@@ -827,63 +1348,97 @@ def modal_contrato() -> rx.Component:
         rx.dialog.content(
             rx.vstack(
                 rx.vstack(
-                    rx.dialog.title(
-                        rx.cond(
-                            ContratosState.es_edicion,
-                            "Editar Contrato",
-                            "Nuevo Contrato",
-                        )
-                    ),
-                    rx.dialog.description(
-                        rx.cond(
-                            ContratosState.es_edicion,
-                            "Actualice la información base y la configuración de plazas.",
-                            "Complete el wizard para crear el contrato.",
+                    rx.hstack(
+                        rx.vstack(
+                            rx.dialog.title(
+                                rx.cond(
+                                    ContratosState.es_edicion,
+                                    "Editar Contrato",
+                                    "Nuevo Contrato",
+                                )
+                            ),
+                            rx.text(
+                                rx.match(
+                                    ContratosState.paso_actual_wizard,
+                                    ("datos", "Información base del contrato"),
+                                    ("plazas", "Configuración de plazas"),
+                                    ("entregables", "Configuración de entregables"),
+                                    "Configuración del contrato",
+                                ),
+                                font_size=Typography.SIZE_SM,
+                                color=Colors.TEXT_MUTED,
+                            ),
+                            spacing="1",
+                            width="100%",
+                            align="start",
                         ),
+                        rx.spacer(),
+                        _indicador_pasos(),
+                        width="100%",
+                        align="center",
                     ),
-                    spacing="1",
+                    rx.box(width="100%", height="1px", background=Colors.BORDER),
+                    rx.cond(
+                        ContratosState.mensaje_info != "",
+                        feedback_callout(
+                            ContratosState.mensaje_info,
+                            ContratosState.tipo_mensaje,
+                        ),
+                        rx.fragment(),
+                    ),
+                    spacing="3",
                     width="100%",
                     align="start",
-                ),
-                _indicador_pasos(),
-                rx.cond(
-                    ContratosState.mensaje_info != "",
-                    feedback_callout(
-                        ContratosState.mensaje_info,
-                        ContratosState.tipo_mensaje,
-                    ),
-                    rx.fragment(),
                 ),
                 rx.box(
                     contenido_paso,
                     width="100%",
-                    max_height="62vh",
+                    max_height="60vh",
                     overflow_y="auto",
                     padding_right=Spacing.XS,
                 ),
+                rx.box(width="100%", height="1px", background=Colors.BORDER),
                 rx.hstack(
-                    boton_cancelar(
+                    rx.button(
+                        "Cancelar",
                         on_click=ContratosState.cerrar_modal_contrato,
+                        variant="ghost",
+                        color_scheme="gray",
+                        color=Colors.TEXT_MUTED,
                     ),
                     rx.spacer(),
                     rx.cond(
                         ~ContratosState.es_primer_paso_wizard,
-                        boton_cancelar(
-                            texto="Anterior",
+                        rx.button(
+                            "Anterior",
                             on_click=ContratosState.ir_paso_anterior,
+                            variant="outline",
+                            color_scheme="gray",
                         ),
                         rx.fragment(),
                     ),
                     rx.cond(
                         ~ContratosState.es_edicion,
-                        boton_guardar(
-                            texto="Guardar borrador",
-                            texto_guardando="Guardando...",
-                            on_click=ContratosState.guardar_borrador_contrato,
-                            saving=ContratosState.saving,
-                            disabled=~ContratosState.puede_guardar_borrador_contrato,
-                            color_scheme="gray",
-                            variant="soft",
+                        rx.cond(
+                            ContratosState.paso_actual_wizard == "entregables",
+                            boton_guardar(
+                                texto="Guardar borrador",
+                                texto_guardando="Guardando...",
+                                on_click=ContratosState.guardar_borrador_contrato,
+                                saving=ContratosState.saving,
+                                disabled=~ContratosState.puede_guardar_borrador_contrato,
+                                color_scheme="gray",
+                                variant="outline",
+                            ),
+                            boton_guardar(
+                                texto="Guardar borrador",
+                                texto_guardando="Guardando...",
+                                on_click=ContratosState.guardar_borrador_contrato,
+                                saving=ContratosState.saving,
+                                disabled=~ContratosState.puede_guardar_borrador_contrato,
+                                color_scheme="gray",
+                                variant="soft",
+                            ),
                         ),
                         rx.fragment(),
                     ),
@@ -892,7 +1447,7 @@ def modal_contrato() -> rx.Component:
                         boton_guardar(
                             texto=rx.cond(
                                 ContratosState.es_edicion,
-                                "Guardar Cambios",
+                                "Guardar cambios",
                                 "Crear Contrato",
                             ),
                             texto_guardando="Guardando...",
@@ -908,7 +1463,7 @@ def modal_contrato() -> rx.Component:
                             disabled=~ContratosState.puede_avanzar_paso_actual_wizard,
                         ),
                     ),
-                    spacing="3",
+                    spacing="2",
                     width="100%",
                     align="center",
                 ),
@@ -923,368 +1478,13 @@ def modal_contrato() -> rx.Component:
         open=ContratosState.mostrar_modal_contrato,
         on_open_change=rx.noop,
     )
-
-
-def _detalle_campo(label: str, contenido: rx.Component) -> rx.Component:
-    return rx.vstack(
-        rx.text(
-            label,
-            size="1",
-            weight="medium",
-            color=Colors.TEXT_SECONDARY,
-        ),
-        contenido,
-        spacing="1",
-        align="start",
-        width="100%",
-    )
-
-
-def _fila_categoria_detalle(categoria: dict) -> rx.Component:
-    return rx.table.row(
-        rx.table.cell(
-            rx.badge(
-                categoria["categoria_clave"],
-                color_scheme="blue",
-                variant="soft",
-                size="1",
-            )
-        ),
-        rx.table.cell(rx.text(categoria["categoria_nombre"], size="2")),
-        rx.table.cell(rx.text(categoria["cantidad_minima"], size="2")),
-        rx.table.cell(rx.text(categoria["cantidad_maxima"], size="2")),
-        rx.table.cell(rx.text(categoria["costo_unitario_fmt"], size="2", weight="medium")),
-        rx.table.cell(rx.text(categoria["costo_minimo_fmt"], size="2")),
-        rx.table.cell(rx.text(categoria["costo_maximo_fmt"], size="2")),
-    )
-
-
 def _tab_informacion_contrato() -> rx.Component:
     """Pestaña de información del contrato."""
-    return rx.vstack(
-        rx.card(
-            rx.vstack(
-                rx.hstack(
-                    rx.vstack(
-                        rx.text("Información General", weight="bold", size="4"),
-                        rx.text(
-                            "Resumen operativo y financiero del contrato.",
-                            size="2",
-                            color=Colors.TEXT_SECONDARY,
-                        ),
-                        spacing="1",
-                        align="start",
-                    ),
-                    rx.spacer(),
-                    rx.badge(
-                        ContratosState.contrato_seleccionado["codigo"],
-                        color_scheme="blue",
-                        size="2",
-                        variant="soft",
-                    ),
-                    align="center",
-                    width="100%",
-                ),
-                rx.grid(
-                    _detalle_campo(
-                        "Empresa",
-                        rx.text(
-                            rx.cond(
-                                ContratosState.contrato_seleccionado["nombre_empresa"],
-                                ContratosState.contrato_seleccionado["nombre_empresa"],
-                                "Sin empresa",
-                            ),
-                            size="2",
-                            color=Colors.TEXT_PRIMARY,
-                        ),
-                    ),
-                    _detalle_campo(
-                        "Tipo de servicio",
-                        rx.text(
-                            rx.cond(
-                                ContratosState.contrato_seleccionado["nombre_servicio"],
-                                ContratosState.contrato_seleccionado["nombre_servicio"],
-                                "No aplica",
-                            ),
-                            size="2",
-                            color=Colors.TEXT_PRIMARY,
-                        ),
-                    ),
-                    _detalle_campo(
-                        "Tipo de contrato",
-                        rx.text(
-                            ContratosState.contrato_seleccionado["tipo_contrato"],
-                            size="2",
-                            color=Colors.TEXT_PRIMARY,
-                        ),
-                    ),
-                    _detalle_campo(
-                        "Modalidad",
-                        rx.text(
-                            ContratosState.contrato_seleccionado["modalidad_adjudicacion"],
-                            size="2",
-                            color=Colors.TEXT_PRIMARY,
-                        ),
-                    ),
-                    _detalle_campo(
-                        "Estatus",
-                        status_badge_reactive(
-                            ContratosState.contrato_seleccionado["estatus"],
-                            show_icon=True,
-                        ),
-                    ),
-                    _detalle_campo(
-                        "Folio institución",
-                        rx.text(
-                            rx.cond(
-                                ContratosState.contrato_seleccionado["numero_folio_buap"],
-                                ContratosState.contrato_seleccionado["numero_folio_buap"],
-                                "Sin folio",
-                            ),
-                            size="2",
-                            color=Colors.TEXT_PRIMARY,
-                        ),
-                    ),
-                    columns="2",
-                    spacing="4",
-                    width="100%",
-                ),
-                spacing="4",
-                width="100%",
-            ),
-            width="100%",
-            variant="surface",
-        ),
-        rx.card(
-            rx.vstack(
-                rx.text("Vigencia", weight="bold", size="4"),
-                rx.grid(
-                    _detalle_campo(
-                        "Inicio",
-                        rx.text(
-                            ContratosState.contrato_seleccionado["fecha_inicio_fmt"],
-                            size="2",
-                            color=Colors.TEXT_PRIMARY,
-                        ),
-                    ),
-                    _detalle_campo(
-                        "Fin",
-                        rx.text(
-                            rx.cond(
-                                ContratosState.contrato_seleccionado["fecha_fin"],
-                                ContratosState.contrato_seleccionado["fecha_fin_fmt"],
-                                "Indefinido",
-                            ),
-                            size="2",
-                            color=Colors.TEXT_PRIMARY,
-                        ),
-                    ),
-                    _detalle_campo(
-                        "Tipo de duración",
-                        rx.text(
-                            rx.cond(
-                                ContratosState.contrato_seleccionado["tipo_duracion"],
-                                ContratosState.contrato_seleccionado["tipo_duracion"],
-                                "No aplica",
-                            ),
-                            size="2",
-                            color=Colors.TEXT_PRIMARY,
-                        ),
-                    ),
-                    _detalle_campo(
-                        "Vigencia",
-                        rx.badge(
-                            ContratosState.contrato_seleccionado["vigencia_label"],
-                            color_scheme=ContratosState.contrato_seleccionado["vigencia_color_scheme"],
-                            size="1",
-                            variant="soft",
-                        ),
-                    ),
-                    columns="2",
-                    spacing="4",
-                    width="100%",
-                ),
-                spacing="3",
-                width="100%",
-            ),
-            width="100%",
-            variant="surface",
-        ),
-        rx.vstack(
-            rx.text("Planeación de personal", weight="bold", size="4"),
-            rx.grid(
-                metric_card(
-                    titulo="Plazas mínimas",
-                    valor=ContratosState.contrato_seleccionado["cantidad_plazas_minima"],
-                    icono="users",
-                    color_scheme="blue",
-                    descripcion="Compromiso mínimo del contrato",
-                ),
-                metric_card(
-                    titulo="Plazas máximas",
-                    valor=ContratosState.contrato_seleccionado["cantidad_plazas_maxima"],
-                    icono="briefcase",
-                    color_scheme="green",
-                    descripcion="Capacidad máxima materializable",
-                ),
-                metric_card(
-                    titulo="Categorías",
-                    valor=ContratosState.total_categorias_detalle_contrato,
-                    icono="tags",
-                    color_scheme="amber",
-                    descripcion="Perfiles configurados en el contrato",
-                ),
-                columns="3",
-                spacing="3",
-                width="100%",
-            ),
-            spacing="3",
-            width="100%",
-        ),
-        rx.card(
-            rx.vstack(
-                rx.hstack(
-                    rx.text("Montos", weight="bold", size="4"),
-                    rx.spacer(),
-                    rx.badge(
-                        rx.cond(
-                            ContratosState.contrato_seleccionado["incluye_iva"],
-                            "Incluye IVA",
-                            "Sin IVA",
-                        ),
-                        color_scheme=rx.cond(
-                            ContratosState.contrato_seleccionado["incluye_iva"],
-                            "green",
-                            "gray",
-                        ),
-                        variant="soft",
-                    ),
-                    align="center",
-                    width="100%",
-                ),
-                rx.grid(
-                    metric_card(
-                        titulo="Monto mínimo",
-                        valor=ContratosState.contrato_seleccionado["monto_minimo_fmt"],
-                        icono="banknote",
-                        color_scheme="blue",
-                        descripcion="Estimación mínima del contrato",
-                    ),
-                    metric_card(
-                        titulo="Monto máximo",
-                        valor=ContratosState.contrato_seleccionado["monto_maximo_fmt"],
-                        icono="wallet",
-                        color_scheme="green",
-                        descripcion="Tope autorizado del contrato",
-                    ),
-                    columns="2",
-                    spacing="3",
-                    width="100%",
-                ),
-                spacing="3",
-                width="100%",
-            ),
-            width="100%",
-            variant="surface",
-        ),
-        rx.card(
-            rx.vstack(
-                rx.hstack(
-                    rx.text("Categorías configuradas", weight="bold", size="4"),
-                    rx.spacer(),
-                    rx.cond(
-                        ContratosState.tiene_categorias_detalle_contrato,
-                        rx.badge(
-                            ContratosState.total_categorias_detalle_contrato,
-                            color_scheme="blue",
-                            variant="soft",
-                        ),
-                        rx.fragment(),
-                    ),
-                    width="100%",
-                    align="center",
-                ),
-                rx.cond(
-                    ContratosState.tiene_categorias_detalle_contrato,
-                    rx.box(
-                        table_shell(
-                            loading=False,
-                            has_rows=True,
-                            empty_component=rx.fragment(),
-                            header_cells=[
-                                rx.table.column_header_cell("Clave", width="90px"),
-                                rx.table.column_header_cell("Categoría"),
-                                rx.table.column_header_cell("Mín.", width="70px"),
-                                rx.table.column_header_cell("Máx.", width="70px"),
-                                rx.table.column_header_cell("Costo", width="120px"),
-                                rx.table.column_header_cell("Monto mín.", width="120px"),
-                                rx.table.column_header_cell("Monto máx.", width="120px"),
-                            ],
-                            body_component=rx.foreach(
-                                ContratosState.categorias_detalle_contrato,
-                                _fila_categoria_detalle,
-                            ),
-                        ),
-                        overflow_x="auto",
-                        width="100%",
-                    ),
-                    empty_state_card(
-                        title="Sin categorías configuradas",
-                        description="Este contrato no tiene un desglose de plazas por categoría capturado.",
-                        icon="tags",
-                    ),
-                ),
-                spacing="3",
-                width="100%",
-            ),
-            width="100%",
-            variant="surface",
-        ),
-        rx.card(
-            rx.vstack(
-                rx.text("Objeto del contrato", weight="bold", size="4"),
-                rx.text(
-                    ContratosState.contrato_seleccionado["descripcion_objeto_display"],
-                    size="2",
-                    color=rx.cond(
-                        ContratosState.contrato_seleccionado["descripcion_objeto"],
-                        Colors.TEXT_PRIMARY,
-                        Colors.TEXT_MUTED,
-                    ),
-                    font_style=rx.cond(
-                        ContratosState.contrato_seleccionado["descripcion_objeto"],
-                        "normal",
-                        "italic",
-                    ),
-                ),
-                spacing="2",
-                width="100%",
-                align="start",
-            ),
-            width="100%",
-            variant="surface",
-        ),
-        rx.cond(
-            ContratosState.contrato_seleccionado["notas"],
-            rx.card(
-                rx.vstack(
-                    rx.text("Notas", weight="bold", size="4"),
-                    rx.text(
-                        ContratosState.contrato_seleccionado["notas"],
-                        size="2",
-                        color=Colors.TEXT_PRIMARY,
-                    ),
-                    spacing="2",
-                    width="100%",
-                    align="start",
-                ),
-                width="100%",
-                variant="surface",
-            ),
-            rx.fragment(),
-        ),
-        spacing="4",
-        width="100%",
+    return contrato_detail_info_sections(
+        ContratosState.contrato_seleccionado,
+        ContratosState.categorias_detalle_contrato,
+        total_categorias=ContratosState.total_categorias_detalle_contrato,
+        tiene_categorias=ContratosState.tiene_categorias_detalle_contrato,
     )
 
 

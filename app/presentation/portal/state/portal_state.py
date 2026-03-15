@@ -308,10 +308,8 @@ class PortalState(AuthState):
     def ruta_rrhh_principal(self) -> str:
         if not self.mostrar_seccion_rrhh:
             return "/portal"
-        if self.puede_gestionar_personal:
+        if self.puede_gestionar_personal or self.puede_registrar_personal:
             return "/portal/empleados"
-        if self.puede_registrar_personal:
-            return "/portal/onboarding"
         if self.es_operaciones:
             return "/portal/asistencias"
         return "/portal"

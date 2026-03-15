@@ -82,6 +82,10 @@ class MisEntregablesState(PortalState):
         return len(self.entregables_filtrados)
 
     @rx.var
+    def hay_resultados_filtrados(self) -> bool:
+        return self.total_mostrados > 0
+
+    @rx.var
     def opciones_contratos(self) -> List[dict]:
         return [{"value": FILTRO_TODOS, "label": "Todos los contratos"}] + [
             {"value": str(c["id"]), "label": c["codigo"]} for c in self.contratos
@@ -133,6 +137,10 @@ class MisEntregablesState(PortalState):
 
     # Filtros activos
     @rx.var
+    def filtro_es_todos(self) -> bool:
+        return self.filtro_estatus == FILTRO_TODOS
+
+    @rx.var
     def filtro_es_accion_requerida(self) -> bool:
         return self.filtro_estatus == "accion_requerida"
 
@@ -167,6 +175,7 @@ class MisEntregablesState(PortalState):
     @rx.var
     def titulo_filtro_actual(self) -> str:
         titulos = {
+            FILTRO_TODOS: "Todos",
             "accion_requerida": "Requieren tu Accion",
             "PENDIENTE": "Pendientes de Entrega",
             "EN_REVISION": "En Revision por BUAP",
@@ -306,6 +315,9 @@ class MisEntregablesState(PortalState):
         """Filtra pendientes + rechazados (default)."""
         await self.filtrar_por_estatus("accion_requerida")
 
+    async def filtrar_todos(self):
+        await self.filtrar_por_estatus(FILTRO_TODOS)
+
     async def filtrar_pendientes(self):
         await self.filtrar_por_estatus("PENDIENTE")
 
@@ -327,8 +339,9 @@ class MisEntregablesState(PortalState):
     async def filtrar_pagados(self):
         await self.filtrar_por_estatus("PAGADO")
 
-    def set_filtro_contrato(self, contrato_id: str):
+    async def set_filtro_contrato(self, contrato_id: str):
         self.filtro_contrato_id = contrato_id if contrato_id else FILTRO_TODOS
+        await self._cargar_entregables()
 
     async def aplicar_filtros(self):
         await self._cargar_entregables()

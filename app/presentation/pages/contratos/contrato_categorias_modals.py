@@ -7,6 +7,7 @@ from app.presentation.components.ui import table_shell
 from app.presentation.components.ui.modals import modal_confirmar_eliminar as modal_eliminar_generico
 from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
 from app.presentation.pages.contratos.contrato_categorias_state import ContratoCategoriaState
+from app.presentation.theme import Colors
 
 
 def resumen_personal() -> rx.Component:
@@ -40,7 +41,7 @@ def resumen_personal() -> rx.Component:
             # Costo Mínimo
             rx.vstack(
                 rx.text("Costo Mín.", size="1", color="gray"),
-                rx.text(ContratoCategoriaState.costo_minimo_total, weight="bold", size="2", color="orange"),
+                rx.text(ContratoCategoriaState.costo_minimo_total, weight="bold", size="2", color=Colors.WARNING),
                 spacing="1",
                 align="center",
             ),
@@ -48,7 +49,7 @@ def resumen_personal() -> rx.Component:
             # Costo Máximo
             rx.vstack(
                 rx.text("Costo Máx.", size="1", color="gray"),
-                rx.text(ContratoCategoriaState.costo_maximo_total, weight="bold", size="2", color="orange"),
+                rx.text(ContratoCategoriaState.costo_maximo_total, weight="bold", size="2", color=Colors.WARNING),
                 spacing="1",
                 align="center",
             ),

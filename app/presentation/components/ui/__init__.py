@@ -8,6 +8,7 @@ from .form_input import (
     form_textarea,
     form_date,
     filter_date_input,
+    compact_date_input,
     form_row,
     select_items_from_options,
 )
@@ -42,6 +43,7 @@ from .filters import (
     contador_registros,
     acciones_filtros,
     filtros_inline,
+    filter_pill,
     switch_inactivos,
     barra_filtros,
     select_estatus_onboarding,
@@ -70,11 +72,17 @@ from .action_buttons import (
     # Nuevos (usar estos)
     tabla_action_button,
     tabla_action_buttons,
+    tabla_cta_button,
     ACTION_BUTTON_SIZE,
     ACTION_ICON_SIZE,
     ACTION_BUTTON_VARIANT,
     ACTION_BUTTONS_SPACING,
     action_buttons_reactive,
+)
+
+from .segmented_tabs import (
+    segmented_tab_trigger,
+    segmented_tabs,
 )
 
 from .entity_card import (
@@ -108,6 +116,7 @@ __all__ = [
     'form_textarea',
     'form_date',
     'filter_date_input',
+    'compact_date_input',
     'form_row',
     'select_items_from_options',
     'accumulating_select',
@@ -138,6 +147,7 @@ __all__ = [
     'contador_registros',
     'acciones_filtros',
     'filtros_inline',
+    'filter_pill',
     'switch_inactivos',
     'barra_filtros',
     'select_estatus_onboarding',
@@ -156,11 +166,14 @@ __all__ = [
     # Action buttons (nuevos)
     "tabla_action_button",
     "tabla_action_buttons",
+    "tabla_cta_button",
     "ACTION_BUTTON_SIZE",
     "ACTION_ICON_SIZE",
     "ACTION_BUTTON_VARIANT",
     "ACTION_BUTTONS_SPACING",
     "action_buttons_reactive",
+    "segmented_tab_trigger",
+    "segmented_tabs",
     # Entity cards
     "entity_card",
     "entity_grid",

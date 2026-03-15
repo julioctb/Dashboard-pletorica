@@ -41,26 +41,56 @@ class SimuladorState(AuthState):
     # ─────────────────────────────────────────────────────────────────
     # SETTERS (conversión de string a número)
     # ─────────────────────────────────────────────────────────────────
+    @staticmethod
+    def _parse_float(value: str, default: float) -> float | None:
+        if value in ("", None):
+            return default
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _parse_int(value: str, default: int) -> int | None:
+        if value in ("", None):
+            return default
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
     def set_salario_mensual(self, value: str):
-        self.set_float_attr("salario_mensual", value, 0.0)
+        parsed = self._parse_float(value, 0.0)
+        if parsed is not None:
+            self.salario_mensual = parsed
 
     def set_prima_riesgo(self, value: str):
-        self.set_float_attr("prima_riesgo", value, 0.0)
+        parsed = self._parse_float(value, 0.0)
+        if parsed is not None:
+            self.prima_riesgo = parsed
 
     def set_prima_vacacional(self, value: str):
-        self.set_float_attr("prima_vacacional", value, 0.0)
+        parsed = self._parse_float(value, 0.0)
+        if parsed is not None:
+            self.prima_vacacional = parsed
 
     def set_antiguedad_anos(self, value: str):
-        self.set_int_attr("antiguedad_anos", value, 1)
+        parsed = self._parse_int(value, 1)
+        if parsed is not None:
+            self.antiguedad_anos = parsed
 
     def set_dias_cotizados(self, value: str):
-        self.set_float_attr("dias_cotizados", value, 30.0)
+        parsed = self._parse_float(value, 30.0)
+        if parsed is not None:
+            self.dias_cotizados = parsed
 
     def set_dias_aguinaldo(self, value: str):
-        self.set_int_attr("dias_aguinaldo", value, 15)
+        parsed = self._parse_int(value, 15)
+        if parsed is not None:
+            self.dias_aguinaldo = parsed
     
     def set_tipo_salario_calculo(self, value: str):
-            self.tipo_salario_calculo = value
+        self.tipo_salario_calculo = value
 
     def set_estado_display(self, display_name: str):
         """Setter que convierte nombre display a ID interno"""

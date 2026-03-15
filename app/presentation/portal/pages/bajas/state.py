@@ -7,7 +7,7 @@ from typing import List
 
 import reflex as rx
 
-from app.core.text_utils import formatear_fecha
+from app.core.text_utils import capitalizar_palabras, formatear_fecha
 from app.presentation.portal.state.portal_state import PortalState
 from app.services.baja_service import baja_service
 from app.core.exceptions import BusinessRuleError
@@ -22,6 +22,7 @@ class BajasState(PortalState):
     alertas: list[dict] = []
     total_bajas: int = 0
     filtro_estatus: str = "ACTIVAS"
+    empleado_id_query: int = 0
 
     baja_seleccionada: dict = {}
     mostrar_modal_accion: bool = False
@@ -31,12 +32,20 @@ class BajasState(PortalState):
     @rx.var
     def bajas_filtradas(self) -> List[dict]:
         """Filtra bajas por busqueda de empleado o clave."""
+        bajas = self.bajas
+
+        if self.empleado_id_query > 0:
+            bajas = [
+                baja for baja in bajas
+                if int(baja.get("empleado_id") or 0) == self.empleado_id_query
+            ]
+
         if not self.filtro_busqueda:
-            return self.bajas
+            return bajas
 
         termino = self.filtro_busqueda.lower()
         return [
-            baja for baja in self.bajas
+            baja for baja in bajas
             if termino in (baja.get("empleado_nombre") or "").lower()
             or termino in (baja.get("empleado_clave") or "").lower()
             or termino in (baja.get("motivo") or "").lower()
@@ -68,6 +77,19 @@ class BajasState(PortalState):
         """Formatea fecha ISO a DD/MM/AAAA para la UI."""
         return formatear_fecha(value, valor_vacio="")
 
+    def _aplicar_query_inicial(self):
+        query = self.router_data.get("query", {}) or {}
+        empleado_id = query.get("empleado_id")
+        estatus = str(query.get("estatus", "") or "").upper()
+
+        try:
+            self.empleado_id_query = int(empleado_id) if empleado_id else 0
+        except (TypeError, ValueError):
+            self.empleado_id_query = 0
+
+        if estatus in {"ACTIVAS", "CERRADAS", "TODAS"}:
+            self.filtro_estatus = estatus
+
     async def on_mount_bajas(self):
         """Carga bajas y alertas al montar la pagina."""
         resultado = await self.on_mount_portal()
@@ -78,6 +100,7 @@ class BajasState(PortalState):
         if not self.mostrar_seccion_rrhh or not self.puede_acceder_rrhh:
             yield rx.redirect("/portal")
             return
+        self._aplicar_query_inicial()
         async for _ in self._montar_pagina(self._cargar_bajas, self._cargar_alertas):
             yield
 
@@ -96,6 +119,9 @@ class BajasState(PortalState):
                 baja = resumen.model_dump(mode='json')
                 baja["fecha_efectiva_fmt"] = self._formatear_fecha_iso(
                     str(baja.get("fecha_efectiva", ""))
+                )
+                baja["empleado_nombre_ui"] = capitalizar_palabras(
+                    str(baja.get("empleado_nombre", "") or "")
                 )
                 baja["badge_liquidacion"] = self._calcular_badge_liquidacion(
                     baja.get("estatus_liquidacion", ""),
@@ -144,12 +170,12 @@ class BajasState(PortalState):
         await self._cargar_alertas()
 
     async def comunicar_baja(self, baja: dict):
-        """Marca baja como comunicada a BUAP."""
+        """Marca baja como comunicada al cliente."""
         self.saving = True
         try:
             await baja_service.comunicar_a_buap(baja["id"])
             await self._recargar_resumen()
-            return rx.toast.success("Baja marcada como comunicada a BUAP")
+            return rx.toast.success("Baja marcada como comunicada al cliente")
         except (BusinessRuleError, ValueError) as e:
             return rx.toast.error(str(e))
         except Exception as e:
@@ -207,7 +233,7 @@ class BajasState(PortalState):
             self.saving = False
 
     async def actualizar_sustitucion(self, baja: dict, requiere: bool):
-        """Registra si BUAP solicito sustitucion."""
+        """Registra si el cliente solicitó sustitución."""
         try:
             await baja_service.actualizar_sustitucion(baja["id"], requiere)
             await self._cargar_bajas()
@@ -241,3 +267,16 @@ class BajasState(PortalState):
 
     def set_form_notas_cancelacion(self, value: str):
         self.form_notas_cancelacion = value
+
+    @rx.event
+    def consultar_baja(self, baja: dict):
+        if not isinstance(baja, dict):
+            return
+
+        empleado_id = int(baja.get("empleado_id") or 0)
+        if empleado_id <= 0:
+            return rx.redirect("/portal/bajas")
+
+        return rx.redirect(
+            f"/portal/bajas?empleado_id={empleado_id}&estatus={self.filtro_estatus}",
+        )

@@ -73,7 +73,6 @@ from .presentation.portal.pages.mis_empleados import (
     alta_masiva_redirect_page,
     mis_empleados_page,
 )
-from .presentation.portal.pages.onboarding_alta import onboarding_alta_page
 from .presentation.portal.pages.expedientes import expedientes_page
 from .presentation.portal.pages.bajas import bajas_page
 
@@ -108,6 +107,36 @@ def root_dispatcher_page() -> rx.Component:
         ),
         height="100vh",
         on_mount=AuthState.redirigir_desde_raiz,
+    )
+
+
+def portal_plazas_redirect_page() -> rx.Component:
+    """Ruta legacy de plazas que reenvía a la vista por plaza en empleados."""
+    return rx.center(
+        rx.vstack(
+            rx.spinner(size="3"),
+            rx.text("Redirigiendo a empleados...", color="gray"),
+            spacing="3",
+            align="center",
+        ),
+        width="100%",
+        min_height="40vh",
+        on_mount=rx.redirect("/portal/empleados?view=plaza", replace=True),
+    )
+
+
+def portal_onboarding_redirect_page() -> rx.Component:
+    """Ruta legacy de onboarding que reenvía al filtro En alta en empleados."""
+    return rx.center(
+        rx.vstack(
+            rx.spinner(size="3"),
+            rx.text("Redirigiendo a empleados...", color="gray"),
+            spacing="3",
+            align="center",
+        ),
+        width="100%",
+        min_height="40vh",
+        on_mount=rx.redirect("/portal/empleados?status=en_alta", replace=True),
     )
 
 
@@ -213,8 +242,8 @@ app.add_page(
     lambda: portal_index(alta_masiva_redirect_page()),
     route="/portal/alta-masiva",
 )
-app.add_page(lambda: portal_index(plazas_page()), route="/portal/plazas")
-app.add_page(lambda: portal_index(onboarding_alta_page()), route="/portal/onboarding")
+app.add_page(lambda: portal_index(portal_plazas_redirect_page()), route="/portal/plazas")
+app.add_page(lambda: portal_index(portal_onboarding_redirect_page()), route="/portal/onboarding")
 app.add_page(lambda: portal_index(expedientes_page()), route="/portal/empleados/expedientes")
 app.add_page(lambda: portal_index(bajas_page()), route="/portal/bajas")
 app.add_page(lambda: portal_index(periodos_nomina_page()), route="/portal/nominas")

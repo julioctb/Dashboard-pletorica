@@ -91,6 +91,13 @@ def page_toolbar(
     
     # Elementos adicionales a la derecha
     extra_right: rx.Component = None,
+    # Variante visual
+    wrapped: bool = True,
+    compact: bool = False,
+    # Layout del campo de búsqueda
+    search_min_width: str = "260px",
+    search_max_width: str | None = "400px",
+    search_flex: str = "1 1 300px",
 ) -> rx.Component:
     """
     Barra de herramientas estándar con búsqueda, filtros y toggle de vista.
@@ -117,6 +124,9 @@ def page_toolbar(
             on_view_cards=State.set_view_cards,
         )
     """
+    column_gap = Spacing.SM if compact else Spacing.MD
+    row_gap = Spacing.XS if compact else Spacing.SM
+
     left_group = rx.flex(
         rx.cond(
             show_search,
@@ -130,17 +140,17 @@ def page_toolbar(
                     toolbar_style=True,
                 ),
                 width="100%",
-                min_width="260px",
-                max_width="400px",
-                flex="1 1 300px",
+                min_width=search_min_width,
+                max_width=search_max_width or "none",
+                flex=search_flex,
             ),
             rx.fragment(),
         ),
         filters if filters else rx.fragment(),
         wrap="wrap",
         align="center",
-        column_gap=Spacing.MD,
-        row_gap=Spacing.SM,
+        column_gap=column_gap,
+        row_gap=row_gap,
         flex="1 1 420px",
         width="100%",
     )
@@ -159,24 +169,36 @@ def page_toolbar(
         wrap="wrap",
         align="center",
         justify="end",
-        column_gap=Spacing.SM,
-        row_gap=Spacing.SM,
+        column_gap=column_gap,
+        row_gap=row_gap,
     )
 
-    return rx.flex(
+    toolbar = rx.flex(
         left_group,
         right_group,
         wrap="wrap",
         align="center",
         justify="between",
         width="100%",
+        column_gap=column_gap,
+        row_gap=row_gap,
+    )
+
+    if not wrapped:
+        return rx.box(
+            toolbar,
+            width="100%",
+            margin_bottom=Spacing.MD,
+        )
+
+    return rx.box(
+        toolbar,
+        width="100%",
         padding=Spacing.MD,
         background=Colors.SURFACE,
         border_radius=Radius.LG,
         border=f"1px solid {Colors.BORDER}",
         margin_bottom=Spacing.MD,
-        column_gap=Spacing.MD,
-        row_gap=Spacing.SM,
     )
 
 

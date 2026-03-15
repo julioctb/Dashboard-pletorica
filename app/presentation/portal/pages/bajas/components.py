@@ -7,10 +7,14 @@ from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.ui import (
     filtros_inline,
     table_shell,
-    tabla_action_button,
     empty_state_card,
     boton_cancelar,
     boton_guardar,
+    tabla_cta_button,
+    table_cell_actions,
+    table_cell_badge,
+    table_cell_text_sm,
+    table_text_sm,
 )
 from app.presentation.theme import Colors, Typography, Spacing
 
@@ -76,93 +80,60 @@ def _celda_centrada(component: rx.Component) -> rx.Component:
 
 
 def _accion_primaria_baja(baja: dict) -> rx.Component:
-    estatus = baja.get("estatus", "")
     return rx.match(
-        estatus,
+        baja.get("estatus", ""),
         (
             "INICIADA",
-            rx.button(
-                "Comunicar BUAP",
-                size="2",
-                variant="soft",
-                color_scheme="blue",
-                on_click=BajasState.comunicar_baja(baja),
-                white_space="nowrap",
+            tabla_cta_button(
+                "Comunicar al cliente",
+                BajasState.comunicar_baja(baja),
+                color_scheme="orange",
             ),
         ),
         (
             "COMUNICADA",
-            rx.button(
-                "Registrar liquidacion",
-                size="2",
-                variant="soft",
-                color_scheme="green",
-                on_click=BajasState.registrar_liquidacion(baja),
-                white_space="nowrap",
+            tabla_cta_button(
+                "Procesar liquidacion",
+                BajasState.registrar_liquidacion(baja),
+                color_scheme="blue",
             ),
         ),
         (
             "LIQUIDADA",
-            rx.button(
-                "Cerrar",
-                size="2",
-                variant="soft",
-                color_scheme="gray",
-                on_click=BajasState.cerrar_baja(baja),
-                white_space="nowrap",
+            tabla_cta_button(
+                "Cerrar baja",
+                BajasState.cerrar_baja(baja),
+                color_scheme="green",
             ),
         ),
-        rx.fragment(),
+        tabla_cta_button(
+            "Consultar",
+            BajasState.consultar_baja(baja),
+            color_scheme="gray",
+        ),
     )
 
 
 def fila_baja(baja: dict) -> rx.Component:
     """Fila de tabla de bajas."""
-    estatus = baja.get("estatus", "")
-
     return rx.table.row(
-        rx.table.cell(
-            rx.vstack(
-                rx.text(
-                    baja.get("empleado_nombre", "-"),
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                    color=Colors.TEXT_PRIMARY,
-                ),
-                rx.text(
-                    baja.get("empleado_clave", "-"),
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_MUTED,
-                ),
-                spacing="0",
-                align="start",
-            ),
+        table_cell_text_sm(
+            baja.get("empleado_nombre_ui", ""),
+            weight=Typography.WEIGHT_MEDIUM,
+            fallback="-",
         ),
         _celda_centrada(_motivo_text(baja.get("motivo", ""))),
-        rx.table.cell(
-            rx.text(
-                baja.get("fecha_efectiva_fmt", baja.get("fecha_efectiva", "-")),
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            ),
+        table_cell_text_sm(
+            baja.get("fecha_efectiva_fmt", baja.get("fecha_efectiva", "-")),
+            tone="secondary",
         ),
-        _celda_centrada(_badge_estatus_baja(estatus)),
+        table_cell_badge(_badge_estatus_baja(baja.get("estatus", ""))),
         _celda_centrada(
             _badge_liquidacion(baja.get("badge_liquidacion", "pendiente")),
         ),
         _celda_centrada(_sustitucion_badge(baja)),
-        _celda_centrada(
-            rx.hstack(
-                _accion_primaria_baja(baja),
-                tabla_action_button(
-                    icon="x",
-                    tooltip="Cancelar baja",
-                    on_click=BajasState.abrir_cancelacion(baja),
-                    color_scheme="red",
-                    visible=(estatus == "INICIADA") | (estatus == "COMUNICADA"),
-                ),
-                spacing="1",
-            ),
+        table_cell_actions(
+            _accion_primaria_baja(baja),
         ),
     )
 
@@ -229,13 +200,6 @@ def filtros_bajas() -> rx.Component:
             ),
             value=BajasState.filtro_estatus,
             on_change=BajasState.cambiar_filtro,
-            size="2",
-        ),
-        rx.button(
-            rx.icon("refresh-cw", size=14),
-            "Recargar",
-            on_click=BajasState.recargar_bajas,
-            variant="soft",
             size="2",
         ),
     )

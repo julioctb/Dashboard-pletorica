@@ -1,26 +1,39 @@
 """
 State para la pagina Mis Empleados del portal.
 """
+import asyncio
 import logging
 from datetime import date
 from typing import List
 
 import reflex as rx
 
-from app.core.text_utils import formatear_fecha, formatear_fecha_hora
+from app.core.text_utils import (
+    capitalizar_palabras,
+    formatear_fecha,
+    formatear_fecha_hora,
+    formatear_moneda,
+)
 from app.core.utils import normalize_date_input, parse_date_input
-from app.core.enums import GeneroEmpleado
+from app.core.enums import EstatusPlaza, GeneroEmpleado
 from app.presentation.components.shared import (
     EMPLOYEE_BULK_UPLOAD_ID,
     EmployeeBulkUploadStateMixin,
 )
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.components.shared.employee_form_state_mixin import EmployeeFormStateMixin
-from app.services import cuenta_bancaria_historial_service, empleado_service
+from app.services import (
+    cuenta_bancaria_historial_service,
+    empleado_service,
+    onboarding_service,
+    plaza_service,
+    sede_service,
+)
+from app.services.baja_service import baja_service
 from app.services.empleado_descuento_recurrente_service import (
     empleado_descuento_recurrente_service,
 )
-from app.entities import EmpleadoCreate, EmpleadoUpdate
+from app.entities import EmpleadoCreate, EmpleadoUpdate, PlazaUpdate
 from app.core.exceptions import DuplicateError, BusinessRuleError, NotFoundError
 from app.core.ui_helpers import opciones_desde_enum, rango_paginacion
 from app.core.validation import (
@@ -54,6 +67,38 @@ from app.presentation.pages.empleados.empleados_validators import (
 
 logger = logging.getLogger(__name__)
 
+_BANCOS_EMPLEADO_OPTIONS: List[dict] = [
+    {"label": "BBVA", "value": "BBVA"},
+    {"label": "Banamex", "value": "BANAMEX"},
+    {"label": "Banorte", "value": "BANORTE"},
+    {"label": "Santander", "value": "SANTANDER"},
+    {"label": "HSBC", "value": "HSBC"},
+    {"label": "Scotiabank", "value": "SCOTIABANK"},
+    {"label": "Inbursa", "value": "INBURSA"},
+    {"label": "Banco Azteca", "value": "BANCO AZTECA"},
+    {"label": "BanCoppel", "value": "BANCOPPEL"},
+    {"label": "Banregio", "value": "BANREGIO"},
+]
+
+FILTRO_CONTRATO_TODOS = "__todos__"
+FILTRO_PANEL_TODOS = "TODOS"
+FILTRO_PANEL_ACTIVOS = "ACTIVO"
+FILTRO_PANEL_EN_ALTA = "EN_ALTA"
+FILTRO_PANEL_SUSPENDIDOS = "SUSPENDIDO"
+FILTRO_PANEL_EN_BAJA = "EN_BAJA"
+ESTATUS_ONBOARDING_COMPLETOS = {"ACTIVO_COMPLETO"}
+VISTA_PERSONAL_EMPLEADO = "empleado"
+VISTA_PERSONAL_PLAZA = "plaza"
+QUERY_STATUS_MAP = {
+    "todos": FILTRO_PANEL_TODOS,
+    "activos": FILTRO_PANEL_ACTIVOS,
+    "activo": FILTRO_PANEL_ACTIVOS,
+    "en_alta": FILTRO_PANEL_EN_ALTA,
+    "suspendidos": FILTRO_PANEL_SUSPENDIDOS,
+    "suspendido": FILTRO_PANEL_SUSPENDIDOS,
+    "en_baja": FILTRO_PANEL_EN_BAJA,
+}
+
 
 def _empty_empleado_detalle() -> dict:
     """Payload base del detalle para evitar claves ausentes en render."""
@@ -64,6 +109,8 @@ def _empty_empleado_detalle() -> dict:
         "clave": "",
         "nombre_completo": "",
         "estatus": "",
+        "estatus_personal": "",
+        "contrato_codigo": "",
         "is_restricted": False,
         "curp": "",
         "rfc": "",
@@ -117,10 +164,18 @@ class MisEmpleadosState(
 
     empleados: List[dict] = []
     total_empleados_lista: int = 0
+    onboarding_empleados: List[dict] = []
+    bajas_activas: List[dict] = []
+    resumen_contratos_rrhh: List[dict] = []
+    plazas_por_contrato: List[dict] = []
+    sedes_catalogo_rrhh: List[dict] = []
 
     # Filtros
     filtro_busqueda_emp: str = ""
     filtro_estatus_emp: str = "ACTIVO"
+    filtro_contrato_id: str = FILTRO_CONTRATO_TODOS
+    filtro_panel_personal: str = FILTRO_PANEL_TODOS
+    vista_personal: str = VISTA_PERSONAL_EMPLEADO
     pagina: int = 1
     por_pagina: int = 20
 
@@ -175,18 +230,22 @@ class MisEmpleadosState(
     form_descuento_infonavit_inicio: str = ""
     form_descuento_infonavit_fin: str = ""
     form_descuento_infonavit_notas: str = ""
+    form_descuento_infonavit_activo: bool = False
     form_descuento_fonacot_monto: str = ""
     form_descuento_fonacot_inicio: str = ""
     form_descuento_fonacot_fin: str = ""
     form_descuento_fonacot_notas: str = ""
+    form_descuento_fonacot_activo: bool = False
     form_descuento_prestamo_empresa_monto: str = ""
     form_descuento_prestamo_empresa_inicio: str = ""
     form_descuento_prestamo_empresa_fin: str = ""
     form_descuento_prestamo_empresa_notas: str = ""
+    form_descuento_prestamo_empresa_activo: bool = False
     form_descuento_pension_alimenticia_monto: str = ""
     form_descuento_pension_alimenticia_inicio: str = ""
     form_descuento_pension_alimenticia_fin: str = ""
     form_descuento_pension_alimenticia_notas: str = ""
+    form_descuento_pension_alimenticia_activo: bool = False
 
     # ========================
     # DETALLE DE EMPLEADO
@@ -196,6 +255,12 @@ class MisEmpleadosState(
     loading_detalle_empleado: bool = False
     empleado_detalle: dict = _empty_empleado_detalle()
     historial_bancario: List[dict] = []
+    mostrar_modal_asignacion_plaza: bool = False
+    plaza_seleccionada: dict = {}
+    empleados_disponibles_plaza: List[dict] = []
+    empleado_seleccionado_plaza_id: str = ""
+    cargando_empleados_plaza: bool = False
+    modo_asignacion_plaza: str = "asignar"
 
     # ========================
     # BAJA DE EMPLEADO
@@ -240,6 +305,23 @@ class MisEmpleadosState(
     def set_filtro_estatus_emp(self, value: str):
         self.filtro_estatus_emp = value
         self.pagina = 1
+
+    def set_filtro_contrato_id(self, value: str):
+        self.filtro_contrato_id = value or FILTRO_CONTRATO_TODOS
+        self.pagina = 1
+
+    def set_filtro_panel_personal(self, value: str):
+        self.filtro_panel_personal = value or FILTRO_PANEL_TODOS
+        self.pagina = 1
+
+    def set_vista_personal(self, value: str):
+        self.vista_personal = (
+            VISTA_PERSONAL_PLAZA if value == VISTA_PERSONAL_PLAZA else VISTA_PERSONAL_EMPLEADO
+        )
+        self.pagina = 1
+
+    def set_empleado_seleccionado_plaza_id(self, value: str):
+        self.empleado_seleccionado_plaza_id = value or ""
 
     # ========================
     # SETTERS DE FORMULARIO
@@ -315,6 +397,32 @@ class MisEmpleadosState(
 
     def set_form_descuento_notas(self, form_key: str, value: str):
         self._set_form_descuento_recurrente_field(form_key, "notas", value)
+
+    def set_form_descuento_activo(self, form_key: str, value) -> None:
+        """Activa o limpia la captura visual de un descuento recurrente."""
+        checked = self._valor_switch_a_bool(value)
+        activo_attr = f"form_descuento_{form_key}_activo"
+        if not hasattr(self, activo_attr):
+            return
+
+        setattr(self, activo_attr, checked)
+        if hasattr(self, "error_descuentos_recurrentes"):
+            self.error_descuentos_recurrentes = ""
+
+        if checked:
+            inicio_attr = f"form_descuento_{form_key}_inicio"
+            if hasattr(self, inicio_attr) and not getattr(self, inicio_attr, "").strip():
+                setattr(
+                    self,
+                    inicio_attr,
+                    self.form_fecha_ingreso or date.today().isoformat(),
+                )
+            return
+
+        for field_name in ("monto", "inicio", "fin", "notas"):
+            attr = f"form_descuento_{form_key}_{field_name}"
+            if hasattr(self, attr):
+                setattr(self, attr, "")
 
     def set_form_motivo_baja(self, value: str):
         self._set_form_plain_field("form_motivo_baja", value)
@@ -463,6 +571,19 @@ class MisEmpleadosState(
         ]
 
     @rx.var
+    def opciones_banco_empleado(self) -> List[dict]:
+        """Opciones visibles para el select de banco, preservando el valor actual."""
+        opciones = list(_BANCOS_EMPLEADO_OPTIONS)
+        actual = str(self.form_banco or "").strip()
+        if not actual:
+            return opciones
+
+        valores_existentes = {str(opt.get("value", "")).strip() for opt in opciones}
+        if actual not in valores_existentes:
+            return [{"label": actual, "value": actual}, *opciones]
+        return opciones
+
+    @rx.var
     def datos_bancarios_bloqueados(self) -> bool:
         """En edición, los datos bancarios se muestran en lectura hasta desbloquearlos."""
         return self.es_edicion and not self.editar_datos_bancarios
@@ -498,27 +619,480 @@ class MisEmpleadosState(
             "para capturar nuevos datos."
         )
 
+    @staticmethod
+    def _texto_contacto_secundario(payload: dict) -> str:
+        return str(
+            payload.get("telefono")
+            or payload.get("email")
+            or ""
+        ).strip()
+
+    @staticmethod
+    def _normalizar_nombre_visual(nombre: str) -> str:
+        return capitalizar_palabras(nombre)
+
+    def _resolver_nombre_empleado_visual(self, empleado) -> str:
+        """Resuelve nombre visible desde modelos/dicts sin serializar métodos."""
+        if empleado is None:
+            return ""
+        if isinstance(empleado, dict):
+            nombre = (
+                empleado.get("nombre_completo")
+                or empleado.get("nombre_completo_ui")
+                or ""
+            )
+            return self._normalizar_nombre_visual(str(nombre or ""))
+
+        nombre_completo = getattr(empleado, "nombre_completo", None)
+        if callable(nombre_completo):
+            return self._normalizar_nombre_visual(nombre_completo())
+
+        if nombre_completo:
+            return self._normalizar_nombre_visual(str(nombre_completo))
+
+        nombre = str(getattr(empleado, "nombre", "") or "")
+        apellido_paterno = str(getattr(empleado, "apellido_paterno", "") or "")
+        apellido_materno = str(getattr(empleado, "apellido_materno", "") or "")
+        return self._normalizar_nombre_visual(
+            " ".join(
+                part for part in [nombre, apellido_paterno, apellido_materno] if part
+            ).strip()
+        )
+
+    @staticmethod
+    def _estado_expediente(
+        aprobados: int,
+        requeridos: int,
+        *,
+        pendiente: bool = False,
+    ) -> dict:
+        if pendiente or (requeridos > 0 and aprobados <= 0):
+            return {
+                "expediente_resumen_ui": "Pendiente",
+                "expediente_tone": "warning",
+                "expediente_completo": False,
+                "expediente_requiere_accion": True,
+            }
+        if requeridos > 0 and aprobados >= requeridos:
+            return {
+                "expediente_resumen_ui": f"{aprobados}/{requeridos}",
+                "expediente_tone": "success",
+                "expediente_completo": True,
+                "expediente_requiere_accion": False,
+            }
+        return {
+            "expediente_resumen_ui": f"{aprobados}/{requeridos}",
+            "expediente_tone": "secondary",
+            "expediente_completo": False,
+            "expediente_requiere_accion": requeridos > 0 and aprobados < requeridos,
+        }
+
+    @staticmethod
+    def _estatus_unificado_empleado(
+        empleado_id: int,
+        empleado_data: dict,
+        onboarding_ids: set[int],
+        bajas_ids: set[int],
+    ) -> str:
+        if empleado_id in bajas_ids:
+            return FILTRO_PANEL_EN_BAJA
+        if empleado_id in onboarding_ids:
+            return FILTRO_PANEL_EN_ALTA
+        if str(empleado_data.get("estatus", "") or "") == "SUSPENDIDO":
+            return FILTRO_PANEL_SUSPENDIDOS
+        return FILTRO_PANEL_ACTIVOS
+
+    def _normalizar_resumen_empleado(self, empleado, plazas_por_empleado: dict[int, dict]) -> dict:
+        data = (
+            empleado.model_dump(mode="json")
+            if hasattr(empleado, "model_dump")
+            else dict(empleado)
+        )
+        empleado_id = int(data.get("id") or 0)
+        plaza = plazas_por_empleado.get(empleado_id, {})
+        aprobados = int(data.get("documentos_aprobados_expediente", 0) or 0)
+        requeridos = int(data.get("documentos_requeridos_expediente", 0) or 0)
+        data["nombre_completo_ui"] = self._normalizar_nombre_visual(
+            str(data.get("nombre_completo", "") or "")
+        )
+        data["contacto_secundario_ui"] = self._texto_contacto_secundario(data)
+        data["contrato_id"] = plaza.get("contrato_id")
+        data["contrato_codigo"] = plaza.get("contrato_codigo", "")
+        data["categoria_nombre"] = plaza.get("categoria_nombre", "")
+        data["categoria_clave"] = plaza.get("categoria_clave", "")
+        data["expediente_resumen"] = (
+            str(aprobados)
+            + "/"
+            + str(requeridos)
+        )
+        data.update(self._estado_expediente(aprobados, requeridos))
+        return data
+
+    def _normalizar_resumen_onboarding(self, onboarding: dict, plazas_por_empleado: dict[int, dict]) -> dict:
+        empleado_id = int(onboarding.get("id") or 0)
+        plaza = plazas_por_empleado.get(empleado_id, {})
+        return {
+            "id": empleado_id,
+            "clave": onboarding.get("clave", ""),
+            "curp": onboarding.get("curp", ""),
+            "nombre_completo_ui": self._normalizar_nombre_visual(
+                str(onboarding.get("nombre_completo", "") or "")
+            ),
+            "contacto_secundario_ui": str(onboarding.get("email", "") or ""),
+            "telefono": "",
+            "email": onboarding.get("email", ""),
+            "estatus": "ACTIVO",
+            "estatus_personal": FILTRO_PANEL_EN_ALTA,
+            "estatus_onboarding": onboarding.get("estatus_onboarding", ""),
+            "contrato_id": plaza.get("contrato_id"),
+            "contrato_codigo": plaza.get("contrato_codigo", ""),
+            "categoria_nombre": plaza.get("categoria_nombre", ""),
+            "categoria_clave": plaza.get("categoria_clave", ""),
+            "documentos_aprobados_expediente": 0,
+            "documentos_requeridos_expediente": 0,
+            "expediente_resumen": "Pendiente",
+            "expediente_pendiente": True,
+            **self._estado_expediente(0, 0, pendiente=True),
+        }
+
+    def _normalizar_resumen_baja(self, baja: dict, plazas_por_empleado: dict[int, dict]) -> dict:
+        empleado_id = int(baja.get("empleado_id") or 0)
+        plaza = plazas_por_empleado.get(empleado_id, {})
+        return {
+            "id": empleado_id,
+            "clave": baja.get("empleado_clave", ""),
+            "curp": "",
+            "nombre_completo_ui": self._normalizar_nombre_visual(
+                str(baja.get("empleado_nombre", "") or "")
+            ),
+            "contacto_secundario_ui": "",
+            "telefono": "",
+            "email": "",
+            "estatus": "INACTIVO",
+            "estatus_personal": FILTRO_PANEL_EN_BAJA,
+            "contrato_id": plaza.get("contrato_id"),
+            "contrato_codigo": plaza.get("contrato_codigo", ""),
+            "categoria_nombre": plaza.get("categoria_nombre", ""),
+            "categoria_clave": plaza.get("categoria_clave", ""),
+            "documentos_aprobados_expediente": 0,
+            "documentos_requeridos_expediente": 0,
+            "expediente_resumen": "Pendiente",
+            "expediente_pendiente": True,
+            **self._estado_expediente(0, 0, pendiente=True),
+        }
+
+    @staticmethod
+    def _estado_plaza_color(estatus: str) -> str:
+        if estatus == EstatusPlaza.OCUPADA.value:
+            return "green"
+        if estatus == EstatusPlaza.VACANTE.value:
+            return "blue"
+        return "gray"
+
+    def _serializar_plaza_portal(self, plaza) -> dict:
+        plaza_dict = plaza.model_dump(mode="json")
+        estatus = str(plaza_dict.get("estatus", "") or "")
+        plaza_dict["categoria_nombre"] = plaza_dict.get("categoria_nombre") or "Sin categoría"
+        plaza_dict["categoria_clave"] = plaza_dict.get("categoria_clave") or ""
+        plaza_dict["sede_nombre"] = plaza_dict.get("sede_nombre") or "Sin sede"
+        plaza_dict["sede_codigo"] = plaza_dict.get("sede_codigo") or ""
+        plaza_dict["empleado_nombre"] = self._normalizar_nombre_visual(
+            str(plaza_dict.get("empleado_nombre", "") or "")
+        )
+        plaza_dict["sede_display"] = (
+            f"{plaza_dict['sede_codigo']} - {plaza_dict['sede_nombre']}".strip(" -")
+            if plaza_dict["sede_codigo"]
+            else plaza_dict["sede_nombre"]
+        )
+        plaza_dict["id_text"] = str(plaza_dict.get("id") or "")
+        plaza_dict["sede_id_text"] = str(plaza_dict.get("sede_id") or "")
+        plaza_dict["empleado_id_text"] = str(plaza_dict.get("empleado_id") or "")
+        plaza_dict["estado_color_scheme"] = self._estado_plaza_color(estatus)
+        plaza_dict["estado_label"] = capitalizar_palabras(estatus.lower()) if estatus else "Sin estatus"
+        plaza_dict["tiene_empleado"] = bool(plaza_dict.get("empleado_id"))
+        plaza_dict["tiene_sede"] = bool(plaza_dict.get("sede_id"))
+        plaza_dict["tiene_categoria"] = bool(plaza_dict.get("categoria_puesto_id"))
+        return plaza_dict
+
+    def _construir_grupo_contrato(
+        self,
+        contrato: dict,
+        plazas: list[dict],
+    ) -> dict:
+        sedes_ids = {
+            int(plaza.get("sede_id") or 0)
+            for plaza in plazas
+            if int(plaza.get("sede_id") or 0) > 0
+        }
+        ocupadas = [
+            plaza for plaza in plazas
+            if plaza.get("estatus") == EstatusPlaza.OCUPADA.value
+        ]
+        vacantes = [
+            plaza for plaza in plazas
+            if plaza.get("estatus") == EstatusPlaza.VACANTE.value
+        ]
+        suspendidas = [
+            plaza for plaza in plazas
+            if plaza.get("estatus") == EstatusPlaza.SUSPENDIDA.value
+        ]
+        resumen_plazas = (
+            f"{len(plazas)} plazas · "
+            f"{len(ocupadas)} ocupadas · "
+            f"{len(vacantes)} vacantes · "
+            f"{len(sedes_ids)} sedes"
+        )
+        return {
+            "contrato_id": int(contrato.get("contrato_id") or 0),
+            "contrato_codigo": str(contrato.get("contrato_codigo", "") or ""),
+            "contrato_estatus": str(contrato.get("contrato_estatus", "") or ""),
+            "tipo_servicio_clave": str(contrato.get("tipo_servicio_clave", "") or ""),
+            "tipo_servicio_nombre": str(contrato.get("tipo_servicio_nombre", "") or ""),
+            "total_plazas": len(plazas),
+            "plazas_ocupadas": len(ocupadas),
+            "plazas_vacantes": len(vacantes),
+            "plazas_suspendidas": len(suspendidas),
+            "total_sedes": len(sedes_ids),
+            "tiene_plazas": len(plazas) > 0,
+            "resumen_plazas": resumen_plazas,
+            "plazas": plazas,
+        }
+
+    async def _construir_contexto_plazas(
+        self,
+        resumen_contratos: list[dict],
+    ) -> tuple[dict[int, dict], list[dict]]:
+        contratos = [
+            (
+                item.model_dump(mode="json")
+                if hasattr(item, "model_dump")
+                else dict(item)
+            )
+            for item in resumen_contratos
+            if int(
+                (
+                    item.contrato_id
+                    if hasattr(item, "contrato_id")
+                    else item.get("contrato_id") or 0
+                )
+            ) > 0
+        ]
+        if not contratos:
+            return {}, []
+
+        resultados = await asyncio.gather(
+            *[
+                plaza_service.obtener_resumen_de_contrato(int(contrato["contrato_id"]))
+                for contrato in contratos
+            ]
+        )
+
+        plazas_por_empleado: dict[int, dict] = {}
+        grupos: list[dict] = []
+        for contrato, plazas in zip(contratos, resultados):
+            plazas_serializadas = [
+                self._serializar_plaza_portal(plaza)
+                for plaza in plazas
+                if str(getattr(plaza.estatus, "value", plaza.estatus) or "") != EstatusPlaza.CANCELADA.value
+            ]
+            plazas_serializadas.sort(key=lambda item: int(item.get("numero_plaza") or 0))
+
+            for plaza in plazas_serializadas:
+                empleado_id = int(plaza.get("empleado_id") or 0)
+                if empleado_id <= 0:
+                    continue
+                plazas_por_empleado[empleado_id] = {
+                    "contrato_id": plaza.get("contrato_id"),
+                    "contrato_codigo": plaza.get("contrato_codigo", ""),
+                    "categoria_nombre": plaza.get("categoria_nombre", ""),
+                    "categoria_clave": plaza.get("categoria_clave", ""),
+                }
+
+            grupos.append(self._construir_grupo_contrato(contrato, plazas_serializadas))
+
+        grupos.sort(key=lambda item: item.get("contrato_codigo", ""))
+        return plazas_por_empleado, grupos
+
+    def _aplicar_query_inicial(self) -> None:
+        query = self.router_data.get("query", {}) or {}
+        status = str(query.get("status", "") or "").strip().lower()
+        view = str(query.get("view", "") or "").strip().lower()
+        contrato_id = str(query.get("contrato_id", "") or "").strip()
+
+        self.vista_personal = (
+            VISTA_PERSONAL_PLAZA if view == VISTA_PERSONAL_PLAZA else VISTA_PERSONAL_EMPLEADO
+        )
+        self.filtro_panel_personal = QUERY_STATUS_MAP.get(status, FILTRO_PANEL_TODOS)
+
+        if contrato_id:
+            try:
+                self.filtro_contrato_id = str(int(contrato_id))
+            except (TypeError, ValueError):
+                self.filtro_contrato_id = FILTRO_CONTRATO_TODOS
+        else:
+            self.filtro_contrato_id = FILTRO_CONTRATO_TODOS
+
+    @rx.var
+    def subtitulo_empleados(self) -> str:
+        empresa = str(self.nombre_empresa_actual or "Empresa actual").strip()
+        return f"{empresa} - Plantilla y gestion de personal"
+
+    @rx.var
+    def vista_es_empleado(self) -> bool:
+        return self.vista_personal != VISTA_PERSONAL_PLAZA
+
+    @rx.var
+    def vista_es_plaza(self) -> bool:
+        return self.vista_personal == VISTA_PERSONAL_PLAZA
+
+    @rx.var
+    def placeholder_busqueda_personal(self) -> str:
+        if self.vista_es_plaza:
+            return "Buscar por plaza, categoria, sede o empleado..."
+        return "Buscar por nombre o CURP..."
+
+    @rx.var
+    def opciones_contratos_activos(self) -> List[dict]:
+        opciones = [
+            {
+                "value": FILTRO_CONTRATO_TODOS,
+                "label": "Todos los contratos",
+            }
+        ]
+        for contrato in self.resumen_contratos_rrhh:
+            opciones.append(
+                {
+                    "value": str(contrato.get("contrato_id", "")),
+                    "label": str(contrato.get("contrato_codigo", "") or "Sin contrato"),
+                }
+            )
+        return opciones
+
+    @rx.var
+    def opciones_sedes_plaza(self) -> List[dict]:
+        return [
+            {
+                "value": str(sede.get("id")),
+                "label": (
+                    f"{sede.get('codigo', '')} - "
+                    f"{sede.get('nombre_corto') or sede.get('nombre', '')}"
+                ).strip(" -"),
+            }
+            for sede in self.sedes_catalogo_rrhh
+        ]
+
+    @rx.var
+    def contratos_activos_filtrados(self) -> List[dict]:
+        if self.filtro_contrato_id == FILTRO_CONTRATO_TODOS:
+            return self.resumen_contratos_rrhh
+
+        contrato_id = int(self.filtro_contrato_id) if self.filtro_contrato_id else 0
+        return [
+            item
+            for item in self.resumen_contratos_rrhh
+            if int(item.get("contrato_id") or 0) == contrato_id
+        ]
+
+    @rx.var
+    def empleados_por_contrato(self) -> List[dict]:
+        if self.filtro_contrato_id == FILTRO_CONTRATO_TODOS:
+            return self.empleados
+
+        contrato_id = int(self.filtro_contrato_id) if self.filtro_contrato_id else 0
+        return [
+            empleado
+            for empleado in self.empleados
+            if int(empleado.get("contrato_id") or 0) == contrato_id
+        ]
+
+    @rx.var
+    def stats_total(self) -> int:
+        return len(self.empleados_por_contrato)
+
+    @rx.var
+    def stats_activos(self) -> int:
+        return len(
+            [
+                item for item in self.empleados_por_contrato
+                if item.get("estatus_personal") == FILTRO_PANEL_ACTIVOS
+            ]
+        )
+
+    @rx.var
+    def stats_en_alta(self) -> int:
+        return len(
+            [
+                item for item in self.empleados_por_contrato
+                if item.get("estatus_personal") == FILTRO_PANEL_EN_ALTA
+            ]
+        )
+
+    @rx.var
+    def stats_suspendidos(self) -> int:
+        return len(
+            [
+                item for item in self.empleados_por_contrato
+                if item.get("estatus_personal") == FILTRO_PANEL_SUSPENDIDOS
+            ]
+        )
+
+    @rx.var
+    def stats_en_baja(self) -> int:
+        return len(
+            [
+                item for item in self.empleados_por_contrato
+                if item.get("estatus_personal") == FILTRO_PANEL_EN_BAJA
+            ]
+        )
+
+    @rx.var
+    def filtro_es_todos(self) -> bool:
+        return self.filtro_panel_personal == FILTRO_PANEL_TODOS
+
+    @rx.var
+    def filtro_es_activos(self) -> bool:
+        return self.filtro_panel_personal == FILTRO_PANEL_ACTIVOS
+
+    @rx.var
+    def filtro_es_en_alta(self) -> bool:
+        return self.filtro_panel_personal == FILTRO_PANEL_EN_ALTA
+
+    @rx.var
+    def filtro_es_suspendidos(self) -> bool:
+        return self.filtro_panel_personal == FILTRO_PANEL_SUSPENDIDOS
+
+    @rx.var
+    def filtro_es_en_baja(self) -> bool:
+        return self.filtro_panel_personal == FILTRO_PANEL_EN_BAJA
+
     @rx.var
     def empleados_filtrados(self) -> List[dict]:
-        """Filtra empleados por texto de busqueda."""
+        empleados = self.empleados_por_contrato
+
+        if self.filtro_panel_personal != FILTRO_PANEL_TODOS:
+            empleados = [
+                item
+                for item in empleados
+                if item.get("estatus_personal") == self.filtro_panel_personal
+            ]
+
         if not self.filtro_busqueda_emp:
-            return self.empleados
+            return empleados
+
         termino = self.filtro_busqueda_emp.lower()
         return [
-            e for e in self.empleados
-            if termino in (e.get("nombre_completo") or "").lower()
-            or termino in (e.get("clave") or "").lower()
-            or termino in (e.get("curp") or "").lower()
+            item
+            for item in empleados
+            if termino in str(item.get("nombre_completo_ui", "")).lower()
+            or termino in str(item.get("curp", "")).lower()
         ]
 
     @rx.var
     def total_empleados_filtrados(self) -> int:
-        """Total visible en la tabla tras aplicar la búsqueda local."""
         return len(self.empleados_filtrados)
 
     @rx.var
     def total_paginas_empleados(self) -> int:
-        """Total de páginas del listado actual."""
         return self.calcular_total_paginas(
             self.total_empleados_filtrados,
             self.por_pagina,
@@ -526,7 +1100,6 @@ class MisEmpleadosState(
 
     @rx.var
     def pagina_empleados_actual(self) -> int:
-        """Página actual acotada al rango válido."""
         if self.pagina < 1:
             return 1
         if self.pagina > self.total_paginas_empleados:
@@ -535,14 +1108,12 @@ class MisEmpleadosState(
 
     @rx.var
     def empleados_paginados(self) -> List[dict]:
-        """Slice visible de empleados para la página actual."""
         inicio = (self.pagina_empleados_actual - 1) * self.por_pagina
         fin = inicio + self.por_pagina
         return self.empleados_filtrados[inicio:fin]
 
     @rx.var
     def paginas_visibles_empleados(self) -> List[int]:
-        """Rango de páginas visibles para el paginador."""
         return rango_paginacion(
             self.pagina_empleados_actual,
             self.total_paginas_empleados,
@@ -551,17 +1122,172 @@ class MisEmpleadosState(
 
     @rx.var
     def resumen_paginacion_empleados(self) -> str:
-        """Texto resumen del rango mostrado en la tabla."""
-        total = self.total_empleados_filtrados
-        if total <= 0:
-            return "Sin empleados registrados"
+        return f"Mostrando {self.total_empleados_filtrados} empleado(s)"
 
-        inicio = ((self.pagina_empleados_actual - 1) * self.por_pagina) + 1
-        fin = min(
-            inicio + len(self.empleados_paginados) - 1,
-            total,
+    @rx.var
+    def grupos_plazas_filtrados(self) -> List[dict]:
+        grupos = self.plazas_por_contrato
+        if self.filtro_contrato_id != FILTRO_CONTRATO_TODOS:
+            contrato_id = int(self.filtro_contrato_id) if self.filtro_contrato_id else 0
+            grupos = [
+                grupo
+                for grupo in grupos
+                if int(grupo.get("contrato_id") or 0) == contrato_id
+            ]
+
+        termino = self.filtro_busqueda_emp.lower().strip()
+        if not termino:
+            return grupos
+
+        grupos_filtrados: List[dict] = []
+        for grupo in grupos:
+            plazas = [
+                plaza
+                for plaza in grupo.get("plazas", [])
+                if termino in str(plaza.get("numero_plaza", "")).lower()
+                or termino in str(plaza.get("categoria_nombre", "")).lower()
+                or termino in str(plaza.get("sede_nombre", "")).lower()
+                or termino in str(plaza.get("empleado_nombre", "")).lower()
+                or termino in str(plaza.get("codigo", "")).lower()
+            ]
+            if not plazas:
+                continue
+            grupos_filtrados.append(
+                self._construir_grupo_contrato(grupo, plazas)
+            )
+        return grupos_filtrados
+
+    @rx.var
+    def titulo_modal_asignacion_plaza(self) -> str:
+        if self.modo_asignacion_plaza == "reasignar":
+            return "Reasignar empleado"
+        return "Asignar empleado"
+
+    @rx.var
+    def texto_guardar_asignacion_plaza(self) -> str:
+        if self.modo_asignacion_plaza == "reasignar":
+            return "Reasignar"
+        return "Asignar"
+
+    @rx.var
+    def descripcion_modal_asignacion_plaza(self) -> str:
+        numero_plaza = self._texto_seguro_modal_plaza(
+            self.plaza_seleccionada.get("numero_plaza"),
         )
-        return f"Mostrando {inicio}-{fin} de {total} empleado(s)"
+        contrato_codigo = self._texto_seguro_modal_plaza(
+            self.plaza_seleccionada.get("contrato_codigo", ""),
+        )
+        if not numero_plaza:
+            return "Seleccione un empleado disponible para esta plaza."
+        return (
+            f"Plaza #{numero_plaza} del contrato {contrato_codigo}. "
+            "Seleccione un empleado activo sin plaza asignada."
+        )
+
+    @rx.var
+    def placeholder_empleado_plaza(self) -> str:
+        if self.cargando_empleados_plaza:
+            return "Cargando empleados..."
+        return "Seleccionar empleado"
+
+    @rx.var
+    def tiene_empleados_disponibles_plaza(self) -> bool:
+        return len(self.empleados_disponibles_plaza) > 0
+
+    @rx.var
+    def total_contratos_plazas_visibles(self) -> int:
+        return len(self.grupos_plazas_filtrados)
+
+    @rx.var
+    def total_plazas_visibles(self) -> int:
+        return sum(len(grupo.get("plazas", [])) for grupo in self.grupos_plazas_filtrados)
+
+    @rx.var
+    def resumen_paginacion_plazas(self) -> str:
+        return (
+            "Mostrando "
+            f"{self.total_contratos_plazas_visibles} contrato(s) · "
+            f"{self.total_plazas_visibles} plaza(s)"
+        )
+
+    @rx.var
+    def tiene_plazas_visibles(self) -> bool:
+        return self.total_plazas_visibles > 0
+
+    @rx.var
+    def filas_plazas_agrupadas(self) -> List[dict]:
+        filas: List[dict] = []
+        for grupo in self.grupos_plazas_filtrados:
+            filas.append(
+                {
+                    "tipo_fila": "grupo",
+                    "contrato_codigo": grupo.get("contrato_codigo", ""),
+                    "tipo_servicio_nombre": grupo.get("tipo_servicio_nombre", ""),
+                    "resumen_plazas": grupo.get("resumen_plazas", ""),
+                }
+            )
+            for plaza in grupo.get("plazas", []):
+                filas.append(
+                    {
+                        "tipo_fila": "plaza",
+                        **plaza,
+                    }
+                )
+        return filas
+
+    @rx.var
+    def puede_confirmar_asignacion_plaza(self) -> bool:
+        return bool(self.empleado_seleccionado_plaza_id) and not self.saving
+
+    @rx.var
+    def opciones_empleados_disponibles_plaza(self) -> List[dict]:
+        return [
+            {
+                "value": str(empleado.get("id")),
+                "label": f"{empleado.get('clave', '')} - {empleado.get('nombre_completo', '')}",
+            }
+            for empleado in self.empleados_disponibles_plaza
+        ]
+
+    @rx.var
+    def metrica_plazas_totales(self) -> int:
+        return sum(int(item.get("total_plazas") or 0) for item in self.contratos_activos_filtrados)
+
+    @rx.var
+    def metrica_plazas_ocupadas(self) -> int:
+        return sum(int(item.get("plazas_ocupadas") or 0) for item in self.contratos_activos_filtrados)
+
+    @rx.var
+    def metrica_plazas_vacantes(self) -> int:
+        return sum(int(item.get("plazas_vacantes") or 0) for item in self.contratos_activos_filtrados)
+
+    @rx.var
+    def metrica_plazas_suspendidas(self) -> int:
+        return sum(int(item.get("plazas_suspendidas") or 0) for item in self.contratos_activos_filtrados)
+
+    @rx.var
+    def metrica_propuestas_alta(self) -> int:
+        return self.stats_en_alta
+
+    @rx.var
+    def metrica_hint_plazas(self) -> str:
+        total = len(self.contratos_activos_filtrados)
+        return f"{total} contrato(s) activos"
+
+    @rx.var
+    def metrica_porcentaje_cobertura(self) -> int:
+        total = self.metrica_plazas_totales
+        if total <= 0:
+            return 0
+        return int(round((self.metrica_plazas_ocupadas / total) * 100))
+
+    @rx.var
+    def metrica_hint_cobertura(self) -> str:
+        return f"{self.metrica_porcentaje_cobertura}% cobertura"
+
+    @rx.var
+    def metrica_hint_propuestas(self) -> str:
+        return "Datos pendientes" if self.metrica_propuestas_alta > 0 else ""
 
     @rx.var
     def nombre_empleado_baja(self) -> str:
@@ -569,7 +1295,11 @@ class MisEmpleadosState(
         emp = self.empleado_baja_seleccionado
         if not emp:
             return ""
-        return str(emp.get("nombre_completo", "") or "")
+        return str(
+            emp.get("nombre_completo", "")
+            or emp.get("nombre_completo_ui", "")
+            or ""
+        )
 
     @rx.var
     def clave_empleado_baja(self) -> str:
@@ -675,9 +1405,12 @@ class MisEmpleadosState(
             self.loading = False
             yield resultado
             return
-        if not self.mostrar_seccion_rrhh or not self.puede_gestionar_personal:
+        if not self.mostrar_seccion_rrhh or not (
+            self.puede_gestionar_personal or self.puede_registrar_personal
+        ):
             yield rx.redirect("/portal")
             return
+        self._aplicar_query_inicial()
         async for _ in self._montar_pagina(self._fetch_empleados):
             yield
         if self._query_solicita_alta_masiva():
@@ -687,36 +1420,162 @@ class MisEmpleadosState(
     # CARGA DE DATOS
     # ========================
     async def _fetch_empleados(self):
-        """Carga empleados de la empresa del usuario (sin manejo de loading)."""
+        """Carga y unifica empleados, onboarding, bajas y resumen de plazas."""
         if not self.id_empresa_actual:
             return
 
-        self.empleados = await self.cargar_y_asignar_lista(
-            "empleados",
-            lambda: empleado_service.obtener_resumen_por_empresa(
-                empresa_id=self.id_empresa_actual,
-                incluir_inactivos=self.filtro_estatus_emp != "ACTIVO",
-                limite=200,
-            ),
-            contexto_error="cargando empleados",
-        )
-        self.total_empleados_lista = len(self.empleados)
-        self._ajustar_pagina_empleados()
+        try:
+            resumen_contratos, empleados_resumen, onboarding_resumen, bajas_activas, sedes = await asyncio.gather(
+                plaza_service.obtener_resumen_contratos_con_plazas(
+                    empresa_id=self.id_empresa_actual,
+                    solo_activos=True,
+                ),
+                empleado_service.obtener_resumen_por_empresa(
+                    empresa_id=self.id_empresa_actual,
+                    incluir_inactivos=True,
+                    limite=200,
+                ),
+                onboarding_service.obtener_empleados_onboarding(
+                    empresa_id=self.id_empresa_actual,
+                ),
+                baja_service.obtener_bajas_empresa(
+                    empresa_id=self.id_empresa_actual,
+                    solo_activas=True,
+                ),
+                sede_service.obtener_todas(
+                    incluir_inactivas=False,
+                    limite=500,
+                ),
+            )
+
+            plazas_por_empleado, plazas_por_contrato = await self._construir_contexto_plazas(
+                resumen_contratos,
+            )
+
+            onboarding_lookup = {
+                int(item.get("id") or 0): item
+                for item in onboarding_resumen
+                if item.get("estatus_onboarding")
+                and item.get("estatus_onboarding") not in ESTATUS_ONBOARDING_COMPLETOS
+            }
+            onboarding_ids = set(onboarding_lookup.keys())
+            bajas_lookup = {
+                int(item.empleado_id if hasattr(item, "empleado_id") else item.get("empleado_id") or 0): (
+                    item.model_dump(mode="json")
+                    if hasattr(item, "model_dump")
+                    else dict(item)
+                )
+                for item in bajas_activas
+                if int(item.empleado_id if hasattr(item, "empleado_id") else item.get("empleado_id") or 0) > 0
+            }
+            bajas_ids = set(bajas_lookup.keys())
+
+            filas_por_empleado_id: dict[int, dict] = {}
+            for empleado in empleados_resumen:
+                row = self._normalizar_resumen_empleado(empleado, plazas_por_empleado)
+                empleado_id = int(row.get("id") or 0)
+                row["estatus_personal"] = self._estatus_unificado_empleado(
+                    empleado_id,
+                    row,
+                    onboarding_ids,
+                    bajas_ids,
+                )
+                row["expediente_pendiente"] = False
+                filas_por_empleado_id[empleado_id] = row
+
+            for empleado_id, onboarding in onboarding_lookup.items():
+                base_row = filas_por_empleado_id.get(empleado_id)
+                if base_row is None:
+                    filas_por_empleado_id[empleado_id] = self._normalizar_resumen_onboarding(
+                        onboarding,
+                        plazas_por_empleado,
+                    )
+                    continue
+
+                base_row["estatus_personal"] = FILTRO_PANEL_EN_ALTA
+                base_row["expediente_resumen"] = "Pendiente"
+                base_row["expediente_pendiente"] = True
+                base_row.update(self._estado_expediente(0, 0, pendiente=True))
+                base_row["contacto_secundario_ui"] = (
+                    str(onboarding.get("email", "") or "")
+                    or base_row.get("contacto_secundario_ui", "")
+                )
+
+            for empleado_id, baja in bajas_lookup.items():
+                base_row = filas_por_empleado_id.get(empleado_id)
+                if base_row is None:
+                    filas_por_empleado_id[empleado_id] = self._normalizar_resumen_baja(
+                        baja,
+                        plazas_por_empleado,
+                    )
+                    continue
+
+                base_row["estatus_personal"] = FILTRO_PANEL_EN_BAJA
+                base_row["baja_id"] = baja.get("id")
+
+            self.resumen_contratos_rrhh = list(resumen_contratos)
+            self.onboarding_empleados = list(onboarding_lookup.values())
+            self.bajas_activas = list(bajas_lookup.values())
+            self.sedes_catalogo_rrhh = [
+                sede.model_dump(mode="json") if hasattr(sede, "model_dump") else dict(sede)
+                for sede in sedes
+            ]
+            self.plazas_por_contrato = plazas_por_contrato
+            self.empleados = sorted(
+                filas_por_empleado_id.values(),
+                key=lambda item: str(item.get("nombre_completo_ui", "")),
+            )
+            self.total_empleados_lista = len(self.empleados)
+            contratos_validos = {
+                str(item.get("contrato_id"))
+                for item in self.resumen_contratos_rrhh
+                if int(item.get("contrato_id") or 0) > 0
+            }
+            if (
+                self.filtro_contrato_id != FILTRO_CONTRATO_TODOS
+                and self.filtro_contrato_id not in contratos_validos
+            ):
+                self.filtro_contrato_id = FILTRO_CONTRATO_TODOS
+            self._ajustar_pagina_empleados()
+        except Exception as e:
+            self.mostrar_mensaje(f"Error cargando empleados: {e}", "error")
+            self.resumen_contratos_rrhh = []
+            self.onboarding_empleados = []
+            self.bajas_activas = []
+            self.sedes_catalogo_rrhh = []
+            self.plazas_por_contrato = []
+            self.empleados = []
+            self.total_empleados_lista = 0
+            self.pagina = 1
 
     async def cargar_empleados(self):
-        """Recarga empleados con skeleton (filtros)."""
+        """Recarga la vista unificada con skeleton."""
         async for _ in self._recargar_datos(self._fetch_empleados):
             yield
 
     async def aplicar_filtros_emp(self):
-        async for _ in self.cargar_empleados():
-            yield
+        return None
 
     async def limpiar_filtros_emp(self):
         self.filtro_busqueda_emp = ""
-        self.filtro_estatus_emp = "ACTIVO"
-        async for _ in self.cargar_empleados():
-            yield
+        self.filtro_contrato_id = FILTRO_CONTRATO_TODOS
+        self.filtro_panel_personal = FILTRO_PANEL_TODOS
+        self.pagina = 1
+
+    def filtrar_todos(self):
+        self.set_filtro_panel_personal(FILTRO_PANEL_TODOS)
+
+    def filtrar_activos(self):
+        self.set_filtro_panel_personal(FILTRO_PANEL_ACTIVOS)
+
+    def filtrar_en_alta(self):
+        self.set_filtro_panel_personal(FILTRO_PANEL_EN_ALTA)
+
+    def filtrar_suspendidos(self):
+        self.set_filtro_panel_personal(FILTRO_PANEL_SUSPENDIDOS)
+
+    def filtrar_en_baja(self):
+        self.set_filtro_panel_personal(FILTRO_PANEL_EN_BAJA)
 
     def ir_a_pagina(self, pagina: int):
         """Navega a una página específica del listado."""
@@ -788,6 +1647,19 @@ class MisEmpleadosState(
         return EmployeeBulkUploadStateMixin.descargar_reporte_alta_masiva(self)
 
     @rx.event
+    def ver_baja_empleado(self, empleado: dict):
+        if not isinstance(empleado, dict):
+            return
+
+        empleado_id = int(empleado.get("id") or 0)
+        if empleado_id <= 0:
+            return rx.redirect("/portal/bajas")
+
+        return rx.redirect(
+            f"/portal/bajas?empleado_id={empleado_id}",
+        )
+
+    @rx.event
     def ver_expediente(self, empleado: dict):
         """Navega al detalle de expediente del empleado en la pagina dedicada."""
         if not self.puede_acceder_rrhh or not isinstance(empleado, dict):
@@ -798,6 +1670,159 @@ class MisEmpleadosState(
             return
 
         return rx.redirect(f"/portal/empleados/expedientes?empleado_id={empleado_id}")
+
+    async def abrir_modal_asignacion_plaza(self, plaza: dict):
+        """Abre el selector para asignar o reasignar una plaza."""
+        if not isinstance(plaza, dict):
+            yield rx.toast.error("Plaza inválida")
+            return
+
+        plaza_id = int(plaza.get("id") or 0)
+        if plaza_id <= 0:
+            yield rx.toast.error("No se pudo identificar la plaza")
+            return
+
+        estatus = str(plaza.get("estatus", "") or "")
+        if estatus == EstatusPlaza.SUSPENDIDA.value:
+            yield rx.toast.error("Reactive la plaza antes de asignar personal")
+            return
+        if not plaza.get("categoria_puesto_id"):
+            yield rx.toast.error("La plaza debe tener categoría antes de asignar un empleado")
+            return
+        if not plaza.get("sede_id"):
+            yield rx.toast.error("La plaza debe tener sede antes de asignar un empleado")
+            return
+
+        empleado_actual_id = int(plaza.get("empleado_id") or 0)
+        self.plaza_seleccionada = dict(plaza)
+        self.modo_asignacion_plaza = "reasignar" if empleado_actual_id > 0 else "asignar"
+        self.empleado_seleccionado_plaza_id = str(empleado_actual_id) if empleado_actual_id > 0 else ""
+        self.empleados_disponibles_plaza = []
+        self.cargando_empleados_plaza = True
+        self.mostrar_modal_asignacion_plaza = True
+        yield
+
+        try:
+            empleados = await empleado_service.obtener_por_empresa(
+                empresa_id=self.id_empresa_actual,
+                incluir_inactivos=False,
+                limite=200,
+            )
+            empleados_asignados = await plaza_service.obtener_empleados_asignados(
+                empresa_id=self.id_empresa_actual,
+            )
+            empleados_asignados_set = set(empleados_asignados)
+
+            opciones = []
+            for empleado in empleados:
+                if empleado.id in empleados_asignados_set and empleado.id != empleado_actual_id:
+                    continue
+                opciones.append(
+                    {
+                        "id": empleado.id,
+                        "clave": empleado.clave,
+                        "nombre_completo": self._resolver_nombre_empleado_visual(empleado),
+                    }
+                )
+            self.empleados_disponibles_plaza = sorted(
+                opciones,
+                key=lambda item: (item.get("nombre_completo", ""), item.get("clave", "")),
+            )
+        except Exception as e:
+            self.manejar_error(e, "cargar empleados disponibles para plaza")
+            self.mostrar_modal_asignacion_plaza = False
+            self.plaza_seleccionada = {}
+            self.empleados_disponibles_plaza = []
+            yield rx.toast.error("No se pudo cargar la disponibilidad de empleados")
+        finally:
+            self.cargando_empleados_plaza = False
+
+    def cerrar_modal_asignacion_plaza(self):
+        self.mostrar_modal_asignacion_plaza = False
+        self.plaza_seleccionada = {}
+        self.empleados_disponibles_plaza = []
+        self.empleado_seleccionado_plaza_id = ""
+        self.cargando_empleados_plaza = False
+        self.modo_asignacion_plaza = "asignar"
+
+    async def confirmar_asignacion_plaza(self):
+        """Confirma la asignación o reasignación de una plaza."""
+        plaza_id = int(self.plaza_seleccionada.get("id") or 0)
+        empleado_nuevo_id = self.parse_id(self.empleado_seleccionado_plaza_id)
+        empleado_actual_id = int(self.plaza_seleccionada.get("empleado_id") or 0)
+
+        if plaza_id <= 0:
+            yield rx.toast.error("No hay plaza seleccionada")
+            return
+        if empleado_nuevo_id is None:
+            yield rx.toast.error("Seleccione un empleado")
+            return
+
+        self.saving = True
+        yield
+        try:
+            if empleado_actual_id == empleado_nuevo_id:
+                self.cerrar_modal_asignacion_plaza()
+                yield rx.toast.success("La plaza conserva la asignación actual")
+                return
+
+            if empleado_actual_id > 0:
+                await plaza_service.liberar_plaza(plaza_id)
+
+            await plaza_service.asignar_empleado(plaza_id, empleado_nuevo_id)
+            self.cerrar_modal_asignacion_plaza()
+            await self._fetch_empleados()
+            yield rx.toast.success(
+                "Empleado reasignado correctamente"
+                if empleado_actual_id > 0
+                else "Empleado asignado correctamente"
+            )
+        except BusinessRuleError as e:
+            yield rx.toast.error(str(e))
+        except Exception as e:
+            yield self.manejar_error_con_toast(e, "asignando plaza")
+        finally:
+            self.saving = False
+
+    async def actualizar_sede_plaza(self, plaza_id: int, sede_id: str):
+        """Actualiza la sede de una plaza desde la tabla agrupada."""
+        plaza_id_int = int(plaza_id or 0)
+        sede_id_int = self.parse_id(sede_id)
+        if plaza_id_int <= 0 or sede_id_int is None:
+            return rx.toast.error("Seleccione una sede válida")
+
+        self.saving = True
+        try:
+            await plaza_service.actualizar(
+                plaza_id_int,
+                PlazaUpdate(sede_id=sede_id_int),
+            )
+            await self._fetch_empleados()
+            return rx.toast.success("Sede asignada correctamente")
+        except BusinessRuleError as e:
+            return rx.toast.error(str(e))
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "actualizando sede de plaza")
+        finally:
+            self.saving = False
+
+    async def reactivar_plaza_portal(self, plaza: dict):
+        """Reactiva una plaza suspendida desde la vista agrupada."""
+        plaza_id = int(plaza.get("id") or 0) if isinstance(plaza, dict) else 0
+        if plaza_id <= 0:
+            return rx.toast.error("No se pudo identificar la plaza")
+
+        self.saving = True
+        try:
+            await plaza_service.reactivar_plaza(plaza_id)
+            await self._fetch_empleados()
+            return rx.toast.success("Plaza reactivada correctamente")
+        except BusinessRuleError as e:
+            return rx.toast.error(str(e))
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "reactivando plaza")
+        finally:
+            self.saving = False
 
     async def abrir_modal_detalle(self, empleado: dict):
         """Abre el modal de detalle y carga datos completos del empleado."""
@@ -1035,6 +2060,7 @@ class MisEmpleadosState(
                 ),
             }
         )
+        self._sincronizar_descuentos_activos_form()
 
         self.mostrar_modal_empleado = True
 
@@ -1276,8 +2302,14 @@ class MisEmpleadosState(
             "id": resumen.get("id"),
             "empresa_id": resumen.get("empresa_id"),
             "clave": resumen.get("clave", "") or "",
-            "nombre_completo": resumen.get("nombre_completo", "") or "",
+            "nombre_completo": (
+                resumen.get("nombre_completo", "")
+                or resumen.get("nombre_completo_ui", "")
+                or ""
+            ),
             "estatus": resumen.get("estatus", "") or "",
+            "estatus_personal": resumen.get("estatus_personal", "") or "",
+            "contrato_codigo": resumen.get("contrato_codigo", "") or "",
             "fecha_ingreso": resumen.get("fecha_ingreso", "") or "",
             "fecha_ingreso_vigente": resumen.get("fecha_ingreso_vigente", "") or "",
             "telefono": resumen.get("telefono", "") or "",
@@ -1311,6 +2343,8 @@ class MisEmpleadosState(
             "clave": empleado.clave,
             "nombre_completo": empleado.nombre_completo(),
             "estatus": str(empleado.estatus or ""),
+            "estatus_personal": resumen.get("estatus_personal", "") or "",
+            "contrato_codigo": resumen.get("contrato_codigo", "") or "",
             "is_restricted": bool(empleado.is_restricted),
             "curp": empleado.curp or "",
             "rfc": empleado.rfc or "",
@@ -1397,6 +2431,10 @@ class MisEmpleadosState(
                 "form_motivo_baja": "",
                 "form_fecha_efectiva_baja": "",
                 "form_notas_baja": "",
+                "form_descuento_infonavit_activo": False,
+                "form_descuento_fonacot_activo": False,
+                "form_descuento_prestamo_empresa_activo": False,
+                "form_descuento_pension_alimenticia_activo": False,
                 "editar_datos_bancarios": False,
                 "snapshot_bancario_base_edicion": {},
             },
@@ -1405,6 +2443,30 @@ class MisEmpleadosState(
     def _limpiar_errores(self):
         """Limpia los errores de validacion."""
         self.limpiar_errores_campos(self._campos_error_formulario)
+
+    def _sincronizar_descuentos_activos_form(self) -> None:
+        """Alinea los toggles visuales de descuentos con el contenido cargado."""
+        for form_key in (
+            "infonavit",
+            "fonacot",
+            "prestamo_empresa",
+            "pension_alimenticia",
+        ):
+            activo_attr = f"form_descuento_{form_key}_activo"
+            if not hasattr(self, activo_attr):
+                continue
+            setattr(
+                self,
+                activo_attr,
+                any(
+                    [
+                        getattr(self, f"form_descuento_{form_key}_monto", "").strip(),
+                        getattr(self, f"form_descuento_{form_key}_inicio", "").strip(),
+                        getattr(self, f"form_descuento_{form_key}_fin", "").strip(),
+                        getattr(self, f"form_descuento_{form_key}_notas", "").strip(),
+                    ]
+                ),
+            )
 
     def _validar_formulario(self) -> bool:
         """Valida el formulario completo. Retorna True si es valido."""
@@ -1433,3 +2495,17 @@ class MisEmpleadosState(
         if not self._validar_fecha_ingreso_form():
             es_valido = False
         return es_valido
+
+    @staticmethod
+    def _valor_switch_a_bool(value) -> bool:
+        """Normaliza el valor de un switch de Reflex a bool."""
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() == "true"
+
+    @staticmethod
+    def _texto_seguro_modal_plaza(value) -> str:
+        """Evita que valores callable se rendericen como `bound Method` en el modal."""
+        if callable(value):
+            return ""
+        return str(value or "").strip()

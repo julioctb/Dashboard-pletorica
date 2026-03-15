@@ -7,15 +7,16 @@ from app.core.enums import TipoIncidencia
 from app.presentation.components.ui import (
     boton_cancelar,
     boton_guardar,
+    compact_date_input,
     empty_state_card,
-    filter_date_input,
-    filtros_inline,
     form_date,
+    input_busqueda,
     metric_card,
+    segmented_tab_trigger,
+    segmented_tabs,
     table_shell,
-    tabla_action_button,
 )
-from app.presentation.theme import Colors, Typography
+from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 from .state import AsistenciasState
 
@@ -37,86 +38,147 @@ def _field_micro_label(texto: str) -> rx.Component:
     )
 
 
+def _muted_dash() -> rx.Component:
+    return rx.text(
+        "—",
+        font_size=Typography.SIZE_SM,
+        color=Colors.TEXT_MUTED,
+    )
+
+
+def _action_button(
+    texto: str,
+    *,
+    on_click=None,
+    variant: str = "outline",
+    color_scheme: str = "gray",
+    disabled=False,
+) -> rx.Component:
+    return rx.button(
+        texto,
+        variant=variant,
+        color_scheme=color_scheme,
+        size="1",
+        on_click=on_click,
+        disabled=disabled,
+        white_space="nowrap",
+    )
+
+
+def _count_badge(valor, etiqueta: str, color_scheme: str) -> rx.Component:
+    return rx.badge(
+        rx.hstack(
+            rx.text(valor),
+            rx.text(etiqueta),
+            spacing="1",
+            align="center",
+        ),
+        color_scheme=color_scheme,
+        variant="soft",
+        size="1",
+    )
+
+
+def _section_header(
+    titulo: str,
+    subtitulo: str,
+    badges: list[rx.Component],
+    action: rx.Component | None = None,
+) -> rx.Component:
+    return rx.flex(
+        rx.vstack(
+            rx.hstack(
+                rx.text(
+                    titulo,
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_PRIMARY,
+                ),
+                *badges,
+                spacing="2",
+                wrap="wrap",
+                align="center",
+            ),
+            rx.text(
+                subtitulo,
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_MUTED,
+            ),
+            spacing="1",
+            align="start",
+            min_width="0",
+        ),
+        action if action is not None else rx.fragment(),
+        width="100%",
+        justify="between",
+        align="center",
+        wrap="wrap",
+        gap=Spacing.SM,
+    )
+
+
+def _minimal_empty_state(title: str, description: str, icon: str) -> rx.Component:
+    return rx.center(
+        rx.vstack(
+            rx.icon(icon, size=28, color=Colors.TEXT_MUTED),
+            rx.text(
+                title,
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_SECONDARY,
+                text_align="center",
+            ),
+            rx.text(
+                description,
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_MUTED,
+                text_align="center",
+            ),
+            spacing="2",
+            align="center",
+            max_width="320px",
+        ),
+        width="100%",
+        padding=Spacing.LG,
+        background=Colors.SECONDARY_LIGHT,
+        border_radius=Radius.LG,
+    )
+
+
+def _row_text_color(activo, *, secondary: bool = False):
+    return rx.cond(
+        activo,
+        Colors.TEXT_SECONDARY if secondary else Colors.TEXT_PRIMARY,
+        Colors.TEXT_MUTED,
+    )
+
+
 def selector_panel() -> rx.Component:
     return rx.cond(
         AsistenciasState.mostrar_selector_panel,
-        rx.hstack(
+        segmented_tabs(
             rx.cond(
-                AsistenciasState.puede_operar_jornada,
-                rx.button(
-                    "Operacion",
-                    variant=rx.cond(AsistenciasState.panel_es_operacion, "solid", "soft"),
-                    color_scheme="blue",
-                    on_click=AsistenciasState.cambiar_panel_activo("operacion"),
-                    size="2",
-                ),
+                AsistenciasState.puede_ver_operacion,
+                segmented_tab_trigger("Operación", "operacion"),
                 rx.fragment(),
             ),
             rx.cond(
-                AsistenciasState.puede_precargar_rrhh,
-                rx.button(
-                    "Precargas RH",
-                    variant=rx.cond(AsistenciasState.panel_es_rrhh, "solid", "soft"),
-                    color_scheme="orange",
-                    on_click=AsistenciasState.cambiar_panel_activo("rrhh"),
-                    size="2",
-                ),
+                AsistenciasState.puede_ver_configuracion,
+                segmented_tab_trigger("Configuración", "configuracion"),
                 rx.fragment(),
             ),
-            rx.cond(
-                AsistenciasState.puede_configurar_catalogos,
-                rx.button(
-                    "Configuracion",
-                    variant=rx.cond(
-                        AsistenciasState.panel_es_configuracion,
-                        "solid",
-                        "soft",
-                    ),
-                    color_scheme="teal",
-                    on_click=AsistenciasState.cambiar_panel_activo("configuracion"),
-                    size="2",
-                ),
-                rx.fragment(),
-            ),
-            spacing="2",
-            wrap="wrap",
+            value=AsistenciasState.panel_activo,
+            on_change=AsistenciasState.cambiar_panel_activo,
         ),
         rx.fragment(),
     )
 
 
-def callout_contexto() -> rx.Component:
-    return rx.callout(
-        rx.text(
-            AsistenciasState.texto_contexto_panel,
-            font_size=Typography.SIZE_SM,
-        ),
-        icon=rx.cond(
-            AsistenciasState.panel_es_configuracion,
-            "settings-2",
-            rx.cond(
-                AsistenciasState.panel_es_rrhh,
-                "folder-input",
-                "clipboard-check",
-            ),
-        ),
-        color_scheme=rx.cond(
-            AsistenciasState.panel_es_configuracion,
-            "teal",
-            rx.cond(AsistenciasState.panel_es_rrhh, "orange", "blue"),
-        ),
-        size="1",
-        width="100%",
-    )
-
-
-def _badge_jornada(estatus: str) -> rx.Component:
-    return rx.match(
-        estatus,
-        ("ABIERTA", rx.badge("Abierta", color_scheme="green", variant="soft", size="1")),
-        ("CERRADA", rx.badge("Cerrada", color_scheme="orange", variant="soft", size="1")),
-        ("CONSOLIDADA", rx.badge("Consolidada", color_scheme="blue", variant="solid", size="1")),
-        rx.badge("Sin jornada", color_scheme="gray", variant="outline", size="1"),
+def _contrato_option_label(contrato: dict) -> rx.Component:
+    return rx.cond(
+        contrato.get("descripcion", "") != "",
+        contrato["codigo"].to(str) + " · " + contrato["descripcion"].to(str),
+        contrato["codigo"].to(str),
     )
 
 
@@ -124,212 +186,296 @@ def _badge_resultado(resultado: str) -> rx.Component:
     return rx.match(
         resultado,
         ("ASISTENCIA", rx.badge("Asistencia", color_scheme="green", variant="soft", size="1")),
-        ("SIN_NOVEDAD", rx.badge("Sin novedad", color_scheme="gray", variant="outline", size="1")),
+        ("PENDIENTE", rx.badge("Pendiente", color_scheme="amber", variant="soft", size="1")),
+        ("SIN_NOVEDAD", rx.badge("Pendiente", color_scheme="amber", variant="soft", size="1")),
         ("RETARDO", rx.badge("Retardo", color_scheme="amber", variant="soft", size="1")),
-        ("FALTA", rx.badge("Falta", color_scheme="red", variant="solid", size="1")),
-        ("FALTA_JUSTIFICADA", rx.badge("Falta just.", color_scheme="blue", variant="soft", size="1")),
+        ("FALTA", rx.badge("Falta", color_scheme="red", variant="soft", size="1")),
+        ("FALTA_JUSTIFICADA", rx.badge("Falta just.", color_scheme="red", variant="soft", size="1")),
         ("HORA_EXTRA", rx.badge("Hora extra", color_scheme="amber", variant="soft", size="1")),
         ("SALIDA_ANTICIPADA", rx.badge("Salida ant.", color_scheme="amber", variant="soft", size="1")),
         ("PERMISO_CON_GOCE", rx.badge("Permiso c/goce", color_scheme="blue", variant="soft", size="1")),
         ("PERMISO_SIN_GOCE", rx.badge("Permiso s/goce", color_scheme="blue", variant="soft", size="1")),
         ("INCAPACIDAD_ENFERMEDAD", rx.badge("Incapacidad", color_scheme="blue", variant="soft", size="1")),
-        ("INCAPACIDAD_RIESGO_TRABAJO", rx.badge("Riesgo trabajo", color_scheme="blue", variant="soft", size="1")),
-        ("INCAPACIDAD_MATERNIDAD", rx.badge("Maternidad", color_scheme="blue", variant="soft", size="1")),
+        ("INCAPACIDAD_RIESGO_TRABAJO", rx.badge("Incapacidad", color_scheme="blue", variant="soft", size="1")),
+        ("INCAPACIDAD_MATERNIDAD", rx.badge("Incapacidad", color_scheme="blue", variant="soft", size="1")),
         ("VACACIONES", rx.badge("Vacaciones", color_scheme="blue", variant="soft", size="1")),
         ("DIA_FESTIVO", rx.badge("Dia festivo", color_scheme="blue", variant="soft", size="1")),
         ("COMISION", rx.badge("Comision", color_scheme="blue", variant="soft", size="1")),
+        ("CERRADA", rx.badge("Cerrada", color_scheme="gray", variant="outline", size="1")),
         ("OTRO", rx.badge("Otro", color_scheme="gray", variant="soft", size="1")),
-        rx.badge("Pendiente", color_scheme="gray", variant="outline", size="1"),
+        rx.badge("Pendiente", color_scheme="amber", variant="soft", size="1"),
     )
 
 
-def _badge_activo(activo) -> rx.Component:
+def _badge_activo(activo, *, activo_label: str = "Activo", inactivo_label: str = "Inactivo") -> rx.Component:
     return rx.cond(
         activo,
-        rx.badge("Activo", color_scheme="green", variant="soft", size="1"),
-        rx.badge("Inactivo", color_scheme="gray", variant="outline", size="1"),
+        rx.badge(activo_label, color_scheme="green", variant="soft", size="1"),
+        rx.badge(inactivo_label, color_scheme="gray", variant="outline", size="1"),
     )
 
 
-def _selector_contrato() -> rx.Component:
-    return rx.select.root(
-        rx.select.trigger(placeholder="Contrato", width="320px"),
-        rx.select.content(
-            rx.foreach(
-                AsistenciasState.contratos_disponibles,
-                lambda contrato: rx.select.item(
-                    rx.cond(
-                        contrato["descripcion"],
-                        contrato["codigo"].to(str) + " · " + contrato["descripcion"].to(str),
-                        contrato["codigo"].to(str),
-                    ),
-                    value=contrato["id"].to(str),
+def barra_contrato() -> rx.Component:
+    return rx.flex(
+        rx.text(
+            "Contrato",
+            font_size=Typography.SIZE_XS,
+            font_weight=Typography.WEIGHT_MEDIUM,
+            color=Colors.TEXT_MUTED,
+            text_transform="uppercase",
+            letter_spacing=Typography.LETTER_SPACING_WIDE,
+            flex_shrink="0",
+        ),
+        rx.box(
+            rx.select.root(
+                rx.select.trigger(
+                    placeholder="Seleccionar contrato...",
+                    width="100%",
                 ),
-            )
-        ),
-        value=rx.cond(
-            AsistenciasState.contrato_seleccionado_id > 0,
-            AsistenciasState.contrato_seleccionado_id.to(str),
-            "",
-        ),
-        on_change=AsistenciasState.cambiar_contrato,
-        size="2",
-    )
-
-
-def filtros_asistencias() -> rx.Component:
-    return filtros_inline(
-        selector_panel(),
-        _selector_contrato(),
-        rx.cond(
-            ~AsistenciasState.panel_es_configuracion,
-            filter_date_input(
-                label="Fecha",
-                value=AsistenciasState.fecha_operacion,
-                on_change=AsistenciasState.cambiar_fecha_operacion,
-                width="180px",
+                rx.select.content(
+                    rx.foreach(
+                        AsistenciasState.contratos_disponibles,
+                        lambda contrato: rx.select.item(
+                            _contrato_option_label(contrato),
+                            value=contrato["id"].to(str),
+                        ),
+                    ),
+                ),
+                value=rx.cond(
+                    AsistenciasState.contrato_seleccionado_id > 0,
+                    AsistenciasState.contrato_seleccionado_id.to(str),
+                    "",
+                ),
+                on_change=AsistenciasState.cambiar_contrato,
             ),
-            rx.fragment(),
+            flex="1",
+            min_width="0",
         ),
-        rx.button(
-            rx.icon("refresh-cw", size=14),
-            "Recargar",
-            on_click=AsistenciasState.recargar_panel,
-            variant="soft",
-            size="2",
+        width="100%",
+        align="center",
+        gap=Spacing.SM,
+        padding_x=Spacing.MD,
+        padding_y=Spacing.SM,
+        background=Colors.SECONDARY_LIGHT,
+        border_radius=Radius.LG,
+    )
+
+
+def toolbar_asistencias() -> rx.Component:
+    return rx.vstack(
+        rx.flex(
+            rx.box(
+                input_busqueda(
+                    value=AsistenciasState.filtro_busqueda,
+                    on_change=AsistenciasState.set_filtro_busqueda,
+                    on_clear=lambda: AsistenciasState.set_filtro_busqueda(""),
+                    placeholder=AsistenciasState.placeholder_busqueda,
+                    width="100%",
+                    toolbar_style=True,
+                ),
+                flex="1 1 280px",
+                min_width="240px",
+            ),
+            selector_panel(),
+            rx.cond(
+                AsistenciasState.panel_es_operacion,
+                compact_date_input(
+                    value=AsistenciasState.fecha_operacion,
+                    on_change=AsistenciasState.cambiar_fecha_operacion,
+                    width="150px",
+                    size="2",
+                    flex_shrink="0",
+                ),
+                rx.fragment(),
+            ),
+            width="100%",
+            align="center",
+            justify="between",
+            wrap="wrap",
+            gap=Spacing.SM,
+        ),
+        barra_contrato(),
+        width="100%",
+        spacing="3",
+        margin_bottom=Spacing.BASE,
+    )
+
+
+def _accion_empleado(empleado: dict) -> rx.Component:
+    accion_bloqueada = _action_button(
+        "Abra jornada para registrar",
+        variant="outline",
+        color_scheme="gray",
+        disabled=True,
+    )
+    accion = rx.match(
+        empleado.get("resultado_dia", "PENDIENTE"),
+        (
+            "PENDIENTE",
+            _action_button(
+                "Registrar",
+                variant="outline",
+                color_scheme="blue",
+                on_click=AsistenciasState.abrir_modal_incidencia(empleado),
+            ),
+        ),
+        (
+            "SIN_NOVEDAD",
+            _action_button(
+                "Registrar",
+                variant="outline",
+                color_scheme="blue",
+                on_click=AsistenciasState.abrir_modal_incidencia(empleado),
+            ),
+        ),
+        ("CERRADA", _muted_dash()),
+        _action_button(
+            "Editar",
+            variant="ghost",
+            color_scheme="gray",
+            on_click=AsistenciasState.abrir_modal_incidencia(empleado),
+        ),
+    )
+    return rx.cond(
+        AsistenciasState.puede_editar_incidencias,
+        accion,
+        rx.cond(
+            AsistenciasState.panel_es_operacion
+            & AsistenciasState.puede_operar_jornada
+            & ~AsistenciasState.tiene_jornada_abierta
+            & ~AsistenciasState.puede_precargar_rrhh,
+            accion_bloqueada,
+            _muted_dash(),
         ),
     )
 
 
-def acciones_jornada() -> rx.Component:
-    return rx.hstack(
+def _detalle_empleado(empleado: dict) -> rx.Component:
+    return rx.cond(
+        empleado.get("resultado_dia", "") == "RETARDO",
+        rx.text(
+            str(empleado.get("minutos_retardo", 0)) + " min",
+            font_size=Typography.SIZE_SM,
+            color=Colors.TEXT_SECONDARY,
+        ),
+        rx.cond(
+            empleado.get("resultado_dia", "") == "HORA_EXTRA",
+            rx.text(
+                str(empleado.get("horas_extra", 0)) + " h",
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_SECONDARY,
+            ),
+            rx.cond(
+                empleado.get("motivo", ""),
+                rx.text(
+                    empleado.get("motivo", ""),
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                _muted_dash(),
+            ),
+        ),
+    )
+
+
+def barra_jornada() -> rx.Component:
+    return rx.flex(
+        rx.hstack(
+            rx.box(
+                width="8px",
+                height="8px",
+                border_radius=Radius.FULL,
+                background=rx.cond(
+                    AsistenciasState.tiene_jornada_abierta,
+                    Colors.SUCCESS,
+                    Colors.WARNING,
+                ),
+                flex_shrink="0",
+            ),
+            rx.text(
+                AsistenciasState.texto_estado_jornada,
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_PRIMARY,
+            ),
+            spacing="2",
+            align="center",
+        ),
         rx.cond(
             AsistenciasState.puede_abrir_jornada,
             rx.button(
-                rx.icon("play", size=15),
                 "Abrir jornada",
                 on_click=AsistenciasState.abrir_jornada,
-                color_scheme="green",
-                size="2",
-            ),
-            rx.fragment(),
-        ),
-        rx.cond(
-            AsistenciasState.puede_cerrar_jornada,
-            rx.button(
-                rx.icon("badge-check", size=15),
-                "Cerrar y consolidar",
-                on_click=AsistenciasState.cerrar_jornada,
                 color_scheme="blue",
                 size="2",
             ),
-            rx.fragment(),
+            rx.cond(
+                AsistenciasState.puede_cerrar_jornada,
+                rx.button(
+                    "Cerrar jornada",
+                    on_click=AsistenciasState.cerrar_jornada,
+                    color_scheme="blue",
+                    size="2",
+                ),
+                rx.fragment(),
+            ),
         ),
-        spacing="2",
+        width="100%",
+        align="center",
+        justify="between",
         wrap="wrap",
+        gap=Spacing.SM,
+        padding=Spacing.MD,
+        background=Colors.SECONDARY_LIGHT,
+        border_radius=Radius.LG,
+    )
+
+
+def metricas_jornada() -> rx.Component:
+    return rx.grid(
+        metric_card(
+            titulo="Empleados esperados",
+            valor=AsistenciasState.total_empleados_jornada,
+            icono="users",
+            color_scheme="blue",
+            descripcion="Plazas ocupadas del contrato",
+            show_icon=False,
+            background=Colors.SECONDARY_LIGHT,
+            border="none",
+            hoverable=False,
+        ),
+        metric_card(
+            titulo="Incidencias",
+            valor=AsistenciasState.total_incidencias,
+            icono="triangle-alert",
+            color_scheme="amber",
+            descripcion="Novedades por excepcion",
+            show_icon=False,
+            background=Colors.SECONDARY_LIGHT,
+            border="none",
+            hoverable=False,
+        ),
+        metric_card(
+            titulo="Sedes cubiertas",
+            valor=AsistenciasState.total_sedes_supervision,
+            icono="map-pinned",
+            color_scheme="blue",
+            descripcion="Territorio activo",
+            show_icon=False,
+            background=Colors.SECONDARY_LIGHT,
+            border="none",
+            hoverable=False,
+        ),
+        columns=rx.breakpoints(initial="1", md="3"),
+        spacing="3",
+        width="100%",
     )
 
 
 def resumen_jornada() -> rx.Component:
     return rx.vstack(
-        callout_contexto(),
-        rx.hstack(
-            metric_card(
-                titulo="Empleados esperados",
-                valor=AsistenciasState.total_empleados_jornada,
-                icono="users",
-                color_scheme="blue",
-                descripcion="Plantilla derivada de plazas ocupadas",
-            ),
-            metric_card(
-                titulo="Incidencias",
-                valor=AsistenciasState.total_incidencias,
-                icono="triangle-alert",
-                color_scheme="orange",
-                descripcion="Novedades capturadas por excepcion",
-            ),
-            metric_card(
-                titulo="Sedes cubiertas",
-                valor=AsistenciasState.total_sedes_supervision,
-                icono="map-pinned",
-                color_scheme="teal",
-                descripcion="Territorio activo del supervisor",
-            ),
-            metric_card(
-                titulo="Estatus jornada",
-                valor=AsistenciasState.nombre_jornada,
-                icono="clipboard-check",
-                color_scheme="indigo",
-                descripcion=AsistenciasState.descripcion_horario,
-            ),
-            spacing="4",
-            width="100%",
-            wrap="wrap",
-        ),
-        rx.card(
-            rx.vstack(
-                rx.hstack(
-                    rx.vstack(
-                        rx.text(
-                            AsistenciasState.titulo_supervision,
-                            font_size=Typography.SIZE_BASE,
-                            font_weight=Typography.WEIGHT_BOLD,
-                        ),
-                        rx.text(
-                            rx.cond(
-                                AsistenciasState.panel_es_rrhh,
-                                "Vista administrativa para precargas de Recursos Humanos",
-                                rx.cond(
-                                    AsistenciasState.supervisor_actual,
-                                    "Captura basada en sedes asignadas",
-                                    "Vista sin filtro de supervisor",
-                                ),
-                            ),
-                            font_size=Typography.SIZE_SM,
-                            color=Colors.TEXT_SECONDARY,
-                        ),
-                        spacing="1",
-                        align="start",
-                    ),
-                    rx.spacer(),
-                    _badge_jornada(AsistenciasState.jornada_actual.get("estatus", "")),
-                    acciones_jornada(),
-                    width="100%",
-                    align="center",
-                    wrap="wrap",
-                ),
-                rx.cond(
-                    AsistenciasState.panel_es_operacion
-                    & (AsistenciasState.total_sedes_supervision > 0),
-                    rx.flex(
-                        rx.foreach(
-                            AsistenciasState.sedes_supervision,
-                            lambda sede: rx.badge(
-                                sede["nombre"],
-                                color_scheme="gray",
-                                variant="soft",
-                                size="1",
-                            ),
-                        ),
-                        gap="2",
-                        wrap="wrap",
-                        width="100%",
-                    ),
-                    rx.text(
-                        rx.cond(
-                            AsistenciasState.panel_es_rrhh,
-                            "RH puede precargar incidencias para todo el contrato seleccionado.",
-                            "No hay sedes restringiendo la captura actual.",
-                        ),
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                ),
-                spacing="3",
-                width="100%",
-            ),
-            width="100%",
-        ),
+        barra_jornada(),
+        metricas_jornada(),
         spacing="4",
         width="100%",
     )
@@ -338,20 +484,11 @@ def resumen_jornada() -> rx.Component:
 def fila_empleado(empleado: dict) -> rx.Component:
     return rx.table.row(
         rx.table.cell(
-            rx.vstack(
-                rx.text(
-                    empleado.get("nombre_completo", "-"),
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                    color=Colors.TEXT_PRIMARY,
-                ),
-                rx.text(
-                    empleado.get("clave", "-"),
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.PORTAL_PRIMARY_TEXT,
-                ),
-                spacing="0",
-                align="start",
+            rx.text(
+                empleado.get("nombre_completo", "-"),
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_PRIMARY,
             ),
         ),
         rx.table.cell(
@@ -363,7 +500,7 @@ def fila_empleado(empleado: dict) -> rx.Component:
                 ),
                 rx.text(
                     empleado.get("categoria_nombre", ""),
-                    font_size=Typography.SIZE_SM,
+                    font_size=Typography.SIZE_XS,
                     color=Colors.TEXT_MUTED,
                 ),
                 spacing="0",
@@ -371,66 +508,17 @@ def fila_empleado(empleado: dict) -> rx.Component:
             ),
         ),
         rx.table.cell(_badge_resultado(empleado.get("resultado_dia", "PENDIENTE"))),
-        rx.table.cell(
-            rx.cond(
-                empleado.get("resultado_dia", "") == "RETARDO",
-                rx.text(
-                    str(empleado.get("minutos_retardo", 0)) + " min",
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_SECONDARY,
-                ),
-                rx.cond(
-                    empleado.get("resultado_dia", "") == "HORA_EXTRA",
-                    rx.text(
-                        str(empleado.get("horas_extra", 0)) + " h",
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    rx.text(
-                        empleado.get("motivo", "-"),
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                ),
-            ),
-        ),
-        rx.table.cell(
-            rx.hstack(
-                tabla_action_button(
-                    icon="pencil",
-                    tooltip=rx.cond(
-                        AsistenciasState.panel_es_rrhh,
-                        "Precargar incidencia RH",
-                        "Registrar incidencia",
-                    ),
-                    on_click=AsistenciasState.abrir_modal_incidencia(empleado),
-                    color_scheme="blue",
-                    visible=AsistenciasState.puede_editar_incidencias,
-                ),
-                tabla_action_button(
-                    icon="eraser",
-                    tooltip=rx.cond(
-                        AsistenciasState.panel_es_rrhh,
-                        "Eliminar precarga RH",
-                        "Limpiar incidencia",
-                    ),
-                    on_click=AsistenciasState.limpiar_incidencia(empleado),
-                    color_scheme="red",
-                    visible=AsistenciasState.puede_editar_incidencias
-                    & (empleado.get("incidencia_id", 0) != 0),
-                ),
-                spacing="1",
-            ),
-        ),
+        rx.table.cell(_detalle_empleado(empleado)),
+        rx.table.cell(_accion_empleado(empleado)),
     )
 
 
 ENCABEZADOS_ASISTENCIAS = [
     {"nombre": "Empleado", "ancho": "260px"},
-    {"nombre": "Sede / Categoria", "ancho": "220px"},
+    {"nombre": "Sede / Categoría", "ancho": "220px"},
     {"nombre": "Resultado", "ancho": "140px"},
     {"nombre": "Detalle", "ancho": "220px"},
-    {"nombre": "Acciones", "ancho": "120px"},
+    {"nombre": "Acciones", "ancho": "190px"},
 ]
 
 
@@ -453,363 +541,211 @@ def tabla_asistencias() -> rx.Component:
     )
 
 
-def _tarjeta_horario(horario: dict) -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.hstack(
-                rx.vstack(
-                    rx.hstack(
-                        rx.text(
-                            horario.get("nombre", "Horario"),
-                            font_size=Typography.SIZE_BASE,
-                            font_weight=Typography.WEIGHT_BOLD,
-                        ),
-                        _badge_activo(horario.get("es_horario_activo", False)),
-                        spacing="2",
-                        wrap="wrap",
-                        align="center",
-                    ),
-                    rx.text(
-                        rx.cond(
-                            horario.get("descripcion", ""),
-                            horario.get("descripcion", ""),
-                            "Sin descripcion adicional",
-                        ),
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    spacing="1",
-                    align="start",
-                ),
-                rx.spacer(),
-                rx.hstack(
-                    rx.button(
-                        rx.icon("pencil", size=14),
-                        "Editar",
-                        variant="soft",
-                        size="2",
-                        on_click=AsistenciasState.abrir_modal_horario_editar(horario),
-                    ),
-                    rx.cond(
-                        horario.get("es_horario_activo", False),
-                        rx.button(
-                            rx.icon("circle-pause", size=14),
-                            "Desactivar",
-                            variant="soft",
-                            color_scheme="red",
-                            size="2",
-                            on_click=AsistenciasState.desactivar_horario(horario["id"]),
-                        ),
-                        rx.fragment(),
-                    ),
-                    spacing="2",
-                    wrap="wrap",
-                ),
-                width="100%",
-                align="start",
-                wrap="wrap",
-            ),
-            rx.hstack(
-                rx.badge(
-                    "Entrada +",
-                    horario["tolerancia_entrada_min"].to(str),
-                    " min",
-                    color_scheme="blue",
-                    variant="soft",
-                    size="1",
-                ),
-                rx.badge(
-                    "Salida +",
-                    horario["tolerancia_salida_min"].to(str),
-                    " min",
-                    color_scheme="gray",
-                    variant="soft",
-                    size="1",
-                ),
-                spacing="2",
-                wrap="wrap",
-            ),
-            rx.text(
-                rx.cond(
-                    horario.get("dias_resumen", ""),
-                    horario["dias_resumen"].to(str),
-                    "Sin dias configurados",
-                ),
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            ),
-            spacing="3",
-            width="100%",
-        ),
-        width="100%",
+def _table_time_text(valor) -> rx.Component:
+    return rx.text(
+        rx.cond(valor != "", valor, "—"),
+        font_size=Typography.SIZE_SM,
+        color=Colors.TEXT_PRIMARY,
+        font_family="monospace",
     )
 
 
-def _tarjeta_asignacion(asignacion: dict) -> rx.Component:
-    return rx.card(
-        rx.vstack(
-            rx.hstack(
-                rx.vstack(
-                    rx.hstack(
-                        rx.text(
-                            asignacion.get("supervisor_nombre", "Supervisor"),
-                            font_size=Typography.SIZE_BASE,
-                            font_weight=Typography.WEIGHT_BOLD,
-                        ),
-                        _badge_activo(asignacion.get("activo", False)),
-                        spacing="2",
-                        wrap="wrap",
-                        align="center",
-                    ),
-                    rx.text(
-                        asignacion.get("supervisor_clave", ""),
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_MUTED,
-                    ),
-                    spacing="0",
-                    align="start",
-                ),
-                rx.spacer(),
-                rx.hstack(
-                    rx.button(
-                        rx.icon("pencil", size=14),
-                        "Editar",
-                        variant="soft",
-                        size="2",
-                        on_click=AsistenciasState.abrir_modal_supervision_editar(asignacion),
-                    ),
-                    rx.cond(
-                        asignacion.get("activo", False),
-                        rx.button(
-                            rx.icon("circle-pause", size=14),
-                            "Desactivar",
-                            variant="soft",
-                            color_scheme="red",
-                            size="2",
-                            on_click=AsistenciasState.desactivar_supervision(asignacion["id"]),
-                        ),
-                        rx.fragment(),
-                    ),
-                    spacing="2",
-                    wrap="wrap",
-                ),
-                width="100%",
-                align="start",
-                wrap="wrap",
+def fila_horario(horario: dict) -> rx.Component:
+    es_activo = horario.get("es_horario_activo", False)
+    return rx.table.row(
+        rx.table.cell(
+            rx.text(
+                horario.get("nombre", "Horario"),
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=_row_text_color(es_activo),
             ),
+        ),
+        rx.table.cell(_table_time_text(horario.get("hora_entrada_ref", ""))),
+        rx.table.cell(_table_time_text(horario.get("hora_salida_ref", ""))),
+        rx.table.cell(
+            rx.text(
+                horario.get("dias_resumen", "Sin dias configurados"),
+                font_size=Typography.SIZE_SM,
+                color=_row_text_color(es_activo, secondary=True),
+            ),
+        ),
+        rx.table.cell(_badge_activo(es_activo)),
+        rx.table.cell(
+            _action_button(
+                rx.cond(es_activo, "Editar", "Activar"),
+                variant="outline",
+                color_scheme="gray",
+                on_click=AsistenciasState.abrir_modal_horario_editar(horario),
+            ),
+        ),
+    )
+
+
+ENCABEZADOS_HORARIOS = [
+    {"nombre": "Nombre", "ancho": "220px"},
+    {"nombre": "Entrada", "ancho": "100px"},
+    {"nombre": "Salida", "ancho": "100px"},
+    {"nombre": "Dias", "ancho": "auto"},
+    {"nombre": "Estado", "ancho": "100px"},
+    {"nombre": "Accion", "ancho": "110px"},
+]
+
+
+def tabla_horarios() -> rx.Component:
+    return table_shell(
+        loading=AsistenciasState.loading,
+        headers=ENCABEZADOS_HORARIOS,
+        rows=AsistenciasState.horarios_filtrados,
+        row_renderer=fila_horario,
+        has_rows=AsistenciasState.horarios_filtrados.length() > 0,
+        empty_component=_minimal_empty_state(
+            "Sin horarios registrados",
+            "Crea el primer horario activo para este contrato.",
+            "clock-3",
+        ),
+        loading_rows=4,
+    )
+
+
+def fila_asignacion(asignacion: dict) -> rx.Component:
+    activa = asignacion.get("activo", False)
+    return rx.table.row(
+        rx.table.cell(
+            rx.vstack(
+                rx.text(
+                    asignacion.get("supervisor_nombre", "Supervisor"),
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=_row_text_color(activa),
+                ),
+                rx.text(
+                    asignacion.get("supervisor_clave", ""),
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
+                ),
+                spacing="0",
+                align="start",
+            ),
+        ),
+        rx.table.cell(
             rx.text(
                 asignacion.get("sede_nombre", "Sin sede"),
                 font_size=Typography.SIZE_SM,
-                font_weight=Typography.WEIGHT_MEDIUM,
+                color=_row_text_color(activa, secondary=True),
             ),
-            rx.text(
-                rx.cond(
-                    asignacion.get("sede_codigo", ""),
-                    "Codigo sede: " + asignacion["sede_codigo"].to(str),
-                    "Codigo sede: -",
-                ),
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_MUTED,
-            ),
-            rx.hstack(
-                rx.badge(
-                    rx.cond(
-                        asignacion.get("fecha_inicio_fmt", ""),
-                        rx.fragment("Inicio ", asignacion["fecha_inicio_fmt"]),
-                        "Inicio -",
-                    ),
-                    color_scheme="teal",
-                    variant="soft",
-                    size="1",
-                ),
-                rx.cond(
-                    asignacion.get("fecha_fin_fmt", "") != "",
-                    rx.badge(
-                        rx.fragment("Fin ", asignacion["fecha_fin_fmt"]),
-                        color_scheme="gray",
-                        variant="soft",
-                        size="1",
-                    ),
-                    rx.fragment(),
-                ),
-                spacing="2",
-                wrap="wrap",
-            ),
-            rx.text(
-                rx.cond(
-                    asignacion.get("notas", ""),
-                    asignacion.get("notas", ""),
-                    "Sin notas operativas",
-                ),
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_SECONDARY,
-            ),
-            spacing="2",
-            width="100%",
         ),
+        rx.table.cell(
+            rx.text(
+                asignacion.get("empleados_asignados", 0).to(str),
+                font_size=Typography.SIZE_SM,
+                color=_row_text_color(activa),
+                font_family="monospace",
+            ),
+        ),
+        rx.table.cell(_badge_activo(activa, activo_label="Activa", inactivo_label="Inactiva")),
+        rx.table.cell(
+            rx.cond(
+                AsistenciasState.configuracion_solo_lectura,
+                _muted_dash(),
+                _action_button(
+                    rx.cond(activa, "Editar", "Activar"),
+                    variant="outline",
+                    color_scheme="gray",
+                    on_click=AsistenciasState.abrir_modal_supervision_editar(asignacion),
+                ),
+            ),
+        ),
+    )
+
+
+ENCABEZADOS_ASIGNACIONES = [
+    {"nombre": "Supervisor", "ancho": "240px"},
+    {"nombre": "Sede", "ancho": "220px"},
+    {"nombre": "Empleados", "ancho": "110px"},
+    {"nombre": "Estado", "ancho": "110px"},
+    {"nombre": "Accion", "ancho": "110px"},
+]
+
+
+def tabla_asignaciones() -> rx.Component:
+    return table_shell(
+        loading=AsistenciasState.loading,
+        headers=ENCABEZADOS_ASIGNACIONES,
+        rows=AsistenciasState.asignaciones_configuracion_visibles,
+        row_renderer=fila_asignacion,
+        has_rows=AsistenciasState.asignaciones_configuracion_visibles.length() > 0,
+        empty_component=_minimal_empty_state(
+            "Sin asignaciones registradas",
+            "Asigna supervisores a sedes para habilitar la captura supervisada.",
+            "route",
+        ),
+        loading_rows=4,
+    )
+
+
+def seccion_horarios() -> rx.Component:
+    return rx.vstack(
+        _section_header(
+            "Horarios del contrato",
+            "Versiones de horario y cual se usa en la jornada actual.",
+            badges=[
+                _count_badge(AsistenciasState.total_horarios_configuracion, "registrados", "blue"),
+                _count_badge(AsistenciasState.total_horarios_activos, "activos", "green"),
+            ],
+            action=rx.button(
+                rx.icon("plus", size=14),
+                "Nuevo horario",
+                on_click=AsistenciasState.abrir_modal_horario_crear,
+                color_scheme="blue",
+                size="2",
+            ),
+        ),
+        tabla_horarios(),
+        spacing="3",
+        width="100%",
+        margin_bottom=Spacing.LG,
+    )
+
+
+def seccion_asignaciones() -> rx.Component:
+    return rx.vstack(
+        _section_header(
+            "Asignaciones supervisor - sede",
+            "Territorio de cada supervisor para la captura diaria.",
+            badges=[
+                _count_badge(AsistenciasState.total_asignaciones_visibles, "registradas", "blue"),
+                _count_badge(AsistenciasState.total_asignaciones_visibles_activas, "activas", "green"),
+            ],
+            action=rx.cond(
+                AsistenciasState.configuracion_solo_lectura,
+                rx.fragment(),
+                rx.button(
+                    rx.icon("plus", size=14),
+                    "Nueva asignacion",
+                    on_click=AsistenciasState.abrir_modal_supervision_crear,
+                    color_scheme="blue",
+                    size="2",
+                ),
+            ),
+        ),
+        tabla_asignaciones(),
+        spacing="3",
         width="100%",
     )
 
 
 def configuracion_asistencias() -> rx.Component:
     return rx.vstack(
-        callout_contexto(),
-        rx.hstack(
-            metric_card(
-                titulo="Horarios del contrato",
-                valor=AsistenciasState.total_horarios_configuracion,
-                icono="clock-3",
-                color_scheme="teal",
-                descripcion="Versiones de horario para el contrato seleccionado",
-            ),
-            metric_card(
-                titulo="Horarios activos",
-                valor=AsistenciasState.total_horarios_activos,
-                icono="badge-check",
-                color_scheme="green",
-                descripcion="Solo uno deberia quedar activo por contrato",
-            ),
-            metric_card(
-                titulo="Asignaciones",
-                valor=AsistenciasState.total_asignaciones_supervision,
-                icono="route",
-                color_scheme="blue",
-                descripcion="Territorios supervisor-sede registrados",
-            ),
-            metric_card(
-                titulo="Asignaciones activas",
-                valor=AsistenciasState.total_asignaciones_activas,
-                icono="map-pinned",
-                color_scheme="orange",
-                descripcion="Sedes actualmente cubiertas por supervision",
-            ),
-            spacing="4",
-            width="100%",
-            wrap="wrap",
+        rx.cond(
+            AsistenciasState.mostrar_horarios_configuracion,
+            seccion_horarios(),
+            rx.fragment(),
         ),
-        rx.hstack(
-            rx.button(
-                rx.icon("plus", size=15),
-                "Nuevo horario",
-                on_click=AsistenciasState.abrir_modal_horario_crear,
-                color_scheme="teal",
-                size="2",
-            ),
-            rx.button(
-                rx.icon("plus", size=15),
-                "Nueva asignacion",
-                on_click=AsistenciasState.abrir_modal_supervision_crear,
-                color_scheme="blue",
-                size="2",
-            ),
-            spacing="2",
-            wrap="wrap",
-            width="100%",
-        ),
-        rx.grid(
-            rx.card(
-                rx.vstack(
-                    rx.hstack(
-                        rx.vstack(
-                            rx.text(
-                                "Horarios del contrato",
-                                font_size=Typography.SIZE_BASE,
-                                font_weight=Typography.WEIGHT_BOLD,
-                            ),
-                            rx.text(
-                                "Controla el horario base y la version activa usada por la jornada.",
-                                font_size=Typography.SIZE_SM,
-                                color=Colors.TEXT_SECONDARY,
-                            ),
-                            spacing="1",
-                            align="start",
-                        ),
-                        rx.spacer(),
-                        rx.badge(
-                            AsistenciasState.contrato_seleccionado_id.to(str),
-                            color_scheme="teal",
-                            variant="soft",
-                            size="1",
-                        ),
-                        width="100%",
-                        align="start",
-                        wrap="wrap",
-                    ),
-                    rx.cond(
-                        AsistenciasState.horarios_filtrados.length() > 0,
-                        rx.vstack(
-                            rx.foreach(
-                                AsistenciasState.horarios_filtrados,
-                                _tarjeta_horario,
-                            ),
-                            spacing="3",
-                            width="100%",
-                        ),
-                        empty_state_card(
-                            title="Sin horarios registrados",
-                            description="Crea el primer horario activo para el contrato seleccionado.",
-                            icon="clock-3",
-                        ),
-                    ),
-                    spacing="4",
-                    width="100%",
-                ),
-                width="100%",
-                height="100%",
-            ),
-            rx.card(
-                rx.vstack(
-                    rx.hstack(
-                        rx.vstack(
-                            rx.text(
-                                "Asignaciones supervisor-sede",
-                                font_size=Typography.SIZE_BASE,
-                                font_weight=Typography.WEIGHT_BOLD,
-                            ),
-                            rx.text(
-                                "Define el territorio estable de cada supervisor para la captura diaria.",
-                                font_size=Typography.SIZE_SM,
-                                color=Colors.TEXT_SECONDARY,
-                            ),
-                            spacing="1",
-                            align="start",
-                        ),
-                        rx.spacer(),
-                        rx.badge(
-                            AsistenciasState.total_asignaciones_activas.to(str) + " activas",
-                            color_scheme="blue",
-                            variant="soft",
-                            size="1",
-                        ),
-                        width="100%",
-                        align="start",
-                        wrap="wrap",
-                    ),
-                    rx.cond(
-                        AsistenciasState.asignaciones_filtradas.length() > 0,
-                        rx.vstack(
-                            rx.foreach(
-                                AsistenciasState.asignaciones_filtradas,
-                                _tarjeta_asignacion,
-                            ),
-                            spacing="3",
-                            width="100%",
-                        ),
-                        empty_state_card(
-                            title="Sin asignaciones registradas",
-                            description="Asigna supervisores a sedes para habilitar la captura supervisada.",
-                            icon="route",
-                        ),
-                    ),
-                    spacing="4",
-                    width="100%",
-                ),
-                width="100%",
-                height="100%",
-            ),
-            columns=rx.breakpoints(initial="1", lg="2"),
-            spacing="4",
-            width="100%",
+        rx.cond(
+            AsistenciasState.mostrar_asignaciones_configuracion,
+            seccion_asignaciones(),
+            rx.fragment(),
         ),
         spacing="4",
         width="100%",
@@ -891,6 +827,18 @@ def modal_incidencia() -> rx.Component:
                     width="100%",
                 ),
                 rx.hstack(
+                    rx.cond(
+                        AsistenciasState.empleado_seleccionado.get("incidencia_id", 0) != 0,
+                        rx.button(
+                            "Limpiar",
+                            variant="ghost",
+                            color_scheme="red",
+                            on_click=AsistenciasState.limpiar_incidencia_actual,
+                            disabled=AsistenciasState.saving,
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.spacer(),
                     boton_cancelar(
                         on_click=AsistenciasState.cerrar_modal_incidencia,
                         disabled=AsistenciasState.saving,
@@ -898,14 +846,16 @@ def modal_incidencia() -> rx.Component:
                     boton_guardar(
                         texto=AsistenciasState.texto_guardar_incidencia,
                         texto_guardando=rx.cond(
-                            AsistenciasState.panel_es_rrhh,
+                            AsistenciasState.modo_precarga_rrhh,
                             "Guardando precarga...",
                             "Guardando incidencia...",
                         ),
                         on_click=AsistenciasState.guardar_incidencia,
                         saving=AsistenciasState.saving,
                     ),
-                    justify="end",
+                    justify="between",
+                    align="center",
+                    wrap="wrap",
                     width="100%",
                 ),
                 spacing="4",

@@ -22,9 +22,7 @@ from app.presentation.components.ui import (
     boton_eliminar,
     contador_registros,
     filtros_inline,
-    metric_card,
     status_badge_reactive,
-    table_shell,
 )
 from app.presentation.theme import Colors, Typography, Spacing
 from app.services import contrato_service, contrato_categoria_service
@@ -32,6 +30,10 @@ from app.core.exceptions import DatabaseError, BusinessRuleError
 from app.presentation.pages.contratos.contrato_presentacion import (
     enriquecer_contrato_presentacion,
     serializar_categoria_contrato_detalle,
+)
+from app.presentation.pages.contratos.contrato_detail_sections import (
+    contrato_detail_info_sections,
+    contrato_detail_text,
 )
 
 
@@ -360,18 +362,12 @@ def _grid_contratos() -> rx.Component:
                 width="100%",
                 spacing="3",
             ),
-            rx.center(
-                rx.vstack(
-                    rx.icon("file-text", size=48, color=Colors.TEXT_MUTED),
-                    rx.text(
-                        "No hay contratos registrados",
-                        font_size=Typography.SIZE_LG,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    spacing="3",
-                    align="center",
+            rx.box(
+                empty_state_card(
+                    title="No hay contratos registrados",
+                    description="Ajuste los filtros o espere a que se capture el primer contrato.",
+                    icon="file-text",
                 ),
-                padding=Spacing.MD,
                 width="100%",
             ),
         ),
@@ -410,119 +406,6 @@ def _filtros_contratos() -> rx.Component:
     )
 
 
-# =============================================================================
-# MODAL DE DETALLE
-# =============================================================================
-
-def _texto_detalle(
-    valor,
-    *,
-    fallback: str = "No disponible",
-    weight: str | None = None,
-    color: str = Colors.TEXT_PRIMARY,
-    white_space: str | None = None,
-) -> rx.Component:
-    """Texto consistente para campos de detalle."""
-    text_props = {
-        "font_size": Typography.SIZE_SM,
-        "color": color,
-    }
-    if weight is not None:
-        text_props["font_weight"] = weight
-    if white_space is not None:
-        text_props["white_space"] = white_space
-
-    return rx.cond(
-        valor,
-        rx.text(valor, **text_props),
-        rx.text(
-            fallback,
-            font_size=Typography.SIZE_SM,
-            color=Colors.TEXT_MUTED,
-            font_style="italic",
-        ),
-    )
-
-
-def _campo_detalle(label: str, contenido: rx.Component) -> rx.Component:
-    """Campo de detalle en modo solo lectura."""
-    return rx.vstack(
-        rx.text(
-            label,
-            font_size=Typography.SIZE_XS,
-            font_weight=Typography.WEIGHT_SEMIBOLD,
-            color=Colors.TEXT_MUTED,
-            text_transform="uppercase",
-            letter_spacing=Typography.LETTER_SPACING_WIDE,
-        ),
-        contenido,
-        spacing="1",
-        width="100%",
-        align="start",
-    )
-
-
-def _fila_categoria_detalle(categoria: dict) -> rx.Component:
-    """Fila del resumen de categorías configuradas en el contrato."""
-    return rx.table.row(
-        rx.table.cell(
-            rx.cond(
-                categoria["categoria_clave"],
-                rx.badge(
-                    categoria["categoria_clave"],
-                    color_scheme="blue",
-                    variant="soft",
-                    size="1",
-                ),
-                rx.text("-", size="2", color=Colors.TEXT_MUTED),
-            ),
-        ),
-        rx.table.cell(
-            rx.text(
-                categoria["categoria_nombre"],
-                size="2",
-                color=Colors.TEXT_PRIMARY,
-            ),
-        ),
-        rx.table.cell(
-            rx.text(
-                categoria["cantidad_minima"],
-                size="2",
-                color=Colors.TEXT_PRIMARY,
-            ),
-        ),
-        rx.table.cell(
-            rx.text(
-                categoria["cantidad_maxima"],
-                size="2",
-                color=Colors.TEXT_PRIMARY,
-            ),
-        ),
-        rx.table.cell(
-            rx.text(
-                categoria["costo_unitario_fmt"],
-                size="2",
-                weight="medium",
-                color=Colors.TEXT_PRIMARY,
-            ),
-        ),
-        rx.table.cell(
-            rx.text(
-                categoria["costo_minimo_fmt"],
-                size="2",
-                color=Colors.TEXT_SECONDARY,
-            ),
-        ),
-        rx.table.cell(
-            rx.text(
-                categoria["costo_maximo_fmt"],
-                size="2",
-                color=Colors.TEXT_SECONDARY,
-            ),
-        ),
-    )
-
-
 def _modal_detalle_contrato() -> rx.Component:
     """Modal con detalle del contrato seleccionado."""
     datos = MisContratosState.contrato_detalle
@@ -549,7 +432,7 @@ def _modal_detalle_contrato() -> rx.Component:
                                     variant="soft",
                                     size="1",
                                 ),
-                                _texto_detalle(
+                                contrato_detail_text(
                                     datos["codigo"],
                                     fallback="Sin código",
                                     color=Colors.TEXT_SECONDARY,
@@ -569,200 +452,11 @@ def _modal_detalle_contrato() -> rx.Component:
                         width="100%",
                         align="start",
                     ),
-                    rx.card(
-                        rx.vstack(
-                            rx.grid(
-                                _campo_detalle(
-                                    "Código",
-                                    _texto_detalle(datos["codigo"], fallback="Sin código"),
-                                ),
-                                _campo_detalle(
-                                    "Folio institución",
-                                    _texto_detalle(datos["numero_folio_buap"], fallback="Sin folio"),
-                                ),
-                                _campo_detalle(
-                                    "Tipo de contrato",
-                                    _texto_detalle(datos["tipo_contrato"]),
-                                ),
-                                _campo_detalle(
-                                    "Vigencia",
-                                    rx.badge(
-                                        datos["vigencia_label"],
-                                        color_scheme=datos["vigencia_color_scheme"],
-                                        variant="soft",
-                                        size="1",
-                                    ),
-                                ),
-                                _campo_detalle(
-                                    "Inicio",
-                                    _texto_detalle(datos["fecha_inicio_fmt"]),
-                                ),
-                                _campo_detalle(
-                                    "Fin",
-                                    _texto_detalle(
-                                        rx.cond(
-                                            datos["fecha_fin"],
-                                            datos["fecha_fin_fmt"],
-                                            "Indefinido",
-                                        ),
-                                        fallback="Indefinido",
-                                    ),
-                                ),
-                                columns=rx.breakpoints(initial="1", sm="2", lg="3"),
-                                spacing="4",
-                                width="100%",
-                            ),
-                            spacing="3",
-                            width="100%",
-                        ),
-                        width="100%",
-                        variant="surface",
-                    ),
-                    rx.grid(
-                        metric_card(
-                            titulo="Plazas mínimas",
-                            valor=datos["cantidad_plazas_minima"],
-                            icono="users",
-                            color_scheme="blue",
-                            descripcion="Cobertura mínima comprometida",
-                        ),
-                        metric_card(
-                            titulo="Plazas máximas",
-                            valor=datos["cantidad_plazas_maxima"],
-                            icono="briefcase",
-                            color_scheme="green",
-                            descripcion="Capacidad máxima del contrato",
-                        ),
-                        metric_card(
-                            titulo="Categorías",
-                            valor=MisContratosState.total_categorias_detalle_contrato,
-                            icono="tags",
-                            color_scheme="amber",
-                            descripcion="Perfiles configurados en la planeación",
-                        ),
-                        columns=rx.breakpoints(initial="1", sm="2", lg="3"),
-                        spacing="3",
-                        width="100%",
-                    ),
-                    rx.card(
-                        rx.vstack(
-                            rx.hstack(
-                                rx.text(
-                                    "Montos del contrato",
-                                    size="4",
-                                    weight="bold",
-                                    color=Colors.TEXT_PRIMARY,
-                                ),
-                                rx.spacer(),
-                                rx.cond(
-                                    datos["incluye_iva"],
-                                    rx.badge(
-                                        "Incluye IVA",
-                                        color_scheme="green",
-                                        variant="soft",
-                                        size="1",
-                                    ),
-                                    rx.badge(
-                                        "Sin IVA",
-                                        color_scheme="gray",
-                                        variant="soft",
-                                        size="1",
-                                    ),
-                                ),
-                                width="100%",
-                                align="center",
-                            ),
-                            rx.grid(
-                                metric_card(
-                                    titulo="Monto mínimo",
-                                    valor=datos["monto_minimo_fmt"],
-                                    icono="banknote",
-                                    color_scheme="blue",
-                                    descripcion="Suma de costo por categoría x plazas mínimas",
-                                ),
-                                metric_card(
-                                    titulo="Monto máximo",
-                                    valor=datos["monto_maximo_fmt"],
-                                    icono="wallet",
-                                    color_scheme="green",
-                                    descripcion="Suma de costo por categoría x plazas máximas",
-                                ),
-                                columns=rx.breakpoints(initial="1", sm="2"),
-                                spacing="3",
-                                width="100%",
-                            ),
-                            spacing="3",
-                            width="100%",
-                        ),
-                        width="100%",
-                        variant="surface",
-                    ),
-                    rx.card(
-                        rx.vstack(
-                            rx.hstack(
-                                rx.text(
-                                    "Categorías configuradas",
-                                    size="4",
-                                    weight="bold",
-                                    color=Colors.TEXT_PRIMARY,
-                                ),
-                                rx.spacer(),
-                                rx.cond(
-                                    MisContratosState.tiene_categorias_detalle_contrato,
-                                    rx.badge(
-                                        MisContratosState.total_categorias_detalle_contrato,
-                                        color_scheme="blue",
-                                        variant="soft",
-                                        size="1",
-                                    ),
-                                    rx.fragment(),
-                                ),
-                                width="100%",
-                                align="center",
-                            ),
-                            rx.cond(
-                                MisContratosState.tiene_categorias_detalle_contrato,
-                                rx.box(
-                                    table_shell(
-                                        loading=False,
-                                        has_rows=True,
-                                        empty_component=rx.fragment(),
-                                        header_cells=[
-                                            rx.table.column_header_cell("Clave", width="90px"),
-                                            rx.table.column_header_cell("Categoría"),
-                                            rx.table.column_header_cell("Mín.", width="70px"),
-                                            rx.table.column_header_cell("Máx.", width="70px"),
-                                            rx.table.column_header_cell("Costo", width="120px"),
-                                            rx.table.column_header_cell("Monto mín.", width="120px"),
-                                            rx.table.column_header_cell("Monto máx.", width="120px"),
-                                        ],
-                                        body_component=rx.foreach(
-                                            MisContratosState.categorias_detalle_contrato,
-                                            _fila_categoria_detalle,
-                                        ),
-                                    ),
-                                    overflow_x="auto",
-                                    width="100%",
-                                ),
-                                empty_state_card(
-                                    title="Sin categorías configuradas",
-                                    description="Este contrato no tiene un desglose de plazas por categoría capturado.",
-                                    icon="tags",
-                                ),
-                            ),
-                            spacing="3",
-                            width="100%",
-                        ),
-                        width="100%",
-                        variant="surface",
-                    ),
-                    _campo_detalle(
-                        "Objeto del contrato",
-                        _texto_detalle(
-                            datos["descripcion_objeto"],
-                            fallback="Sin objeto capturado",
-                            white_space="pre-wrap",
-                        ),
+                    contrato_detail_info_sections(
+                        datos,
+                        MisContratosState.categorias_detalle_contrato,
+                        total_categorias=MisContratosState.total_categorias_detalle_contrato,
+                        tiene_categorias=MisContratosState.tiene_categorias_detalle_contrato,
                     ),
                     rx.vstack(
                         rx.hstack(
@@ -796,7 +490,7 @@ def _modal_detalle_contrato() -> rx.Component:
                                     rx.icon("pause", size=16),
                                     "Suspender",
                                     on_click=MisContratosState.suspender_contrato,
-                                    color_scheme="orange",
+                                    color_scheme="amber",
                                     variant="soft",
                                     disabled=MisContratosState.saving_accion_contrato,
                                 ),

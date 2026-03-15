@@ -6,7 +6,7 @@ Accede directo a tabla bajas_empleado.
 
 Plazos reales:
 - Liquidacion/finiquito: 15 dias habiles (con alerta)
-- Comunicacion a BUAP: sin deadline estricto
+- Comunicación al cliente: sin deadline estricto
 - Sustitucion: dato informativo
 """
 import logging
@@ -215,7 +215,7 @@ class BajaService:
     async def comunicar_a_buap(
         self, baja_id: int, fecha: Optional[date] = None
     ) -> BajaEmpleado:
-        """Registra que se comunico la baja a BUAP."""
+        """Registra que se comunicó la baja al cliente."""
         baja = await self._obtener_baja_por_id(baja_id)
         baja.comunicar(fecha)
         baja_actualizada = await self._actualizar_baja(baja)
@@ -227,10 +227,10 @@ class BajaService:
 
             await notificacion_service.crear(NotificacionCreate(
                 empresa_id=baja.empresa_id,
-                titulo="Baja comunicada a BUAP",
+                titulo="Baja comunicada al cliente",
                 mensaje=(
-                    f"Se comunico a BUAP la baja del empleado (baja #{baja.id}). "
-                    f"Pendiente: entregar liquidacion antes del "
+                    f"Se comunicó al cliente la baja del empleado (baja #{baja.id}). "
+                    f"Pendiente: entregar liquidación antes del "
                     f"{baja.fecha_limite_liquidacion.strftime('%d/%m/%Y')}."
                 ),
                 tipo="baja_comunicada",
@@ -245,7 +245,7 @@ class BajaService:
     async def actualizar_sustitucion(
         self, baja_id: int, requiere: bool
     ) -> BajaEmpleado:
-        """Registra si BUAP solicito sustitucion."""
+        """Registra si el cliente solicitó sustitución."""
         baja = await self._obtener_baja_por_id(baja_id)
         if not baja.es_proceso_activo:
             raise BusinessRuleError("Solo se puede actualizar en bajas activas")

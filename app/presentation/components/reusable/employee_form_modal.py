@@ -2,10 +2,11 @@
 
 import reflex as rx
 
-from app.presentation.components.ui import boton_cancelar, boton_guardar
+from app.presentation.components.ui import boton_guardar
+from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 
-def employee_form_body(*children, spacing: str = "4", padding_y="4") -> rx.Component:
+def employee_form_body(*children, spacing: str = "4", padding_y=Spacing.BASE) -> rx.Component:
     """Contenedor reusable para cuerpos de formulario de empleado.
 
     Contrato:
@@ -18,6 +19,7 @@ def employee_form_body(*children, spacing: str = "4", padding_y="4") -> rx.Compo
         spacing=spacing,
         width="100%",
         padding_y=padding_y,
+        align="stretch",
     )
 
 
@@ -49,24 +51,74 @@ def employee_form_modal(
 
     return rx.dialog.root(
         rx.dialog.content(
-            rx.dialog.title(title),
-            rx.dialog.description(description),
-            body,
-            rx.hstack(
-                boton_cancelar(on_click=on_cancel, disabled=cancel_disabled),
-                boton_guardar(
-                    texto=save_text,
-                    texto_guardando=save_loading_text,
-                    on_click=on_save,
-                    saving=saving,
-                    disabled=save_disabled,
-                    color_scheme=save_color_scheme,
+            rx.vstack(
+                rx.vstack(
+                    rx.dialog.title(
+                        title,
+                        margin="0",
+                        font_size=Typography.SIZE_LG,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_PRIMARY,
+                        line_height=Typography.LINE_HEIGHT_TIGHT,
+                    ),
+                    rx.dialog.description(
+                        description,
+                        margin="0",
+                        font_size=Typography.SIZE_SM,
+                        color=Colors.TEXT_SECONDARY,
+                        line_height=Typography.LINE_HEIGHT_NORMAL,
+                    ),
+                    width="100%",
+                    spacing="1",
+                    align="start",
+                    padding_x=Spacing.XL,
+                    padding_top=Spacing.XL,
+                    padding_bottom=Spacing.BASE,
                 ),
-                spacing="3",
-                justify="end",
+                rx.box(
+                    body,
+                    width="100%",
+                    flex="1",
+                    overflow_y="auto",
+                    padding_x=Spacing.XL,
+                    padding_bottom=Spacing.XL,
+                ),
+                rx.hstack(
+                    rx.button(
+                        "Cancelar",
+                        variant="ghost",
+                        color_scheme="gray",
+                        size="2",
+                        on_click=on_cancel,
+                        disabled=cancel_disabled,
+                        color=Colors.TEXT_MUTED,
+                    ),
+                    rx.spacer(),
+                    boton_guardar(
+                        texto=save_text,
+                        texto_guardando=save_loading_text,
+                        on_click=on_save,
+                        saving=saving,
+                        disabled=save_disabled,
+                        color_scheme=save_color_scheme,
+                    ),
+                    width="100%",
+                    align="center",
+                    padding_x=Spacing.XL,
+                    padding_y=Spacing.BASE,
+                    border_top=f"1px solid {Colors.BORDER}",
+                ),
                 width="100%",
+                spacing="0",
+                align="stretch",
+                max_height="min(88vh, 960px)",
             ),
             max_width=max_width,
+            width=f"calc(100vw - {Spacing.XXL})",
+            padding="0",
+            overflow="hidden",
+            background=Colors.SURFACE,
+            border_radius=Radius.XL,
         ),
         open=open_state,
         on_open_change=rx.noop,

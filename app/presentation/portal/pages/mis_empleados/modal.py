@@ -7,6 +7,8 @@ from app.presentation.theme import Colors, Radius, Spacing, Typography
 from app.presentation.components.ui import (
     employee_status_badge,
     form_date,
+    form_input,
+    modal_formulario,
     form_select,
     form_textarea,
 )
@@ -28,6 +30,7 @@ from app.presentation.components.reusable import (
 )
 
 from .state import MisEmpleadosState
+from ..expedientes.state import ExpedientesState
 
 
 def modal_empleado() -> rx.Component:
@@ -36,146 +39,655 @@ def modal_empleado() -> rx.Component:
         open_state=MisEmpleadosState.mostrar_modal_empleado,
         title=rx.cond(
             MisEmpleadosState.es_edicion,
-            "Editar Empleado",
-            "Nuevo Empleado",
+            "Editar empleado",
+            "Nuevo empleado",
         ),
-        description=rx.cond(
-            MisEmpleadosState.es_edicion,
-            rx.text("Modifique los datos del empleado. El CURP no se puede cambiar."),
+        description=rx.text(
+            rx.cond(
+                MisEmpleadosState.es_edicion,
+                "Asignado a ",
+                "Se asignará a ",
+            ),
             rx.text(
-                "El empleado se asignará a ",
-                rx.text(
-                    MisEmpleadosState.nombre_empresa_actual,
-                    font_weight=Typography.WEIGHT_BOLD,
-                    as_="span",
-                ),
+                MisEmpleadosState.nombre_empresa_actual,
+                as_="span",
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.SECONDARY,
             ),
+            font_size=Typography.SIZE_SM,
+            color=Colors.TEXT_SECONDARY,
         ),
-        body=employee_form_body(
-                # CURP (obligatorio en creacion, inmutable en edicion)
-                _campo_curp(),
-
-                # Nombre y apellidos
-                _campos_nombre(),
-
-                # RFC y NSS (obligatorios)
-                _campos_rfc_nss(),
-
-                _campo_fecha_ingreso(),
-
-                # Fecha nacimiento y genero (obligatorios)
-                _campos_fecha_genero(),
-
-                # Telefono (obligatorio) y email (opcional)
-                _campos_telefono_email(),
-
-                # Direccion
-                _campo_direccion(),
-
-                # Contacto de emergencia (3 campos)
-                _seccion_contacto_emergencia(),
-
-                # Datos bancarios
-                _seccion_datos_bancarios(),
-
-                # Notas
-                _campo_notas(),
-
-                _seccion_descuentos_recurrentes_form(),
-
-                padding_y=Spacing.BASE,
-            ),
+        body=rx.vstack(
+            _employee_modal_identificacion_section(),
+            _employee_modal_contacto_section(),
+            _employee_modal_contacto_emergencia_section(),
+            _employee_modal_datos_bancarios_section(),
+            _employee_modal_descuentos_section(),
+            _employee_modal_notas_field(),
+            gap=Spacing.MD,
+            width="100%",
+            align="stretch",
+        ),
         on_cancel=MisEmpleadosState.cerrar_modal_empleado,
         on_save=MisEmpleadosState.guardar_empleado,
         save_text=rx.cond(
             MisEmpleadosState.es_edicion,
-            "Guardar Cambios",
-            "Crear Empleado",
+            "Guardar cambios",
+            "Crear empleado",
         ),
         saving=MisEmpleadosState.saving,
         save_loading_text="Guardando...",
         save_color_scheme="teal",
-        max_width="600px",
+        max_width="920px",
     )
 
 
-def _campo_fecha_ingreso() -> rx.Component:
-    """Campo fecha de ingreso visible en create/edit."""
-    return employee_date_field(
-        label="Fecha de ingreso",
-        required=True,
-        value=MisEmpleadosState.form_fecha_ingreso,
-        on_change=MisEmpleadosState.set_form_fecha_ingreso,
-        on_blur=MisEmpleadosState.validar_fecha_ingreso_blur,
-        error=MisEmpleadosState.error_fecha_ingreso,
-        helper_text=rx.text(
-            "Se usa como fecha inicial sugerida para descuentos recurrentes nuevos.",
+def _employee_modal_section(
+    title: str,
+    *children,
+    description: rx.Component | None = None,
+    header_action: rx.Component | None = None,
+) -> rx.Component:
+    """Contenedor visual de sección para el modal de empleado."""
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.vstack(
+                    rx.text(
+                        title,
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_PRIMARY,
+                    ),
+                    description if description is not None else rx.fragment(),
+                    spacing="1",
+                    align="start",
+                ),
+                rx.spacer(),
+                header_action if header_action is not None else rx.fragment(),
+                width="100%",
+                align="center",
+            ),
+            *children,
+            width="100%",
+            gap=Spacing.MD,
+            align="stretch",
+        ),
+        width="100%",
+        padding=Spacing.MD,
+        background=Colors.SURFACE,
+        border=f"1px solid {Colors.BORDER}",
+        border_radius=Radius.LG,
+    )
+
+
+def _employee_modal_three_col_grid(*children) -> rx.Component:
+    """Grid responsivo de tres columnas para grupos de campos."""
+    return rx.grid(
+        *children,
+        columns=rx.breakpoints(initial="1", sm="2", md="3"),
+        gap=Spacing.MD,
+        width="100%",
+    )
+
+
+def _employee_modal_two_col_grid(*children) -> rx.Component:
+    """Grid responsivo de dos columnas para grupos de campos."""
+    return rx.grid(
+        *children,
+        columns=rx.breakpoints(initial="1", sm="2"),
+        gap=Spacing.MD,
+        width="100%",
+    )
+
+
+def _employee_modal_input(
+    *,
+    label: str,
+    value,
+    on_change,
+    placeholder: str = "",
+    error=None,
+    on_blur=None,
+    required: bool = False,
+    max_length: int | None = None,
+    disabled=False,
+    hint: str = "",
+) -> rx.Component:
+    """Input del modal con labels estilo wizard."""
+    return form_input(
+        label=label,
+        label_variant="wizard",
+        value=value,
+        on_change=on_change,
+        on_blur=on_blur,
+        placeholder=placeholder,
+        error=error,
+        required=required,
+        max_length=max_length,
+        disabled=disabled,
+        hint=hint,
+    )
+
+
+def _employee_modal_date(
+    *,
+    label: str,
+    value,
+    on_change,
+    error=None,
+    on_blur=None,
+    required: bool = False,
+    hint: str = "",
+) -> rx.Component:
+    """Campo de fecha del modal con labels estilo wizard."""
+    return form_date(
+        label=label,
+        label_variant="wizard",
+        value=value,
+        on_change=on_change,
+        on_blur=on_blur,
+        error=error,
+        required=required,
+        hint=hint,
+    )
+
+
+def _employee_modal_select(
+    *,
+    label: str,
+    value,
+    on_change,
+    options,
+    placeholder: str = "Seleccionar...",
+    error=None,
+    required: bool = False,
+    disabled=False,
+    hint: str = "",
+) -> rx.Component:
+    """Select del modal con labels estilo wizard."""
+    return form_select(
+        label=label,
+        label_variant="wizard",
+        value=value,
+        on_change=on_change,
+        options=options,
+        placeholder=placeholder,
+        error=error,
+        required=required,
+        disabled=disabled,
+        hint=hint,
+    )
+
+
+def _employee_modal_identificacion_section() -> rx.Component:
+    """Sección visual de identificación."""
+    return _employee_modal_section(
+        "Identificación",
+        _employee_modal_three_col_grid(
+            _employee_modal_input(
+                label="CURP",
+                value=MisEmpleadosState.form_curp,
+                on_change=MisEmpleadosState.set_form_curp,
+                on_blur=MisEmpleadosState.validar_curp_blur,
+                error=MisEmpleadosState.error_curp,
+                required=True,
+                placeholder="18 caracteres",
+                max_length=18,
+                disabled=MisEmpleadosState.es_edicion,
+            ),
+            _employee_modal_input(
+                label="RFC",
+                value=MisEmpleadosState.form_rfc,
+                on_change=MisEmpleadosState.set_form_rfc,
+                on_blur=MisEmpleadosState.validar_rfc_blur,
+                error=MisEmpleadosState.error_rfc,
+                required=True,
+                placeholder="13 caracteres",
+                max_length=13,
+            ),
+            _employee_modal_input(
+                label="NSS",
+                value=MisEmpleadosState.form_nss,
+                on_change=MisEmpleadosState.set_form_nss,
+                on_blur=MisEmpleadosState.validar_nss_blur,
+                error=MisEmpleadosState.error_nss,
+                required=True,
+                placeholder="11 dígitos",
+                max_length=11,
+            ),
+        ),
+        _employee_modal_three_col_grid(
+            _employee_modal_input(
+                label="Nombre",
+                value=MisEmpleadosState.form_nombre,
+                on_change=MisEmpleadosState.set_form_nombre,
+                on_blur=MisEmpleadosState.validar_nombre_blur,
+                error=MisEmpleadosState.error_nombre,
+                required=True,
+                placeholder="Nombre(s)",
+            ),
+            _employee_modal_input(
+                label="Ap. paterno",
+                value=MisEmpleadosState.form_apellido_paterno,
+                on_change=MisEmpleadosState.set_form_apellido_paterno,
+                on_blur=MisEmpleadosState.validar_apellido_paterno_blur,
+                error=MisEmpleadosState.error_apellido_paterno,
+                required=True,
+                placeholder="Apellido paterno",
+            ),
+            _employee_modal_input(
+                label="Ap. materno",
+                value=MisEmpleadosState.form_apellido_materno,
+                on_change=MisEmpleadosState.set_form_apellido_materno,
+                on_blur=MisEmpleadosState.validar_apellido_materno_blur,
+                error=MisEmpleadosState.error_apellido_materno,
+                required=True,
+                placeholder="Apellido materno",
+            ),
+        ),
+        _employee_modal_three_col_grid(
+            _employee_modal_date(
+                label="Fecha de nacimiento",
+                value=MisEmpleadosState.form_fecha_nacimiento,
+                on_change=MisEmpleadosState.set_form_fecha_nacimiento,
+                on_blur=MisEmpleadosState.validar_fecha_nacimiento_blur,
+                error=MisEmpleadosState.error_fecha_nacimiento,
+                required=True,
+            ),
+            _employee_modal_select(
+                label="Género",
+                value=MisEmpleadosState.form_genero,
+                on_change=MisEmpleadosState.set_form_genero,
+                options=MisEmpleadosState.opciones_genero,
+                error=MisEmpleadosState.error_genero,
+                required=True,
+            ),
+            _employee_modal_date(
+                label="Fecha de ingreso",
+                value=MisEmpleadosState.form_fecha_ingreso,
+                on_change=MisEmpleadosState.set_form_fecha_ingreso,
+                on_blur=MisEmpleadosState.validar_fecha_ingreso_blur,
+                error=MisEmpleadosState.error_fecha_ingreso,
+                required=True,
+            ),
+        ),
+    )
+
+
+def _employee_modal_contacto_section() -> rx.Component:
+    """Sección visual de contacto."""
+    return _employee_modal_section(
+        "Contacto",
+        _employee_modal_two_col_grid(
+            _employee_modal_input(
+                label="Teléfono",
+                value=MisEmpleadosState.form_telefono,
+                on_change=MisEmpleadosState.set_form_telefono,
+                on_blur=MisEmpleadosState.validar_telefono_blur,
+                error=MisEmpleadosState.error_telefono,
+                required=True,
+                placeholder="10 dígitos",
+                max_length=15,
+            ),
+            _employee_modal_input(
+                label="Email",
+                value=MisEmpleadosState.form_email,
+                on_change=MisEmpleadosState.set_form_email,
+                on_blur=MisEmpleadosState.validar_email_blur,
+                error=MisEmpleadosState.error_email,
+                placeholder="correo@ejemplo.com",
+            ),
+        ),
+        _employee_modal_input(
+            label="Dirección",
+            value=MisEmpleadosState.form_direccion,
+            on_change=MisEmpleadosState.set_form_direccion,
+            placeholder="Dirección completa",
+        ),
+    )
+
+
+def _employee_modal_contacto_emergencia_section() -> rx.Component:
+    """Sección visual de contacto de emergencia."""
+    return _employee_modal_section(
+        "Contacto de emergencia",
+        _employee_modal_three_col_grid(
+            _employee_modal_input(
+                label="Nombre",
+                value=MisEmpleadosState.form_contacto_nombre,
+                on_change=MisEmpleadosState.set_form_contacto_nombre,
+                on_blur=MisEmpleadosState.validar_contacto_nombre_blur,
+                error=MisEmpleadosState.error_contacto_nombre,
+                placeholder="Nombre completo",
+            ),
+            _employee_modal_input(
+                label="Teléfono",
+                value=MisEmpleadosState.form_contacto_telefono,
+                on_change=MisEmpleadosState.set_form_contacto_telefono,
+                on_blur=MisEmpleadosState.validar_contacto_telefono_blur,
+                error=MisEmpleadosState.error_contacto_telefono,
+                placeholder="10 dígitos",
+                max_length=15,
+            ),
+            _employee_modal_select(
+                label="Parentesco",
+                value=MisEmpleadosState.form_contacto_parentesco,
+                on_change=MisEmpleadosState.set_form_contacto_parentesco,
+                options=MisEmpleadosState.opciones_parentesco,
+                error=MisEmpleadosState.error_contacto_parentesco,
+            ),
+        ),
+    )
+
+
+def _employee_modal_datos_bancarios_section() -> rx.Component:
+    """Sección visual de datos bancarios."""
+    return _employee_modal_section(
+        "Datos bancarios",
+        _employee_modal_three_col_grid(
+            _employee_modal_select(
+                label="Banco",
+                value=MisEmpleadosState.form_banco,
+                on_change=MisEmpleadosState.set_form_banco,
+                options=MisEmpleadosState.opciones_banco_empleado,
+                error=MisEmpleadosState.error_banco,
+                placeholder="Seleccionar banco",
+                disabled=MisEmpleadosState.datos_bancarios_bloqueados,
+            ),
+            _employee_modal_input(
+                label="No. de cuenta",
+                value=MisEmpleadosState.form_cuenta_bancaria,
+                on_change=MisEmpleadosState.set_form_cuenta_bancaria,
+                on_blur=MisEmpleadosState.validar_cuenta_bancaria_blur,
+                error=MisEmpleadosState.error_cuenta_bancaria,
+                placeholder="10-18 dígitos",
+                max_length=18,
+                disabled=MisEmpleadosState.datos_bancarios_bloqueados,
+            ),
+            _employee_modal_input(
+                label="CLABE interbancaria",
+                value=MisEmpleadosState.form_clabe,
+                on_change=MisEmpleadosState.set_form_clabe,
+                on_blur=MisEmpleadosState.validar_clabe_blur,
+                error=MisEmpleadosState.error_clabe,
+                placeholder="18 dígitos",
+                max_length=18,
+                disabled=MisEmpleadosState.datos_bancarios_bloqueados,
+            ),
+        ),
+        description=rx.cond(
+            MisEmpleadosState.descripcion_datos_bancarios != "",
+            rx.text(
+                MisEmpleadosState.descripcion_datos_bancarios,
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_SECONDARY,
+            ),
+            rx.fragment(),
+        ),
+        header_action=rx.cond(
+            MisEmpleadosState.mostrar_accion_editar_datos_bancarios,
+            rx.button(
+                MisEmpleadosState.texto_accion_datos_bancarios,
+                variant="soft",
+                color_scheme="teal",
+                size="2",
+                on_click=MisEmpleadosState.habilitar_edicion_datos_bancarios,
+            ),
+            rx.fragment(),
+        ),
+    )
+
+
+def _employee_modal_descuento_row(
+    *,
+    form_key: str,
+    title: str,
+    badge_text: str,
+    badge_color_scheme: str,
+    active,
+    amount_value,
+    start_value,
+    end_value,
+    notes_value,
+    is_last: bool = False,
+) -> rx.Component:
+    """Fila colapsable para un descuento recurrente."""
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.switch(
+                    checked=active,
+                    on_change=lambda value: MisEmpleadosState.set_form_descuento_activo(form_key, value),
+                ),
+                rx.badge(
+                    badge_text,
+                    color_scheme=badge_color_scheme,
+                    variant="soft",
+                    size="1",
+                ),
+                rx.text(
+                    title,
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_PRIMARY,
+                ),
+                rx.spacer(),
+                rx.text(
+                    rx.cond(active, "Activo", "Inactivo"),
+                    font_size=Typography.SIZE_XS,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=rx.cond(active, Colors.PORTAL_PRIMARY_TEXT, Colors.TEXT_MUTED),
+                ),
+                width="100%",
+                align="center",
+                spacing="3",
+            ),
+            rx.cond(
+                active,
+                rx.vstack(
+                    _employee_modal_three_col_grid(
+                        _employee_modal_input(
+                            label="Monto por período",
+                            value=amount_value,
+                            on_change=lambda value: MisEmpleadosState.set_form_descuento_monto(form_key, value),
+                            placeholder="Ej: 1500.00",
+                            required=True,
+                        ),
+                        _employee_modal_date(
+                            label="Fecha inicio",
+                            value=start_value,
+                            on_change=lambda value: MisEmpleadosState.set_form_descuento_inicio(form_key, value),
+                            required=True,
+                        ),
+                        _employee_modal_date(
+                            label="Fecha fin",
+                            value=end_value,
+                            on_change=lambda value: MisEmpleadosState.set_form_descuento_fin(form_key, value),
+                            hint="Vacía = indefinido",
+                        ),
+                    ),
+                    _employee_modal_input(
+                        label="Notas",
+                        value=notes_value,
+                        on_change=lambda value: MisEmpleadosState.set_form_descuento_notas(form_key, value),
+                        placeholder="Referencia o detalles opcionales",
+                    ),
+                    width="100%",
+                    gap=Spacing.MD,
+                    padding_top=Spacing.SM,
+                    align="stretch",
+                ),
+                rx.fragment(),
+            ),
+            width="100%",
+            gap=Spacing.SM,
+            align="stretch",
+        ),
+        width="100%",
+        padding_y=Spacing.MD,
+        border_bottom="none" if is_last else f"1px solid {Colors.BORDER}",
+    )
+
+
+def _employee_modal_descuentos_section() -> rx.Component:
+    """Sección visual de descuentos recurrentes."""
+    return _employee_modal_section(
+        "Descuentos recurrentes",
+        rx.cond(
+            MisEmpleadosState.error_descuentos_recurrentes != "",
+            rx.text(
+                MisEmpleadosState.error_descuentos_recurrentes,
+                font_size=Typography.SIZE_XS,
+                color=Colors.ERROR,
+            ),
+            rx.fragment(),
+        ),
+        rx.box(
+            _employee_modal_descuento_row(
+                form_key="infonavit",
+                title="INFONAVIT",
+                badge_text="INF",
+                badge_color_scheme="blue",
+                active=MisEmpleadosState.form_descuento_infonavit_activo,
+                amount_value=MisEmpleadosState.form_descuento_infonavit_monto,
+                start_value=MisEmpleadosState.form_descuento_infonavit_inicio,
+                end_value=MisEmpleadosState.form_descuento_infonavit_fin,
+                notes_value=MisEmpleadosState.form_descuento_infonavit_notas,
+            ),
+            _employee_modal_descuento_row(
+                form_key="fonacot",
+                title="FONACOT",
+                badge_text="FON",
+                badge_color_scheme="orange",
+                active=MisEmpleadosState.form_descuento_fonacot_activo,
+                amount_value=MisEmpleadosState.form_descuento_fonacot_monto,
+                start_value=MisEmpleadosState.form_descuento_fonacot_inicio,
+                end_value=MisEmpleadosState.form_descuento_fonacot_fin,
+                notes_value=MisEmpleadosState.form_descuento_fonacot_notas,
+            ),
+            _employee_modal_descuento_row(
+                form_key="prestamo_empresa",
+                title="Préstamo empresa",
+                badge_text="PRE",
+                badge_color_scheme="teal",
+                active=MisEmpleadosState.form_descuento_prestamo_empresa_activo,
+                amount_value=MisEmpleadosState.form_descuento_prestamo_empresa_monto,
+                start_value=MisEmpleadosState.form_descuento_prestamo_empresa_inicio,
+                end_value=MisEmpleadosState.form_descuento_prestamo_empresa_fin,
+                notes_value=MisEmpleadosState.form_descuento_prestamo_empresa_notas,
+            ),
+            _employee_modal_descuento_row(
+                form_key="pension_alimenticia",
+                title="Pensión alimenticia",
+                badge_text="PEN",
+                badge_color_scheme="red",
+                active=MisEmpleadosState.form_descuento_pension_alimenticia_activo,
+                amount_value=MisEmpleadosState.form_descuento_pension_alimenticia_monto,
+                start_value=MisEmpleadosState.form_descuento_pension_alimenticia_inicio,
+                end_value=MisEmpleadosState.form_descuento_pension_alimenticia_fin,
+                notes_value=MisEmpleadosState.form_descuento_pension_alimenticia_notas,
+                is_last=True,
+            ),
+            width="100%",
+            border=f"1px solid {Colors.BORDER}",
+            border_radius=Radius.MD,
+            padding_x=Spacing.MD,
+            background=Colors.SURFACE,
+        ),
+        description=rx.text(
+            "Active solo los que aplican. Fecha fin vacía = indefinido.",
             font_size=Typography.SIZE_XS,
             color=Colors.TEXT_SECONDARY,
         ),
     )
 
 
-def _seccion_descuentos_recurrentes_form() -> rx.Component:
-    """Sección de descuentos recurrentes en la ficha del empleado."""
-    return employee_recurring_discounts_section(
-        employee_recurring_discount_card(
-            title="INFONAVIT",
-            badge_text="INF",
-            badge_color_scheme="blue",
-            amount_value=MisEmpleadosState.form_descuento_infonavit_monto,
-            amount_on_change=lambda value: MisEmpleadosState.set_form_descuento_monto("infonavit", value),
-            start_value=MisEmpleadosState.form_descuento_infonavit_inicio,
-            start_on_change=lambda value: MisEmpleadosState.set_form_descuento_inicio("infonavit", value),
-            end_value=MisEmpleadosState.form_descuento_infonavit_fin,
-            end_on_change=lambda value: MisEmpleadosState.set_form_descuento_fin("infonavit", value),
-            notes_value=MisEmpleadosState.form_descuento_infonavit_notas,
-            notes_on_change=lambda value: MisEmpleadosState.set_form_descuento_notas("infonavit", value),
+def _employee_modal_notas_field() -> rx.Component:
+    """Campo de notas generales fuera de las secciones principales."""
+    return _employee_modal_input(
+        label="Notas",
+        value=MisEmpleadosState.form_notas,
+        on_change=MisEmpleadosState.set_form_notas,
+        placeholder="Observaciones adicionales",
+    )
+
+
+def modal_asignacion_plaza() -> rx.Component:
+    """Modal contextual para asignar o reasignar empleados desde la vista por plaza."""
+    return modal_formulario(
+        open=MisEmpleadosState.mostrar_modal_asignacion_plaza,
+        titulo=MisEmpleadosState.titulo_modal_asignacion_plaza,
+        descripcion=MisEmpleadosState.descripcion_modal_asignacion_plaza,
+        contenido=rx.vstack(
+            rx.callout(
+                rx.text(
+                    "La plaza conserva su sede y categoría. Aquí solo se asigna o reasigna al empleado.",
+                    font_size=Typography.SIZE_SM,
+                ),
+                icon="briefcase",
+                color_scheme="blue",
+                size="1",
+                width="100%",
+            ),
+            form_select(
+                label="Empleado",
+                required=True,
+                placeholder=MisEmpleadosState.placeholder_empleado_plaza,
+                value=MisEmpleadosState.empleado_seleccionado_plaza_id,
+                on_change=MisEmpleadosState.set_empleado_seleccionado_plaza_id,
+                options=MisEmpleadosState.opciones_empleados_disponibles_plaza,
+                disabled=MisEmpleadosState.cargando_empleados_plaza,
+                hint=rx.cond(
+                    MisEmpleadosState.tiene_empleados_disponibles_plaza,
+                    "",
+                    "Si no hay empleados disponibles, primero capture uno nuevo.",
+                ),
+            ),
+            rx.cond(
+                MisEmpleadosState.cargando_empleados_plaza,
+                rx.hstack(
+                    rx.spinner(size="2"),
+                    rx.text(
+                        "Cargando empleados disponibles...",
+                        font_size=Typography.SIZE_SM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    spacing="2",
+                    align="center",
+                    width="100%",
+                ),
+                rx.fragment(),
+            ),
+            rx.cond(
+                ~MisEmpleadosState.tiene_empleados_disponibles_plaza & ~MisEmpleadosState.cargando_empleados_plaza,
+                rx.button(
+                    rx.icon("plus", size=16),
+                    "Nuevo empleado",
+                    on_click=[
+                        MisEmpleadosState.cerrar_modal_asignacion_plaza,
+                        MisEmpleadosState.abrir_modal_crear,
+                    ],
+                    variant="outline",
+                    color_scheme="teal",
+                    align_self="start",
+                ),
+                rx.fragment(),
+            ),
+            spacing="4",
+            width="100%",
         ),
-        employee_recurring_discount_card(
-            title="FONACOT",
-            badge_text="FON",
-            badge_color_scheme="orange",
-            amount_value=MisEmpleadosState.form_descuento_fonacot_monto,
-            amount_on_change=lambda value: MisEmpleadosState.set_form_descuento_monto("fonacot", value),
-            start_value=MisEmpleadosState.form_descuento_fonacot_inicio,
-            start_on_change=lambda value: MisEmpleadosState.set_form_descuento_inicio("fonacot", value),
-            end_value=MisEmpleadosState.form_descuento_fonacot_fin,
-            end_on_change=lambda value: MisEmpleadosState.set_form_descuento_fin("fonacot", value),
-            notes_value=MisEmpleadosState.form_descuento_fonacot_notas,
-            notes_on_change=lambda value: MisEmpleadosState.set_form_descuento_notas("fonacot", value),
+        on_guardar=MisEmpleadosState.confirmar_asignacion_plaza,
+        on_cancelar=MisEmpleadosState.cerrar_modal_asignacion_plaza,
+        puede_guardar=MisEmpleadosState.puede_confirmar_asignacion_plaza,
+        loading=MisEmpleadosState.saving,
+        texto_guardar=MisEmpleadosState.texto_guardar_asignacion_plaza,
+        texto_guardando=rx.cond(
+            MisEmpleadosState.modo_asignacion_plaza == "reasignar",
+            "Reasignando...",
+            "Asignando...",
         ),
-        employee_recurring_discount_card(
-            title="Préstamo empresa",
-            badge_text="PRE",
-            badge_color_scheme="teal",
-            amount_value=MisEmpleadosState.form_descuento_prestamo_empresa_monto,
-            amount_on_change=lambda value: MisEmpleadosState.set_form_descuento_monto("prestamo_empresa", value),
-            start_value=MisEmpleadosState.form_descuento_prestamo_empresa_inicio,
-            start_on_change=lambda value: MisEmpleadosState.set_form_descuento_inicio("prestamo_empresa", value),
-            end_value=MisEmpleadosState.form_descuento_prestamo_empresa_fin,
-            end_on_change=lambda value: MisEmpleadosState.set_form_descuento_fin("prestamo_empresa", value),
-            notes_value=MisEmpleadosState.form_descuento_prestamo_empresa_notas,
-            notes_on_change=lambda value: MisEmpleadosState.set_form_descuento_notas("prestamo_empresa", value),
-        ),
-        employee_recurring_discount_card(
-            title="Pensión alimenticia",
-            badge_text="PEN",
-            badge_color_scheme="red",
-            amount_value=MisEmpleadosState.form_descuento_pension_alimenticia_monto,
-            amount_on_change=lambda value: MisEmpleadosState.set_form_descuento_monto("pension_alimenticia", value),
-            start_value=MisEmpleadosState.form_descuento_pension_alimenticia_inicio,
-            start_on_change=lambda value: MisEmpleadosState.set_form_descuento_inicio("pension_alimenticia", value),
-            end_value=MisEmpleadosState.form_descuento_pension_alimenticia_fin,
-            end_on_change=lambda value: MisEmpleadosState.set_form_descuento_fin("pension_alimenticia", value),
-            notes_value=MisEmpleadosState.form_descuento_pension_alimenticia_notas,
-            notes_on_change=lambda value: MisEmpleadosState.set_form_descuento_notas("pension_alimenticia", value),
-        ),
-        error=MisEmpleadosState.error_descuentos_recurrentes,
-        helper_text=(
-            "Capture solo descuentos configurados. Si la fecha fin queda vacía, "
-            "el descuento se considera indefinido."
-        ),
+        max_width="460px",
     )
 
 
@@ -289,18 +801,19 @@ def modal_detalle_empleado() -> rx.Component:
                         ),
                         rx.cond(
                             MisEmpleadosState.detalle_expediente_href != "",
-                            rx.link(
+                            rx.button(
                                 rx.badge(
                                     "Expediente " + MisEmpleadosState.detalle_expediente_resumen,
                                     variant="soft",
                                     color_scheme="teal",
                                     size="2",
                                 ),
-                                href=MisEmpleadosState.detalle_expediente_href,
-                                underline="none",
-                                display="inline-flex",
-                                align_items="center",
-                                line_height="1",
+                                on_click=ExpedientesState.abrir_panel_expediente(
+                                    MisEmpleadosState.empleado_detalle
+                                ),
+                                variant="ghost",
+                                padding="0",
+                                height="auto",
                             ),
                             rx.badge(
                                 "Expediente " + MisEmpleadosState.detalle_expediente_resumen,

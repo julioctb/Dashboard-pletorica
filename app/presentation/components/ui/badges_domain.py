@@ -7,12 +7,21 @@ def payroll_period_status_badge(estatus: rx.Var | str) -> rx.Component:
     """Badge reactivo para el workflow de periodos de nomina."""
     return rx.match(
         estatus,
-        ("BORRADOR", rx.badge("Borrador", color_scheme="gray", size="1")),
-        ("EN_PREPARACION_RRHH", rx.badge("Preparando", color_scheme="blue", size="1")),
-        ("ENVIADO_A_CONTABILIDAD", rx.badge("Enviado", color_scheme="orange", size="1")),
-        ("EN_PROCESO_CONTABILIDAD", rx.badge("En proceso", color_scheme="purple", size="1")),
-        ("CALCULADO", rx.badge("Calculado", color_scheme="green", size="1")),
-        ("CERRADO", rx.badge("Cerrado", color_scheme="gray", size="1", variant="surface")),
+        ("BORRADOR", rx.badge("Abierto", color_scheme="gray", size="1", variant="soft")),
+        (
+            "EN_PREPARACION_RRHH",
+            rx.badge("En preparación", color_scheme="blue", size="1", variant="soft"),
+        ),
+        (
+            "ENVIADO_A_CONTABILIDAD",
+            rx.badge("Enviado", color_scheme="amber", size="1", variant="soft"),
+        ),
+        (
+            "EN_PROCESO_CONTABILIDAD",
+            rx.badge("En contabilidad", color_scheme="blue", size="1", variant="soft"),
+        ),
+        ("CALCULADO", rx.badge("Listo para pago", color_scheme="blue", size="1", variant="soft")),
+        ("CERRADO", rx.badge("Cerrado", color_scheme="green", size="1", variant="soft")),
         rx.badge(estatus, color_scheme="gray", variant="soft", size="1"),
     )
 
@@ -26,6 +35,8 @@ def employee_status_badge(
     return rx.match(
         estatus,
         ("ACTIVO", rx.badge("Activo", color_scheme="green", variant=variant, size=size)),
+        ("EN_ALTA", rx.badge("En alta", color_scheme="amber", variant=variant, size=size)),
+        ("EN_BAJA", rx.badge("En baja", color_scheme="red", variant=variant, size=size)),
         ("INACTIVO", rx.badge("Inactivo", color_scheme="red", variant=variant, size=size)),
         ("SUSPENDIDO", rx.badge("Suspendido", color_scheme="orange", variant=variant, size=size)),
         rx.badge(estatus, color_scheme="gray", variant=variant, size=size),

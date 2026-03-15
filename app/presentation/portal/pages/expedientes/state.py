@@ -23,6 +23,7 @@ class ExpedientesState(PortalState):
     empleado_seleccionado: dict = {}
     documentos_empleado: List[dict] = []
     expediente_status: dict = {}
+    mostrar_panel_expediente: bool = False
     tipo_documento_subiendo: str = ""
     subiendo_archivo: bool = False
     mostrar_modal_preview: bool = False
@@ -84,6 +85,18 @@ class ExpedientesState(PortalState):
         return self.empleado_seleccionado.get("clave", "")
 
     @rx.var
+    def contrato_empleado_seleccionado(self) -> str:
+        return str(self.empleado_seleccionado.get("contrato_codigo", "") or "")
+
+    @rx.var
+    def estatus_empleado_seleccionado(self) -> str:
+        return str(
+            self.empleado_seleccionado.get("estatus_personal")
+            or self.empleado_seleccionado.get("estatus")
+            or ""
+        )
+
+    @rx.var
     def preview_es_imagen(self) -> bool:
         return self.preview_tipo_mime.startswith("image/")
 
@@ -136,6 +149,7 @@ class ExpedientesState(PortalState):
 
     def _limpiar_detalle_expediente(self):
         """Limpia el detalle del expediente."""
+        self.mostrar_panel_expediente = False
         self.empleado_seleccionado = {}
         self.documentos_empleado = []
         self.expediente_status = {}
@@ -203,6 +217,22 @@ class ExpedientesState(PortalState):
             self.mostrar_mensaje(f"Error cargando expediente: {e}", "error")
             self.documentos_empleado = []
             self.expediente_status = {}
+
+    async def abrir_panel_expediente(self, emp: dict):
+        """Abre el panel embebido del expediente dentro de empleados."""
+        if not isinstance(emp, dict):
+            return rx.toast.error("Empleado inválido")
+
+        empleado_id = int(emp.get("id") or 0)
+        if empleado_id <= 0:
+            return rx.toast.error("No se pudo identificar al empleado")
+
+        self.mostrar_panel_expediente = True
+        await self.ver_expediente(emp)
+
+    def cerrar_panel_expediente(self):
+        """Cierra el panel embebido y limpia el detalle cargado."""
+        self._limpiar_detalle_expediente()
 
     @rx.event
     def volver_a_empleados(self):

@@ -55,6 +55,7 @@ class AsistenciasState(PortalState):
     contrato_seleccionado_id: int = 0
     fecha_operacion: str = date.today().isoformat()
     panel_activo: str = "operacion"
+    supervisor_contexto_id: int = 0
 
     supervisor_actual: dict = {}
     sedes_supervision: list[dict] = []
@@ -67,6 +68,7 @@ class AsistenciasState(PortalState):
     asignaciones_supervision: list[dict] = []
     supervisores_disponibles: list[dict] = []
     sedes_catalogo: list[dict] = []
+    empleados_por_sede_configuracion: dict[str, int] = {}
 
     modal_incidencia_abierto: bool = False
     empleado_seleccionado: dict = {}
@@ -190,20 +192,20 @@ class AsistenciasState(PortalState):
         return self.puede_acceder_rrhh
 
     @rx.var
+    def puede_ver_operacion(self) -> bool:
+        return self.puede_operar_jornada or self.puede_precargar_rrhh
+
+    @rx.var
+    def puede_ver_configuracion(self) -> bool:
+        return self.puede_configurar_catalogos or self.es_operaciones or self.es_admin_empresa
+
+    @rx.var
     def mostrar_selector_panel(self) -> bool:
-        return (
-            self.puede_operar_jornada
-            or self.puede_precargar_rrhh
-            or self.puede_configurar_catalogos
-        )
+        return self.puede_ver_operacion or self.puede_ver_configuracion
 
     @rx.var
     def panel_es_operacion(self) -> bool:
         return self.panel_activo == "operacion"
-
-    @rx.var
-    def panel_es_rrhh(self) -> bool:
-        return self.panel_activo == "rrhh"
 
     @rx.var
     def panel_es_configuracion(self) -> bool:
@@ -240,54 +242,88 @@ class AsistenciasState(PortalState):
     def puede_editar_incidencias(self) -> bool:
         if self.panel_es_configuracion:
             return False
-        if self.panel_es_rrhh:
+        if self.puede_precargar_rrhh:
             return self.puede_precargar_rrhh
         return self.tiene_jornada_abierta and self.puede_operar_jornada
 
     @rx.var
-    def descripcion_horario(self) -> str:
-        if not self.horario_activo:
-            return "Sin horario activo"
-        nombre = self.horario_activo.get("nombre", "")
-        tolerancia = self.horario_activo.get("tolerancia_entrada_min", 0)
-        return f"{nombre} · Tolerancia {tolerancia} min"
+    def modo_precarga_rrhh(self) -> bool:
+        return self.panel_es_operacion and self.puede_precargar_rrhh and not self.tiene_jornada_abierta
 
     @rx.var
-    def titulo_supervision(self) -> str:
-        if self.panel_es_configuracion:
-            return "Configuracion operativa"
-        if self.panel_es_rrhh:
-            return "Precargas de RH"
-        if self.supervisor_actual:
-            return self.supervisor_actual.get("nombre", "Supervisor")
-        return "Vista operativa"
+    def mostrar_horarios_configuracion(self) -> bool:
+        return self.puede_configurar_catalogos
 
     @rx.var
-    def texto_contexto_panel(self) -> str:
-        if self.panel_es_configuracion:
-            return (
-                "Administra horarios por contrato y asignaciones supervisor-sede "
-                "sin salir del modulo de asistencias."
-            )
-        if self.panel_es_rrhh:
-            return (
-                "RH puede precargar incidencias sin abrir jornada. "
-                "Las novedades apareceran automaticamente al supervisor y en la consolidacion."
-            )
-        return (
-            "Operacion registra novedades durante la jornada y al cierre se consolidan "
-            "asistencias e incidencias del dia."
+    def mostrar_asignaciones_configuracion(self) -> bool:
+        return self.puede_ver_configuracion
+
+    @rx.var
+    def configuracion_solo_lectura(self) -> bool:
+        return self.mostrar_asignaciones_configuracion and not self.puede_configurar_catalogos
+
+    @rx.var
+    def asignaciones_configuracion_visibles(self) -> List[dict]:
+        asignaciones = self.asignaciones_filtradas
+        if self.puede_configurar_catalogos or not self.supervisor_contexto_id:
+            return asignaciones
+        return [
+            item
+            for item in asignaciones
+            if int(item.get("supervisor_id", 0) or 0) == self.supervisor_contexto_id
+        ]
+
+    @rx.var
+    def total_asignaciones_visibles(self) -> int:
+        return len(self.asignaciones_configuracion_visibles)
+
+    @rx.var
+    def total_asignaciones_visibles_activas(self) -> int:
+        return len(
+            [
+                item
+                for item in self.asignaciones_configuracion_visibles
+                if item.get("activo")
+            ]
         )
 
     @rx.var
+    def texto_estado_jornada(self) -> str:
+        if self.tiene_jornada_abierta:
+            return "Jornada activa - captura en tiempo real"
+        if self.puede_precargar_rrhh:
+            return "Sin jornada - las incidencias se precargan para el siguiente cierre"
+        return "Sin jornada activa - abra jornada para registrar"
+
+    @rx.var
+    def contrato_activo_subtitulo(self) -> str:
+        for contrato in self.contratos_disponibles:
+            try:
+                contrato_id = int(contrato.get("id", 0) or 0)
+            except (TypeError, ValueError):
+                contrato_id = 0
+            if contrato_id != self.contrato_seleccionado_id:
+                continue
+            codigo = str(contrato.get("codigo", "") or "").strip()
+            descripcion = str(contrato.get("descripcion", "") or "").strip()
+            if codigo and descripcion:
+                return f"{codigo} - {descripcion}"
+            if codigo:
+                return codigo
+            if descripcion:
+                return descripcion
+            break
+        return "Sin contrato activo"
+
+    @rx.var
     def titulo_modal_incidencia(self) -> str:
-        if self.panel_es_rrhh:
+        if self.modo_precarga_rrhh:
             return "Precargar incidencia RH"
         return "Registrar incidencia"
 
     @rx.var
     def texto_guardar_incidencia(self) -> str:
-        if self.panel_es_rrhh:
+        if self.modo_precarga_rrhh:
             return "Guardar precarga"
         return "Guardar incidencia"
 
@@ -319,7 +355,7 @@ class AsistenciasState(PortalState):
     def placeholder_busqueda(self) -> str:
         if self.panel_es_configuracion:
             return "Buscar horario, supervisor o sede..."
-        return "Buscar empleado, sede o categoria..."
+        return "Buscar empleado, sede o categoría..."
 
     @rx.var
     def form_horario_dias_ui(self) -> List[dict]:
@@ -355,16 +391,18 @@ class AsistenciasState(PortalState):
     async def _cargar_contexto_inicial(self):
         if not self.id_empresa_actual:
             return
-        if self.puede_precargar_rrhh and not self.puede_operar_jornada:
-            self.panel_activo = "rrhh"
-        elif self.puede_operar_jornada:
+        if self.puede_ver_operacion:
             self.panel_activo = "operacion"
-        elif self.puede_configurar_catalogos:
+        elif self.puede_ver_configuracion:
             self.panel_activo = "configuracion"
 
         self.contratos_disponibles = await asistencia_service.obtener_contratos_operacion(
             self.id_empresa_actual
         )
+        if self.es_operaciones and not self.puede_acceder_rrhh:
+            self.contratos_disponibles = await self._filtrar_contratos_supervisor(
+                self.contratos_disponibles
+            )
         if not self.contrato_seleccionado_id and self.contratos_disponibles:
             self.contrato_seleccionado_id = int(self.contratos_disponibles[0]["id"])
         await self._cargar_panel()
@@ -380,10 +418,32 @@ class AsistenciasState(PortalState):
                 empresa_id=self.id_empresa_actual,
                 contrato_id=self.contrato_seleccionado_id,
             )
+            empleados_configuracion = await asistencia_service._obtener_empleados_esperados(
+                empresa_id=self.id_empresa_actual,
+                contrato_id=self.contrato_seleccionado_id,
+                supervisor_id=None,
+                fecha=self._fecha_actual(),
+            )
+            conteos_sede = self._contar_empleados_por_sede(empleados_configuracion)
             self._limpiar_panel_operativo()
-            self.horarios_configuracion = configuracion.get("horarios", [])
+            self.horarios_configuracion = [
+                {
+                    **horario,
+                    **self._extraer_horas_referencia(horario.get("dias_laborales")),
+                }
+                for horario in configuracion.get("horarios", [])
+            ]
+            self.empleados_por_sede_configuracion = conteos_sede
             self.asignaciones_supervision = [
-                self._serializar_asignacion_supervision(asignacion)
+                self._serializar_asignacion_supervision(
+                    {
+                        **asignacion,
+                        "empleados_asignados": conteos_sede.get(
+                            str(asignacion.get("sede_id") or ""),
+                            0,
+                        ),
+                    }
+                )
                 for asignacion in configuracion.get("asignaciones", [])
             ]
             self.supervisores_disponibles = configuracion.get("supervisores", [])
@@ -391,7 +451,7 @@ class AsistenciasState(PortalState):
             return
 
         self._limpiar_panel_configuracion()
-        if self.panel_es_rrhh:
+        if self.puede_precargar_rrhh:
             panel = await asistencia_service.obtener_panel_rrhh(
                 empresa_id=self.id_empresa_actual,
                 contrato_id=self.contrato_seleccionado_id,
@@ -405,6 +465,9 @@ class AsistenciasState(PortalState):
                 fecha=self._fecha_actual(),
             )
         self.supervisor_actual = panel.get("supervisor", {})
+        self.supervisor_contexto_id = int(
+            panel.get("supervisor", {}).get("id", self.supervisor_contexto_id) or 0
+        )
         self.sedes_supervision = panel.get("sedes_supervision", [])
         self.horario_activo = panel.get("horario", {})
         self.jornada_actual = panel.get("jornada", {})
@@ -413,13 +476,11 @@ class AsistenciasState(PortalState):
 
     async def cambiar_panel_activo(self, value: str):
         """Alterna entre paneles del modulo."""
-        if value not in ("operacion", "rrhh", "configuracion"):
+        if value not in ("operacion", "configuracion"):
             return
-        if value == "rrhh" and not self.puede_precargar_rrhh:
+        if value == "operacion" and not self.puede_ver_operacion:
             return
-        if value == "operacion" and not self.puede_operar_jornada:
-            return
-        if value == "configuracion" and not self.puede_configurar_catalogos:
+        if value == "configuracion" and not self.puede_ver_configuracion:
             return
         self.panel_activo = value
         await self._cargar_panel()
@@ -523,7 +584,7 @@ class AsistenciasState(PortalState):
                 horas_extra=self._parse_decimal(self.form_horas_extra),
                 motivo=(self.form_motivo or "").strip() or None,
             )
-            if self.panel_es_rrhh:
+            if self.modo_precarga_rrhh:
                 await asistencia_service.guardar_precarga_rh(
                     empresa_id=self.id_empresa_actual,
                     contrato_id=self.contrato_seleccionado_id,
@@ -542,7 +603,7 @@ class AsistenciasState(PortalState):
             self.cerrar_modal_incidencia()
             await self._cargar_panel()
             return rx.toast.success(
-                "Precarga RH guardada" if self.panel_es_rrhh else "Incidencia guardada"
+                "Precarga RH guardada" if self.modo_precarga_rrhh else "Incidencia guardada"
             )
         except (BusinessRuleError, ValueError, InvalidOperation) as e:
             return rx.toast.error(str(e))
@@ -555,7 +616,7 @@ class AsistenciasState(PortalState):
         """Elimina incidencia de un empleado para la fecha."""
         self.saving = True
         try:
-            if self.panel_es_rrhh:
+            if self.modo_precarga_rrhh:
                 await asistencia_service.eliminar_precarga_rh(
                     empresa_id=self.id_empresa_actual,
                     contrato_id=self.contrato_seleccionado_id,
@@ -572,7 +633,7 @@ class AsistenciasState(PortalState):
                 )
             await self._cargar_panel()
             return rx.toast.success(
-                "Precarga RH eliminada" if self.panel_es_rrhh else "Incidencia eliminada"
+                "Precarga RH eliminada" if self.modo_precarga_rrhh else "Incidencia eliminada"
             )
         except (BusinessRuleError, NotFoundError) as e:
             return rx.toast.error(str(e))
@@ -580,6 +641,14 @@ class AsistenciasState(PortalState):
             return self.manejar_error_con_toast(e, "eliminando incidencia")
         finally:
             self.saving = False
+
+    async def limpiar_incidencia_actual(self):
+        """Elimina la incidencia del empleado seleccionado en el modal."""
+        if not self.empleado_seleccionado:
+            return rx.toast.error("Selecciona un empleado")
+        empleado = dict(self.empleado_seleccionado)
+        self.cerrar_modal_incidencia()
+        return await self.limpiar_incidencia(empleado)
 
     def abrir_modal_horario_crear(self):
         """Abre modal para crear horario."""
@@ -805,6 +874,7 @@ class AsistenciasState(PortalState):
         self.asignaciones_supervision = []
         self.supervisores_disponibles = []
         self.sedes_catalogo = []
+        self.empleados_por_sede_configuracion = {}
 
     @staticmethod
     def _normalizar_form_dias(dias: dict | None) -> dict:
@@ -826,3 +896,45 @@ class AsistenciasState(PortalState):
 
     def _fecha_actual(self) -> date:
         return parse_date_input(self.fecha_operacion) or date.today()
+
+    async def _filtrar_contratos_supervisor(self, contratos: list[dict]) -> list[dict]:
+        """Restringe contratos visibles a los que el operador puede atender."""
+        contratos_visibles = []
+        for contrato in contratos:
+            contrato_id = int(contrato.get("id", 0) or 0)
+            if not contrato_id:
+                continue
+            panel = await asistencia_service.obtener_panel_operacion(
+                empresa_id=self.id_empresa_actual,
+                contrato_id=contrato_id,
+                user_id=self.id_usuario,
+                fecha=self._fecha_actual(),
+            )
+            supervisor = panel.get("supervisor", {})
+            if supervisor and not self.supervisor_contexto_id:
+                self.supervisor_contexto_id = int(supervisor.get("id", 0) or 0)
+            if panel.get("empleados"):
+                contratos_visibles.append(contrato)
+        return contratos_visibles
+
+    @staticmethod
+    def _contar_empleados_por_sede(empleados: list) -> dict[str, int]:
+        conteos: dict[str, int] = {}
+        for empleado in empleados:
+            sede_id = getattr(empleado, "sede_id", None)
+            if sede_id is None:
+                continue
+            clave = str(sede_id)
+            conteos[clave] = conteos.get(clave, 0) + 1
+        return conteos
+
+    @staticmethod
+    def _extraer_horas_referencia(dias_laborales: dict | None) -> dict[str, str]:
+        for config in (dias_laborales or {}).values():
+            if not isinstance(config, dict):
+                continue
+            return {
+                "hora_entrada_ref": str(config.get("entrada", "") or ""),
+                "hora_salida_ref": str(config.get("salida", "") or ""),
+            }
+        return {"hora_entrada_ref": "", "hora_salida_ref": ""}

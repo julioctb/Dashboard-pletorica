@@ -143,6 +143,30 @@ def tabla_action_buttons(
     )
 
 
+def tabla_cta_button(
+    text: str,
+    on_click: Any,
+    *,
+    color_scheme: str = "gray",
+    variant: str = "outline",
+    size: str = "1",
+    disabled: Any = False,
+    white_space: str = "nowrap",
+    **kwargs,
+) -> rx.Component:
+    """Botón textual compacto para acciones únicas dentro de tablas."""
+    return rx.button(
+        text,
+        size=size,
+        variant=variant,
+        color_scheme=color_scheme,
+        on_click=on_click,
+        disabled=disabled,
+        white_space=white_space,
+        **kwargs,
+    )
+
+
 def action_buttons_reactive(
     item: rx.Var,
     ver_action: Optional[Any] = None,

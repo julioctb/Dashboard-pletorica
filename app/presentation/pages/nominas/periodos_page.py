@@ -12,13 +12,12 @@ from app.presentation.components.ui import (
     table_cell_text_sm,
     table_shell,
 )
-from app.presentation.layout import page_header, page_layout, page_toolbar
+from app.presentation.components.ui.filters import input_busqueda
+from app.presentation.layout import page_header, page_layout
 from app.presentation.pages.nominas.dashboard_page import (
     callout_warning_operativo,
-    card_comparativo,
     grid_cards_operativas,
     resumen_financiero_periodo,
-    selector_periodo,
     skeleton_dashboard_nomina,
 )
 from app.presentation.pages.nominas.dashboard_state import NominaDashboardState
@@ -26,7 +25,7 @@ from app.presentation.pages.nominas.nomina_contabilidad_state import NominaConta
 from app.presentation.pages.nominas.nomina_modals import modal_crear_periodo
 from app.presentation.pages.nominas.nomina_modals import dialog_enviar_contabilidad
 from app.presentation.pages.nominas.nomina_rrhh_state import NominaRRHHState
-from app.presentation.theme import Colors, Spacing
+from app.presentation.theme import Colors, Spacing, Typography
 
 
 ENCABEZADOS = [
@@ -59,7 +58,7 @@ def _filtro_anio() -> rx.Component:
 
 def _filtro_contrato() -> rx.Component:
     return rx.select.root(
-        rx.select.trigger(placeholder="Contrato", width="320px"),
+        rx.select.trigger(placeholder="Contrato", width="260px"),
         rx.select.content(
             rx.foreach(
                 NominaRRHHState.contratos_filtro_nomina_opciones,
@@ -74,42 +73,166 @@ def _filtro_contrato() -> rx.Component:
     )
 
 
-def _filtros_toolbar() -> rx.Component:
-    return rx.hstack(
+def _toolbar_nominas() -> rx.Component:
+    return rx.flex(
+        rx.box(
+            input_busqueda(
+                value=NominaRRHHState.filtro_busqueda,
+                on_change=NominaRRHHState.set_filtro_busqueda,
+                on_clear=lambda: NominaRRHHState.set_filtro_busqueda(""),
+                placeholder="Buscar por nombre o generado por...",
+                width="100%",
+                toolbar_style=False,
+            ),
+            flex="1 1 320px",
+            min_width="260px",
+        ),
         _filtro_anio(),
         _filtro_contrato(),
-        spacing="2",
         wrap="wrap",
+        align="center",
+        column_gap=Spacing.SM,
+        row_gap=Spacing.SM,
+        width="100%",
+        margin_bottom=Spacing.BASE,
+    )
+
+
+def _boton_accion_periodo(periodo: dict, total_empleados) -> rx.Component:
+    return rx.match(
+        periodo["estatus"],
+        (
+            "BORRADOR",
+            rx.cond(
+                NominaRRHHState.puede_abrir_preparacion,
+                rx.button(
+                    "Preparar nómina",
+                    size="1",
+                    variant="soft",
+                    color_scheme="gray",
+                    on_click=NominaRRHHState.abrir_periodo(periodo).stop_propagation,
+                ),
+                rx.fragment(),
+            ),
+        ),
+        (
+            "EN_PREPARACION_RRHH",
+            rx.cond(
+                NominaRRHHState.puede_abrir_preparacion,
+                rx.button(
+                    "Editar nómina",
+                    size="1",
+                    variant="soft",
+                    color_scheme="blue",
+                    on_click=NominaRRHHState.abrir_periodo(periodo).stop_propagation,
+                ),
+                rx.fragment(),
+            ),
+        ),
+        (
+            "CALCULADO",
+            rx.cond(
+                NominaRRHHState.puede_abrir_calculo,
+                rx.button(
+                    "Cerrar nómina",
+                    size="1",
+                    variant="soft",
+                    color_scheme="blue",
+                    on_click=NominaContabilidadState.abrir_periodo_calculo(periodo).stop_propagation,
+                ),
+                rx.fragment(),
+            ),
+        ),
+        (
+            "ENVIADO_A_CONTABILIDAD",
+            rx.cond(
+                NominaRRHHState.puede_abrir_calculo,
+                rx.button(
+                    "Consultar",
+                    size="1",
+                    variant="soft",
+                    color_scheme="amber",
+                    on_click=NominaContabilidadState.abrir_periodo_calculo(periodo).stop_propagation,
+                ),
+                rx.fragment(),
+            ),
+        ),
+        (
+            "EN_PROCESO_CONTABILIDAD",
+            rx.cond(
+                NominaRRHHState.puede_abrir_calculo,
+                rx.button(
+                    "Consultar",
+                    size="1",
+                    variant="soft",
+                    color_scheme="blue",
+                    on_click=NominaContabilidadState.abrir_periodo_calculo(periodo).stop_propagation,
+                ),
+                rx.fragment(),
+            ),
+        ),
+        (
+            "CERRADO",
+            rx.cond(
+                NominaRRHHState.puede_abrir_calculo,
+                rx.button(
+                    "Consultar",
+                    size="1",
+                    variant="soft",
+                    color_scheme="green",
+                    on_click=NominaContabilidadState.abrir_periodo_calculo(periodo).stop_propagation,
+                ),
+                rx.fragment(),
+            ),
+        ),
+        rx.fragment(),
     )
 
 
 def _fila_periodo(periodo: dict) -> rx.Component:
     total_empleados = periodo.get("total_empleados", 0).to(int)
+    periodo_id = periodo["id"].to(str)
+    neto_visible = rx.cond(
+        (periodo["estatus"] == "BORRADOR") & (periodo["total_neto_fmt"] == "$0.00"),
+        "—",
+        periodo["total_neto_fmt"],
+    )
+    fila_seleccionada = NominaDashboardState.periodo_seleccionado_id == periodo_id
     return rx.table.row(
         rx.table.cell(
-            rx.vstack(
-                rx.text(
-                    periodo["nombre"],
-                    size="2",
-                    weight="medium",
-                    color=Colors.TEXT_PRIMARY,
-                    max_width="220px",
-                    overflow="hidden",
-                    text_overflow="ellipsis",
-                    white_space="nowrap",
-                ),
+            rx.hstack(
                 rx.cond(
-                    periodo["es_aguinaldo"],
-                    rx.badge(
-                        "Aguinaldo",
-                        color_scheme="amber",
-                        variant="soft",
-                        size="1",
-                    ),
-                    rx.fragment(),
+                    fila_seleccionada,
+                    rx.icon("chevron-right", size=14, color=Colors.PRIMARY),
+                    rx.box(width="14px", height="14px"),
                 ),
-                spacing="1",
-                align="start",
+                rx.vstack(
+                    rx.text(
+                        periodo["nombre"],
+                        size="2",
+                        weight="medium",
+                        color=Colors.TEXT_PRIMARY,
+                        max_width="220px",
+                        overflow="hidden",
+                        text_overflow="ellipsis",
+                        white_space="nowrap",
+                    ),
+                    rx.cond(
+                        periodo["es_aguinaldo"],
+                        rx.badge(
+                            "Aguinaldo",
+                            color_scheme="amber",
+                            variant="soft",
+                            size="1",
+                        ),
+                        rx.fragment(),
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+                spacing="2",
+                align="center",
+                width="100%",
             ),
         ),
         rx.table.cell(
@@ -143,72 +266,42 @@ def _fila_periodo(periodo: dict) -> rx.Component:
         ),
         rx.table.cell(
             rx.text(
-                periodo["total_neto_fmt"],
+                neto_visible,
                 size="2",
                 weight="medium",
-                color=Colors.SUCCESS,
+                color=rx.cond(
+                    neto_visible == "—",
+                    Colors.TEXT_MUTED,
+                    Colors.PRIMARY,
+                ),
                 width="100%",
                 text_align="center",
+                style={"font_variant_numeric": "tabular-nums"},
             ),
             text_align="center",
         ),
         rx.table.cell(
-            rx.hstack(
-                rx.cond(
-                    NominaRRHHState.puede_abrir_preparacion,
-                    rx.tooltip(
-                        rx.icon_button(
-                            rx.icon("pencil", size=15),
-                            size="2",
-                            variant="soft",
-                            color_scheme="blue",
-                            on_click=NominaRRHHState.abrir_periodo(periodo),
-                        ),
-                        content="Preparar nómina",
-                    ),
-                    rx.fragment(),
-                ),
-                rx.cond(
-                    NominaRRHHState.puede_abrir_preparacion
-                    & (periodo["estatus"] == "EN_PREPARACION_RRHH")
-                    & (total_empleados > 0),
-                    rx.tooltip(
-                        rx.icon_button(
-                            rx.icon("send", size=15),
-                            size="2",
-                            variant="soft",
-                            color_scheme="orange",
-                            on_click=NominaRRHHState.abrir_dialog_envio_periodo(periodo),
-                        ),
-                        content="Enviar a Contabilidad",
-                    ),
-                    rx.fragment(),
-                ),
-                rx.cond(
-                    NominaRRHHState.puede_abrir_calculo & (
-                        (periodo["estatus"] == "ENVIADO_A_CONTABILIDAD")
-                        | (periodo["estatus"] == "EN_PROCESO_CONTABILIDAD")
-                        | (periodo["estatus"] == "CALCULADO")
-                        | (periodo["estatus"] == "CERRADO")
-                    ),
-                    rx.tooltip(
-                        rx.icon_button(
-                            rx.icon("calculator", size=15),
-                            size="2",
-                            variant="soft",
-                            color_scheme="purple",
-                            on_click=NominaContabilidadState.abrir_periodo_calculo(periodo),
-                        ),
-                        content="Vista Contabilidad",
-                    ),
-                    rx.fragment(),
-                ),
-                spacing="1",
+            rx.flex(
+                _boton_accion_periodo(periodo, total_empleados),
                 justify="center",
                 width="100%",
             ),
             text_align="center",
         ),
+        on_click=NominaDashboardState.seleccionar_periodo(periodo_id),
+        cursor="pointer",
+        background=rx.cond(
+            fila_seleccionada,
+            Colors.PRIMARY_LIGHT,
+            "transparent",
+        ),
+        _hover={
+            "background": rx.cond(
+                fila_seleccionada,
+                Colors.PRIMARY_LIGHT,
+                Colors.SECONDARY_LIGHT,
+            ),
+        },
     )
 
 
@@ -242,18 +335,7 @@ def _bloque_dashboard() -> rx.Component:
                 grid_cards_operativas(),
                 rx.cond(
                     NominaDashboardState.tiene_periodos_disponibles,
-                    rx.vstack(
-                        rx.hstack(
-                            rx.spacer(),
-                            selector_periodo(),
-                            width="100%",
-                            align="center",
-                        ),
-                        resumen_financiero_periodo(),
-                        card_comparativo(),
-                        spacing="3",
-                        width="100%",
-                    ),
+                    resumen_financiero_periodo(),
                     rx.callout.root(
                         rx.callout.icon(rx.icon("calendar-range", size=16)),
                         rx.callout.text(
@@ -276,36 +358,54 @@ def _bloque_dashboard() -> rx.Component:
 def periodos_nomina_page() -> rx.Component:
     return rx.box(
         page_layout(
-            header=page_header(
-                titulo="Nominas",
-                subtitulo="Gestión de periodos y operación actual de nómina",
-                icono="calculator",
-                accion_principal=rx.cond(
-                    NominaRRHHState.es_rrhh,
-                    rx.button(
-                        rx.icon("plus", size=16),
-                        "Nueva nómina",
-                        on_click=NominaRRHHState.abrir_modal_periodo,
-                        color_scheme="blue",
+            header=rx.box(
+                page_header(
+                    titulo="Nóminas",
+                    subtitulo=NominaDashboardState.contrato_activo_label,
+                    icono="calculator",
+                    accion_principal=rx.cond(
+                        NominaRRHHState.es_rrhh,
+                        rx.button(
+                            rx.icon("plus", size=16),
+                            "Nueva nómina",
+                            on_click=NominaRRHHState.abrir_modal_periodo,
+                            color_scheme="blue",
+                            variant="solid",
+                        ),
+                        rx.fragment(),
                     ),
-                    rx.fragment(),
                 ),
+                width="100%",
+                max_width="1024px",
+                margin_x="auto",
             ),
-            toolbar=page_toolbar(
-                search_value=NominaRRHHState.filtro_busqueda,
-                search_placeholder="Buscar por nombre o generado por...",
-                on_search_change=NominaRRHHState.set_filtro_busqueda,
-                on_search_clear=lambda: NominaRRHHState.set_filtro_busqueda(""),
-                filters=_filtros_toolbar(),
-                show_view_toggle=False,
+            toolbar=rx.box(
+                _toolbar_nominas(),
+                width="100%",
+                max_width="1024px",
+                margin_x="auto",
             ),
             content=rx.vstack(
                 _bloque_dashboard(),
-                _tabla_periodos(),
+                rx.vstack(
+                    rx.text(
+                        "Períodos de nómina",
+                        font_size=Typography.SIZE_XS,
+                        font_weight=Typography.WEIGHT_SEMIBOLD,
+                        color=Colors.TEXT_MUTED,
+                        text_transform="uppercase",
+                        letter_spacing=Typography.LETTER_SPACING_WIDE,
+                    ),
+                    _tabla_periodos(),
+                    spacing="3",
+                    width="100%",
+                ),
                 modal_crear_periodo(),
                 dialog_enviar_contabilidad(),
                 spacing="4",
                 width="100%",
+                max_width="1024px",
+                margin_x="auto",
             ),
         ),
         width="100%",

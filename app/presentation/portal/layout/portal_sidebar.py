@@ -186,17 +186,17 @@ def _portal_navigation() -> rx.Component:
             PortalState.mostrar_seccion_rrhh,
             "RRHH",
             _cond_item(
-                AuthState.puede_gestionar_personal,
+                AuthState.puede_gestionar_personal | AuthState.puede_registrar_personal,
                 "Empleados",
                 "users",
                 "/portal/empleados",
                 active_paths=(
                     "/portal/empleados",
                     "/portal/empleados/expedientes",
+                    "/portal/plazas",
+                    "/portal/onboarding",
                 ),
             ),
-            _cond_item(AuthState.puede_acceder_rrhh, "Plazas", "briefcase", "/portal/plazas"),
-            _cond_item(AuthState.puede_registrar_personal, "Contrataciones", "user-plus", "/portal/onboarding"),
             _cond_item(AuthState.puede_acceder_rrhh, "Bajas", "user-minus", "/portal/bajas"),
             _cond_item(
                 AuthState.es_operaciones | AuthState.puede_acceder_rrhh,

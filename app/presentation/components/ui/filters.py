@@ -12,7 +12,7 @@ misma ruta que `on_change`.
 import reflex as rx
 from typing import Callable, Optional
 from app.presentation.components.ui.form_input import select_items_from_options
-from app.presentation.theme import Colors, Spacing, Radius, Transitions
+from app.presentation.theme import Colors, Spacing, Radius, Transitions, Typography
 
 
 def input_busqueda(
@@ -225,6 +225,66 @@ def filtros_inline(*children) -> rx.Component:
         column_gap=Spacing.SM,
         row_gap=Spacing.XS,
         flex_shrink="0",
+    )
+
+
+def filter_pill(
+    titulo: str,
+    valor: rx.Var,
+    on_click: Callable,
+    is_active: rx.Var,
+    dot_color: str | None = None,
+) -> rx.Component:
+    """Pill compacta para filtros rápidos con contador y dot opcional."""
+    return rx.box(
+        rx.hstack(
+            rx.cond(
+                dot_color is not None,
+                rx.box(
+                    width=Spacing.SM,
+                    height=Spacing.SM,
+                    border_radius=Radius.FULL,
+                    background=dot_color,
+                    flex_shrink="0",
+                ),
+                rx.fragment(),
+            ),
+            rx.text(
+                titulo,
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+            ),
+            rx.text(
+                valor,
+                font_size=Typography.SIZE_SM,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                font_variant_numeric="tabular-nums",
+            ),
+            gap=Spacing.XS,
+            align="center",
+        ),
+        display="inline-flex",
+        padding=f"{Spacing.XS} {Spacing.MD}",
+        border=f"1px solid {Colors.BORDER}",
+        border_color=rx.cond(is_active, Colors.PORTAL_PRIMARY, Colors.BORDER),
+        border_radius=Radius.FULL,
+        background=rx.cond(
+            is_active,
+            Colors.PORTAL_PRIMARY_LIGHTER,
+            Colors.SURFACE,
+        ),
+        color=rx.cond(
+            is_active,
+            Colors.PORTAL_PRIMARY_TEXT,
+            Colors.TEXT_SECONDARY,
+        ),
+        cursor="pointer",
+        on_click=on_click,
+        _hover={
+            "border_color": Colors.SECONDARY,
+            "background": Colors.SECONDARY_LIGHT,
+        },
+        transition=Transitions.NORMAL,
     )
 
 

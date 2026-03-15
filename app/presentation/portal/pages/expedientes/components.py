@@ -13,6 +13,7 @@ from app.presentation.components.ui import (
     boton_cancelar,
     boton_guardar,
     document_status_badge,
+    employee_status_badge,
     tabla_action_button,
 )
 from app.presentation.theme import Colors, Radius, Spacing, Typography
@@ -243,21 +244,54 @@ def area_subida_rrhh() -> rx.Component:
     )
 
 
-def detalle_expediente() -> rx.Component:
-    """Vista de detalle del expediente de un empleado."""
+def _encabezado_expediente(
+    *,
+    show_back_button: bool,
+    show_close_button: bool = False,
+) -> rx.Component:
+    acciones_izquierda = rx.cond(
+        show_back_button,
+        rx.button(
+            rx.icon("arrow-left", size=16),
+            "Volver a empleados",
+            on_click=ExpedientesState.volver_a_empleados,
+            variant="ghost",
+            size="2",
+        ),
+        rx.fragment(),
+    )
+
+    acciones_derecha = rx.cond(
+        show_close_button,
+        rx.icon_button(
+            rx.icon("x", size=18),
+            variant="ghost",
+            color_scheme="gray",
+            on_click=ExpedientesState.cerrar_panel_expediente,
+        ),
+        rx.fragment(),
+    )
+
+    return rx.hstack(
+        acciones_izquierda,
+        rx.spacer(),
+        acciones_derecha,
+        spacing="3",
+        width="100%",
+        align="center",
+    )
+
+
+def _contenido_expediente(
+    *,
+    show_back_button: bool = True,
+    show_close_button: bool = False,
+) -> rx.Component:
+    """Contenido reusable del expediente para página o modal."""
     return rx.vstack(
-        rx.hstack(
-            rx.button(
-                rx.icon("arrow-left", size=16),
-                "Volver a empleados",
-                on_click=ExpedientesState.volver_a_empleados,
-                variant="ghost",
-                size="2",
-            ),
-            rx.spacer(),
-            spacing="3",
-            width="100%",
-            align="center",
+        _encabezado_expediente(
+            show_back_button=show_back_button,
+            show_close_button=show_close_button,
         ),
         rx.hstack(
             rx.vstack(
@@ -266,12 +300,39 @@ def detalle_expediente() -> rx.Component:
                     font_size=Typography.SIZE_LG,
                     font_weight=Typography.WEIGHT_BOLD,
                 ),
-                rx.text(
-                    ExpedientesState.clave_empleado_seleccionado,
-                    font_size=Typography.SIZE_SM,
-                    color=Colors.TEXT_SECONDARY,
+                rx.hstack(
+                    rx.cond(
+                        ExpedientesState.clave_empleado_seleccionado != "",
+                        rx.badge(
+                            ExpedientesState.clave_empleado_seleccionado,
+                            variant="outline",
+                            size="1",
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.cond(
+                        ExpedientesState.contrato_empleado_seleccionado != "",
+                        rx.text(
+                            ExpedientesState.contrato_empleado_seleccionado,
+                            font_size=Typography.SIZE_SM,
+                            color=Colors.TEXT_SECONDARY,
+                        ),
+                        rx.fragment(),
+                    ),
+                    rx.cond(
+                        ExpedientesState.estatus_empleado_seleccionado != "",
+                        employee_status_badge(
+                            ExpedientesState.estatus_empleado_seleccionado,
+                            size="1",
+                        ),
+                        rx.fragment(),
+                    ),
+                    spacing="2",
+                    align="center",
+                    wrap="wrap",
                 ),
                 spacing="1",
+                align="start",
             ),
             rx.spacer(),
             rx.hstack(
@@ -297,6 +358,14 @@ def detalle_expediente() -> rx.Component:
                     font_weight=Typography.WEIGHT_MEDIUM,
                 ),
                 rx.spacer(),
+                rx.text(
+                    ExpedientesState.total_docs_aprobados,
+                    " de ",
+                    ExpedientesState.total_docs_requeridos,
+                    " documentos",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
                 rx.text(
                     ExpedientesState.porcentaje_expediente,
                     "%",
@@ -326,6 +395,28 @@ def detalle_expediente() -> rx.Component:
         width="100%",
         spacing="4",
         padding=Spacing.LG,
+    )
+
+
+def detalle_expediente() -> rx.Component:
+    """Vista de detalle del expediente de un empleado."""
+    return _contenido_expediente(show_back_button=True)
+
+
+def modal_panel_expediente() -> rx.Component:
+    """Modal amplio reutilizable para el panel de expediente dentro de empleados."""
+    return rx.dialog.root(
+        rx.dialog.content(
+            _contenido_expediente(
+                show_back_button=False,
+                show_close_button=True,
+            ),
+            max_width="960px",
+            width="min(96vw, 960px)",
+            padding="0",
+        ),
+        open=ExpedientesState.mostrar_panel_expediente,
+        on_open_change=rx.noop,
     )
 
 
