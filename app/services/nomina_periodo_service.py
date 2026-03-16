@@ -341,19 +341,37 @@ class NominaPeriodoService:
 
     def _consultar_empleados_periodo(self, periodo_id: int) -> list[dict]:
         """Consulta los recibos del período con nombre y clave del empleado."""
+        return self._consultar_empleados_periodo_con_contexto(periodo_id)
+
+    def _consultar_empleados_periodo_con_contexto(
+        self,
+        periodo_id: int,
+        *,
+        periodo_data: Optional[dict] = None,
+        incluir_categorias: bool = True,
+    ) -> list[dict]:
+        """Consulta los recibos del período con contexto opcional precargado."""
         periodo_result = (
-            self.supabase.table(self.tabla)
-            .select(
-                "empresa_id, contrato_id, fecha_fin, fecha_pago, periodicidad, "
-                "tipo_periodo, ejercicio_fiscal, dias_aguinaldo_snapshot, "
-                "regla_calculo_quincenal, listo_para_timbrar, "
-                "total_empleados_con_observaciones_fiscales"
+            None
+            if periodo_data is not None
+            else (
+                self.supabase.table(self.tabla)
+                .select(
+                    "empresa_id, contrato_id, fecha_fin, fecha_pago, periodicidad, "
+                    "tipo_periodo, ejercicio_fiscal, dias_aguinaldo_snapshot, "
+                    "regla_calculo_quincenal, listo_para_timbrar, "
+                    "total_empleados_con_observaciones_fiscales"
+                )
+                .eq("id", periodo_id)
+                .limit(1)
+                .execute()
             )
-            .eq("id", periodo_id)
-            .limit(1)
-            .execute()
         )
-        periodo = (periodo_result.data or [{}])[0]
+        periodo = (
+            dict(periodo_data or {})
+            if periodo_data is not None
+            else (periodo_result.data or [{}])[0]
+        )
         plaza_por_empleado = self._mapear_plaza_vigente_por_empleado(
             empresa_id=int(periodo.get("empresa_id") or 0),
             fecha_referencia=periodo.get("fecha_fin") or date.today().isoformat(),
@@ -364,11 +382,6 @@ class NominaPeriodoService:
             int(snapshot.get("sede_id"))
             for snapshot in plaza_por_empleado.values()
             if snapshot.get("sede_id") is not None
-        }
-        categoria_ids = {
-            int(snapshot.get("categoria_puesto_id"))
-            for snapshot in plaza_por_empleado.values()
-            if snapshot.get("categoria_puesto_id") is not None
         }
         sedes_map: dict[int, str] = {}
         categorias_map: dict[int, str] = {}
@@ -395,7 +408,16 @@ class NominaPeriodoService:
                     periodo_id,
                     exc,
                 )
-        if categoria_ids:
+        categoria_ids = (
+            {
+                int(snapshot.get("categoria_puesto_id"))
+                for snapshot in plaza_por_empleado.values()
+                if snapshot.get("categoria_puesto_id") is not None
+            }
+            if incluir_categorias
+            else set()
+        )
+        if incluir_categorias and categoria_ids:
             try:
                 categorias_result = (
                     self.supabase.table("categorias_puesto")
@@ -529,6 +551,7 @@ class NominaPeriodoService:
                     "concepto_nombre": concepto.get("nombre") or meta["nombre"],
                     "badge": meta["badge"],
                     "color_scheme": meta["color_scheme"],
+                    "monto_valor": float(row.get("monto") or 0),
                     "monto_fmt": monto_fmt,
                     "es_automatico": bool(row.get("es_automatico")),
                     "origen_label": origen_label,
@@ -1783,17 +1806,35 @@ class NominaPeriodoService:
 
         Incluye: nombre_empleado, clave_empleado para display en UI.
         """
+        return await self.obtener_empleados_periodo_contexto(periodo_id)
+
+    async def obtener_empleados_periodo_contexto(
+        self,
+        periodo_id: int,
+        *,
+        periodo_data: Optional[dict] = None,
+        incluir_categorias: bool = True,
+    ) -> list[dict]:
+        """Retorna los registros de nómina con opciones de contexto para evitar trabajo extra."""
         try:
-            items = self._consultar_empleados_periodo(periodo_id)
+            items = self._consultar_empleados_periodo_con_contexto(
+                periodo_id,
+                periodo_data=periodo_data,
+                incluir_categorias=incluir_categorias,
+            )
             if items:
                 return self._adjuntar_descuentos_rrhh_periodo(items)
 
-            periodo = await self.obtener_periodo(periodo_id)
+            periodo = periodo_data or await self.obtener_periodo(periodo_id)
             if periodo.get('estatus') in _ESTATUS_REPOBLABLES:
                 total = await self.poblar_empleados(periodo_id)
                 if total > 0:
                     return self._adjuntar_descuentos_rrhh_periodo(
-                        self._consultar_empleados_periodo(periodo_id)
+                        self._consultar_empleados_periodo_con_contexto(
+                            periodo_id,
+                            periodo_data=periodo,
+                            incluir_categorias=incluir_categorias,
+                        )
                     )
 
             return []

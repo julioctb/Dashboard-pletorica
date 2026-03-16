@@ -23,6 +23,7 @@ from app.presentation.components.shared import (
 from app.presentation.portal.state.portal_state import PortalState
 from app.presentation.components.shared.employee_form_state_mixin import EmployeeFormStateMixin
 from app.services import (
+    contrato_categoria_service,
     cuenta_bancaria_historial_service,
     empleado_service,
     onboarding_service,
@@ -89,6 +90,7 @@ FILTRO_PANEL_EN_BAJA = "EN_BAJA"
 ESTATUS_ONBOARDING_COMPLETOS = {"ACTIVO_COMPLETO"}
 VISTA_PERSONAL_EMPLEADO = "empleado"
 VISTA_PERSONAL_PLAZA = "plaza"
+POR_PAGINA_PLAZAS = 25
 QUERY_STATUS_MAP = {
     "todos": FILTRO_PANEL_TODOS,
     "activos": FILTRO_PANEL_ACTIVOS,
@@ -169,6 +171,22 @@ class MisEmpleadosState(
     resumen_contratos_rrhh: List[dict] = []
     plazas_por_contrato: List[dict] = []
     sedes_catalogo_rrhh: List[dict] = []
+    contratos_expandidos_plaza: List[int] = []
+    plazas_paginadas_por_contrato: dict[str, list[dict]] = {}
+    pagina_plazas_por_contrato: dict[str, int] = {}
+    total_plazas_por_contrato: dict[str, int] = {}
+    seleccion_plazas_por_contrato: dict[str, list[int]] = {}
+    sedes_masivas_por_contrato: dict[str, str] = {}
+    categorias_masivas_por_contrato: dict[str, str] = {}
+    opciones_categorias_masivas_por_contrato: dict[str, list[dict[str, str]]] = {}
+    cargando_plazas_por_contrato: dict[str, bool] = {}
+    contrato_accion_masiva_activo: str = ""
+    contrato_expandido_plaza_id: int = 0
+    plazas_visibles_contrato_actual: List[dict] = []
+    pagina_plaza_actual: int = 1
+    total_plazas_contrato_actual: int = 0
+    page_numbers_plaza_actual: List[int] = []
+    resumen_pagina_contrato_actual: str = ""
 
     # Filtros
     filtro_busqueda_emp: str = ""
@@ -301,6 +319,7 @@ class MisEmpleadosState(
     def set_filtro_busqueda_emp(self, value: str):
         self.filtro_busqueda_emp = value
         self.pagina = 1
+        self._reset_contexto_plazas_ui()
 
     def set_filtro_estatus_emp(self, value: str):
         self.filtro_estatus_emp = value
@@ -309,6 +328,7 @@ class MisEmpleadosState(
     def set_filtro_contrato_id(self, value: str):
         self.filtro_contrato_id = value or FILTRO_CONTRATO_TODOS
         self.pagina = 1
+        self._reset_contexto_plazas_ui()
 
     def set_filtro_panel_personal(self, value: str):
         self.filtro_panel_personal = value or FILTRO_PANEL_TODOS
@@ -319,6 +339,7 @@ class MisEmpleadosState(
             VISTA_PERSONAL_PLAZA if value == VISTA_PERSONAL_PLAZA else VISTA_PERSONAL_EMPLEADO
         )
         self.pagina = 1
+        self._reset_contexto_plazas_ui()
 
     def set_empleado_seleccionado_plaza_id(self, value: str):
         self.empleado_seleccionado_plaza_id = value or ""
@@ -660,6 +681,70 @@ class MisEmpleadosState(
         )
 
     @staticmethod
+    def _clave_contrato(contrato_id: int | str) -> str:
+        return str(int(contrato_id or 0))
+
+    @staticmethod
+    def _pluralizar(cantidad: int, singular: str, plural: str) -> str:
+        return singular if cantidad == 1 else plural
+
+    def _texto_resumen_cantidad(self, cantidad: int, singular: str, plural: str) -> str:
+        return f"{cantidad} {self._pluralizar(cantidad, singular, plural)}"
+
+    def _texto_resumen_plazas_sedes(self, plazas: int, sedes: int) -> str:
+        return (
+            f"{self._texto_resumen_cantidad(plazas, 'plaza', 'plazas')} · "
+            f"{self._texto_resumen_cantidad(sedes, 'sede', 'sedes')}"
+        )
+
+    def _reset_contexto_plazas_ui(self, *, mantener_expandidos: bool = False) -> None:
+        """Limpia caches y selección de la vista por plaza."""
+        self.plazas_paginadas_por_contrato = {}
+        self.pagina_plazas_por_contrato = {}
+        self.total_plazas_por_contrato = {}
+        self.seleccion_plazas_por_contrato = {}
+        self.sedes_masivas_por_contrato = {}
+        self.categorias_masivas_por_contrato = {}
+        self.opciones_categorias_masivas_por_contrato = {}
+        self.cargando_plazas_por_contrato = {}
+        self.contrato_accion_masiva_activo = ""
+        self.contrato_expandido_plaza_id = 0
+        self.plazas_visibles_contrato_actual = []
+        self.pagina_plaza_actual = 1
+        self.total_plazas_contrato_actual = 0
+        self.page_numbers_plaza_actual = []
+        self.resumen_pagina_contrato_actual = ""
+        if not mantener_expandidos:
+            self.contratos_expandidos_plaza = []
+
+    def _sincronizar_seleccion_contrato(self, contrato_id: int, plazas_visibles: list[dict]) -> None:
+        clave = self._clave_contrato(contrato_id)
+        seleccion_actual = self.seleccion_plazas_por_contrato.get(clave, [])
+        visibles_ids = {
+            int(plaza.get("id") or 0)
+            for plaza in plazas_visibles
+            if int(plaza.get("id") or 0) > 0
+        }
+        nuevas_selecciones = dict(self.seleccion_plazas_por_contrato)
+        nuevas_selecciones[clave] = [
+            plaza_id for plaza_id in seleccion_actual if plaza_id in visibles_ids
+        ]
+        self.seleccion_plazas_por_contrato = nuevas_selecciones
+
+    def _marcar_plazas_visibles_actuales(self, contrato_id: int) -> None:
+        if int(contrato_id or 0) != int(self.contrato_expandido_plaza_id or 0):
+            return
+        clave = self._clave_contrato(contrato_id)
+        seleccionadas = set(self.seleccion_plazas_por_contrato.get(clave, []) or [])
+        self.plazas_visibles_contrato_actual = [
+            {
+                **plaza,
+                "seleccionada": int(plaza.get("id") or 0) in seleccionadas,
+            }
+            for plaza in self.plazas_visibles_contrato_actual
+        ]
+
+    @staticmethod
     def _estado_expediente(
         aprobados: int,
         requeridos: int,
@@ -717,9 +802,11 @@ class MisEmpleadosState(
         )
         data["contacto_secundario_ui"] = self._texto_contacto_secundario(data)
         data["contrato_id"] = plaza.get("contrato_id")
-        data["contrato_codigo"] = plaza.get("contrato_codigo", "")
-        data["categoria_nombre"] = plaza.get("categoria_nombre", "")
-        data["categoria_clave"] = plaza.get("categoria_clave", "")
+        data["contrato_codigo"] = str(plaza.get("contrato_codigo", "") or "").strip().upper()
+        data["categoria_nombre"] = self._normalizar_nombre_visual(
+            str(plaza.get("categoria_nombre", "") or "")
+        )
+        data["categoria_clave"] = str(plaza.get("categoria_clave", "") or "").strip().upper()
         data["expediente_resumen"] = (
             str(aprobados)
             + "/"
@@ -733,7 +820,7 @@ class MisEmpleadosState(
         plaza = plazas_por_empleado.get(empleado_id, {})
         return {
             "id": empleado_id,
-            "clave": onboarding.get("clave", ""),
+            "clave": str(onboarding.get("clave", "") or "").strip().upper(),
             "curp": onboarding.get("curp", ""),
             "nombre_completo_ui": self._normalizar_nombre_visual(
                 str(onboarding.get("nombre_completo", "") or "")
@@ -745,9 +832,11 @@ class MisEmpleadosState(
             "estatus_personal": FILTRO_PANEL_EN_ALTA,
             "estatus_onboarding": onboarding.get("estatus_onboarding", ""),
             "contrato_id": plaza.get("contrato_id"),
-            "contrato_codigo": plaza.get("contrato_codigo", ""),
-            "categoria_nombre": plaza.get("categoria_nombre", ""),
-            "categoria_clave": plaza.get("categoria_clave", ""),
+            "contrato_codigo": str(plaza.get("contrato_codigo", "") or "").strip().upper(),
+            "categoria_nombre": self._normalizar_nombre_visual(
+                str(plaza.get("categoria_nombre", "") or "")
+            ),
+            "categoria_clave": str(plaza.get("categoria_clave", "") or "").strip().upper(),
             "documentos_aprobados_expediente": 0,
             "documentos_requeridos_expediente": 0,
             "expediente_resumen": "Pendiente",
@@ -760,7 +849,7 @@ class MisEmpleadosState(
         plaza = plazas_por_empleado.get(empleado_id, {})
         return {
             "id": empleado_id,
-            "clave": baja.get("empleado_clave", ""),
+            "clave": str(baja.get("empleado_clave", "") or "").strip().upper(),
             "curp": "",
             "nombre_completo_ui": self._normalizar_nombre_visual(
                 str(baja.get("empleado_nombre", "") or "")
@@ -771,9 +860,11 @@ class MisEmpleadosState(
             "estatus": "INACTIVO",
             "estatus_personal": FILTRO_PANEL_EN_BAJA,
             "contrato_id": plaza.get("contrato_id"),
-            "contrato_codigo": plaza.get("contrato_codigo", ""),
-            "categoria_nombre": plaza.get("categoria_nombre", ""),
-            "categoria_clave": plaza.get("categoria_clave", ""),
+            "contrato_codigo": str(plaza.get("contrato_codigo", "") or "").strip().upper(),
+            "categoria_nombre": self._normalizar_nombre_visual(
+                str(plaza.get("categoria_nombre", "") or "")
+            ),
+            "categoria_clave": str(plaza.get("categoria_clave", "") or "").strip().upper(),
             "documentos_aprobados_expediente": 0,
             "documentos_requeridos_expediente": 0,
             "expediente_resumen": "Pendiente",
@@ -792,17 +883,22 @@ class MisEmpleadosState(
     def _serializar_plaza_portal(self, plaza) -> dict:
         plaza_dict = plaza.model_dump(mode="json")
         estatus = str(plaza_dict.get("estatus", "") or "")
-        plaza_dict["categoria_nombre"] = plaza_dict.get("categoria_nombre") or "Sin categoría"
-        plaza_dict["categoria_clave"] = plaza_dict.get("categoria_clave") or ""
-        plaza_dict["sede_nombre"] = plaza_dict.get("sede_nombre") or "Sin sede"
-        plaza_dict["sede_codigo"] = plaza_dict.get("sede_codigo") or ""
+        plaza_dict["contrato_codigo"] = str(plaza_dict.get("contrato_codigo", "") or "").strip().upper()
+        plaza_dict["categoria_nombre"] = self._normalizar_nombre_visual(
+            str(plaza_dict.get("categoria_nombre") or "sin categoria")
+        )
+        plaza_dict["categoria_clave"] = str(plaza_dict.get("categoria_clave") or "").strip().upper()
+        plaza_dict["sede_nombre"] = self._normalizar_nombre_visual(
+            str(plaza_dict.get("sede_nombre") or "sin sede")
+        )
+        plaza_dict["sede_codigo"] = str(plaza_dict.get("sede_codigo") or "").strip().upper()
         plaza_dict["empleado_nombre"] = self._normalizar_nombre_visual(
             str(plaza_dict.get("empleado_nombre", "") or "")
         )
         plaza_dict["sede_display"] = (
             f"{plaza_dict['sede_codigo']} - {plaza_dict['sede_nombre']}".strip(" -")
             if plaza_dict["sede_codigo"]
-            else plaza_dict["sede_nombre"]
+            else str(plaza_dict["sede_nombre"] or "sin sede").lower()
         )
         plaza_dict["id_text"] = str(plaza_dict.get("id") or "")
         plaza_dict["sede_id_text"] = str(plaza_dict.get("sede_id") or "")
@@ -814,104 +910,28 @@ class MisEmpleadosState(
         plaza_dict["tiene_categoria"] = bool(plaza_dict.get("categoria_puesto_id"))
         return plaza_dict
 
-    def _construir_grupo_contrato(
-        self,
-        contrato: dict,
-        plazas: list[dict],
-    ) -> dict:
-        sedes_ids = {
-            int(plaza.get("sede_id") or 0)
-            for plaza in plazas
-            if int(plaza.get("sede_id") or 0) > 0
-        }
-        ocupadas = [
-            plaza for plaza in plazas
-            if plaza.get("estatus") == EstatusPlaza.OCUPADA.value
-        ]
-        vacantes = [
-            plaza for plaza in plazas
-            if plaza.get("estatus") == EstatusPlaza.VACANTE.value
-        ]
-        suspendidas = [
-            plaza for plaza in plazas
-            if plaza.get("estatus") == EstatusPlaza.SUSPENDIDA.value
-        ]
-        resumen_plazas = (
-            f"{len(plazas)} plazas · "
-            f"{len(ocupadas)} ocupadas · "
-            f"{len(vacantes)} vacantes · "
-            f"{len(sedes_ids)} sedes"
-        )
+    def _normalizar_resumen_contrato_plaza(self, contrato: dict) -> dict:
+        total_plazas = int(contrato.get("total_plazas") or 0)
+        plazas_ocupadas = int(contrato.get("plazas_ocupadas") or 0)
+        plazas_vacantes = int(contrato.get("plazas_vacantes") or 0)
+        plazas_suspendidas = int(contrato.get("plazas_suspendidas") or 0)
+        total_sedes = int(contrato.get("total_sedes") or 0)
         return {
             "contrato_id": int(contrato.get("contrato_id") or 0),
-            "contrato_codigo": str(contrato.get("contrato_codigo", "") or ""),
+            "contrato_codigo": str(contrato.get("contrato_codigo", "") or "").strip().upper(),
             "contrato_estatus": str(contrato.get("contrato_estatus", "") or ""),
-            "tipo_servicio_clave": str(contrato.get("tipo_servicio_clave", "") or ""),
-            "tipo_servicio_nombre": str(contrato.get("tipo_servicio_nombre", "") or ""),
-            "total_plazas": len(plazas),
-            "plazas_ocupadas": len(ocupadas),
-            "plazas_vacantes": len(vacantes),
-            "plazas_suspendidas": len(suspendidas),
-            "total_sedes": len(sedes_ids),
-            "tiene_plazas": len(plazas) > 0,
-            "resumen_plazas": resumen_plazas,
-            "plazas": plazas,
+            "tipo_servicio_clave": str(contrato.get("tipo_servicio_clave", "") or "").strip().upper(),
+            "tipo_servicio_nombre": self._normalizar_nombre_visual(
+                str(contrato.get("tipo_servicio_nombre", "") or "")
+            ),
+            "total_plazas": total_plazas,
+            "plazas_ocupadas": plazas_ocupadas,
+            "plazas_vacantes": plazas_vacantes,
+            "plazas_suspendidas": plazas_suspendidas,
+            "total_sedes": total_sedes,
+            "tiene_plazas": total_plazas > 0,
+            "resumen_plazas": self._texto_resumen_plazas_sedes(total_plazas, total_sedes),
         }
-
-    async def _construir_contexto_plazas(
-        self,
-        resumen_contratos: list[dict],
-    ) -> tuple[dict[int, dict], list[dict]]:
-        contratos = [
-            (
-                item.model_dump(mode="json")
-                if hasattr(item, "model_dump")
-                else dict(item)
-            )
-            for item in resumen_contratos
-            if int(
-                (
-                    item.contrato_id
-                    if hasattr(item, "contrato_id")
-                    else item.get("contrato_id") or 0
-                )
-            ) > 0
-        ]
-        if not contratos:
-            return {}, []
-
-        resultados = await asyncio.gather(
-            *[
-                plaza_service.obtener_resumen_de_contrato(int(contrato["contrato_id"]))
-                for contrato in contratos
-            ]
-        )
-
-        plazas_por_empleado: dict[int, dict] = {}
-        grupos: list[dict] = []
-        for contrato, plazas in zip(contratos, resultados):
-            plazas_serializadas = [
-                self._serializar_plaza_portal(plaza)
-                for plaza in plazas
-                if str(getattr(plaza.estatus, "value", plaza.estatus) or "") != EstatusPlaza.CANCELADA.value
-            ]
-            plazas_serializadas.sort(key=lambda item: int(item.get("numero_plaza") or 0))
-
-            for plaza in plazas_serializadas:
-                empleado_id = int(plaza.get("empleado_id") or 0)
-                if empleado_id <= 0:
-                    continue
-                plazas_por_empleado[empleado_id] = {
-                    "contrato_id": plaza.get("contrato_id"),
-                    "contrato_codigo": plaza.get("contrato_codigo", ""),
-                    "categoria_nombre": plaza.get("categoria_nombre", ""),
-                    "categoria_clave": plaza.get("categoria_clave", ""),
-                }
-
-            grupos.append(self._construir_grupo_contrato(contrato, plazas_serializadas))
-
-        grupos.sort(key=lambda item: item.get("contrato_codigo", ""))
-        return plazas_por_empleado, grupos
 
     def _aplicar_query_inicial(self) -> None:
         query = self.router_data.get("query", {}) or {}
@@ -974,8 +994,8 @@ class MisEmpleadosState(
             {
                 "value": str(sede.get("id")),
                 "label": (
-                    f"{sede.get('codigo', '')} - "
-                    f"{sede.get('nombre_corto') or sede.get('nombre', '')}"
+                    f"{str(sede.get('codigo', '') or '').strip().upper()} - "
+                    f"{self._normalizar_nombre_visual(str(sede.get('nombre_corto') or sede.get('nombre', '') or ''))}"
                 ).strip(" -"),
             }
             for sede in self.sedes_catalogo_rrhh
@@ -1125,37 +1145,26 @@ class MisEmpleadosState(
         return f"Mostrando {self.total_empleados_filtrados} empleado(s)"
 
     @rx.var
-    def grupos_plazas_filtrados(self) -> List[dict]:
-        grupos = self.plazas_por_contrato
+    def contratos_plaza_filtrados(self) -> List[dict]:
+        contratos = self.plazas_por_contrato
         if self.filtro_contrato_id != FILTRO_CONTRATO_TODOS:
             contrato_id = int(self.filtro_contrato_id) if self.filtro_contrato_id else 0
-            grupos = [
-                grupo
-                for grupo in grupos
-                if int(grupo.get("contrato_id") or 0) == contrato_id
+            contratos = [
+                contrato
+                for contrato in contratos
+                if int(contrato.get("contrato_id") or 0) == contrato_id
             ]
 
         termino = self.filtro_busqueda_emp.lower().strip()
         if not termino:
-            return grupos
+            return contratos
 
-        grupos_filtrados: List[dict] = []
-        for grupo in grupos:
-            plazas = [
-                plaza
-                for plaza in grupo.get("plazas", [])
-                if termino in str(plaza.get("numero_plaza", "")).lower()
-                or termino in str(plaza.get("categoria_nombre", "")).lower()
-                or termino in str(plaza.get("sede_nombre", "")).lower()
-                or termino in str(plaza.get("empleado_nombre", "")).lower()
-                or termino in str(plaza.get("codigo", "")).lower()
-            ]
-            if not plazas:
-                continue
-            grupos_filtrados.append(
-                self._construir_grupo_contrato(grupo, plazas)
-            )
-        return grupos_filtrados
+        return [
+            contrato
+            for contrato in contratos
+            if termino in str(contrato.get("contrato_codigo", "")).lower()
+            or termino in str(contrato.get("tipo_servicio_nombre", "")).lower()
+        ]
 
     @rx.var
     def titulo_modal_asignacion_plaza(self) -> str:
@@ -1196,11 +1205,11 @@ class MisEmpleadosState(
 
     @rx.var
     def total_contratos_plazas_visibles(self) -> int:
-        return len(self.grupos_plazas_filtrados)
+        return len(self.contratos_plaza_filtrados)
 
     @rx.var
     def total_plazas_visibles(self) -> int:
-        return sum(len(grupo.get("plazas", [])) for grupo in self.grupos_plazas_filtrados)
+        return sum(int(grupo.get("total_plazas") or 0) for grupo in self.contratos_plaza_filtrados)
 
     @rx.var
     def resumen_paginacion_plazas(self) -> str:
@@ -1212,32 +1221,77 @@ class MisEmpleadosState(
 
     @rx.var
     def tiene_plazas_visibles(self) -> bool:
-        return self.total_plazas_visibles > 0
+        return self.total_contratos_plazas_visibles > 0
 
     @rx.var
-    def filas_plazas_agrupadas(self) -> List[dict]:
-        filas: List[dict] = []
-        for grupo in self.grupos_plazas_filtrados:
-            filas.append(
+    def bloques_contrato_plaza(self) -> List[dict]:
+        bloques: List[dict] = []
+        for contrato in self.contratos_plaza_filtrados:
+            contrato_id = int(contrato.get("contrato_id") or 0)
+            clave = self._clave_contrato(contrato_id)
+            expandido = contrato_id == self.contrato_expandido_plaza_id
+            plazas_visibles = list(self.plazas_visibles_contrato_actual if expandido else [])
+            total_items = int(
+                self.total_plazas_contrato_actual if expandido else contrato.get("total_plazas") or 0
+            )
+            pagina_actual = int(self.pagina_plaza_actual if expandido else 1)
+            total_paginas = self.calcular_total_paginas(total_items, POR_PAGINA_PLAZAS)
+            seleccion_ids = list(self.seleccion_plazas_por_contrato.get(clave, []) or [])
+            visibles_ids = [
+                int(plaza.get("id") or 0)
+                for plaza in plazas_visibles
+                if int(plaza.get("id") or 0) > 0
+            ]
+            seleccion_visibles = [
+                plaza_id for plaza_id in seleccion_ids if plaza_id in visibles_ids
+            ]
+            bloques.append(
                 {
-                    "tipo_fila": "grupo",
-                    "contrato_codigo": grupo.get("contrato_codigo", ""),
-                    "tipo_servicio_nombre": grupo.get("tipo_servicio_nombre", ""),
-                    "resumen_plazas": grupo.get("resumen_plazas", ""),
+                    **contrato,
+                    "expandido": expandido,
+                    "rotacion_chevron": "rotate(90deg)" if expandido else "rotate(0deg)",
+                    "cargando_plazas": bool(expandido and self.cargando_plazas_por_contrato.get(clave, False)),
+                    "pagina_actual": pagina_actual,
+                    "total_items": total_items,
+                    "total_paginas": total_paginas,
+                    "seleccion_ids": seleccion_ids,
+                    "seleccion_count": len(seleccion_ids),
+                    "tiene_seleccion": len(seleccion_ids) > 0,
+                    "seleccion_label": self._texto_resumen_cantidad(
+                        len(seleccion_ids),
+                        "plaza seleccionada",
+                        "plazas seleccionadas",
+                    ),
+                    "seleccion_todas_visibles": bool(visibles_ids)
+                    and len(seleccion_visibles) == len(visibles_ids),
+                    "sede_masiva_value": str(self.sedes_masivas_por_contrato.get(clave, "") or ""),
+                    "categoria_masiva_value": str(self.categorias_masivas_por_contrato.get(clave, "") or ""),
+                    "mostrar_badge_suspendidas": int(contrato.get("plazas_suspendidas") or 0) > 0,
+                    "tiene_plazas_tabla": bool(expandido and total_items > 0),
                 }
             )
-            for plaza in grupo.get("plazas", []):
-                filas.append(
-                    {
-                        "tipo_fila": "plaza",
-                        **plaza,
-                    }
-                )
-        return filas
+        return bloques
 
     @rx.var
     def puede_confirmar_asignacion_plaza(self) -> bool:
         return bool(self.empleado_seleccionado_plaza_id) and not self.saving
+
+    @rx.var
+    def opciones_categorias_masivas_actuales(self) -> List[dict[str, str]]:
+        return list(
+            self.opciones_categorias_masivas_por_contrato.get(
+                self.contrato_accion_masiva_activo,
+                [],
+            )
+            or []
+        )
+
+    @rx.var
+    def total_paginas_plaza_actual(self) -> int:
+        return self.calcular_total_paginas(
+            self.total_plazas_contrato_actual,
+            POR_PAGINA_PLAZAS,
+        )
 
     @rx.var
     def opciones_empleados_disponibles_plaza(self) -> List[dict]:
@@ -1419,16 +1473,164 @@ class MisEmpleadosState(
     # ========================
     # CARGA DE DATOS
     # ========================
+    def _mapear_plazas_ocupadas_por_empleado(self, plazas_ocupadas) -> dict[int, dict]:
+        plazas_por_empleado: dict[int, dict] = {}
+        for plaza in plazas_ocupadas:
+            plaza_dict = self._serializar_plaza_portal(plaza)
+            empleado_id = int(plaza_dict.get("empleado_id") or 0)
+            if empleado_id <= 0:
+                continue
+            plazas_por_empleado[empleado_id] = {
+                "contrato_id": plaza_dict.get("contrato_id"),
+                "contrato_codigo": plaza_dict.get("contrato_codigo", ""),
+                "categoria_nombre": plaza_dict.get("categoria_nombre", ""),
+                "categoria_clave": plaza_dict.get("categoria_clave", ""),
+            }
+        return plazas_por_empleado
+
+    def _filtrar_plazas_por_busqueda(self, plazas: list[dict], termino: str) -> list[dict]:
+        termino_normalizado = termino.lower().strip()
+        if not termino_normalizado:
+            return plazas
+        return [
+            plaza
+            for plaza in plazas
+            if termino_normalizado in str(plaza.get("numero_plaza", "")).lower()
+            or termino_normalizado in str(plaza.get("categoria_nombre", "")).lower()
+            or termino_normalizado in str(plaza.get("sede_nombre", "")).lower()
+            or termino_normalizado in str(plaza.get("empleado_nombre", "")).lower()
+            or termino_normalizado in str(plaza.get("codigo", "")).lower()
+            or termino_normalizado in str(plaza.get("contrato_codigo", "")).lower()
+        ]
+
+    async def _cargar_opciones_categoria_masiva(self, contrato_id: int) -> None:
+        clave = self._clave_contrato(contrato_id)
+        if self.opciones_categorias_masivas_por_contrato.get(clave):
+            return
+
+        resumenes, conteos = await asyncio.gather(
+            contrato_categoria_service.obtener_resumen_de_contrato(contrato_id),
+            plaza_service.obtener_cantidad_esperada_por_categoria(contrato_id),
+        )
+
+        opciones: list[dict] = []
+        for resumen in resumenes:
+            categoria_id = int(getattr(resumen, "categoria_puesto_id", 0) or 0)
+            if categoria_id <= 0:
+                continue
+            maximo = int(getattr(resumen, "cantidad_maxima", 0) or 0)
+            asignadas = int(conteos.get(categoria_id) or 0)
+            disponibles = maximo - asignadas
+            if disponibles <= 0:
+                continue
+            nombre_categoria = self._normalizar_nombre_visual(
+                str(getattr(resumen, "categoria_nombre", "") or "")
+            )
+            opciones.append(
+                {
+                    "value": str(categoria_id),
+                    "label": f"{nombre_categoria} ({disponibles} disp.)",
+                }
+            )
+
+        opciones_por_contrato = dict(self.opciones_categorias_masivas_por_contrato)
+        opciones_por_contrato[clave] = opciones
+        self.opciones_categorias_masivas_por_contrato = opciones_por_contrato
+
+    async def _cargar_pagina_plazas_contrato(self, contrato_id: int, pagina: int = 1) -> None:
+        clave = self._clave_contrato(contrato_id)
+        pagina_segura = max(1, int(pagina or 1))
+        cargas = dict(self.cargando_plazas_por_contrato)
+        cargas[clave] = True
+        self.cargando_plazas_por_contrato = cargas
+        self.contrato_expandido_plaza_id = contrato_id
+        try:
+            termino = self.filtro_busqueda_emp.lower().strip()
+            if termino:
+                plazas = await plaza_service.obtener_resumen_de_contrato(contrato_id)
+                plazas_serializadas = [
+                    self._serializar_plaza_portal(plaza)
+                    for plaza in plazas
+                    if str(getattr(plaza.estatus, "value", plaza.estatus) or "")
+                    != EstatusPlaza.CANCELADA.value
+                ]
+                plazas_filtradas = self._filtrar_plazas_por_busqueda(plazas_serializadas, termino)
+                total_items = len(plazas_filtradas)
+                inicio = (pagina_segura - 1) * POR_PAGINA_PLAZAS
+                fin = inicio + POR_PAGINA_PLAZAS
+                plazas_visibles = plazas_filtradas[inicio:fin]
+            else:
+                plazas = await plaza_service.obtener_resumen_de_contrato(
+                    contrato_id,
+                    limite=POR_PAGINA_PLAZAS,
+                    offset=(pagina_segura - 1) * POR_PAGINA_PLAZAS,
+                )
+                plazas_visibles = [self._serializar_plaza_portal(plaza) for plaza in plazas]
+                total_items = next(
+                    (
+                        int(contrato.get("total_plazas") or 0)
+                        for contrato in self.plazas_por_contrato
+                        if int(contrato.get("contrato_id") or 0) == contrato_id
+                    ),
+                    0,
+                )
+
+            plazas_por_contrato = dict(self.plazas_paginadas_por_contrato)
+            plazas_por_contrato[clave] = plazas_visibles
+            self.plazas_paginadas_por_contrato = plazas_por_contrato
+
+            totales = dict(self.total_plazas_por_contrato)
+            totales[clave] = total_items
+            self.total_plazas_por_contrato = totales
+
+            paginas = dict(self.pagina_plazas_por_contrato)
+            paginas[clave] = pagina_segura
+            self.pagina_plazas_por_contrato = paginas
+            self.plazas_visibles_contrato_actual = list(plazas_visibles)
+            self.pagina_plaza_actual = pagina_segura
+            self.total_plazas_contrato_actual = total_items
+            total_paginas = self.calcular_total_paginas(total_items, POR_PAGINA_PLAZAS)
+            self.page_numbers_plaza_actual = rango_paginacion(
+                pagina_segura,
+                total_paginas,
+                visible=5,
+            )
+            self.resumen_pagina_contrato_actual = (
+                f"Mostrando {((pagina_segura - 1) * POR_PAGINA_PLAZAS) + 1}-"
+                f"{min(pagina_segura * POR_PAGINA_PLAZAS, total_items)} de {total_items} plazas"
+                if total_items > 0
+                else "Sin plazas disponibles"
+            )
+            self._sincronizar_seleccion_contrato(contrato_id, plazas_visibles)
+            self._marcar_plazas_visibles_actuales(contrato_id)
+            await self._cargar_opciones_categoria_masiva(contrato_id)
+        finally:
+            cargas = dict(self.cargando_plazas_por_contrato)
+            cargas[clave] = False
+            self.cargando_plazas_por_contrato = cargas
+
+    async def _recargar_contratos_expandidos(self, contratos_expandidos: list[int]) -> None:
+        self._reset_contexto_plazas_ui(mantener_expandidos=True)
+        if not contratos_expandidos:
+            self.contratos_expandidos_plaza = []
+            return
+        contrato_id = int(contratos_expandidos[0] or 0)
+        self.contratos_expandidos_plaza = [contrato_id]
+        await self._cargar_pagina_plazas_contrato(contrato_id, pagina=1)
+
     async def _fetch_empleados(self):
         """Carga y unifica empleados, onboarding, bajas y resumen de plazas."""
         if not self.id_empresa_actual:
             return
 
         try:
-            resumen_contratos, empleados_resumen, onboarding_resumen, bajas_activas, sedes = await asyncio.gather(
+            resumen_contratos, plazas_ocupadas, empleados_resumen, onboarding_resumen, bajas_activas, sedes = await asyncio.gather(
                 plaza_service.obtener_resumen_contratos_con_plazas(
                     empresa_id=self.id_empresa_actual,
                     solo_activos=True,
+                ),
+                plaza_service.obtener_resumen_ocupadas_por_empresa(
+                    self.id_empresa_actual,
                 ),
                 empleado_service.obtener_resumen_por_empresa(
                     empresa_id=self.id_empresa_actual,
@@ -1448,9 +1650,7 @@ class MisEmpleadosState(
                 ),
             )
 
-            plazas_por_empleado, plazas_por_contrato = await self._construir_contexto_plazas(
-                resumen_contratos,
-            )
+            plazas_por_empleado = self._mapear_plazas_ocupadas_por_empleado(plazas_ocupadas)
 
             onboarding_lookup = {
                 int(item.get("id") or 0): item
@@ -1513,14 +1713,23 @@ class MisEmpleadosState(
                 base_row["estatus_personal"] = FILTRO_PANEL_EN_BAJA
                 base_row["baja_id"] = baja.get("id")
 
-            self.resumen_contratos_rrhh = list(resumen_contratos)
+            contratos_normalizados = [
+                self._normalizar_resumen_contrato_plaza(
+                    item.model_dump(mode="json") if hasattr(item, "model_dump") else dict(item)
+                )
+                for item in resumen_contratos
+            ]
+            contratos_normalizados.sort(key=lambda item: str(item.get("contrato_codigo", "")))
+
+            contratos_expandidos_previos = list(self.contratos_expandidos_plaza)
+            self.resumen_contratos_rrhh = list(contratos_normalizados)
             self.onboarding_empleados = list(onboarding_lookup.values())
             self.bajas_activas = list(bajas_lookup.values())
             self.sedes_catalogo_rrhh = [
                 sede.model_dump(mode="json") if hasattr(sede, "model_dump") else dict(sede)
                 for sede in sedes
             ]
-            self.plazas_por_contrato = plazas_por_contrato
+            self.plazas_por_contrato = list(contratos_normalizados)
             self.empleados = sorted(
                 filas_por_empleado_id.values(),
                 key=lambda item: str(item.get("nombre_completo_ui", "")),
@@ -1537,6 +1746,18 @@ class MisEmpleadosState(
             ):
                 self.filtro_contrato_id = FILTRO_CONTRATO_TODOS
             self._ajustar_pagina_empleados()
+            if contratos_expandidos_previos:
+                contratos_validos_expandidos = [
+                    contrato_id
+                    for contrato_id in contratos_expandidos_previos
+                    if any(
+                        int(item.get("contrato_id") or 0) == contrato_id
+                        for item in self.plazas_por_contrato
+                    )
+                ]
+                await self._recargar_contratos_expandidos(contratos_validos_expandidos)
+            else:
+                self._reset_contexto_plazas_ui()
         except Exception as e:
             self.mostrar_mensaje(f"Error cargando empleados: {e}", "error")
             self.resumen_contratos_rrhh = []
@@ -1544,6 +1765,7 @@ class MisEmpleadosState(
             self.bajas_activas = []
             self.sedes_catalogo_rrhh = []
             self.plazas_por_contrato = []
+            self._reset_contexto_plazas_ui()
             self.empleados = []
             self.total_empleados_lista = 0
             self.pagina = 1
@@ -1589,6 +1811,168 @@ class MisEmpleadosState(
     def pagina_siguiente(self):
         """Avanza una página del listado."""
         self.ir_a_pagina(self.pagina_empleados_actual + 1)
+
+    async def toggle_contrato_plaza(self, contrato_id: int):
+        contrato_id_int = int(contrato_id or 0)
+        if contrato_id_int <= 0:
+            return
+
+        clave = self._clave_contrato(contrato_id_int)
+        if contrato_id_int in self.contratos_expandidos_plaza:
+            self.contratos_expandidos_plaza = []
+            selecciones = dict(self.seleccion_plazas_por_contrato)
+            selecciones.pop(clave, None)
+            self.seleccion_plazas_por_contrato = selecciones
+            if self.contrato_accion_masiva_activo == clave:
+                self.contrato_accion_masiva_activo = ""
+            self.contrato_expandido_plaza_id = 0
+            self.plazas_visibles_contrato_actual = []
+            self.pagina_plaza_actual = 1
+            self.total_plazas_contrato_actual = 0
+            self.page_numbers_plaza_actual = []
+            self.resumen_pagina_contrato_actual = ""
+            return
+
+        self.contratos_expandidos_plaza = [contrato_id_int]
+        await self._cargar_pagina_plazas_contrato(contrato_id_int, pagina=1)
+
+    async def ir_a_pagina_plaza_contrato(self, contrato_id: int, pagina: int):
+        contrato_id_int = int(contrato_id or 0)
+        if contrato_id_int <= 0:
+            return
+        await self._cargar_pagina_plazas_contrato(contrato_id_int, pagina=pagina)
+
+    async def pagina_anterior_plaza_contrato(self, contrato_id: int):
+        clave = self._clave_contrato(contrato_id)
+        pagina_actual = int(self.pagina_plazas_por_contrato.get(clave) or 1)
+        await self.ir_a_pagina_plaza_contrato(int(contrato_id or 0), pagina_actual - 1)
+
+    async def pagina_siguiente_plaza_contrato(self, contrato_id: int):
+        clave = self._clave_contrato(contrato_id)
+        pagina_actual = int(self.pagina_plazas_por_contrato.get(clave) or 1)
+        await self.ir_a_pagina_plaza_contrato(int(contrato_id or 0), pagina_actual + 1)
+
+    def toggle_plaza_seleccionada(self, contrato_id: int, plaza_id: int, checked) -> None:
+        contrato_id_int = int(contrato_id or 0)
+        plaza_id_int = int(plaza_id or 0)
+        if contrato_id_int <= 0 or plaza_id_int <= 0:
+            return
+
+        clave = self._clave_contrato(contrato_id_int)
+        seleccionadas = list(self.seleccion_plazas_por_contrato.get(clave, []) or [])
+        marcado = self._valor_switch_a_bool(checked)
+        if marcado and plaza_id_int not in seleccionadas:
+            seleccionadas.append(plaza_id_int)
+        if not marcado:
+            seleccionadas = [item for item in seleccionadas if item != plaza_id_int]
+
+        nuevas_selecciones = {
+            item_clave: ([] if item_clave != clave else list(valores))
+            for item_clave, valores in self.seleccion_plazas_por_contrato.items()
+        }
+        nuevas_selecciones[clave] = seleccionadas
+        self.seleccion_plazas_por_contrato = nuevas_selecciones
+        self.contrato_accion_masiva_activo = clave if seleccionadas else ""
+        self._marcar_plazas_visibles_actuales(contrato_id_int)
+
+    def seleccionar_todas_plazas_visibles(self, contrato_id: int, checked) -> None:
+        contrato_id_int = int(contrato_id or 0)
+        if contrato_id_int <= 0:
+            return
+        clave = self._clave_contrato(contrato_id_int)
+        visibles = [
+            int(plaza.get("id") or 0)
+            for plaza in self.plazas_paginadas_por_contrato.get(clave, [])
+            if int(plaza.get("id") or 0) > 0
+        ]
+        nuevas_selecciones = {
+            item_clave: ([] if item_clave != clave else list(valores))
+            for item_clave, valores in self.seleccion_plazas_por_contrato.items()
+        }
+        nuevas_selecciones[clave] = visibles if self._valor_switch_a_bool(checked) else []
+        self.seleccion_plazas_por_contrato = nuevas_selecciones
+        self.contrato_accion_masiva_activo = clave if nuevas_selecciones[clave] else ""
+        self._marcar_plazas_visibles_actuales(contrato_id_int)
+
+    def limpiar_seleccion_plazas(self, contrato_id: int) -> None:
+        contrato_id_int = int(contrato_id or 0)
+        if contrato_id_int <= 0:
+            return
+        clave = self._clave_contrato(contrato_id_int)
+        nuevas_selecciones = dict(self.seleccion_plazas_por_contrato)
+        nuevas_selecciones[clave] = []
+        self.seleccion_plazas_por_contrato = nuevas_selecciones
+        if self.contrato_accion_masiva_activo == clave:
+            self.contrato_accion_masiva_activo = ""
+        self._marcar_plazas_visibles_actuales(contrato_id_int)
+
+    def set_sede_masiva_contrato(self, contrato_id: int, value: str) -> None:
+        clave = self._clave_contrato(contrato_id)
+        nuevos_valores = dict(self.sedes_masivas_por_contrato)
+        nuevos_valores[clave] = value or ""
+        self.sedes_masivas_por_contrato = nuevos_valores
+
+    def set_categoria_masiva_contrato(self, contrato_id: int, value: str) -> None:
+        clave = self._clave_contrato(contrato_id)
+        nuevos_valores = dict(self.categorias_masivas_por_contrato)
+        nuevos_valores[clave] = value or ""
+        self.categorias_masivas_por_contrato = nuevos_valores
+
+    async def aplicar_sede_masiva_contrato(self, contrato_id: int):
+        contrato_id_int = int(contrato_id or 0)
+        clave = self._clave_contrato(contrato_id_int)
+        plaza_ids = list(self.seleccion_plazas_por_contrato.get(clave, []) or [])
+        sede_id = self.parse_id(self.sedes_masivas_por_contrato.get(clave, ""))
+        if contrato_id_int <= 0 or not plaza_ids:
+            return rx.toast.error("Seleccione al menos una plaza")
+        if sede_id is None:
+            return rx.toast.error("Seleccione una sede para aplicar")
+
+        self.saving = True
+        try:
+            for plaza_id in plaza_ids:
+                await plaza_service.actualizar(
+                    plaza_id,
+                    PlazaUpdate(sede_id=sede_id),
+                )
+            await self._fetch_empleados()
+            return rx.toast.success(
+                f"Se actualizo la sede en {len(plaza_ids)} plaza(s)"
+            )
+        except BusinessRuleError as e:
+            return rx.toast.error(str(e))
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "aplicando sede masiva")
+        finally:
+            self.saving = False
+
+    async def aplicar_categoria_masiva_contrato(self, contrato_id: int):
+        contrato_id_int = int(contrato_id or 0)
+        clave = self._clave_contrato(contrato_id_int)
+        plaza_ids = list(self.seleccion_plazas_por_contrato.get(clave, []) or [])
+        categoria_id = self.parse_id(self.categorias_masivas_por_contrato.get(clave, ""))
+        if contrato_id_int <= 0 or not plaza_ids:
+            return rx.toast.error("Seleccione al menos una plaza")
+        if categoria_id is None:
+            return rx.toast.error("Seleccione una categoria para aplicar")
+
+        self.saving = True
+        try:
+            for plaza_id in plaza_ids:
+                await plaza_service.actualizar(
+                    plaza_id,
+                    PlazaUpdate(categoria_puesto_id=categoria_id),
+                )
+            await self._fetch_empleados()
+            return rx.toast.success(
+                f"Se actualizo la categoria en {len(plaza_ids)} plaza(s)"
+            )
+        except BusinessRuleError as e:
+            return rx.toast.error(str(e))
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "aplicando categoria masiva")
+        finally:
+            self.saving = False
 
     def abrir_panel_alta_masiva(self):
         """Abre la sección inline de alta masiva desde el listado."""

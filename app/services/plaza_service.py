@@ -96,8 +96,17 @@ class PlazaService:
         resumen_data = await self.repository.obtener_resumen_por_estatus(estatus, limite)
         return [self._map_resumen(item) for item in resumen_data]
 
-    async def obtener_resumen_de_contrato(self, contrato_id: int) -> list[PlazaResumen]:
-        resumen_data = await self.repository.obtener_resumen_por_contrato(contrato_id)
+    async def obtener_resumen_de_contrato(
+        self,
+        contrato_id: int,
+        limite: Optional[int] = None,
+        offset: int = 0,
+    ) -> list[PlazaResumen]:
+        resumen_data = await self.repository.obtener_resumen_por_contrato(
+            contrato_id,
+            limite=limite,
+            offset=offset,
+        )
         return [self._map_resumen(item) for item in resumen_data]
 
     async def obtener_resumen_de_categoria(
@@ -151,6 +160,13 @@ class PlazaService:
         empresa_id: Optional[int] = None,
     ) -> list[int]:
         return await self.repository.obtener_empleados_asignados(empresa_id)
+
+    async def obtener_resumen_ocupadas_por_empresa(
+        self,
+        empresa_id: int,
+    ) -> list[PlazaResumen]:
+        resumen_data = await self.repository.obtener_resumen_ocupadas_por_empresa(empresa_id)
+        return [self._map_resumen(item) for item in resumen_data]
 
     async def obtener_cantidad_esperada_por_categoria(
         self,

@@ -20,6 +20,33 @@ from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 from .state import AsistenciasState
 
+EMPTY_STATE_MAX_WIDTH = "320px"
+TOOLBAR_SEARCH_FLEX = "1 1 280px"
+TOOLBAR_SEARCH_MIN_WIDTH = "240px"
+TOOLBAR_DATE_WIDTH = "150px"
+STATUS_DOT_SIZE = "8px"
+INCIDENCIA_DETAIL_MIN_HEIGHT = "120px"
+INCIDENCIA_MODAL_WIDTH = "min(560px, 96vw)"
+HORARIO_DESCRIPTION_MIN_HEIGHT = "90px"
+HORARIO_DAY_LABEL_MIN_WIDTH = "150px"
+HORARIO_MODAL_WIDTH = "min(760px, 96vw)"
+SUPERVISION_NOTES_MIN_HEIGHT = "100px"
+SUPERVISION_MODAL_WIDTH = "min(620px, 96vw)"
+ASISTENCIAS_COLUMN_WIDTH_EMPLEADO = "260px"
+ASISTENCIAS_COLUMN_WIDTH_SEDE = "220px"
+ASISTENCIAS_COLUMN_WIDTH_RESULTADO = "140px"
+ASISTENCIAS_COLUMN_WIDTH_DETALLE = "220px"
+ASISTENCIAS_COLUMN_WIDTH_ACCIONES = "190px"
+HORARIOS_COLUMN_WIDTH_NOMBRE = "220px"
+HORARIOS_COLUMN_WIDTH_HORA = "100px"
+HORARIOS_COLUMN_WIDTH_ESTADO = "100px"
+HORARIOS_COLUMN_WIDTH_ACCION = "110px"
+ASIGNACIONES_COLUMN_WIDTH_SUPERVISOR = "240px"
+ASIGNACIONES_COLUMN_WIDTH_SEDE = "220px"
+ASIGNACIONES_COLUMN_WIDTH_EMPLEADOS = "110px"
+ASIGNACIONES_COLUMN_WIDTH_ESTADO = "110px"
+ASIGNACIONES_COLUMN_WIDTH_ACCION = "110px"
+
 
 def _field_label(texto: str) -> rx.Component:
     return rx.text(
@@ -136,7 +163,7 @@ def _minimal_empty_state(title: str, description: str, icon: str) -> rx.Componen
             ),
             spacing="2",
             align="center",
-            max_width="320px",
+            max_width=EMPTY_STATE_MAX_WIDTH,
         ),
         width="100%",
         padding=Spacing.LG,
@@ -273,8 +300,8 @@ def toolbar_asistencias() -> rx.Component:
                     width="100%",
                     toolbar_style=True,
                 ),
-                flex="1 1 280px",
-                min_width="240px",
+                flex=TOOLBAR_SEARCH_FLEX,
+                min_width=TOOLBAR_SEARCH_MIN_WIDTH,
             ),
             selector_panel(),
             rx.cond(
@@ -282,7 +309,7 @@ def toolbar_asistencias() -> rx.Component:
                 compact_date_input(
                     value=AsistenciasState.fecha_operacion,
                     on_change=AsistenciasState.cambiar_fecha_operacion,
-                    width="150px",
+                    width=TOOLBAR_DATE_WIDTH,
                     size="2",
                     flex_shrink="0",
                 ),
@@ -382,8 +409,8 @@ def barra_jornada() -> rx.Component:
     return rx.flex(
         rx.hstack(
             rx.box(
-                width="8px",
-                height="8px",
+                width=STATUS_DOT_SIZE,
+                height=STATUS_DOT_SIZE,
                 border_radius=Radius.FULL,
                 background=rx.cond(
                     AsistenciasState.tiene_jornada_abierta,
@@ -514,11 +541,11 @@ def fila_empleado(empleado: dict) -> rx.Component:
 
 
 ENCABEZADOS_ASISTENCIAS = [
-    {"nombre": "Empleado", "ancho": "260px"},
-    {"nombre": "Sede / Categoría", "ancho": "220px"},
-    {"nombre": "Resultado", "ancho": "140px"},
-    {"nombre": "Detalle", "ancho": "220px"},
-    {"nombre": "Acciones", "ancho": "190px"},
+    {"nombre": "Empleado", "ancho": ASISTENCIAS_COLUMN_WIDTH_EMPLEADO},
+    {"nombre": "Sede / Categoría", "ancho": ASISTENCIAS_COLUMN_WIDTH_SEDE},
+    {"nombre": "Resultado", "ancho": ASISTENCIAS_COLUMN_WIDTH_RESULTADO},
+    {"nombre": "Detalle", "ancho": ASISTENCIAS_COLUMN_WIDTH_DETALLE},
+    {"nombre": "Acciones", "ancho": ASISTENCIAS_COLUMN_WIDTH_ACCIONES},
 ]
 
 
@@ -583,12 +610,12 @@ def fila_horario(horario: dict) -> rx.Component:
 
 
 ENCABEZADOS_HORARIOS = [
-    {"nombre": "Nombre", "ancho": "220px"},
-    {"nombre": "Entrada", "ancho": "100px"},
-    {"nombre": "Salida", "ancho": "100px"},
+    {"nombre": "Nombre", "ancho": HORARIOS_COLUMN_WIDTH_NOMBRE},
+    {"nombre": "Entrada", "ancho": HORARIOS_COLUMN_WIDTH_HORA},
+    {"nombre": "Salida", "ancho": HORARIOS_COLUMN_WIDTH_HORA},
     {"nombre": "Dias", "ancho": "auto"},
-    {"nombre": "Estado", "ancho": "100px"},
-    {"nombre": "Accion", "ancho": "110px"},
+    {"nombre": "Estado", "ancho": HORARIOS_COLUMN_WIDTH_ESTADO},
+    {"nombre": "Accion", "ancho": HORARIOS_COLUMN_WIDTH_ACCION},
 ]
 
 
@@ -660,11 +687,11 @@ def fila_asignacion(asignacion: dict) -> rx.Component:
 
 
 ENCABEZADOS_ASIGNACIONES = [
-    {"nombre": "Supervisor", "ancho": "240px"},
-    {"nombre": "Sede", "ancho": "220px"},
-    {"nombre": "Empleados", "ancho": "110px"},
-    {"nombre": "Estado", "ancho": "110px"},
-    {"nombre": "Accion", "ancho": "110px"},
+    {"nombre": "Supervisor", "ancho": ASIGNACIONES_COLUMN_WIDTH_SUPERVISOR},
+    {"nombre": "Sede", "ancho": ASIGNACIONES_COLUMN_WIDTH_SEDE},
+    {"nombre": "Empleados", "ancho": ASIGNACIONES_COLUMN_WIDTH_EMPLEADOS},
+    {"nombre": "Estado", "ancho": ASIGNACIONES_COLUMN_WIDTH_ESTADO},
+    {"nombre": "Accion", "ancho": ASIGNACIONES_COLUMN_WIDTH_ACCION},
 ]
 
 
@@ -820,7 +847,7 @@ def modal_incidencia() -> rx.Component:
                         value=AsistenciasState.form_motivo,
                         on_change=AsistenciasState.set_form_motivo,
                         placeholder="Motivo o detalle operativo",
-                        min_height="120px",
+                        min_height=INCIDENCIA_DETAIL_MIN_HEIGHT,
                         width="100%",
                     ),
                     spacing="1",
@@ -861,7 +888,7 @@ def modal_incidencia() -> rx.Component:
                 spacing="4",
                 width="100%",
             ),
-            width="min(560px, 96vw)",
+            width=INCIDENCIA_MODAL_WIDTH,
         ),
         open=AsistenciasState.modal_incidencia_abierto,
     )
@@ -892,7 +919,7 @@ def modal_horario() -> rx.Component:
                         value=AsistenciasState.form_horario_descripcion,
                         on_change=AsistenciasState.set_form_horario_descripcion,
                         placeholder="Descripcion operativa del horario",
-                        min_height="90px",
+                        min_height=HORARIO_DESCRIPTION_MIN_HEIGHT,
                         width="100%",
                     ),
                     spacing="1",
@@ -960,7 +987,7 @@ def modal_horario() -> rx.Component:
                                     ),
                                     spacing="2",
                                     align="center",
-                                    min_width="150px",
+                                    min_width=HORARIO_DAY_LABEL_MIN_WIDTH,
                                 ),
                                 rx.vstack(
                                     _field_micro_label("Entrada"),
@@ -1022,7 +1049,7 @@ def modal_horario() -> rx.Component:
                 spacing="4",
                 width="100%",
             ),
-            width="min(760px, 96vw)",
+            width=HORARIO_MODAL_WIDTH,
         ),
         open=AsistenciasState.modal_horario_abierto,
     )
@@ -1106,7 +1133,7 @@ def modal_supervision() -> rx.Component:
                         value=AsistenciasState.form_supervision_notas,
                         on_change=AsistenciasState.set_form_supervision_notas,
                         placeholder="Notas de cobertura, excepciones o contexto",
-                        min_height="100px",
+                        min_height=SUPERVISION_NOTES_MIN_HEIGHT,
                         width="100%",
                     ),
                     spacing="1",
@@ -1129,7 +1156,7 @@ def modal_supervision() -> rx.Component:
                 spacing="4",
                 width="100%",
             ),
-            width="min(620px, 96vw)",
+            width=SUPERVISION_MODAL_WIDTH,
         ),
         open=AsistenciasState.modal_supervision_abierto,
     )

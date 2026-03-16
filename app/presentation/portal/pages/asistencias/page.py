@@ -16,6 +16,8 @@ from .components import (
 )
 from .state import AsistenciasState
 
+ASISTENCIAS_PAGE_MAX_WIDTH = "900px"
+
 
 def asistencias_page() -> rx.Component:
     """Pagina principal del modulo de asistencias."""
@@ -47,7 +49,7 @@ def asistencias_page() -> rx.Component:
                 ),
             ),
             width="100%",
-            max_width="900px",
+            max_width=ASISTENCIAS_PAGE_MAX_WIDTH,
             margin_x="auto",
         ),
         width="100%",

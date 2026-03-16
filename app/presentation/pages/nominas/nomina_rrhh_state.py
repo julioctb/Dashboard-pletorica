@@ -6,13 +6,18 @@ captura de descuentos y envío a Contabilidad.
 """
 import logging
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 import reflex as rx
 
 from app.core.ui_helpers import FILTRO_TODOS, rango_paginacion
-from app.core.text_utils import formatear_fecha, formatear_fecha_hora, formatear_moneda
+from app.core.text_utils import (
+    capitalizar_palabras,
+    formatear_fecha,
+    formatear_fecha_hora,
+    formatear_moneda,
+)
 from app.core.utils import normalize_date_input, parse_date_input
 from app.core.validation import limpiar_moneda
 from app.core.enums import TipoPeriodoNomina
@@ -23,6 +28,37 @@ from app.services.nomina_periodo_service import nomina_periodo_service
 from app.database import db_manager
 
 logger = logging.getLogger(__name__)
+
+
+def _round2(valor: Decimal) -> Decimal:
+    return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _decimal_desde_valor(valor: object) -> Decimal:
+    try:
+        return Decimal(str(valor or 0))
+    except Exception:
+        return Decimal("0")
+
+
+def _monto_extras_preview(
+    salario_diario: Decimal,
+    horas_dobles: Decimal,
+    horas_triples: Decimal,
+    domingos: int,
+) -> Decimal:
+    return _round2(
+        (salario_diario / Decimal("8") * Decimal("2") * horas_dobles)
+        + (salario_diario / Decimal("8") * Decimal("3") * horas_triples)
+        + (salario_diario * Decimal("0.25") * Decimal(str(domingos or 0)))
+    )
+
+
+def _monto_descuentos_preview(descuentos: list[dict]) -> Decimal:
+    total = Decimal("0")
+    for descuento in descuentos or []:
+        total += _decimal_desde_valor(descuento.get("monto_valor"))
+    return _round2(total)
 
 # Conceptos capturables por RRHH (origin=RRHH, es_automatico=False)
 CONCEPTOS_RRHH = [
@@ -55,6 +91,11 @@ class NominaRRHHState(NominaBaseState):
     filtro_sede_empleados_preparacion: str = FILTRO_TODOS
     pagina_empleados_preparacion: int = 1
     por_pagina_empleados_preparacion: int = 20
+    columna_orden_empleados_preparacion: str = "nombre"
+    orden_desc_empleados_preparacion: bool = False
+    empleados_periodo_presentacion_data: list[dict] = []
+    opciones_sede_empleados_preparacion_data: list[dict] = []
+    resumen_preparacion_data: dict = {}
 
     # Filtro de períodos
     filtro_anio_periodos: str = str(date.today().year)
@@ -124,6 +165,14 @@ class NominaRRHHState(NominaBaseState):
         )
 
     @rx.var
+    def periodo_calculado(self) -> bool:
+        return self.periodo_actual.get("estatus") == "CALCULADO"
+
+    @rx.var
+    def periodo_cerrado(self) -> bool:
+        return self.periodo_actual.get("estatus") == "CERRADO"
+
+    @rx.var
     def puede_editar_descuentos(self) -> bool:
         return (
             self.periodo_actual.get('estatus') == 'EN_PREPARACION_RRHH'
@@ -138,8 +187,31 @@ class NominaRRHHState(NominaBaseState):
         )
 
     @rx.var
+    def mostrar_accion_header_preparacion(self) -> bool:
+        return (
+            self.periodo_es_borrador
+            or self.periodo_en_preparacion
+            or (self.periodo_calculado and self.puede_abrir_calculo)
+        )
+
+    @rx.var
     def nombre_periodo_actual(self) -> str:
         return self.periodo_actual.get('nombre', 'Período')
+
+    @rx.var
+    def periodo_rango_compacto(self) -> str:
+        fecha_inicio = str(self.periodo_actual.get("fecha_inicio_fmt") or "").strip()
+        fecha_fin = str(self.periodo_actual.get("fecha_fin_fmt") or "").strip()
+        if not fecha_inicio or not fecha_fin:
+            return "Sin dato"
+        inicio_compacto = fecha_inicio[:5] if len(fecha_inicio) >= 5 else fecha_inicio
+        return f"{inicio_compacto} — {fecha_fin}"
+
+    @rx.var
+    def periodo_tipo_ficha_label(self) -> str:
+        if self.periodo_actual_es_aguinaldo:
+            return "Extraordinaria"
+        return "Ordinaria"
 
     @rx.var
     def tiene_periodos(self) -> bool:
@@ -162,36 +234,126 @@ class NominaRRHHState(NominaBaseState):
 
     @rx.var
     def opciones_sede_empleados_preparacion(self) -> list[dict]:
-        sedes = sorted(
-            {
-                str(empleado.get("sede_nombre") or "").strip() or "Sin sede"
-                for empleado in self.empleados_periodo
-            }
-        )
-        return [{"value": FILTRO_TODOS, "label": "Todas las sedes"}] + [
-            {"value": sede, "label": sede}
-            for sede in sedes
-        ]
+        if self.opciones_sede_empleados_preparacion_data:
+            return self.opciones_sede_empleados_preparacion_data
+        return self._opciones_sede_preparacion_vacias()
+
+    @rx.var
+    def dias_completos_esperados_preparacion(self) -> int:
+        if self.periodo_actual_es_aguinaldo:
+            return 0
+        periodicidad = str(self.periodo_actual.get("periodicidad") or "").upper()
+        if periodicidad == "QUINCENAL":
+            return 15
+        if periodicidad == "SEMANAL":
+            return 7
+        if periodicidad == "MENSUAL":
+            try:
+                fecha_inicio = date.fromisoformat(str(self.periodo_actual.get("fecha_inicio")))
+                fecha_fin = date.fromisoformat(str(self.periodo_actual.get("fecha_fin")))
+                return max((fecha_fin - fecha_inicio).days + 1, 0)
+            except Exception:
+                return 30
+        return 0
+
+    @rx.var
+    def empleados_periodo_presentacion(self) -> list[dict]:
+        return self.empleados_periodo_presentacion_data
 
     @rx.var
     def empleados_periodo_filtrados(self) -> list[dict]:
-        empleados = self.empleados_periodo
+        empleados = self.empleados_periodo_presentacion
         if self.filtro_sede_empleados_preparacion not in ("", FILTRO_TODOS):
             empleados = [
                 empleado
                 for empleado in empleados
-                if (str(empleado.get("sede_nombre") or "").strip() or "Sin sede")
+                if (str(empleado.get("sede_display") or "").strip() or "SIN SEDE")
                 == self.filtro_sede_empleados_preparacion
             ]
         termino = (self.filtro_busqueda_empleados or "").strip().lower()
         if not termino:
-            return empleados
-        return [
-            empleado
-            for empleado in empleados
-            if termino in str(empleado.get("nombre_empleado", "") or "").lower()
-            or termino in str(empleado.get("sede_nombre", "") or "").lower()
-        ]
+            filtrados = empleados
+        else:
+            filtrados = [
+                empleado
+                for empleado in empleados
+                if termino in str(empleado.get("nombre_empleado_fmt", "") or "").lower()
+                or termino in str(empleado.get("sede_display", "") or "").lower()
+            ]
+
+        reverse = bool(self.orden_desc_empleados_preparacion)
+        columna = str(self.columna_orden_empleados_preparacion or "nombre")
+        key_map = {
+            "nombre": lambda item: str(item.get("sort_nombre") or ""),
+            "sede": lambda item: str(item.get("sort_sede") or ""),
+            "salario": lambda item: float(item.get("sort_salario") or 0),
+            "faltas": lambda item: int(item.get("sort_faltas") or 0),
+            "extras": lambda item: float(item.get("sort_extras") or 0),
+            "descuentos": lambda item: float(item.get("sort_descuentos") or 0),
+            "neto": lambda item: float(item.get("sort_neto") or 0),
+        }
+        sort_key = key_map.get(columna, key_map["nombre"])
+        return sorted(
+            filtrados,
+            key=sort_key,
+            reverse=reverse,
+        )
+
+    @rx.var
+    def total_empleados_resumen_preparacion(self) -> int:
+        return int(self.resumen_preparacion_data.get("total_empleados") or 0)
+
+    @rx.var
+    def total_neto_resumen_preparacion(self) -> float:
+        return float(self.resumen_preparacion_data.get("total_neto") or 0)
+
+    @rx.var
+    def total_neto_resumen_preparacion_fmt(self) -> str:
+        return str(
+            self.resumen_preparacion_data.get("total_neto_fmt")
+            or formatear_moneda("0.00")
+        )
+
+    @rx.var
+    def total_descuentos_resumen_preparacion(self) -> float:
+        return float(self.resumen_preparacion_data.get("total_descuentos") or 0)
+
+    @rx.var
+    def total_descuentos_resumen_preparacion_fmt(self) -> str:
+        return str(
+            self.resumen_preparacion_data.get("total_descuentos_fmt")
+            or formatear_moneda("0.00")
+        )
+
+    @rx.var
+    def total_transferencias_resumen_preparacion(self) -> int:
+        return int(self.resumen_preparacion_data.get("total_transferencias") or 0)
+
+    @rx.var
+    def total_efectivo_resumen_preparacion(self) -> int:
+        return int(self.resumen_preparacion_data.get("total_efectivo") or 0)
+
+    @rx.var
+    def monto_transferencias_resumen_preparacion(self) -> float:
+        return float(self.resumen_preparacion_data.get("monto_transferencias") or 0)
+
+    @rx.var
+    def monto_transferencias_resumen_preparacion_fmt(self) -> str:
+        return str(
+            self.resumen_preparacion_data.get("monto_transferencias_fmt")
+            or formatear_moneda("0.00")
+        )
+
+    @rx.var
+    def monto_efectivo_resumen_preparacion(self) -> float:
+        return float(self.resumen_preparacion_data.get("monto_efectivo") or 0)
+
+    @rx.var
+    def monto_efectivo_resumen_preparacion_fmt(self) -> str:
+        return str(
+            self.resumen_preparacion_data.get("monto_efectivo_fmt")
+            or formatear_moneda("0.00")
+        )
 
     @rx.var
     def tiene_empleados_filtrados(self) -> bool:
@@ -476,6 +638,23 @@ class NominaRRHHState(NominaBaseState):
         self.filtro_sede_empleados_preparacion = value or FILTRO_TODOS
         self.pagina_empleados_preparacion = 1
 
+    def ordenar_tabla_empleados_preparacion(self, columna: str):
+        valor = str(columna or "nombre").strip().lower() or "nombre"
+        if self.columna_orden_empleados_preparacion == valor:
+            self.orden_desc_empleados_preparacion = (
+                not self.orden_desc_empleados_preparacion
+            )
+        else:
+            self.columna_orden_empleados_preparacion = valor
+            self.orden_desc_empleados_preparacion = valor in {
+                "salario",
+                "faltas",
+                "extras",
+                "descuentos",
+                "neto",
+            }
+        self.pagina_empleados_preparacion = 1
+
     def ir_a_pagina_empleados_preparacion(self, pagina: int):
         self.pagina_empleados_preparacion = int(pagina) if pagina else 1
         self._ajustar_pagina_empleados_preparacion()
@@ -541,6 +720,140 @@ class NominaRRHHState(NominaBaseState):
         """Mantiene `periodo_actual` con campos visibles derivados."""
         self.periodo_actual = self._serializar_periodo_ui(periodo)
 
+    @staticmethod
+    def _opciones_sede_preparacion_vacias() -> list[dict]:
+        return [{"value": FILTRO_TODOS, "label": "Todas las sedes"}]
+
+    @staticmethod
+    def _resumen_preparacion_vacio() -> dict:
+        return {
+            "total_empleados": 0,
+            "total_neto": 0.0,
+            "total_neto_fmt": formatear_moneda("0.00"),
+            "total_descuentos": 0.0,
+            "total_descuentos_fmt": formatear_moneda("0.00"),
+            "total_transferencias": 0,
+            "monto_transferencias": 0.0,
+            "monto_transferencias_fmt": formatear_moneda("0.00"),
+            "total_efectivo": 0,
+            "monto_efectivo": 0.0,
+            "monto_efectivo_fmt": formatear_moneda("0.00"),
+        }
+
+    def _hidratar_presentacion_preparacion(self) -> None:
+        empleados: list[dict] = []
+        sedes: set[str] = set()
+        dias_completos = self.dias_completos_esperados_preparacion
+        es_aguinaldo = self.periodo_actual_es_aguinaldo
+        total_neto = Decimal("0")
+        total_descuentos = Decimal("0")
+        total_transferencias = 0
+        total_efectivo = 0
+        monto_transferencias = Decimal("0")
+        monto_efectivo = Decimal("0")
+
+        for empleado in self.empleados_periodo:
+            row = dict(empleado)
+            nombre = capitalizar_palabras(str(row.get("nombre_empleado") or "").strip())
+            sede = str(row.get("sede_nombre") or "").strip() or "SIN SEDE"
+            salario_diario = _round2(_decimal_desde_valor(row.get("salario_diario")))
+            horas_dobles = _decimal_desde_valor(row.get("horas_extra_dobles"))
+            horas_triples = _decimal_desde_valor(row.get("horas_extra_triples"))
+            domingos = int(row.get("domingos_trabajados") or 0)
+            dias_trabajados_ui = int(
+                row.get("dias_trabajados_ui") or row.get("dias_trabajados") or 0
+            )
+            faltas = int(row.get("dias_faltas") or 0)
+            descuentos = _monto_descuentos_preview(row.get("descuentos_rrhh") or [])
+            tiene_transferencia = bool(
+                str(row.get("clabe_destino") or "").strip()
+                or str(row.get("banco_destino") or "").strip()
+            )
+
+            if es_aguinaldo:
+                extras = Decimal("0")
+                neto = _round2(_decimal_desde_valor(row.get("monto_aguinaldo_bruto")))
+            else:
+                extras = _monto_extras_preview(
+                    salario_diario,
+                    horas_dobles,
+                    horas_triples,
+                    domingos,
+                )
+                neto = _round2(
+                    (salario_diario * Decimal(str(dias_trabajados_ui)))
+                    + extras
+                    - descuentos
+                )
+
+            row["nombre_empleado_fmt"] = nombre
+            row["sede_display"] = sede
+            row["salario_diario_fmt"] = formatear_moneda(f"{salario_diario:.2f}")
+            row["extras_preview"] = float(extras)
+            row["extras_preview_fmt"] = (
+                formatear_moneda(f"{extras:.2f}") if extras > 0 else "—"
+            )
+            row["descuentos_preview"] = float(descuentos)
+            row["descuentos_preview_fmt"] = (
+                formatear_moneda(f"{descuentos:.2f}") if descuentos > 0 else "—"
+            )
+            row["neto_preview"] = float(neto)
+            row["neto_preview_fmt"] = formatear_moneda(f"{neto:.2f}")
+            row["dias_completos_esperados"] = dias_completos
+            row["dias_completos"] = (
+                dias_completos > 0 and dias_trabajados_ui >= dias_completos
+            )
+            row["medio_pago_label"] = "Transferencia" if tiene_transferencia else "Efectivo"
+            row["medio_pago_badge"] = "Transf." if tiene_transferencia else "Efectivo"
+            row["medio_pago_scheme"] = "blue" if tiene_transferencia else "amber"
+            row["sort_nombre"] = nombre.lower()
+            row["sort_sede"] = sede.lower()
+            row["sort_salario"] = float(salario_diario)
+            row["sort_faltas"] = faltas
+            row["sort_extras"] = float(extras)
+            row["sort_descuentos"] = float(descuentos)
+            row["sort_neto"] = float(neto)
+            empleados.append(row)
+            sedes.add(sede)
+            total_neto += neto
+            total_descuentos += descuentos
+            if tiene_transferencia:
+                total_transferencias += 1
+                monto_transferencias += neto
+            else:
+                total_efectivo += 1
+                monto_efectivo += neto
+
+        opciones_sede = self._opciones_sede_preparacion_vacias() + [
+            {"value": sede, "label": sede}
+            for sede in sorted(sedes)
+        ]
+        valores_sede = {str(item.get("value") or "") for item in opciones_sede}
+        if self.filtro_sede_empleados_preparacion not in valores_sede:
+            self.filtro_sede_empleados_preparacion = FILTRO_TODOS
+
+        self.empleados_periodo_presentacion_data = empleados
+        self.opciones_sede_empleados_preparacion_data = opciones_sede
+        self.resumen_preparacion_data = {
+            "total_empleados": len(empleados),
+            "total_neto": float(_round2(total_neto)),
+            "total_neto_fmt": formatear_moneda(f"{_round2(total_neto):.2f}"),
+            "total_descuentos": float(_round2(total_descuentos)),
+            "total_descuentos_fmt": formatear_moneda(
+                f"{_round2(total_descuentos):.2f}"
+            ),
+            "total_transferencias": total_transferencias,
+            "monto_transferencias": float(_round2(monto_transferencias)),
+            "monto_transferencias_fmt": formatear_moneda(
+                f"{_round2(monto_transferencias):.2f}"
+            ),
+            "total_efectivo": total_efectivo,
+            "monto_efectivo": float(_round2(monto_efectivo)),
+            "monto_efectivo_fmt": formatear_moneda(
+                f"{_round2(monto_efectivo):.2f}"
+            ),
+        }
+
     # =========================================================================
     # MONTAJE
     # =========================================================================
@@ -587,11 +900,22 @@ class NominaRRHHState(NominaBaseState):
     async def _cargar_empleados(self, periodo_id: int):
         self.loading = True
         try:
-            self.empleados_periodo = await nomina_periodo_service.obtener_empleados_periodo(
-                periodo_id
+            self.empleados_periodo = (
+                await nomina_periodo_service.obtener_empleados_periodo_contexto(
+                    periodo_id,
+                    periodo_data=self.periodo_actual or None,
+                    incluir_categorias=False,
+                )
             )
+            self._hidratar_presentacion_preparacion()
             self._ajustar_pagina_empleados_preparacion()
         except Exception as e:
+            self.empleados_periodo = []
+            self.empleados_periodo_presentacion_data = []
+            self.opciones_sede_empleados_preparacion_data = (
+                self._opciones_sede_preparacion_vacias()
+            )
+            self.resumen_preparacion_data = self._resumen_preparacion_vacio()
             self.manejar_error(e, "cargar empleados del período")
         finally:
             self.loading = False
@@ -919,7 +1243,6 @@ class NominaRRHHState(NominaBaseState):
         self.filtro_busqueda_empleados = ""
         self.filtro_sede_empleados_preparacion = FILTRO_TODOS
         self.pagina_empleados_preparacion = 1
-        await self._cargar_empleados(periodo['id'])
         yield rx.redirect(self.nomina_preparacion_path)
 
     # =========================================================================

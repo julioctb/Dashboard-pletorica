@@ -390,15 +390,55 @@ class SupabasePlazaRepository:
         self,
         contrato_id: int,
         incluir_canceladas: bool = False,
+        limite: Optional[int] = None,
+        offset: int = 0,
     ) -> list[dict]:
         try:
             query = self.supabase.table(self.tabla).select("*").eq("contrato_id", contrato_id)
             if not incluir_canceladas:
                 query = query.neq("estatus", EstatusPlaza.CANCELADA.value)
-            result = query.order("numero_plaza", desc=False).execute()
+            query = query.order("numero_plaza", desc=False)
+            if limite is not None:
+                query = query.range(offset, offset + limite - 1)
+            result = query.execute()
             return await self._construir_resumen(result.data or [])
         except Exception as e:
             logger.error(f"Error obteniendo resumen de plazas del contrato {contrato_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def obtener_resumen_ocupadas_por_empresa(self, empresa_id: int) -> list[dict]:
+        try:
+            contratos_result = (
+                self.supabase.table("contratos")
+                .select("id")
+                .eq("empresa_id", empresa_id)
+                .execute()
+            )
+            contrato_ids = [
+                int(item.get("id") or 0)
+                for item in (contratos_result.data or [])
+                if int(item.get("id") or 0) > 0
+            ]
+            if not contrato_ids:
+                return []
+
+            result = (
+                self.supabase.table(self.tabla)
+                .select("*")
+                .in_("contrato_id", contrato_ids)
+                .eq("estatus", EstatusPlaza.OCUPADA.value)
+                .not_.is_("empleado_id", "null")
+                .order("contrato_id", desc=False)
+                .order("numero_plaza", desc=False)
+                .execute()
+            )
+            return await self._construir_resumen(result.data or [])
+        except Exception as e:
+            logger.error(
+                "Error obteniendo resumen de plazas ocupadas empresa=%s: %s",
+                empresa_id,
+                e,
+            )
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_resumen_por_categoria(
