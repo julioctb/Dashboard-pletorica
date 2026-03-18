@@ -45,6 +45,8 @@ class Colors:
     PORTAL_PRIMARY_TEXT = "var(--teal-11)"    # Texto con color primario
     PORTAL_PRIMARY_LIGHT = "var(--teal-3)"    # Fondos sutiles
     PORTAL_PRIMARY_LIGHTER = "var(--teal-2)"  # Fondos muy sutiles
+    PORTAL_ACCENT_SCHEME = "teal"             # Nombre del color scheme Radix — usar en color_scheme= de botones, badges, etc.
+    NEUTRAL_SCHEME = "gray"                   # Color scheme Radix neutral — badges informativos, iconos, elementos sin énfasis
 
     # === FONDOS ===
     BG_APP = "#F8FAFC"            # Fondo general de la aplicación
@@ -83,8 +85,13 @@ class Colors:
     SIDEBAR_BG = "#FFFFFF"            # Fondo del sidebar
     SIDEBAR_BORDER = "#E2E8F0"        # Borde derecho del sidebar
     SIDEBAR_ITEM_HOVER = "#F1F5F9"    # Hover en items del sidebar
-    SIDEBAR_ITEM_ACTIVE = "#DBEAFE"   # Fondo del item activo
-    SIDEBAR_ITEM_ACTIVE_TEXT = "#1E40AF"  # Texto del item activo
+    SIDEBAR_ITEM_ACTIVE = "#DBEAFE"   # Fondo del item activo (backoffice)
+    SIDEBAR_ITEM_ACTIVE_TEXT = "#1E40AF"  # Texto del item activo (backoffice)
+
+    # Sidebar portal (teal)
+    PORTAL_SIDEBAR_ITEM_HOVER = "var(--teal-2)"
+    PORTAL_SIDEBAR_ITEM_ACTIVE = "var(--teal-3)"
+    PORTAL_SIDEBAR_ITEM_ACTIVE_TEXT = "var(--teal-11)"
 
 
 class StatusColors:

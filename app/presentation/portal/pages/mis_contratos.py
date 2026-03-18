@@ -19,9 +19,9 @@ from app.presentation.components.ui import (
     entity_card,
     entity_grid,
     boton_cancelar,
-    boton_eliminar,
     contador_registros,
     filtros_inline,
+    modal_confirmar_accion,
     status_badge_reactive,
 )
 from app.presentation.theme import Colors, Typography, Spacing
@@ -322,13 +322,13 @@ def _card_contrato(cto: dict) -> rx.Component:
         subtitulo=cto["descripcion_objeto_display"],
         status=cto["estatus"],
         badge_superior=rx.badge(
-            cto["tipo_contrato"],
-            color_scheme="teal",
+            cto["tipo_contrato_fmt"],
+            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             variant="soft",
             size="1",
         ),
         campos=[
-            ("Folio institución", rx.cond(cto["numero_folio_buap"], cto["numero_folio_buap"], "-")),
+            ("Folio institucion", rx.cond(cto["numero_folio_buap"], cto["numero_folio_buap"], "\u2014")),
             ("Inicio", cto["fecha_inicio_fmt"]),
             ("Fin", rx.cond(cto["fecha_fin"], cto["fecha_fin_fmt"], "Indefinido")),
         ],
@@ -427,8 +427,8 @@ def _modal_detalle_contrato() -> rx.Component:
                             ),
                             rx.hstack(
                                 rx.badge(
-                                    datos["tipo_contrato"],
-                                    color_scheme="teal",
+                                    datos["tipo_contrato_fmt"],
+                                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                                     variant="soft",
                                     size="1",
                                 ),
@@ -449,6 +449,14 @@ def _modal_detalle_contrato() -> rx.Component:
                             datos["estatus"],
                             show_icon=True,
                         ),
+                        rx.icon_button(
+                            rx.icon("x", size=18),
+                            variant="ghost",
+                            color_scheme=Colors.NEUTRAL_SCHEME,
+                            size="2",
+                            on_click=MisContratosState.cerrar_detalle,
+                            cursor="pointer",
+                        ),
                         width="100%",
                         align="start",
                     ),
@@ -466,7 +474,7 @@ def _modal_detalle_contrato() -> rx.Component:
                                     rx.icon("pencil", size=16),
                                     "Editar contrato",
                                     on_click=MisContratosState.abrir_edicion_contrato,
-                                    color_scheme="teal",
+                                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                                     variant="soft",
                                     disabled=MisContratosState.saving_accion_contrato,
                                 ),
@@ -491,7 +499,7 @@ def _modal_detalle_contrato() -> rx.Component:
                                     "Suspender",
                                     on_click=MisContratosState.suspender_contrato,
                                     color_scheme="amber",
-                                    variant="soft",
+                                    variant="outline",
                                     disabled=MisContratosState.saving_accion_contrato,
                                 ),
                                 rx.fragment(),
@@ -515,7 +523,7 @@ def _modal_detalle_contrato() -> rx.Component:
                                     "Cancelar contrato",
                                     on_click=MisContratosState.abrir_confirmar_cancelar,
                                     color_scheme="red",
-                                    variant="soft",
+                                    variant="outline",
                                     disabled=MisContratosState.saving_accion_contrato,
                                 ),
                                 rx.fragment(),
@@ -552,41 +560,25 @@ def _modal_detalle_contrato() -> rx.Component:
 def _modal_confirmar_cancelar() -> rx.Component:
     """Modal de confirmación para cancelar el contrato desde el portal."""
     datos = MisContratosState.contrato_detalle
-
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title("Cancelar contrato"),
-            rx.dialog.description(
-                rx.cond(
-                    datos,
-                    rx.text(
-                        "¿Está seguro que desea cancelar el contrato ",
-                        rx.text(datos["codigo"], weight="bold", as_="span"),
-                        "? Esta acción no se puede deshacer.",
-                    ),
-                    rx.text("¿Está seguro que desea cancelar este contrato?"),
-                ),
-            ),
-            rx.hstack(
-                boton_cancelar(
-                    texto="No, conservar",
-                    on_click=MisContratosState.cerrar_confirmar_cancelar,
-                    disabled=MisContratosState.saving_accion_contrato,
-                ),
-                boton_eliminar(
-                    texto="Sí, cancelar",
-                    texto_eliminando="Cancelando...",
-                    on_click=MisContratosState.cancelar_contrato,
-                    saving=MisContratosState.saving_accion_contrato,
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-            ),
-            max_width="500px",
-        ),
+    return modal_confirmar_accion(
         open=MisContratosState.mostrar_modal_confirmar_cancelar,
-        on_open_change=rx.noop,
+        titulo="Cancelar contrato",
+        mensaje=rx.cond(
+            datos,
+            rx.text(
+                "¿Está seguro que desea cancelar el contrato ",
+                rx.text(datos["codigo"], weight="bold", as_="span"),
+                "? Esta acción no se puede deshacer.",
+            ),
+            rx.text("¿Está seguro que desea cancelar este contrato?"),
+        ),
+        on_confirmar=MisContratosState.cancelar_contrato,
+        on_cancelar=MisContratosState.cerrar_confirmar_cancelar,
+        loading=MisContratosState.saving_accion_contrato,
+        texto_confirmar="Sí, cancelar",
+        texto_confirmando="Cancelando...",
+        texto_cancelar="No, conservar",
+        color_confirmar="red",
     )
 
 
