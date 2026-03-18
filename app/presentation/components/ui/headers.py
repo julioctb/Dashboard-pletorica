@@ -1,14 +1,18 @@
-"""Componentes genéricos de headers para páginas"""
+"""Componentes genéricos de headers para páginas."""
 import reflex as rx
 
 from typing import Callable
-from app.presentation.theme import Colors, Typography
+
+from app.presentation.theme import Colors
+
 
 def page_header(
     icono: str | None,
-    titulo: str,
+    titulo: str = "",
     *,
     subtitulo: str = "",
+    titulo_compuesto: rx.Component | None = None,
+    subtitulo_compuesto: rx.Component | None = None,
     icono_boton: str = "",
     texto_boton: str = "",
     onclick: Callable | None = None,
@@ -21,6 +25,8 @@ def page_header(
         icono: Nombre del icono del título
         titulo: Texto del título
         subtitulo: Texto opcional del subtítulo
+        titulo_compuesto: Slot opcional para renderizar un título ya construido
+        subtitulo_compuesto: Slot opcional para renderizar un subtítulo ya construido
         icono_boton: Icono del botón (vacío = sin icono, API legacy)
         texto_boton: Texto del botón (vacío = sin botón, API legacy)
         onclick: Función al hacer click en el botón (API legacy)
@@ -41,15 +47,21 @@ def page_header(
                 rx.fragment(),
             ),
             rx.vstack(
-                rx.text(titulo, size="6", weight="bold"),
-                rx.cond(
-                    subtitulo != "",
-                    rx.text(
-                        subtitulo,
-                        size="3",
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    rx.fragment()
+                titulo_compuesto
+                if titulo_compuesto is not None
+                else rx.text(titulo, size="6", weight="bold"),
+                (
+                    subtitulo_compuesto
+                    if subtitulo_compuesto is not None
+                    else rx.cond(
+                        subtitulo != "",
+                        rx.text(
+                            subtitulo,
+                            size="3",
+                            color=Colors.TEXT_SECONDARY,
+                        ),
+                        rx.fragment(),
+                    )
                 ),
                 spacing="1",
                 align_items="start",

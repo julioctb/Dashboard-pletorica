@@ -6,73 +6,52 @@ from app.presentation.pages.instituciones.instituciones_state import Institucion
 from app.presentation.components.ui.form_input import (
     form_input,
     form_select,
-    form_row,
 )
-from app.presentation.components.ui.modals import modal_confirmar_accion
-from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
+from app.presentation.components.ui.modals import modal_confirmar_accion, modal_formulario, modal_detalle
 from app.presentation.theme import Colors, Spacing, Typography
 
 
 def modal_institucion() -> rx.Component:
     """Modal para crear o editar institucion"""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(
-                rx.cond(
-                    InstitucionesState.es_edicion,
-                    "Editar Institucion",
-                    "Nueva Institucion",
-                )
-            ),
-            rx.dialog.description(
-                rx.vstack(
-                    form_input(
-                        label="Nombre",
-                        required=True,
-                        placeholder="Ej: Benemerita Universidad Autonoma de Puebla",
-                        value=InstitucionesState.form_nombre,
-                        on_change=InstitucionesState.set_form_nombre,
-                        on_blur=InstitucionesState.validar_nombre_campo,
-                        error=InstitucionesState.error_nombre,
-                        max_length=200,
-                    ),
-                    form_input(
-                        label="Codigo",
-                        required=True,
-                        placeholder="Ej: BUAP, GOB-PUE",
-                        hint="Identificador unico corto",
-                        value=InstitucionesState.form_codigo,
-                        on_change=InstitucionesState.set_form_codigo,
-                        on_blur=InstitucionesState.validar_codigo_campo,
-                        error=InstitucionesState.error_codigo,
-                        max_length=20,
-                    ),
-                    spacing="4",
-                    width="100%",
-                    padding_y="4",
-                ),
-            ),
-            # Botones
-            rx.hstack(
-                boton_cancelar(
-                    on_click=InstitucionesState.cerrar_modal_institucion,
-                ),
-                boton_guardar(
-                    texto="Guardar",
-                    texto_guardando="Guardando...",
-                    on_click=InstitucionesState.guardar_institucion,
-                    saving=InstitucionesState.saving,
-                    disabled=~InstitucionesState.puede_guardar,
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-                padding_top="4",
-            ),
-            max_width="450px",
-        ),
+    return modal_formulario(
         open=InstitucionesState.mostrar_modal_institucion,
-        on_open_change=rx.noop,
+        titulo=rx.cond(
+            InstitucionesState.es_edicion,
+            "Editar Institucion",
+            "Nueva Institucion",
+        ),
+        icono="building-2",
+        on_guardar=InstitucionesState.guardar_institucion,
+        on_cancelar=InstitucionesState.cerrar_modal_institucion,
+        puede_guardar=InstitucionesState.puede_guardar,
+        loading=InstitucionesState.saving,
+        max_width="450px",
+        contenido=rx.vstack(
+            form_input(
+                label="Nombre",
+                required=True,
+                placeholder="Ej: Benemerita Universidad Autonoma de Puebla",
+                value=InstitucionesState.form_nombre,
+                on_change=InstitucionesState.set_form_nombre,
+                on_blur=InstitucionesState.validar_nombre_campo,
+                error=InstitucionesState.error_nombre,
+                max_length=200,
+            ),
+            form_input(
+                label="Codigo",
+                required=True,
+                placeholder="Ej: BUAP, GOB-PUE",
+                hint="Identificador unico corto",
+                value=InstitucionesState.form_codigo,
+                on_change=InstitucionesState.set_form_codigo,
+                on_blur=InstitucionesState.validar_codigo_campo,
+                error=InstitucionesState.error_codigo,
+                max_length=20,
+            ),
+            spacing="4",
+            width="100%",
+            padding_y="4",
+        ),
     )
 
 
@@ -108,85 +87,71 @@ def _fila_empresa_asignada(asignacion: dict) -> rx.Component:
 
 def modal_gestionar_empresas() -> rx.Component:
     """Modal para asignar/quitar empresas de una institucion."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title("Gestionar Empresas"),
-            rx.dialog.description(
-                rx.vstack(
-                    # Selector para agregar empresa
-                    rx.hstack(
-                        rx.box(
-                            form_select(
-                                label="Agregar empresa",
-                                placeholder="Seleccione empresa...",
-                                options=InstitucionesState.opciones_empresas,
-                                value=InstitucionesState.form_empresa_id,
-                                on_change=InstitucionesState.set_form_empresa_id,
-                            ),
-                            flex="1",
-                        ),
-                        rx.button(
-                            rx.icon("plus", size=16),
-                            "Asignar",
-                            on_click=InstitucionesState.asignar_empresa,
-                            disabled=InstitucionesState.form_empresa_id == "",
-                            color_scheme="blue",
-                            size="2",
-                        ),
-                        width="100%",
-                        align="end",
-                        gap=Spacing.SM,
-                    ),
-
-                    rx.divider(),
-
-                    # Lista de empresas asignadas
-                    rx.text(
-                        "Empresas asignadas",
-                        font_weight=Typography.WEIGHT_BOLD,
-                        font_size=Typography.SIZE_SM,
-                    ),
-                    rx.cond(
-                        InstitucionesState.empresas_asignadas.length() > 0,
-                        rx.vstack(
-                            rx.foreach(
-                                InstitucionesState.empresas_asignadas,
-                                _fila_empresa_asignada,
-                            ),
-                            spacing="1",
-                            width="100%",
-                            max_height="250px",
-                            overflow_y="auto",
-                        ),
-                        rx.center(
-                            rx.text(
-                                "Sin empresas asignadas",
-                                font_size=Typography.SIZE_SM,
-                                color=Colors.TEXT_MUTED,
-                            ),
-                            padding="4",
-                        ),
-                    ),
-
-                    spacing="4",
-                    width="100%",
-                    padding_y="4",
-                ),
-            ),
-            # Boton cerrar
-            rx.hstack(
-                boton_cancelar(
-                    on_click=InstitucionesState.cerrar_modal_empresas,
-                    texto="Cerrar",
-                ),
-                justify="end",
-                width="100%",
-                padding_top="4",
-            ),
-            max_width="500px",
-        ),
+    return modal_detalle(
         open=InstitucionesState.mostrar_modal_empresas,
-        on_open_change=rx.noop,
+        titulo="Gestionar Empresas",
+        on_cerrar=InstitucionesState.cerrar_modal_empresas,
+        max_width="500px",
+        contenido=rx.vstack(
+            # Selector para agregar empresa
+            rx.hstack(
+                rx.box(
+                    form_select(
+                        label="Agregar empresa",
+                        placeholder="Seleccione empresa...",
+                        options=InstitucionesState.opciones_empresas,
+                        value=InstitucionesState.form_empresa_id,
+                        on_change=InstitucionesState.set_form_empresa_id,
+                    ),
+                    flex="1",
+                ),
+                rx.button(
+                    rx.icon("plus", size=16),
+                    "Asignar",
+                    on_click=InstitucionesState.asignar_empresa,
+                    disabled=InstitucionesState.form_empresa_id == "",
+                    color_scheme="blue",
+                    size="2",
+                ),
+                width="100%",
+                align="end",
+                gap=Spacing.SM,
+            ),
+
+            rx.divider(),
+
+            # Lista de empresas asignadas
+            rx.text(
+                "Empresas asignadas",
+                font_weight=Typography.WEIGHT_BOLD,
+                font_size=Typography.SIZE_SM,
+            ),
+            rx.cond(
+                InstitucionesState.empresas_asignadas.length() > 0,
+                rx.vstack(
+                    rx.foreach(
+                        InstitucionesState.empresas_asignadas,
+                        _fila_empresa_asignada,
+                    ),
+                    spacing="1",
+                    width="100%",
+                    max_height="250px",
+                    overflow_y="auto",
+                ),
+                rx.center(
+                    rx.text(
+                        "Sin empresas asignadas",
+                        font_size=Typography.SIZE_SM,
+                        color=Colors.TEXT_MUTED,
+                    ),
+                    padding="4",
+                ),
+            ),
+
+            spacing="4",
+            width="100%",
+            padding_y="4",
+        ),
     )
 
 

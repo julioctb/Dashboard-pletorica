@@ -3,7 +3,92 @@ import reflex as rx
 from typing import Any
 from reflex.vars.base import Var, var_operation, var_operation_return
 
-from app.presentation.theme import Colors, Typography
+from app.presentation.theme import (
+    Colors,
+    FORM_ERROR_STYLE,
+    FORM_LABEL_STYLE,
+    Radius,
+    Spacing,
+    Typography,
+)
+
+
+PORTAL_LABEL_STYLE = {
+    **FORM_LABEL_STYLE,
+    "font_size": Typography.SIZE_XS,
+    "font_weight": Typography.WEIGHT_MEDIUM,
+    "color": Colors.TEXT_SECONDARY,
+    "margin_bottom": Spacing.XS,
+}
+PORTAL_FOOTER_STYLE = {
+    **{key: value for key, value in FORM_ERROR_STYLE.items() if key != "color"},
+    "font_size": Typography.SIZE_XS,
+    "margin_top": Spacing.XS,
+    "min_height": Spacing.BASE,
+}
+
+
+def _input_props_for_variant(style_variant: str, error: Any = None) -> dict[str, Any]:
+    """Props visuales reutilizables para inputs por variante."""
+    if style_variant == "portal":
+        return {
+            "size": "3",
+            "font_size": Typography.SIZE_SM,
+            "font_family": Typography.FONT_FAMILY,
+            "line_height": Typography.LINE_HEIGHT_NORMAL,
+            "background": Colors.SURFACE,
+            "color": Colors.TEXT_PRIMARY,
+            "border": f"1px solid {Colors.BORDER}",
+            "border_radius": Radius.MD,
+            "border_color": (
+                rx.cond(error != "", Colors.ERROR, Colors.BORDER)
+                if error is not None
+                else Colors.BORDER
+            ),
+            "_focus": {
+                "border_color": Colors.BORDER_FOCUS,
+                "outline": "none",
+            },
+            "_placeholder": {
+                "color": Colors.TEXT_MUTED,
+            },
+        }
+    return {}
+
+
+def _select_root_props_for_variant(style_variant: str) -> dict[str, Any]:
+    """Props del root de select por variante."""
+    if style_variant == "portal":
+        return {
+            "size": "3",
+            "width": "100%",
+        }
+    return {}
+
+
+def _select_trigger_props_for_variant(style_variant: str, error: Any = None) -> dict[str, Any]:
+    """Props visuales reutilizables para triggers de select por variante."""
+    if style_variant == "portal":
+        return {
+            "width": "100%",
+            "font_size": Typography.SIZE_SM,
+            "font_family": Typography.FONT_FAMILY,
+            "line_height": Typography.LINE_HEIGHT_NORMAL,
+            "background": Colors.SURFACE,
+            "color": Colors.TEXT_PRIMARY,
+            "border": f"1px solid {Colors.BORDER}",
+            "border_radius": Radius.MD,
+            "border_color": (
+                rx.cond(error != "", Colors.ERROR, Colors.BORDER)
+                if error is not None
+                else Colors.BORDER
+            ),
+            "_focus": {
+                "border_color": Colors.BORDER_FOCUS,
+                "outline": "none",
+            },
+        }
+    return {}
 
 
 # =============================================================================
@@ -23,28 +108,45 @@ def _render_label(
     parts = [label]
     if isinstance(required, bool):
         if required:
-            parts.append(rx.text.span(" *", color="var(--red-9)"))
+            parts.append(rx.text.span(" *", color=Colors.ERROR))
     else:
         parts.append(
             rx.cond(
                 required,
-                rx.text.span(" *", color="var(--red-9)"),
+                rx.text.span(" *", color=Colors.ERROR),
                 rx.fragment(),
             )
         )
 
-    base_color = Colors.TEXT_SECONDARY if label_variant == "wizard" else "var(--gray-11)"
+    base_color = (
+        Colors.TEXT_SECONDARY
+        if label_variant in {"portal", "wizard"}
+        else Colors.TEXT_MUTED
+        if label_variant == "metadata"
+        else Colors.TEXT_PRIMARY
+    )
     color = base_color
     if error is not None:
-        color = rx.cond(error != "", "var(--red-9)", base_color)
+        color = rx.cond(error != "", Colors.ERROR, base_color)
 
     label_props = {
         "color": color,
     }
-    if label_variant == "wizard":
+    if label_variant == "portal":
+        label_props.update(PORTAL_LABEL_STYLE)
+    elif label_variant == "wizard":
         label_props.update(
             {
                 "font_size": "11px",
+                "font_weight": Typography.WEIGHT_MEDIUM,
+                "text_transform": "uppercase",
+                "letter_spacing": "0.04em",
+            }
+        )
+    elif label_variant == "metadata":
+        label_props.update(
+            {
+                "font_size": "10px",
                 "font_weight": Typography.WEIGHT_MEDIUM,
                 "text_transform": "uppercase",
                 "letter_spacing": "0.04em",
@@ -61,30 +163,46 @@ def _render_label(
     return rx.text(*parts, **label_props)
 
 
-def _render_footer(error: Any = None, hint: Any = "") -> rx.Component:
+def _render_footer(
+    error: Any = None,
+    hint: Any = "",
+    field_variant: str = "default",
+) -> rx.Component:
     """Renderiza error (prioridad) o hint debajo del input sin swap de nodos DOM."""
     has_static_hint = isinstance(hint, str) and hint != ""
     has_dynamic_hint = hint is not None and not isinstance(hint, str)
+    footer_props = (
+        PORTAL_FOOTER_STYLE
+        if field_variant == "portal"
+        else {"size": "1", "min_height": "1em"}
+    )
+    hint_color = Colors.TEXT_SECONDARY if field_variant == "portal" else "var(--gray-9)"
 
     if error is not None and (has_static_hint or has_dynamic_hint):
         return rx.text(
             rx.cond(error != "", error, hint),
-            color=rx.cond(error != "", "var(--red-9)", "var(--gray-9)"),
-            size="1",
-            min_height="1em",
+            color=rx.cond(error != "", Colors.ERROR, hint_color),
+            **footer_props,
         )
     elif error is not None:
         return rx.text(
             error,
-            color="var(--red-9)",
-            size="1",
-            min_height="1em",
+            color=Colors.ERROR,
             visibility=rx.cond(error != "", "visible", "hidden"),
+            **footer_props,
         )
     elif has_static_hint or has_dynamic_hint:
-        return rx.text(hint, size="1", color="var(--gray-9)", min_height="1em")
+        return rx.text(
+            hint,
+            color=hint_color,
+            **footer_props,
+        )
     else:
-        return rx.text("", size="1", min_height="1em", visibility="hidden")
+        return rx.text(
+            "",
+            visibility="hidden",
+            **footer_props,
+        )
 
 
 def select_items_from_options(options: Any) -> rx.Component:
@@ -149,11 +267,17 @@ def form_field(
     hint: Any = "",
     spacing: str = "1",
     label_variant: str = "default",
+    field_variant: str = "default",
     **layout_props,
 ) -> rx.Component:
     """Wrapper base para campos con label, control y footer consistente."""
+    resolved_spacing = (
+        Spacing.NONE
+        if field_variant == "portal" and spacing == "1"
+        else spacing
+    )
     props = {
-        "spacing": spacing,
+        "spacing": resolved_spacing,
         "width": "100%",
         "align_items": "stretch",
         **layout_props,
@@ -161,7 +285,7 @@ def form_field(
     return rx.vstack(
         _render_label(label, required, error, label_variant=label_variant),
         control,
-        _render_footer(error, hint),
+        _render_footer(error, hint, field_variant=field_variant),
         **props,
     )
 
@@ -176,6 +300,7 @@ def form_input(
     required: Any = False,
     hint: Any = "",
     label_variant: str = "default",
+    style_variant: str = "default",
     **props
 ) -> rx.Component:
     """
@@ -193,21 +318,24 @@ def form_input(
         hint: Texto de ayuda debajo del input (error tiene prioridad)
         **props: Props adicionales para rx.input (type, disabled, step, min, etc.)
     """
+    input_props = {
+        "placeholder": placeholder,
+        "value": value,
+        "on_change": on_change,
+        "on_blur": on_blur,
+        "max_length": max_length,
+        "width": "100%",
+        **_input_props_for_variant(style_variant, error),
+        **props,
+    }
     return form_field(
-        control=rx.input(
-            placeholder=placeholder,
-            value=value,
-            on_change=on_change,
-            on_blur=on_blur,
-            max_length=max_length,
-            width="100%",
-            **props
-        ),
+        control=rx.input(**input_props),
         label=label,
         required=required,
         error=error,
         hint=hint,
         label_variant=label_variant,
+        field_variant=style_variant,
     )
 
 
@@ -223,6 +351,7 @@ def form_textarea(
     required: Any = False,
     hint: Any = "",
     label_variant: str = "default",
+    style_variant: str = "default",
     **props
 ) -> rx.Component:
     """
@@ -256,6 +385,7 @@ def form_textarea(
         error=error,
         hint=hint,
         label_variant=label_variant,
+        field_variant=style_variant,
     )
 
 
@@ -269,6 +399,8 @@ def form_select(
     required: Any = False,
     hint: Any = "",
     label_variant: str = "default",
+    style_variant: str = "default",
+    trigger_props: dict[str, Any] | None = None,
     **props
 ) -> rx.Component:
     """
@@ -286,20 +418,32 @@ def form_select(
     """
     if options is None:
         options = []
+    select_trigger_props = {
+        "placeholder": placeholder,
+        "width": "100%",
+        **_select_trigger_props_for_variant(style_variant, error),
+    }
+    if trigger_props:
+        select_trigger_props.update(trigger_props)
+    select_root_props = {
+        **_select_root_props_for_variant(style_variant),
+        "value": value,
+        "on_change": on_change,
+        **props,
+    }
 
     return form_field(
         control=rx.select.root(
-            rx.select.trigger(placeholder=placeholder, width="100%"),
+            rx.select.trigger(**select_trigger_props),
             rx.select.content(select_items_from_options(options)),
-            value=value,
-            on_change=on_change,
-            **props
+            **select_root_props
         ),
         label=label,
         required=required,
         error=error,
         hint=hint,
         label_variant=label_variant,
+        field_variant=style_variant,
     )
 
 

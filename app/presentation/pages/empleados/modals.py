@@ -24,6 +24,7 @@ from app.presentation.components.reusable import (
 )
 from app.presentation.components.ui import boton_cancelar, boton_guardar, identifier_badge
 from app.presentation.components.ui.form_input import form_date, select_items_from_options
+from app.presentation.components.ui.modals import modal_formulario, modal_detalle
 from .components import estatus_badge, restriccion_badge
 
 
@@ -222,7 +223,7 @@ def _seccion_descuentos_recurrentes_form() -> rx.Component:
         employee_recurring_discount_card(
             title="Préstamo empresa",
             badge_text="PRE",
-            badge_color_scheme="teal",
+            badge_color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             amount_value=EmpleadosState.form_descuento_prestamo_empresa_monto,
             amount_on_change=lambda value: EmpleadosState.set_form_descuento_monto("prestamo_empresa", value),
             start_value=EmpleadosState.form_descuento_prestamo_empresa_inicio,
@@ -620,89 +621,76 @@ def modal_detalle_empleado() -> rx.Component:
 
 def modal_baja() -> rx.Component:
     """Modal para dar de baja a un empleado - version mejorada."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title("Dar de Baja"),
-            rx.dialog.description(
-                "Se registrara un proceso de baja con seguimiento de liquidacion.",
-            ),
-
+    return modal_formulario(
+        open=EmpleadosState.mostrar_modal_baja,
+        titulo="Dar de Baja",
+        descripcion="Se registrara un proceso de baja con seguimiento de liquidacion.",
+        icono="user-minus",
+        color_icono="red",
+        on_guardar=EmpleadosState.dar_de_baja,
+        on_cancelar=EmpleadosState.cerrar_modal_baja,
+        loading=EmpleadosState.saving,
+        texto_guardar="Confirmar Baja",
+        texto_guardando="Procesando...",
+        color_guardar="red",
+        max_width="480px",
+        contenido=rx.vstack(
             rx.vstack(
-                rx.vstack(
-                    rx.text(
-                        "Motivo de baja *",
-                        font_size=Typography.SIZE_SM,
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                    ),
-                    rx.select.root(
-                        rx.select.trigger(
-                            placeholder="Seleccionar motivo...",
-                            width="100%",
-                        ),
-                        rx.select.content(select_items_from_options(EmpleadosState.opciones_motivo_baja)),
-                        value=EmpleadosState.form_motivo_baja,
-                        on_change=EmpleadosState.set_form_motivo_baja,
-                    ),
-                    width="100%",
-                    spacing="1",
+                rx.text(
+                    "Motivo de baja *",
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
                 ),
-                form_date(
-                    label="Fecha efectiva",
-                    required=True,
-                    value=EmpleadosState.form_fecha_efectiva,
-                    on_change=EmpleadosState.set_form_fecha_efectiva,
-                    hint="Fecha en que el empleado deja de trabajar. Si es hoy, dejar vacio.",
-                ),
-                rx.vstack(
-                    rx.text(
-                        "Observaciones",
-                        font_size=Typography.SIZE_SM,
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                    ),
-                    rx.text_area(
-                        placeholder="Detalles adicionales sobre la baja...",
-                        value=EmpleadosState.form_notas_baja,
-                        on_change=EmpleadosState.set_form_notas_baja,
-                        rows="3",
+                rx.select.root(
+                    rx.select.trigger(
+                        placeholder="Seleccionar motivo...",
                         width="100%",
                     ),
-                    width="100%",
-                    spacing="1",
+                    rx.select.content(select_items_from_options(EmpleadosState.opciones_motivo_baja)),
+                    value=EmpleadosState.form_motivo_baja,
+                    on_change=EmpleadosState.set_form_motivo_baja,
                 ),
-                rx.callout(
-                    rx.text(
-                        "Se generara alerta automatica para entregar "
-                        "liquidacion/finiquito dentro de 15 dias habiles.",
-                        font_size=Typography.SIZE_BASE,
-                    ),
-                    icon="info",
-                    color_scheme="blue",
-                    size="1",
-                    width="100%",
-                ),
-                spacing="4",
                 width="100%",
-                padding_y=Spacing.SM,
+                spacing="1",
             ),
-
-            rx.hstack(
-                boton_cancelar(on_click=EmpleadosState.cerrar_modal_baja),
-                boton_guardar(
-                    texto="Confirmar Baja",
-                    texto_guardando="Procesando...",
-                    on_click=EmpleadosState.dar_de_baja,
-                    saving=EmpleadosState.saving,
-                    color_scheme="red",
+            form_date(
+                label="Fecha efectiva",
+                required=True,
+                value=EmpleadosState.form_fecha_efectiva,
+                on_change=EmpleadosState.set_form_fecha_efectiva,
+                hint="Fecha en que el empleado deja de trabajar. Si es hoy, dejar vacio.",
+            ),
+            rx.vstack(
+                rx.text(
+                    "Observaciones",
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
                 ),
-                spacing="3",
-                justify="end",
+                rx.text_area(
+                    placeholder="Detalles adicionales sobre la baja...",
+                    value=EmpleadosState.form_notas_baja,
+                    on_change=EmpleadosState.set_form_notas_baja,
+                    rows="3",
+                    width="100%",
+                ),
+                width="100%",
+                spacing="1",
+            ),
+            rx.callout(
+                rx.text(
+                    "Se generara alerta automatica para entregar "
+                    "liquidacion/finiquito dentro de 15 dias habiles.",
+                    font_size=Typography.SIZE_BASE,
+                ),
+                icon="info",
+                color_scheme="blue",
+                size="1",
                 width="100%",
             ),
-
-            max_width="480px",
+            spacing="4",
+            width="100%",
+            padding_y=Spacing.SM,
         ),
-        open=EmpleadosState.mostrar_modal_baja,
-        on_open_change=rx.noop,
     )
 
 
@@ -712,124 +700,102 @@ def modal_baja() -> rx.Component:
 
 def modal_restriccion() -> rx.Component:
     """Modal para restringir un empleado."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(
-                rx.hstack(
-                    rx.icon("ban", size=20, color=Colors.ERROR),
-                    rx.text("Restringir Empleado"),
-                    spacing="2",
-                    align="center",
-                ),
-            ),
-
-            rx.vstack(
-                # Info del empleado
-                rx.cond(
-                    EmpleadosState.empleado_seleccionado,
-                    rx.vstack(
-                        rx.hstack(
-                            rx.text("Empleado:", weight="medium"),
-                            rx.text(EmpleadosState.nombre_completo_seleccionado),
-                            spacing="2",
-                        ),
-                        rx.hstack(
-                            rx.text("Clave:", weight="medium"),
-                            rx.badge(
-                                EmpleadosState.empleado_seleccionado["clave"],
-                                variant="outline",
-                            ),
-                            spacing="2",
-                        ),
-                        rx.hstack(
-                            rx.text("CURP:", weight="medium"),
-                            rx.text(EmpleadosState.empleado_seleccionado["curp"]),
-                            spacing="2",
+    return modal_formulario(
+        open=EmpleadosState.mostrar_modal_restriccion,
+        titulo="Restringir Empleado",
+        icono="ban",
+        color_icono="red",
+        on_guardar=EmpleadosState.confirmar_restriccion,
+        on_cancelar=EmpleadosState.cerrar_modal_restriccion,
+        puede_guardar=EmpleadosState.puede_guardar_restriccion,
+        loading=EmpleadosState.saving,
+        texto_guardar="Confirmar Restriccion",
+        texto_guardando="Restringiendo...",
+        color_guardar="red",
+        max_width="500px",
+        contenido=rx.vstack(
+            # Info del empleado
+            rx.cond(
+                EmpleadosState.empleado_seleccionado,
+                rx.vstack(
+                    rx.hstack(
+                        rx.text("Empleado:", weight="medium"),
+                        rx.text(EmpleadosState.nombre_completo_seleccionado),
+                        spacing="2",
+                    ),
+                    rx.hstack(
+                        rx.text("Clave:", weight="medium"),
+                        rx.badge(
+                            EmpleadosState.empleado_seleccionado["clave"],
+                            variant="outline",
                         ),
                         spacing="2",
-                        width="100%",
-                        align_items="start",
                     ),
-                ),
-
-                rx.divider(),
-
-                # Advertencia
-                rx.callout(
-                    rx.text(
-                        "Esta accion bloqueara al empleado en todas las empresas proveedoras del sistema. "
-                        "Ninguna empresa proveedora podra darlo de alta.",
-                        as_="span",
+                    rx.hstack(
+                        rx.text("CURP:", weight="medium"),
+                        rx.text(EmpleadosState.empleado_seleccionado["curp"]),
+                        spacing="2",
                     ),
-                    icon="triangle-alert",
-                    color_scheme="red",
-                    size="2",
-                ),
-
-                # Motivo (obligatorio)
-                rx.vstack(
-                    rx.text("Motivo de restriccion *", size="2", weight="medium"),
-                    rx.text_area(
-                        placeholder="Describa el motivo de la restriccion (minimo 10 caracteres)...",
-                        value=EmpleadosState.form_motivo_restriccion,
-                        on_change=EmpleadosState.set_form_motivo_restriccion,
-                        max_length=500,
-                        rows="3",
-                        width="100%",
-                    ),
-                    rx.text(
-                        EmpleadosState.form_motivo_restriccion.length(),
-                        "/500 caracteres (min. 10)",
-                        size="1",
-                        color="gray",
-                    ),
+                    spacing="2",
                     width="100%",
-                    spacing="1",
+                    align_items="start",
                 ),
-
-                # Notas adicionales (opcional)
-                rx.vstack(
-                    rx.text("Notas adicionales (opcional)", size="2", weight="medium"),
-                    rx.text_area(
-                        placeholder="Observaciones, numero de expediente, etc...",
-                        value=EmpleadosState.form_notas_restriccion,
-                        on_change=EmpleadosState.set_form_notas_restriccion,
-                        max_length=1000,
-                        rows="2",
-                        width="100%",
-                    ),
-                    width="100%",
-                    spacing="1",
-                ),
-
-                # Botones
-                rx.hstack(
-                    boton_cancelar(
-                        on_click=EmpleadosState.cerrar_modal_restriccion,
-                    ),
-                    boton_guardar(
-                        texto="Confirmar Restriccion",
-                        texto_guardando="Restringiendo...",
-                        on_click=EmpleadosState.confirmar_restriccion,
-                        saving=EmpleadosState.saving,
-                        disabled=~EmpleadosState.puede_guardar_restriccion,
-                        color_scheme="red",
-                    ),
-                    spacing="3",
-                    justify="end",
-                    width="100%",
-                ),
-                spacing="4",
-                width="100%",
-                padding_y="4",
             ),
 
+            rx.divider(),
 
-            max_width="500px",
+            # Advertencia
+            rx.callout(
+                rx.text(
+                    "Esta accion bloqueara al empleado en todas las empresas proveedoras del sistema. "
+                    "Ninguna empresa proveedora podra darlo de alta.",
+                    as_="span",
+                ),
+                icon="triangle-alert",
+                color_scheme="red",
+                size="2",
+            ),
+
+            # Motivo (obligatorio)
+            rx.vstack(
+                rx.text("Motivo de restriccion *", size="2", weight="medium"),
+                rx.text_area(
+                    placeholder="Describa el motivo de la restriccion (minimo 10 caracteres)...",
+                    value=EmpleadosState.form_motivo_restriccion,
+                    on_change=EmpleadosState.set_form_motivo_restriccion,
+                    max_length=500,
+                    rows="3",
+                    width="100%",
+                ),
+                rx.text(
+                    EmpleadosState.form_motivo_restriccion.length(),
+                    "/500 caracteres (min. 10)",
+                    size="1",
+                    color="gray",
+                ),
+                width="100%",
+                spacing="1",
+            ),
+
+            # Notas adicionales (opcional)
+            rx.vstack(
+                rx.text("Notas adicionales (opcional)", size="2", weight="medium"),
+                rx.text_area(
+                    placeholder="Observaciones, numero de expediente, etc...",
+                    value=EmpleadosState.form_notas_restriccion,
+                    on_change=EmpleadosState.set_form_notas_restriccion,
+                    max_length=1000,
+                    rows="2",
+                    width="100%",
+                ),
+                width="100%",
+                spacing="1",
+            ),
+
+            spacing="4",
+            width="100%",
+            padding_y="4",
         ),
-        open=EmpleadosState.mostrar_modal_restriccion,
-        # No cerrar al hacer click fuera - solo con botones
-        on_open_change=rx.noop,
     )
 
 
@@ -839,127 +805,105 @@ def modal_restriccion() -> rx.Component:
 
 def modal_liberacion() -> rx.Component:
     """Modal para liberar restriccion de un empleado."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(
-                rx.hstack(
-                    rx.icon("circle-check", size=20, color=Colors.SUCCESS),
-                    rx.text("Liberar Restriccion"),
-                    spacing="2",
-                    align="center",
-                ),
-            ),
-
-            rx.vstack(
-                # Info del empleado
-                rx.cond(
-                    EmpleadosState.empleado_seleccionado,
-                    rx.vstack(
-                        rx.hstack(
-                            rx.text("Empleado:", weight="medium"),
-                            rx.text(EmpleadosState.nombre_completo_seleccionado),
-                            spacing="2",
-                        ),
-                        rx.badge(
-                            EmpleadosState.empleado_seleccionado["clave"],
-                            variant="outline",
-                        ),
-                        spacing="2",
-                        width="100%",
-                    ),
-                ),
-
-                rx.divider(),
-
-                # Restriccion actual
-                rx.callout(
-                    rx.vstack(
-                        rx.text("Restriccion actual:", weight="bold", size="2"),
-                        rx.text(
-                            EmpleadosState.motivo_restriccion_actual,
-                            size="2",
-                        ),
-                        rx.cond(
-                            EmpleadosState.fecha_restriccion_actual != "",
-                            rx.text(
-                                "Fecha: ",
-                                EmpleadosState.fecha_restriccion_actual,
-                                size="1",
-                                color="gray",
-                            ),
-                        ),
-                        spacing="1",
-                        align_items="start",
-                    ),
-                    icon="info",
-                    color_scheme="blue",
-                    size="2",
-                ),
-
-                # Motivo de liberacion (obligatorio)
-                rx.vstack(
-                    rx.text("Motivo de liberacion *", size="2", weight="medium"),
-                    rx.text_area(
-                        placeholder="Describa por que se libera la restriccion (minimo 10 caracteres)...",
-                        value=EmpleadosState.form_motivo_liberacion,
-                        on_change=EmpleadosState.set_form_motivo_liberacion,
-                        max_length=500,
-                        rows="3",
-                        width="100%",
-                    ),
-                    rx.text(
-                        EmpleadosState.form_motivo_liberacion.length(),
-                        "/500 caracteres (min. 10)",
-                        size="1",
-                        color="gray",
-                    ),
-                    width="100%",
-                    spacing="1",
-                ),
-
-                # Notas adicionales (opcional)
-                rx.vstack(
-                    rx.text("Notas adicionales (opcional)", size="2", weight="medium"),
-                    rx.text_area(
-                        placeholder="Observaciones adicionales...",
-                        value=EmpleadosState.form_notas_liberacion,
-                        on_change=EmpleadosState.set_form_notas_liberacion,
-                        max_length=1000,
-                        rows="2",
-                        width="100%",
-                    ),
-                    width="100%",
-                    spacing="1",
-                ),
-
-                spacing="4",
-                width="100%",
-                padding_y="4",
-            ),
-
-            # Botones
-            rx.hstack(
-                boton_cancelar(
-                    on_click=EmpleadosState.cerrar_modal_liberacion,
-                ),
-                boton_guardar(
-                    texto="Confirmar Liberacion",
-                    texto_guardando="Liberando...",
-                    on_click=EmpleadosState.confirmar_liberacion,
-                    saving=EmpleadosState.saving,
-                    disabled=~EmpleadosState.puede_guardar_liberacion,
-                    color_scheme="green",
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-            ),
-
-            max_width="500px",
-        ),
+    return modal_formulario(
         open=EmpleadosState.mostrar_modal_liberacion,
-        # No cerrar al hacer click fuera - solo con botones
-        on_open_change=rx.noop,
+        titulo="Liberar Restriccion",
+        icono="circle-check",
+        color_icono="green",
+        on_guardar=EmpleadosState.confirmar_liberacion,
+        on_cancelar=EmpleadosState.cerrar_modal_liberacion,
+        puede_guardar=EmpleadosState.puede_guardar_liberacion,
+        loading=EmpleadosState.saving,
+        texto_guardar="Confirmar Liberacion",
+        texto_guardando="Liberando...",
+        color_guardar="green",
+        max_width="500px",
+        contenido=rx.vstack(
+            # Info del empleado
+            rx.cond(
+                EmpleadosState.empleado_seleccionado,
+                rx.vstack(
+                    rx.hstack(
+                        rx.text("Empleado:", weight="medium"),
+                        rx.text(EmpleadosState.nombre_completo_seleccionado),
+                        spacing="2",
+                    ),
+                    rx.badge(
+                        EmpleadosState.empleado_seleccionado["clave"],
+                        variant="outline",
+                    ),
+                    spacing="2",
+                    width="100%",
+                ),
+            ),
+
+            rx.divider(),
+
+            # Restriccion actual
+            rx.callout(
+                rx.vstack(
+                    rx.text("Restriccion actual:", weight="bold", size="2"),
+                    rx.text(
+                        EmpleadosState.motivo_restriccion_actual,
+                        size="2",
+                    ),
+                    rx.cond(
+                        EmpleadosState.fecha_restriccion_actual != "",
+                        rx.text(
+                            "Fecha: ",
+                            EmpleadosState.fecha_restriccion_actual,
+                            size="1",
+                            color="gray",
+                        ),
+                    ),
+                    spacing="1",
+                    align_items="start",
+                ),
+                icon="info",
+                color_scheme="blue",
+                size="2",
+            ),
+
+            # Motivo de liberacion (obligatorio)
+            rx.vstack(
+                rx.text("Motivo de liberacion *", size="2", weight="medium"),
+                rx.text_area(
+                    placeholder="Describa por que se libera la restriccion (minimo 10 caracteres)...",
+                    value=EmpleadosState.form_motivo_liberacion,
+                    on_change=EmpleadosState.set_form_motivo_liberacion,
+                    max_length=500,
+                    rows="3",
+                    width="100%",
+                ),
+                rx.text(
+                    EmpleadosState.form_motivo_liberacion.length(),
+                    "/500 caracteres (min. 10)",
+                    size="1",
+                    color="gray",
+                ),
+                width="100%",
+                spacing="1",
+            ),
+
+            # Notas adicionales (opcional)
+            rx.vstack(
+                rx.text("Notas adicionales (opcional)", size="2", weight="medium"),
+                rx.text_area(
+                    placeholder="Observaciones adicionales...",
+                    value=EmpleadosState.form_notas_liberacion,
+                    on_change=EmpleadosState.set_form_notas_liberacion,
+                    max_length=1000,
+                    rows="2",
+                    width="100%",
+                ),
+                width="100%",
+                spacing="1",
+            ),
+
+            spacing="4",
+            width="100%",
+            padding_y="4",
+        ),
     )
 
 
@@ -1036,18 +980,12 @@ def _item_historial(item: dict) -> rx.Component:
 
 def modal_historial_restricciones() -> rx.Component:
     """Modal que muestra el historial de restricciones de un empleado."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(
-                rx.hstack(
-                    rx.icon("history", size=20),
-                    rx.text("Historial de Restricciones"),
-                    spacing="2",
-                    align="center",
-                ),
-            ),
-
-            rx.vstack(
+    return modal_detalle(
+        open=EmpleadosState.mostrar_modal_historial,
+        titulo="Historial de Restricciones",
+        on_cerrar=EmpleadosState.cerrar_modal_historial,
+        max_width="550px",
+        contenido=rx.vstack(
                 # Info del empleado
                 rx.cond(
                     EmpleadosState.empleado_seleccionado,
@@ -1096,22 +1034,4 @@ def modal_historial_restricciones() -> rx.Component:
                 width="100%",
                 padding_y="4",
             ),
-
-            # Boton cerrar
-            rx.hstack(
-                rx.button(
-                    "Cerrar",
-                    variant="soft",
-                    color_scheme="gray",
-                    on_click=EmpleadosState.cerrar_modal_historial,
-                ),
-                justify="end",
-                width="100%",
-            ),
-
-            max_width="550px",
-        ),
-        open=EmpleadosState.mostrar_modal_historial,
-        # No cerrar al hacer click fuera - solo con botones
-        on_open_change=rx.noop,
     )

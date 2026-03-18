@@ -1,9 +1,11 @@
 """Wrapper reusable para modales de formulario de empleados."""
 
+from typing import Any, Optional, Union
+
 import reflex as rx
 
-from app.presentation.components.ui import boton_guardar
-from app.presentation.theme import Colors, Radius, Spacing, Typography
+from app.presentation.components.ui.modals import modal_formulario
+from app.presentation.theme import Spacing
 
 
 def employee_form_body(*children, spacing: str = "4", padding_y=Spacing.BASE) -> rx.Component:
@@ -26,100 +28,52 @@ def employee_form_body(*children, spacing: str = "4", padding_y=Spacing.BASE) ->
 def employee_form_modal(
     *,
     open_state,
-    title,
-    description,
+    title: Any,
+    description: Any,
     body: rx.Component,
     on_cancel,
     on_save,
-    save_text,
-    saving,
-    save_disabled=False,
+    save_text: Any,
+    saving: Union[bool, rx.Var],
+    save_disabled: Union[bool, rx.Var] = False,
     save_loading_text: str = "Guardando...",
     save_color_scheme: str = "blue",
     max_width: str = "600px",
-    disable_cancel_while_saving=True,
+    disable_cancel_while_saving: bool = True,
+    header_icon: Optional[rx.Component] = None,
 ) -> rx.Component:
-    """Modal shell reusable para formularios de empleado.
+    """Thin wrapper de modal_formulario para formularios de empleado.
+
+    Defaults específicos:
+    - scroll_body=True (formulario largo con múltiples secciones)
+    - max_body_height="min(88vh, 960px)"
+    - disable_cancelar_guardando configurable via disable_cancel_while_saving
 
     Contrato:
-    - `body` debe ser un componente ya compuesto (idealmente `employee_form_body(...)`).
+    - `body` debe ser un componente ya compuesto (idealmente employee_form_body(...)).
     - `on_cancel` y `on_save` son handlers del state consumidor.
-    - Solo encapsula shell visual y footer de acciones.
-    - Deshabilita `Cancelar` mientras `saving` por defecto para evitar doble submit/cierre.
+    - `header_icon`: rx.Component opcional (rx.box con rx.icon) para el header.
     """
-    cancel_disabled = saving if disable_cancel_while_saving else False
+    if isinstance(save_disabled, rx.Var):
+        puede_guardar: Any = ~save_disabled
+    else:
+        puede_guardar = not save_disabled
 
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.vstack(
-                rx.vstack(
-                    rx.dialog.title(
-                        title,
-                        margin="0",
-                        font_size=Typography.SIZE_LG,
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                        color=Colors.TEXT_PRIMARY,
-                        line_height=Typography.LINE_HEIGHT_TIGHT,
-                    ),
-                    rx.dialog.description(
-                        description,
-                        margin="0",
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_SECONDARY,
-                        line_height=Typography.LINE_HEIGHT_NORMAL,
-                    ),
-                    width="100%",
-                    spacing="1",
-                    align="start",
-                    padding_x=Spacing.XL,
-                    padding_top=Spacing.XL,
-                    padding_bottom=Spacing.BASE,
-                ),
-                rx.box(
-                    body,
-                    width="100%",
-                    flex="1",
-                    overflow_y="auto",
-                    padding_x=Spacing.XL,
-                    padding_bottom=Spacing.XL,
-                ),
-                rx.hstack(
-                    rx.button(
-                        "Cancelar",
-                        variant="ghost",
-                        color_scheme="gray",
-                        size="2",
-                        on_click=on_cancel,
-                        disabled=cancel_disabled,
-                        color=Colors.TEXT_MUTED,
-                    ),
-                    rx.spacer(),
-                    boton_guardar(
-                        texto=save_text,
-                        texto_guardando=save_loading_text,
-                        on_click=on_save,
-                        saving=saving,
-                        disabled=save_disabled,
-                        color_scheme=save_color_scheme,
-                    ),
-                    width="100%",
-                    align="center",
-                    padding_x=Spacing.XL,
-                    padding_y=Spacing.BASE,
-                    border_top=f"1px solid {Colors.BORDER}",
-                ),
-                width="100%",
-                spacing="0",
-                align="stretch",
-                max_height="min(88vh, 960px)",
-            ),
-            max_width=max_width,
-            width=f"calc(100vw - {Spacing.XXL})",
-            padding="0",
-            overflow="hidden",
-            background=Colors.SURFACE,
-            border_radius=Radius.XL,
-        ),
+    return modal_formulario(
         open=open_state,
-        on_open_change=rx.noop,
+        titulo=title,
+        descripcion=description,
+        contenido=body,
+        on_guardar=on_save,
+        on_cancelar=on_cancel,
+        puede_guardar=puede_guardar,
+        loading=saving,
+        texto_guardar=save_text,
+        texto_guardando=save_loading_text,
+        color_guardar=save_color_scheme,
+        max_width=max_width,
+        icono_componente=header_icon,
+        scroll_body=True,
+        max_body_height="min(88vh, 960px)",
+        disable_cancelar_guardando=disable_cancel_while_saving,
     )

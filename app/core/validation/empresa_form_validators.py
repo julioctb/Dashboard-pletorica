@@ -6,10 +6,11 @@ from .fields_catalog import (
     CAMPO_RAZON_SOCIAL,
     CAMPO_EMAIL,
     CAMPO_CODIGO_POSTAL,
+    CAMPO_CODIGO_CORTO_EMPRESA,
     CAMPO_TELEFONO,
     CAMPO_PRIMA_RIESGO,
 )
-from app.core.error_messages import msg_campos_faltantes
+from app.core.error_messages import MSG_CODIGO_CORTO_REQUERIDO, msg_campos_faltantes
 
 
 validar_nombre_comercial_empresa = crear_validador(CAMPO_NOMBRE_COMERCIAL)
@@ -18,6 +19,14 @@ validar_email_empresa = crear_validador(CAMPO_EMAIL)
 validar_codigo_postal_empresa = crear_validador(CAMPO_CODIGO_POSTAL)
 validar_telefono_empresa = crear_validador(CAMPO_TELEFONO)
 validar_prima_riesgo_empresa = crear_validador(CAMPO_PRIMA_RIESGO)
+_validar_codigo_corto_empresa_opcional = crear_validador(CAMPO_CODIGO_CORTO_EMPRESA)
+
+
+def validar_codigo_corto_empresa(valor: str) -> str:
+    error_requerido = validar_requerido(valor, "Código corto")
+    if error_requerido:
+        return MSG_CODIGO_CORTO_REQUERIDO
+    return _validar_codigo_corto_empresa_opcional(valor)
 
 
 def validar_rfc_empresa(rfc: str) -> str:
@@ -42,6 +51,7 @@ def validar_campos_requeridos_empresa(nombre_comercial: str, razon_social: str, 
 __all__ = [
     "validar_nombre_comercial_empresa",
     "validar_razon_social_empresa",
+    "validar_codigo_corto_empresa",
     "validar_email_empresa",
     "validar_codigo_postal_empresa",
     "validar_telefono_empresa",

@@ -14,7 +14,7 @@ from app.presentation.portal.pages.expedientes.components import (
     modal_preview_documento,
     modal_rechazo,
 )
-from app.presentation.theme import CardStyles, Radius, Spacing
+from app.presentation.theme import CardStyles, Colors, Radius, Spacing
 
 from .state import MisEmpleadosState
 from .components import (
@@ -119,13 +119,13 @@ def mis_empleados_page() -> rx.Component:
                             "Alta masiva",
                             on_click=MisEmpleadosState.abrir_panel_alta_masiva,
                             variant="outline",
-                            color_scheme="teal",
+                            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         ),
                         rx.button(
                             rx.icon("plus", size=16),
                             "Nuevo empleado",
                             on_click=MisEmpleadosState.abrir_modal_crear,
-                            color_scheme="teal",
+                            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         ),
                         spacing="2",
                     ),

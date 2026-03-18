@@ -19,15 +19,13 @@ from app.core.validation import (
     CAMPO_NOMBRE_COMERCIAL,
     CAMPO_RAZON_SOCIAL,
     CAMPO_RFC,
+    CAMPO_CODIGO_CORTO_EMPRESA,
     CAMPO_DIRECCION,
     CAMPO_CODIGO_POSTAL,
     CAMPO_TELEFONO,
     CAMPO_EMAIL,
     CAMPO_PAGINA_WEB,
     CAMPO_NOTAS,
-    # Constantes para campos especiales
-    CODIGO_CORTO_LEN,
-    CODIGO_CORTO_PATTERN,
 )
 from app.core.catalogs import LimitesValidacion
 from app.core.error_messages import (
@@ -75,12 +73,9 @@ class Empresa(BaseModel):
     )
 
     # Código corto (autogenerado)
-    codigo_corto: Optional[str] = Field(
-        None,
-        min_length=CODIGO_CORTO_LEN,
-        max_length=CODIGO_CORTO_LEN,
-        pattern=CODIGO_CORTO_PATTERN,
-        description="Código único de 3 caracteres (autogenerado)"
+    codigo_corto: Optional[str] = pydantic_field(
+        CAMPO_CODIGO_CORTO_EMPRESA,
+        description="Código único de 3 caracteres (autogenerado)",
     )
 
     # Control de estado
@@ -101,6 +96,7 @@ class Empresa(BaseModel):
 
     validar_nombre_comercial = campo_validador('nombre_comercial', CAMPO_NOMBRE_COMERCIAL)
     validar_razon_social = campo_validador('razon_social', CAMPO_RAZON_SOCIAL)
+    validar_codigo_corto = campo_validador('codigo_corto', CAMPO_CODIGO_CORTO_EMPRESA)
     validar_email = campo_validador('email', CAMPO_EMAIL)
     validar_telefono = campo_validador('telefono', CAMPO_TELEFONO)
 
@@ -253,6 +249,11 @@ class EmpresaUpdate(BaseModel):
     razon_social: Optional[str] = pydantic_field(CAMPO_RAZON_SOCIAL, default=None)
     tipo_empresa: Optional[TipoEmpresa] = None
     rfc: Optional[str] = pydantic_field(CAMPO_RFC, default=None)
+    codigo_corto: Optional[str] = pydantic_field(
+        CAMPO_CODIGO_CORTO_EMPRESA,
+        default=None,
+        description="Código único de 3 caracteres",
+    )
     direccion: Optional[str] = pydantic_field(CAMPO_DIRECCION)
     codigo_postal: Optional[str] = pydantic_field(CAMPO_CODIGO_POSTAL)
     telefono: Optional[str] = pydantic_field(CAMPO_TELEFONO)
@@ -263,6 +264,8 @@ class EmpresaUpdate(BaseModel):
     estatus: Optional[EstatusEmpresa] = None
     gestion_nomina_activa: Optional[bool] = None
     notas: Optional[str] = None
+
+    validar_codigo_corto = campo_validador('codigo_corto', CAMPO_CODIGO_CORTO_EMPRESA)
 
 
 class EmpresaResumen(BaseModel):

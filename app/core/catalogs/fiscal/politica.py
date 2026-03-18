@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
+from app.core.catalogs.fiscal._shared import coerce_fecha
 from app.core.catalogs.fiscal.isr import CatalogoISR
 from app.core.catalogs.fiscal.salario_minimo import CatalogoSalarioMinimo
 from app.core.catalogs.fiscal.uma import CatalogoUMA
@@ -40,7 +41,7 @@ class PoliticaFiscalResolver:
         *,
         zona_frontera: bool = False,
     ) -> ContextoFiscalNomina:
-        fecha = CatalogoUMA._coerce_fecha(fecha_referencia)
+        fecha = coerce_fecha(fecha_referencia)
         vigencia_uma = CatalogoUMA.obtener_vigencia(fecha, permitir_fallback=True)
         vigencia_salario = CatalogoSalarioMinimo.obtener_vigencia(
             fecha,

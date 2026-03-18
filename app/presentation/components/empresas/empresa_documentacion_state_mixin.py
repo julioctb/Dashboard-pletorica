@@ -76,6 +76,22 @@ class EmpresaDocumentacionStateMixin:
     def _empresa_documentacion_company_id(self) -> int:
         raise NotImplementedError
 
+    @staticmethod
+    def _build_upload_guidance(documento: dict) -> str:
+        """Compone ayuda contextual para distinguir carga anual vs documento vigente."""
+        ayuda_base = str(documento.get("ayuda", "") or "").strip()
+        es_anual = bool(documento.get("es_anual", True))
+
+        contexto = (
+            "Este documento corresponde al año seleccionado. Si estás cargando un nuevo "
+            "ejercicio, sube aquí la versión de ese año."
+            if es_anual
+            else "Este documento se reutiliza entre años hasta que cambie. Reemplázalo "
+            "solo si hubo actualización del representante, del acta o del documento vigente."
+        )
+
+        return " ".join(parte for parte in [ayuda_base, contexto] if parte).strip()
+
     async def _fetch_documentacion_empresa(self):
         empresa_id = self._empresa_documentacion_company_id()
         if not empresa_id:
@@ -120,7 +136,7 @@ class EmpresaDocumentacionStateMixin:
         self.tipo_documento_subiendo = str(documento.get("tipo_documento", ""))
         self.requisito_id_subiendo = int(documento.get("requisito_id") or 0)
         self.nombre_documento_subiendo = str(documento.get("tipo_documento_label", "Documento"))
-        self.ayuda_documento_subiendo = str(documento.get("ayuda", ""))
+        self.ayuda_documento_subiendo = self._build_upload_guidance(documento)
         self.mostrar_modal_subir = True
 
     def cerrar_modal_subir(self):

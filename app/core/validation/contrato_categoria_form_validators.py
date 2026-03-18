@@ -4,9 +4,8 @@ from .common_validators import (
     validar_entero_requerido,
     validar_enteros_min_max,
     validar_monto_opcional,
-    validar_texto_opcional,
 )
-from .constants import NOTAS_PAGO_MAX
+from .form_shared_validators import validar_notas_form as validar_notas_contrato_categoria
 
 
 def validar_categoria_puesto_id_contrato_categoria(categoria_id: str) -> str:
@@ -33,10 +32,6 @@ def validar_cantidad_maxima_contrato_categoria(cantidad: str, cantidad_minima: s
 
 def validar_costo_unitario_contrato_categoria(costo: str) -> str:
     return validar_monto_opcional(costo, "costo")
-
-
-def validar_notas_contrato_categoria(notas: str) -> str:
-    return validar_texto_opcional(notas, "notas", max_length=NOTAS_PAGO_MAX)
 
 
 __all__ = [

@@ -174,6 +174,17 @@ class AsistenciaService:
             fecha=fecha,
         )
 
+    async def obtener_resumen_incidencias_mes(
+        self,
+        empresa_id: int,
+        fecha_inicio: date,
+        fecha_fin: date,
+    ) -> dict:
+        """Resumen de incidencias del mes para el dashboard."""
+        return await self._incidencia_service.obtener_resumen_incidencias_rango(
+            empresa_id, fecha_inicio, fecha_fin,
+        )
+
     async def cerrar_jornada(
         self,
         empresa_id: int,

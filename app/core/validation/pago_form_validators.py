@@ -5,7 +5,8 @@ from .common_validators import (
     validar_texto_requerido,
     validar_texto_opcional,
 )
-from .constants import CONCEPTO_PAGO_MAX, NUMERO_FACTURA_MAX, COMPROBANTE_MAX, NOTAS_PAGO_MAX
+from .constants import CONCEPTO_PAGO_MAX, NUMERO_FACTURA_MAX, COMPROBANTE_MAX
+from .form_shared_validators import validar_notas_form as validar_notas_pago_form
 
 
 def validar_fecha_pago_form(fecha: str) -> str:
@@ -26,10 +27,6 @@ def validar_numero_factura_pago_form(numero: str) -> str:
 
 def validar_comprobante_pago_form(comprobante: str) -> str:
     return validar_texto_opcional(comprobante, "referencia del comprobante", max_length=COMPROBANTE_MAX)
-
-
-def validar_notas_pago_form(notas: str) -> str:
-    return validar_texto_opcional(notas, "notas", max_length=NOTAS_PAGO_MAX)
 
 
 __all__ = [

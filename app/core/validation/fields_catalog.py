@@ -21,6 +21,7 @@ from .field_config import FieldConfig, InputType
 from .constants import (
     # Patrones
     RFC_PATTERN,
+    CODIGO_CORTO_PATTERN,
     EMAIL_PATTERN,
     CODIGO_POSTAL_PATTERN,
     TELEFONO_PATTERN,
@@ -36,6 +37,7 @@ from .constants import (
     RFC_MAX,
     DIRECCION_MAX,
     CODIGO_POSTAL_LEN,
+    CODIGO_CORTO_LEN,
     EMAIL_MAX,
     TELEFONO_DIGITOS,
     REGISTRO_PATRONAL_LEN,
@@ -65,6 +67,7 @@ from .constants import (
     EXTENSION_MAX,
 )
 from app.core.error_messages import (
+    MSG_CODIGO_CORTO_INVALIDO,
     MSG_EMAIL_FORMATO_INVALIDO,
     MSG_CP_SOLO_NUMEROS,
     MSG_REGISTRO_PATRONAL_INVALIDO,
@@ -134,6 +137,24 @@ CAMPO_RFC = FieldConfig(
     input_type=InputType.TEXT,
     section=SECCION_INFO_BASICA,
     order=3,
+)
+
+CAMPO_CODIGO_CORTO_EMPRESA = FieldConfig(
+    nombre='Código corto',
+    requerido=False,
+    min_len=CODIGO_CORTO_LEN,
+    max_len=CODIGO_CORTO_LEN,
+    patron=CODIGO_CORTO_PATTERN,
+    patron_error=MSG_CODIGO_CORTO_INVALIDO,
+    transformar=str.upper,
+    # UI
+    label='Código corto',
+    placeholder='ABC',
+    hint='3 caracteres alfanuméricos',
+    input_type=InputType.TEXT,
+    section=SECCION_INFO_BASICA,
+    order=4,
+    width='half',
 )
 
 CAMPO_DIRECCION = FieldConfig(
@@ -450,6 +471,7 @@ CAMPOS_EMPRESA = {
     'nombre_comercial': CAMPO_NOMBRE_COMERCIAL,
     'razon_social': CAMPO_RAZON_SOCIAL,
     'rfc': CAMPO_RFC,
+    'codigo_corto': CAMPO_CODIGO_CORTO_EMPRESA,
     'direccion': CAMPO_DIRECCION,
     'codigo_postal': CAMPO_CODIGO_POSTAL,
     'telefono': CAMPO_TELEFONO,

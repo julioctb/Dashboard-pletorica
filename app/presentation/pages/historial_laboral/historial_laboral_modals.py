@@ -6,6 +6,7 @@ Este módulo es de SOLO LECTURA - solo tiene modal de detalle.
 import reflex as rx
 from app.presentation.pages.historial_laboral.historial_laboral_state import HistorialLaboralState
 from app.presentation.components.ui import identifier_badge
+from app.presentation.components.ui.modals import modal_detalle
 from app.presentation.theme import Colors
 
 
@@ -17,7 +18,7 @@ def tipo_movimiento_badge(tipo: str) -> rx.Component:
         ("Asignación a plaza", rx.badge("Asignación", color_scheme="green", variant="soft", size="1")),
         ("Cambio de plaza", rx.badge("Cambio", color_scheme="cyan", variant="soft", size="1")),
         ("Suspensión", rx.badge("Suspensión", color_scheme="amber", variant="soft", size="1")),
-        ("Reactivación", rx.badge("Reactivación", color_scheme="teal", variant="soft", size="1")),
+        ("Reactivación", rx.badge("Reactivación", color_scheme=Colors.PORTAL_ACCENT_SCHEME, variant="soft", size="1")),
         ("Baja del sistema", rx.badge("Baja", color_scheme="red", variant="soft", size="1")),
         # Default: usar rx.cond en lugar de "or" para variables reactivas
         rx.cond(
@@ -28,165 +29,140 @@ def tipo_movimiento_badge(tipo: str) -> rx.Component:
     )
 
 
-def modal_detalle() -> rx.Component:
+def modal_detalle_historial() -> rx.Component:
     """Modal de detalle de un registro de historial"""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(
-                rx.hstack(
-                    rx.icon("history", size=20),
-                    "Detalle del Movimiento",
-                    spacing="2",
-                    align="center",
-                ),
-            ),
-
-            rx.cond(
-                HistorialLaboralState.registro_seleccionado,
+    return modal_detalle(
+        open=HistorialLaboralState.mostrar_modal_detalle,
+        titulo="Detalle del Movimiento",
+        on_cerrar=HistorialLaboralState.cerrar_modal_detalle,
+        max_width="450px",
+        contenido=rx.cond(
+            HistorialLaboralState.registro_seleccionado,
+            rx.vstack(
+                # Empleado
                 rx.vstack(
-                    # Empleado
-                    rx.vstack(
-                        rx.text("Empleado", size="1", color="gray"),
-                        rx.hstack(
-                            identifier_badge(HistorialLaboralState.registro_seleccionado["empleado_clave"]),
+                    rx.text("Empleado", size="1", color="gray"),
+                    rx.hstack(
+                        identifier_badge(HistorialLaboralState.registro_seleccionado["empleado_clave"]),
+                        rx.text(
+                            HistorialLaboralState.registro_seleccionado["empleado_nombre"],
+                            weight="medium",
+                        ),
+                        spacing="2",
+                    ),
+                    spacing="1",
+                    align_items="start",
+                    width="100%",
+                ),
+
+                rx.divider(),
+
+                # Tipo de movimiento
+                rx.vstack(
+                    rx.text("Tipo de Movimiento", size="1", color="gray"),
+                    tipo_movimiento_badge(
+                        HistorialLaboralState.registro_seleccionado["tipo_movimiento"]
+                    ),
+                    spacing="1",
+                    align_items="start",
+                    width="100%",
+                ),
+
+                rx.divider(),
+
+                # Plaza (puede ser None)
+                rx.vstack(
+                    rx.text("Plaza", size="1", color="gray"),
+                    rx.cond(
+                        HistorialLaboralState.registro_seleccionado["plaza_numero"],
+                        rx.vstack(
                             rx.text(
-                                HistorialLaboralState.registro_seleccionado["empleado_nombre"],
+                                f"#{HistorialLaboralState.registro_seleccionado['plaza_numero']}",
                                 weight="medium",
                             ),
-                            spacing="2",
-                        ),
-                        spacing="1",
-                        align_items="start",
-                        width="100%",
-                    ),
-
-                    rx.divider(),
-
-                    # Tipo de movimiento
-                    rx.vstack(
-                        rx.text("Tipo de Movimiento", size="1", color="gray"),
-                        tipo_movimiento_badge(
-                            HistorialLaboralState.registro_seleccionado["tipo_movimiento"]
-                        ),
-                        spacing="1",
-                        align_items="start",
-                        width="100%",
-                    ),
-
-                    rx.divider(),
-
-                    # Plaza (puede ser None)
-                    rx.vstack(
-                        rx.text("Plaza", size="1", color="gray"),
-                        rx.cond(
-                            HistorialLaboralState.registro_seleccionado["plaza_numero"],
-                            rx.vstack(
-                                rx.text(
-                                    f"#{HistorialLaboralState.registro_seleccionado['plaza_numero']}",
-                                    weight="medium",
-                                ),
-                                rx.text(
-                                    HistorialLaboralState.registro_seleccionado["categoria_nombre"],
-                                    size="2",
-                                    color=Colors.TEXT_SECONDARY,
-                                ),
-                                spacing="1",
-                                align_items="start",
-                            ),
                             rx.text(
-                                "Sin plaza asignada",
+                                HistorialLaboralState.registro_seleccionado["categoria_nombre"],
                                 size="2",
-                                color="gray",
-                                style={"fontStyle": "italic"},
+                                color=Colors.TEXT_SECONDARY,
                             ),
+                            spacing="1",
+                            align_items="start",
                         ),
-                        spacing="1",
-                        align_items="start",
-                        width="100%",
+                        rx.text(
+                            "Sin plaza asignada",
+                            size="2",
+                            color="gray",
+                            style={"fontStyle": "italic"},
+                        ),
                     ),
+                    spacing="1",
+                    align_items="start",
+                    width="100%",
+                ),
 
-                    rx.divider(),
+                rx.divider(),
 
-                    # Empresa y contrato
-                    rx.hstack(
-                        rx.vstack(
-                            rx.text("Empresa", size="1", color="gray"),
-                            rx.cond(
+                # Empresa y contrato
+                rx.hstack(
+                    rx.vstack(
+                        rx.text("Empresa", size="1", color="gray"),
+                        rx.cond(
+                            HistorialLaboralState.registro_seleccionado["empresa_nombre"],
+                            rx.text(
                                 HistorialLaboralState.registro_seleccionado["empresa_nombre"],
-                                rx.text(
-                                    HistorialLaboralState.registro_seleccionado["empresa_nombre"],
-                                    size="2",
-                                ),
-                                rx.text("-", size="2", color="gray"),
+                                size="2",
                             ),
-                            spacing="1",
-                            align_items="start",
+                            rx.text("-", size="2", color="gray"),
                         ),
-                        rx.cond(
-                            HistorialLaboralState.registro_seleccionado["contrato_codigo"],
-                            rx.vstack(
-                                rx.text("Contrato", size="1", color="gray"),
-                                rx.text(
-                                    HistorialLaboralState.registro_seleccionado["contrato_codigo"],
-                                    size="2",
-                                ),
-                                spacing="1",
-                                align_items="start",
-                            ),
-                        ),
-                        spacing="4",
-                        width="100%",
+                        spacing="1",
+                        align_items="start",
                     ),
-
-                    rx.divider(),
-
-                    # Período y duración
-                    rx.hstack(
+                    rx.cond(
+                        HistorialLaboralState.registro_seleccionado["contrato_codigo"],
                         rx.vstack(
-                            rx.text("Período", size="1", color="gray"),
+                            rx.text("Contrato", size="1", color="gray"),
                             rx.text(
-                                HistorialLaboralState.registro_seleccionado["periodo_texto"],
+                                HistorialLaboralState.registro_seleccionado["contrato_codigo"],
                                 size="2",
                             ),
                             spacing="1",
                             align_items="start",
                         ),
-                        rx.vstack(
-                            rx.text("Duración", size="1", color="gray"),
-                            rx.text(
-                                HistorialLaboralState.registro_seleccionado["duracion_texto"],
-                                size="2",
-                                weight="medium",
-                            ),
-                            spacing="1",
-                            align_items="start",
-                        ),
-                        spacing="4",
-                        width="100%",
                     ),
-
                     spacing="4",
                     width="100%",
-                    padding_y="4",
                 ),
-            ),
 
-            # Botones
-            rx.hstack(
-                rx.button(
-                    "Cerrar",
-                    variant="soft",
-                    color_scheme="gray",
-                    on_click=HistorialLaboralState.cerrar_modal_detalle,
+                rx.divider(),
+
+                # Período y duración
+                rx.hstack(
+                    rx.vstack(
+                        rx.text("Período", size="1", color="gray"),
+                        rx.text(
+                            HistorialLaboralState.registro_seleccionado["periodo_texto"],
+                            size="2",
+                        ),
+                        spacing="1",
+                        align_items="start",
+                    ),
+                    rx.vstack(
+                        rx.text("Duración", size="1", color="gray"),
+                        rx.text(
+                            HistorialLaboralState.registro_seleccionado["duracion_texto"],
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align_items="start",
+                    ),
+                    spacing="4",
+                    width="100%",
                 ),
-                spacing="3",
+
+                spacing="4",
                 width="100%",
-                justify="end",
+                padding_y="4",
             ),
-
-            max_width="450px",
         ),
-        open=HistorialLaboralState.mostrar_modal_detalle,
-        # No cerrar al hacer click fuera - solo con botones
-        on_open_change=rx.noop,
     )

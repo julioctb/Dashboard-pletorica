@@ -14,11 +14,11 @@ from app.core.exceptions import (
     BusinessRuleError,
     ValidationError,
 )
-from app.presentation.pages.empleados.empleados_validators import (
-    validar_curp,
-    validar_nombre,
-    validar_apellido_paterno,
-    validar_email,
+from app.core.validation import (
+    validar_curp_empleado as validar_curp,
+    validar_nombre_empleado as validar_nombre,
+    validar_apellido_paterno_empleado as validar_apellido_paterno,
+    validar_email_empleado as validar_email,
 )
 from app.core.ui_options import OPCIONES_ESTATUS_ONBOARDING
 

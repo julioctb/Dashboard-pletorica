@@ -70,26 +70,31 @@ class ConfiguracionOperativaService(
             raise DatabaseError(f"Error obteniendo configuracion operativa: {e}")
 
     async def listar_contratos_nomina_disponibles(self, empresa_id: int) -> list[dict]:
-        """Contratos activos con personal disponibles para ser contrato base."""
-        try:
-            from app.services import contrato_service
+        """Contratos activos con personal disponibles para ser contrato base.
 
-            contratos = await contrato_service.obtener_por_empresa(
-                empresa_id,
-                incluir_inactivos=False,
+        Query directo a la tabla contratos, sin pasar por contrato_service
+        para evitar la sincronización de vigencia (costosa) en contextos
+        de solo lectura como el modal de nueva nómina.
+        """
+        try:
+            from app.database import db_manager
+
+            client = db_manager.get_client()
+            result = (
+                client.table("contratos")
+                .select("id, codigo, descripcion_objeto")
+                .eq("empresa_id", empresa_id)
+                .eq("estatus", EstatusContrato.ACTIVO.value)
+                .eq("tiene_personal", True)
+                .order("fecha_creacion", desc=True)
+                .execute()
             )
-            disponibles = [
-                contrato
-                for contrato in contratos
-                if contrato.estatus == EstatusContrato.ACTIVO.value
-                and bool(contrato.tiene_personal)
-            ]
             return [
                 {
-                    "value": str(contrato.id),
-                    "label": f"{contrato.codigo} - {contrato.descripcion_objeto or 'Contrato activo'}",
+                    "value": str(row["id"]),
+                    "label": f"{row['codigo']} - {row.get('descripcion_objeto') or 'Contrato activo'}",
                 }
-                for contrato in disponibles
+                for row in (result.data or [])
             ]
         except DatabaseError:
             raise

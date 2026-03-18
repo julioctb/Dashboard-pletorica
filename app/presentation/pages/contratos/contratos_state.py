@@ -64,24 +64,23 @@ from app.core.validation.contrato_categoria_form_validators import (
     validar_cantidad_maxima_contrato_categoria,
 )
 from app.core.validation import validar_monto_requerido
-
-from .contratos_validators import (
-    validar_folio_buap,
-    validar_descripcion_objeto,
-    validar_origen_recurso,
-    validar_segmento_asignacion,
-    validar_sede_campus,
-    validar_poliza_detalle,
-    validar_empresa_id,
-    validar_tipo_servicio_id,
-    validar_modalidad_adjudicacion,
-    validar_tipo_duracion,
-    validar_tipo_contrato,
-    validar_fecha_inicio,
-    validar_fecha_fin,
-    validar_monto_minimo,
-    validar_monto_maximo,
-    validar_montos_coherentes,
+from app.core.validation.contrato_form_validators import (
+    validar_folio_buap_contrato as validar_folio_buap,
+    validar_descripcion_objeto_contrato as validar_descripcion_objeto,
+    validar_origen_recurso_contrato as validar_origen_recurso,
+    validar_segmento_asignacion_contrato as validar_segmento_asignacion,
+    validar_sede_campus_contrato as validar_sede_campus,
+    validar_poliza_detalle_contrato as validar_poliza_detalle,
+    validar_empresa_id_contrato as validar_empresa_id,
+    validar_tipo_servicio_id_contrato as validar_tipo_servicio_id,
+    validar_modalidad_adjudicacion_contrato as validar_modalidad_adjudicacion,
+    validar_tipo_duracion_contrato as validar_tipo_duracion,
+    validar_tipo_contrato_contrato as validar_tipo_contrato,
+    validar_fecha_inicio_contrato as validar_fecha_inicio,
+    validar_fecha_fin_contrato as validar_fecha_fin,
+    validar_monto_minimo_contrato as validar_monto_minimo,
+    validar_monto_maximo_contrato as validar_monto_maximo,
+    validar_montos_coherentes_contrato as validar_montos_coherentes,
 )
 from .contrato_presentacion import (
     enriquecer_contrato_presentacion,

@@ -12,14 +12,14 @@ from app.entities import (
     UserProfileUpdate,
     UserCompanyAsignacionInicial,
 )
+from app.core.validation import (
+    validar_email_usuario as validar_email,
+    validar_password_usuario as validar_password,
+    validar_nombre_completo_usuario as validar_nombre_completo,
+    validar_telefono_usuario as validar_telefono,
+)
 from app.services import user_service, empresa_service, institucion_service
 from app.presentation.components.shared.auth_state import AuthState
-from app.presentation.pages.admin.usuarios.usuarios_validators import (
-    validar_email,
-    validar_password,
-    validar_nombre_completo,
-    validar_telefono,
-)
 from app.core.constants.permisos import (
     PERMISOS_DEFAULT,
     MODULOS_CON_AUTORIZACION,

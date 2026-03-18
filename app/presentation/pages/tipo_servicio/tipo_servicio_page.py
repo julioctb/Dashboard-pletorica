@@ -45,7 +45,7 @@ def acciones_tipo(tipo: dict) -> rx.Component:
                     rx.icon("folder", size=16),
                     size="2",
                     variant="soft",
-                    color_scheme="teal",
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                 ),
                 href="/categorias-puesto?tipo=" + tipo["id"].to(str),
             ),

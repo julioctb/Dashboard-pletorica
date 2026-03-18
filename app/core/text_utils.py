@@ -6,6 +6,7 @@ tanto en entities (Pydantic) como en validators (frontend).
 
 IMPORTANTE: Cualquier cambio aquí afecta ambas capas.
 """
+from decimal import Decimal, InvalidOperation
 from datetime import date, datetime
 import re
 from typing import Optional, Union
@@ -78,6 +79,32 @@ def capitalizar_con_preposiciones(texto: Optional[str]) -> str:
     return " ".join(resultado)
 
 
+def capitalizar_razon_social(texto: Optional[str]) -> str:
+    """
+    Title Case para razones sociales preservando abreviaturas comunes.
+
+    Ejemplo:
+        >>> capitalizar_razon_social("PLETORICA SERVICIOS DE NOMINA S.A. DE C.V.")
+        'Pletorica Servicios de Nomina S.A. de C.V.'
+    """
+    texto_capitalizado = capitalizar_con_preposiciones(texto)
+    reemplazos = (
+        (r"\bS\.a\. de C\.v\.\b", "S.A. de C.V."),
+        (r"\bS\.a\. de R\.l\. de C\.v\.\b", "S.A. de R.L. de C.V."),
+        (r"\bS\. de R\.l\. de C\.v\.\b", "S. de R.L. de C.V."),
+        (r"\bA\.c\.\b", "A.C."),
+        (r"\bS\.c\.\b", "S.C."),
+    )
+    for patron, reemplazo in reemplazos:
+        texto_capitalizado = re.sub(
+            patron,
+            reemplazo,
+            texto_capitalizado,
+            flags=re.IGNORECASE,
+        )
+    return texto_capitalizado
+
+
 def normalizar_email(texto: Optional[str]) -> str:
     """
     Normaliza email: minúsculas y sin espacios.
@@ -95,6 +122,14 @@ def normalizar_email(texto: Optional[str]) -> str:
     if not texto:
         return ""
     return texto.strip().lower()
+
+
+def construir_mailto_href(email: Optional[str]) -> str:
+    """Genera un href mailto a partir de un email normalizado."""
+    email_normalizado = normalizar_email(email)
+    if not email_normalizado:
+        return ""
+    return f"mailto:{email_normalizado}"
 
 
 def formatear_telefono(texto: Optional[str]) -> str:
@@ -121,6 +156,27 @@ def formatear_telefono(texto: Optional[str]) -> str:
     return digitos
 
 
+def formatear_url_display(url: Optional[str]) -> str:
+    """Limpia una URL para mostrarla sin protocolo ni slash final."""
+    if not url:
+        return ""
+    limpio = limpiar_espacios(url)
+    limpio = re.sub(r"^https?://", "", limpio, flags=re.IGNORECASE)
+    return limpio.rstrip("/")
+
+
+def construir_url_publica(url: Optional[str]) -> str:
+    """Asegura que una URL tenga protocolo para usarla como href."""
+    if not url:
+        return ""
+    limpio = limpiar_espacios(url)
+    if not limpio:
+        return ""
+    if re.match(r"^https?://", limpio, flags=re.IGNORECASE):
+        return limpio
+    return f"https://{limpio}"
+
+
 def limpiar_espacios(texto: Optional[str]) -> str:
     """
     Trim y colapsar espacios múltiples.
@@ -138,6 +194,14 @@ def limpiar_espacios(texto: Optional[str]) -> str:
     if not texto:
         return ""
     return " ".join(texto.split())
+
+
+def obtener_iniciales(texto: Optional[str], max_palabras: int = 2, fallback: str = "?") -> str:
+    """Obtiene iniciales a partir de un nombre o texto libre."""
+    palabras = [p for p in limpiar_espacios(texto).split() if p]
+    if not palabras:
+        return fallback
+    return "".join(p[0].upper() for p in palabras[:max_palabras])
 
 
 # Claves exactas que usan MAYUSCULAS (prioridad sobre sufijo)
@@ -233,6 +297,32 @@ def formatear_moneda(valor: Optional[str], con_simbolo: bool = True) -> str:
     if con_simbolo:
         return f"$ {formateado}"
     return formateado
+
+
+def formatear_porcentaje(
+    valor: Optional[Union[Decimal, float, str]],
+    sufijo: str = "%",
+    valor_vacio: str = "",
+) -> str:
+    """
+    Formatea porcentajes preservando decimales significativos.
+
+    Ejemplo:
+        >>> formatear_porcentaje("2.5980")
+        '2.598%'
+    """
+    if valor in (None, ""):
+        return valor_vacio
+
+    try:
+        decimal_valor = Decimal(str(valor))
+    except (InvalidOperation, ValueError):
+        return str(valor)
+
+    texto = format(decimal_valor.normalize(), "f")
+    if "." in texto:
+        texto = texto.rstrip("0").rstrip(".")
+    return f"{texto}{sufijo}"
 
 
 def formatear_fecha(

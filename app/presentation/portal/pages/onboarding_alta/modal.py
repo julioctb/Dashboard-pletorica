@@ -42,7 +42,7 @@ def modal_alta_empleado() -> rx.Component:
         save_text="Registrar Empleado",
         saving=OnboardingAltaState.saving,
         save_loading_text="Registrando...",
-        save_color_scheme="teal",
+        save_color_scheme=Colors.PORTAL_ACCENT_SCHEME,
         max_width="550px",
     )
 

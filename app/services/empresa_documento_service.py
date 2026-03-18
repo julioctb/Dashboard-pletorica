@@ -70,6 +70,19 @@ class EmpresaDocumentoService:
         return tipo_documento, int(requisito_id or 0)
 
     @staticmethod
+    def _preferir_documento_mas_reciente(
+        actual: EmpresaDocumento | None,
+        candidato: EmpresaDocumento,
+    ) -> bool:
+        """Selecciona de forma determinista el documento más reciente por año y versión."""
+        if actual is None:
+            return True
+
+        actual_rank = (int(actual.anio), int(actual.version), int(actual.id or 0))
+        candidato_rank = (int(candidato.anio), int(candidato.version), int(candidato.id or 0))
+        return candidato_rank > actual_rank
+
+    @staticmethod
     def _slugify_requisito(texto: str) -> str:
         texto_ascii = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
         texto_ascii = re.sub(r"[^A-Za-z0-9]+", "_", texto_ascii.upper()).strip("_")
@@ -323,9 +336,11 @@ class EmpresaDocumentoService:
 
         for documento in documentos:
             key = self._documento_key(documento.tipo_documento, documento.requisito_id)
-            documentos_vigentes.setdefault(key, documento)
+            if self._preferir_documento_mas_reciente(documentos_vigentes.get(key), documento):
+                documentos_vigentes[key] = documento
             if documento.anio == anio:
-                documentos_exactos.setdefault(key, documento)
+                if self._preferir_documento_mas_reciente(documentos_exactos.get(key), documento):
+                    documentos_exactos[key] = documento
 
         definiciones_base = sorted(
             [tipo for tipo in TipoDocumentoEmpresa if tipo.es_visible_en_checklist],

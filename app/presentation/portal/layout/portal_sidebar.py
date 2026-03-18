@@ -14,6 +14,7 @@ from app.presentation.components.ui.notification_bell import notification_bell_p
 from app.presentation.layout.primitives import nav_group, nav_item, route_is_active
 from app.presentation.theme import (
     Colors,
+    Layout,
     Radius,
     Spacing,
     Transitions,
@@ -47,6 +48,9 @@ def _cond_item(
                 rutas_activas[0],
                 *rutas_activas[1:],
             ),
+            hover_bg=Colors.PORTAL_SIDEBAR_ITEM_HOVER,
+            active_bg=Colors.PORTAL_SIDEBAR_ITEM_ACTIVE,
+            active_text=Colors.PORTAL_SIDEBAR_ITEM_ACTIVE_TEXT,
         ),
         rx.fragment(),
     )
@@ -104,6 +108,7 @@ def _portal_header() -> rx.Component:
                 flex="1",
                 min_width="0",
             ),
+            notification_bell_portal(trigger_variant="icon"),
             align="center",
             width="100%",
             gap=Spacing.SM,
@@ -150,6 +155,9 @@ def _portal_navigation() -> rx.Component:
                 icon="layout-dashboard",
                 href="/portal",
                 is_active=route_is_active(PortalState.router.route_id, "/portal"),
+                hover_bg=Colors.PORTAL_SIDEBAR_ITEM_HOVER,
+                active_bg=Colors.PORTAL_SIDEBAR_ITEM_ACTIVE,
+                active_text=Colors.PORTAL_SIDEBAR_ITEM_ACTIVE_TEXT,
             ),
         ),
         # Comercial: cotizador, contratos, entregables, reportes
@@ -205,17 +213,12 @@ def _portal_navigation() -> rx.Component:
                 "/portal/asistencias",
             ),
         ),
-        # Nóminas (RRHH)
+        # Nómina (unifica RRHH + Contabilidad — cada rol ve solo sus items)
         _cond_group(
-            PortalState.mostrar_seccion_nominas,
-            "Nóminas",
+            PortalState.mostrar_seccion_nominas | PortalState.mostrar_seccion_contabilidad,
+            "Nómina",
             _cond_item(PortalState.mostrar_seccion_nominas, "Períodos", "calculator", "/portal/nominas"),
             _cond_item(PortalState.mostrar_seccion_nominas, "Preparación", "folder-open", "/portal/nominas/preparacion"),
-        ),
-        # Contabilidad
-        _cond_group(
-            PortalState.mostrar_seccion_contabilidad,
-            "Contabilidad",
             _cond_item(PortalState.mostrar_seccion_contabilidad, "Cálculo", "calculator", "/portal/nominas/calculo"),
             _cond_item(PortalState.mostrar_seccion_contabilidad, "Conciliación", "file-check", "/portal/nominas/conciliacion"),
         ),
@@ -236,7 +239,7 @@ def _portal_navigation() -> rx.Component:
                 "/portal/documentacion-empresa",
             ),
             _cond_item(AuthState.es_admin_empresa, "Usuarios", "users-round", "/portal/usuarios"),
-            _cond_item(AuthState.puede_configurar_empresa, "Configuracion", "settings", "/portal/configuracion-empresa"),
+            _cond_item(AuthState.puede_configurar_empresa, "Configuración", "settings", "/portal/configuracion-empresa"),
         ),
         # Auto servicio (empleados)
         _cond_group(
@@ -306,12 +309,12 @@ def _portal_user_section() -> rx.Component:
                     padding_x=Spacing.SM,
                     padding_y=Spacing.SM,
                     gap=Spacing.SM,
-                    border_radius="8px",
+                    border_radius=Radius.LG,
                     cursor="pointer",
                     transition=Transitions.FAST,
                     style={
                         "_hover": {
-                            "background": Colors.SIDEBAR_ITEM_HOVER,
+                            "background": Colors.PORTAL_SIDEBAR_ITEM_HOVER,
                         },
                     },
                 ),
@@ -347,15 +350,6 @@ def _portal_user_section() -> rx.Component:
         padding_y=Spacing.SM,
     )
 
-
-def _portal_notification_section() -> rx.Component:
-    """Campana del portal ubicada sobre el bloque de usuario."""
-    return rx.box(
-        notification_bell_portal(trigger_variant="sidebar_item"),
-        width="100%",
-        padding_x=Spacing.XS,
-        padding_y=Spacing.SM,
-    )
 
 
 # =============================================================================
@@ -431,15 +425,14 @@ def portal_sidebar() -> rx.Component:
             _dev_simulation_banner(),
             _portal_header(),
             _portal_navigation(),
-            _portal_notification_section(),
             _portal_user_section(),
             height="100vh",
             width="100%",
             spacing="0",
             align_items="stretch",
         ),
-        width="240px",
-        min_width="240px",
+        width=Layout.SIDEBAR_WIDTH,
+        min_width=Layout.SIDEBAR_MIN_WIDTH,
         height="100vh",
         background=Colors.SURFACE,
         border_right=f"1px solid {Colors.BORDER}",

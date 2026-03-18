@@ -17,7 +17,7 @@ from app.presentation.components.reusable.onboarding_list import (
     onboarding_filters,
     onboarding_table,
 )
-from app.presentation.theme import Typography
+from app.presentation.theme import Colors, Typography
 
 from .state import OnboardingAltaState
 
@@ -32,7 +32,7 @@ def _boton_enviar_enlace(emp: dict) -> rx.Component:
         icon="send",
         tooltip="Enviar enlace de registro",
         on_click=OnboardingAltaState.enviar_enlace_registro(emp["id"]),
-        color_scheme="teal",
+        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
         visible=(
             (emp.get("estatus_onboarding", "") == "DATOS_PENDIENTES")
             & (emp.get("email", "") != "")
@@ -90,7 +90,7 @@ def tabla_onboarding() -> rx.Component:
             on_page_change=OnboardingAltaState.ir_a_pagina,
             on_previous=OnboardingAltaState.pagina_anterior,
             on_next=OnboardingAltaState.pagina_siguiente,
-            color_scheme="teal",
+            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
         ),
     )
 

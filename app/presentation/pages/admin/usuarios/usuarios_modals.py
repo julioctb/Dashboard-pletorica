@@ -5,7 +5,7 @@ import reflex as rx
 from app.presentation.pages.admin.usuarios.usuarios_state import UsuariosAdminState
 from app.presentation.components.ui.form_input import form_input, form_select
 from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar
-from app.presentation.components.ui.modals import modal_confirmar_accion
+from app.presentation.components.ui.modals import modal_confirmar_accion, modal_formulario, modal_detalle
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.components.shared.permisos_matrix import matriz_permisos_component
 from app.presentation.theme import Spacing, Radius
@@ -147,135 +147,99 @@ def _seccion_asignaciones_iniciales() -> rx.Component:
 
 def modal_crear_usuario() -> rx.Component:
     """Modal para crear nuevo usuario."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title("Crear Usuario"),
-            rx.dialog.description(
-                "Complete los datos y asigne el perfil del usuario.",
-                margin_bottom=Spacing.MD,
-                color="var(--gray-10)",
-            ),
-
-            rx.box(
-                rx.vstack(
-                    # Email
-                    form_input(
-                        label="Email",
-                        required=True,
-                        placeholder="usuario@ejemplo.com",
-                        value=UsuariosAdminState.form_email,
-                        on_change=UsuariosAdminState.set_form_email,
-                        on_blur=UsuariosAdminState.validar_email_campo,
-                        error=UsuariosAdminState.error_email,
-                        type="email",
-                    ),
-
-                    # Password
-                    form_input(
-                        label="Contrasena",
-                        required=True,
-                        placeholder="Minimo 8 caracteres",
-                        value=UsuariosAdminState.form_password,
-                        on_change=UsuariosAdminState.set_form_password,
-                        on_blur=UsuariosAdminState.validar_password_campo,
-                        error=UsuariosAdminState.error_password,
-                        type="password",
-                    ),
-
-                    # Nombre completo
-                    form_input(
-                        label="Nombre completo",
-                        required=True,
-                        placeholder="Nombre y apellidos",
-                        value=UsuariosAdminState.form_nombre_completo,
-                        on_change=UsuariosAdminState.set_form_nombre_completo,
-                        on_blur=UsuariosAdminState.validar_nombre_campo,
-                        error=UsuariosAdminState.error_nombre_completo,
-                        max_length=150,
-                    ),
-
-                    # Telefono
-                    form_input(
-                        label="Telefono",
-                        placeholder="10 digitos (opcional)",
-                        value=UsuariosAdminState.form_telefono,
-                        on_change=UsuariosAdminState.set_form_telefono,
-                        on_blur=UsuariosAdminState.validar_telefono_campo,
-                        error=UsuariosAdminState.error_telefono,
-                        max_length=10,
-                    ),
-
-                    # Rol de plataforma
-                    form_select(
-                        label="Tipo de perfil / rol de plataforma",
-                        required=True,
-                        placeholder="Seleccionar rol",
-                        options=UsuariosAdminState.opciones_roles_creacion,
-                        value=UsuariosAdminState.form_rol,
-                        on_change=UsuariosAdminState.set_form_rol,
-                    ),
-
-                    # Institucion (solo rol institucional)
-                    rx.cond(
-                        UsuariosAdminState.mostrar_selector_institucion,
-                        _selector_institucion_crear(),
-                    ),
-
-                    # Asignaciones iniciales por empresa (solo proveedores)
-                    rx.cond(
-                        UsuariosAdminState.mostrar_asignaciones_iniciales,
-                        _seccion_asignaciones_iniciales(),
-                    ),
-
-                    # Matriz de permisos (solo para admins)
-                    rx.cond(
-                        UsuariosAdminState.mostrar_permisos,
-                        _matriz_permisos(),
-                    ),
-
-                    spacing="4",
-                    width="100%",
-                    padding="0",
-                    margin="0",
-                ),
-                width="100%",
-                overflow_y="auto",
-                max_height="calc(85vh - 170px)",
-                padding_right=Spacing.XS,
-            ),
-
-            # Botones
-            rx.hstack(
-                boton_cancelar(
-                    on_click=UsuariosAdminState.cerrar_modal_crear,
-                ),
-                boton_guardar(
-                    texto="Crear Usuario",
-                    texto_guardando="Creando...",
-                    on_click=UsuariosAdminState.crear_usuario,
-                    saving=UsuariosAdminState.saving,
-                    disabled=~UsuariosAdminState.puede_crear,
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-                padding_top=Spacing.SM,
-                border_top="1px solid var(--gray-4)",
-                margin_top=Spacing.SM,
-            ),
-
-            max_width="620px",
-            width=f"calc(100vw - {Spacing.XXL})",
-            max_height="85vh",
-            overflow="hidden",
-            padding=Spacing.LG,
-            border_radius=Radius.XL,
-            display="flex",
-            flex_direction="column",
-        ),
+    return modal_formulario(
         open=UsuariosAdminState.mostrar_modal_crear,
-        # No cerrar al hacer click fuera - solo con botones
-        on_open_change=rx.noop,
+        titulo="Crear Usuario",
+        descripcion="Complete los datos y asigne el perfil del usuario.",
+        icono="user-plus",
+        on_guardar=UsuariosAdminState.crear_usuario,
+        on_cancelar=UsuariosAdminState.cerrar_modal_crear,
+        puede_guardar=UsuariosAdminState.puede_crear,
+        loading=UsuariosAdminState.saving,
+        texto_guardar="Crear Usuario",
+        texto_guardando="Creando...",
+        scroll_body=True,
+        max_body_height="65vh",
+        max_width="620px",
+        contenido=rx.vstack(
+            # Email
+            form_input(
+                label="Email",
+                required=True,
+                placeholder="usuario@ejemplo.com",
+                value=UsuariosAdminState.form_email,
+                on_change=UsuariosAdminState.set_form_email,
+                on_blur=UsuariosAdminState.validar_email_campo,
+                error=UsuariosAdminState.error_email,
+                type="email",
+            ),
+
+            # Password
+            form_input(
+                label="Contrasena",
+                required=True,
+                placeholder="Minimo 8 caracteres",
+                value=UsuariosAdminState.form_password,
+                on_change=UsuariosAdminState.set_form_password,
+                on_blur=UsuariosAdminState.validar_password_campo,
+                error=UsuariosAdminState.error_password,
+                type="password",
+            ),
+
+            # Nombre completo
+            form_input(
+                label="Nombre completo",
+                required=True,
+                placeholder="Nombre y apellidos",
+                value=UsuariosAdminState.form_nombre_completo,
+                on_change=UsuariosAdminState.set_form_nombre_completo,
+                on_blur=UsuariosAdminState.validar_nombre_campo,
+                error=UsuariosAdminState.error_nombre_completo,
+                max_length=150,
+            ),
+
+            # Telefono
+            form_input(
+                label="Telefono",
+                placeholder="10 digitos (opcional)",
+                value=UsuariosAdminState.form_telefono,
+                on_change=UsuariosAdminState.set_form_telefono,
+                on_blur=UsuariosAdminState.validar_telefono_campo,
+                error=UsuariosAdminState.error_telefono,
+                max_length=10,
+            ),
+
+            # Rol de plataforma
+            form_select(
+                label="Tipo de perfil / rol de plataforma",
+                required=True,
+                placeholder="Seleccionar rol",
+                options=UsuariosAdminState.opciones_roles_creacion,
+                value=UsuariosAdminState.form_rol,
+                on_change=UsuariosAdminState.set_form_rol,
+            ),
+
+            # Institucion (solo rol institucional)
+            rx.cond(
+                UsuariosAdminState.mostrar_selector_institucion,
+                _selector_institucion_crear(),
+            ),
+
+            # Asignaciones iniciales por empresa (solo proveedores)
+            rx.cond(
+                UsuariosAdminState.mostrar_asignaciones_iniciales,
+                _seccion_asignaciones_iniciales(),
+            ),
+
+            # Matriz de permisos (solo para admins)
+            rx.cond(
+                UsuariosAdminState.mostrar_permisos,
+                _matriz_permisos(),
+            ),
+
+            spacing="4",
+            width="100%",
+        ),
     )
 
 
@@ -285,120 +249,83 @@ def modal_crear_usuario() -> rx.Component:
 
 def modal_editar_usuario() -> rx.Component:
     """Modal para editar usuario existente."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title("Editar Usuario"),
-            rx.dialog.description(
-                "Actualice los datos del usuario y sus permisos según su rol.",
-                margin_bottom=Spacing.MD,
-                color="var(--gray-10)",
-            ),
-
-            rx.box(
-                rx.vstack(
-                    # Email (solo lectura)
-                    rx.box(
-                        rx.text("Email", size="2", weight="medium", color="var(--gray-11)"),
-                        rx.cond(
-                            UsuariosAdminState.usuario_seleccionado,
-                            rx.text(
-                                UsuariosAdminState.usuario_seleccionado["email"],
-                                size="2",
-                                color="var(--gray-9)",
-                                style={"padding": "8px 12px", "background": "var(--gray-3)", "border_radius": "6px"},
-                            ),
-                            rx.text("", size="2"),
-                        ),
-                        width="100%",
-                    ),
-
-                    # Nombre completo
-                    form_input(
-                        label="Nombre completo",
-                        required=True,
-                        placeholder="Nombre y apellidos",
-                        value=UsuariosAdminState.form_edit_nombre_completo,
-                        on_change=UsuariosAdminState.set_form_edit_nombre_completo,
-                        on_blur=UsuariosAdminState.validar_edit_nombre_campo,
-                        error=UsuariosAdminState.error_edit_nombre_completo,
-                        max_length=150,
-                    ),
-
-                    # Telefono
-                    form_input(
-                        label="Telefono",
-                        placeholder="10 digitos (opcional)",
-                        value=UsuariosAdminState.form_edit_telefono,
-                        on_change=UsuariosAdminState.set_form_edit_telefono,
-                        on_blur=UsuariosAdminState.validar_edit_telefono_campo,
-                        error=UsuariosAdminState.error_edit_telefono,
-                        max_length=10,
-                    ),
-
-                    # Rol
-                    form_select(
-                        label="Rol",
-                        required=True,
-                        placeholder="Seleccionar rol",
-                        options=UsuariosAdminState.opciones_roles_edicion,
-                        value=UsuariosAdminState.form_edit_rol,
-                        on_change=UsuariosAdminState.set_form_edit_rol,
-                    ),
-
-                    # Matriz de permisos (solo para admins)
-                    rx.cond(
-                        UsuariosAdminState.mostrar_edit_permisos,
-                        _matriz_permisos(),
-                    ),
-
-                    # Resetear contraseña (solo super admin)
-                    rx.cond(
-                        AuthState.es_super_admin,
-                        _seccion_reset_password(),
-                    ),
-
-                    spacing="4",
-                    width="100%",
-                    padding="0",
-                ),
-                width="100%",
-                overflow_y="auto",
-                max_height="calc(85vh - 170px)",
-                padding_right=Spacing.XS,
-            ),
-
-            # Botones
-            rx.hstack(
-                boton_cancelar(
-                    on_click=UsuariosAdminState.cerrar_modal_editar,
-                ),
-                boton_guardar(
-                    texto="Guardar",
-                    texto_guardando="Guardando...",
-                    on_click=UsuariosAdminState.editar_usuario,
-                    saving=UsuariosAdminState.saving,
-                    disabled=~UsuariosAdminState.puede_editar,
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-                padding_top=Spacing.SM,
-                border_top="1px solid var(--gray-4)",
-                margin_top=Spacing.SM,
-            ),
-
-            max_width="620px",
-            width=f"calc(100vw - {Spacing.XXL})",
-            max_height="85vh",
-            overflow="hidden",
-            padding=Spacing.LG,
-            border_radius=Radius.XL,
-            display="flex",
-            flex_direction="column",
-        ),
+    return modal_formulario(
         open=UsuariosAdminState.mostrar_modal_editar,
-        # No cerrar al hacer click fuera - solo con botones
-        on_open_change=rx.noop,
+        titulo="Editar Usuario",
+        descripcion="Actualice los datos del usuario y sus permisos según su rol.",
+        icono="user-pen",
+        on_guardar=UsuariosAdminState.editar_usuario,
+        on_cancelar=UsuariosAdminState.cerrar_modal_editar,
+        puede_guardar=UsuariosAdminState.puede_editar,
+        loading=UsuariosAdminState.saving,
+        scroll_body=True,
+        max_body_height="65vh",
+        max_width="620px",
+        contenido=rx.vstack(
+            # Email (solo lectura)
+            rx.box(
+                rx.text("Email", size="2", weight="medium", color="var(--gray-11)"),
+                rx.cond(
+                    UsuariosAdminState.usuario_seleccionado,
+                    rx.text(
+                        UsuariosAdminState.usuario_seleccionado["email"],
+                        size="2",
+                        color="var(--gray-9)",
+                        style={"padding": "8px 12px", "background": "var(--gray-3)", "border_radius": "6px"},
+                    ),
+                    rx.text("", size="2"),
+                ),
+                width="100%",
+            ),
+
+            # Nombre completo
+            form_input(
+                label="Nombre completo",
+                required=True,
+                placeholder="Nombre y apellidos",
+                value=UsuariosAdminState.form_edit_nombre_completo,
+                on_change=UsuariosAdminState.set_form_edit_nombre_completo,
+                on_blur=UsuariosAdminState.validar_edit_nombre_campo,
+                error=UsuariosAdminState.error_edit_nombre_completo,
+                max_length=150,
+            ),
+
+            # Telefono
+            form_input(
+                label="Telefono",
+                placeholder="10 digitos (opcional)",
+                value=UsuariosAdminState.form_edit_telefono,
+                on_change=UsuariosAdminState.set_form_edit_telefono,
+                on_blur=UsuariosAdminState.validar_edit_telefono_campo,
+                error=UsuariosAdminState.error_edit_telefono,
+                max_length=10,
+            ),
+
+            # Rol
+            form_select(
+                label="Rol",
+                required=True,
+                placeholder="Seleccionar rol",
+                options=UsuariosAdminState.opciones_roles_edicion,
+                value=UsuariosAdminState.form_edit_rol,
+                on_change=UsuariosAdminState.set_form_edit_rol,
+            ),
+
+            # Matriz de permisos (solo para admins)
+            rx.cond(
+                UsuariosAdminState.mostrar_edit_permisos,
+                _matriz_permisos(),
+            ),
+
+            # Resetear contraseña (solo super admin)
+            rx.cond(
+                AuthState.es_super_admin,
+                _seccion_reset_password(),
+            ),
+
+            spacing="4",
+            width="100%",
+        ),
     )
 
 
@@ -546,104 +473,82 @@ def _fila_empresa_asignada(empresa: dict) -> rx.Component:
 
 def modal_gestionar_empresas() -> rx.Component:
     """Modal para gestionar empresas asignadas a un usuario."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title("Gestionar Empresas"),
-            rx.dialog.description(
-                rx.cond(
-                    UsuariosAdminState.usuario_seleccionado,
+    return modal_detalle(
+        open=UsuariosAdminState.mostrar_modal_empresas,
+        titulo="Gestionar Empresas",
+        on_cerrar=UsuariosAdminState.cerrar_modal_empresas,
+        max_width="500px",
+        contenido=rx.vstack(
+            # Descripcion
+            rx.cond(
+                UsuariosAdminState.usuario_seleccionado,
+                rx.text(
+                    "Empresas de ",
                     rx.text(
-                        "Empresas de ",
-                        rx.text(
-                            UsuariosAdminState.usuario_seleccionado["nombre_completo"],
-                            weight="bold",
-                            as_="span",
-                        ),
-                        size="2",
-                        color="gray",
+                        UsuariosAdminState.usuario_seleccionado["nombre_completo"],
+                        weight="bold",
+                        as_="span",
                     ),
-                    rx.text(""),
+                    size="2",
+                    color="gray",
                 ),
-                margin_bottom="16px",
             ),
 
+            # Asignar nueva empresa
             rx.vstack(
-                # Asignar nueva empresa
-                rx.vstack(
-                    rx.select.root(
-                        rx.select.trigger(
-                            placeholder="Seleccionar empresa...",
-                            width="100%",
-                        ),
-                        rx.select.content(
-                            rx.foreach(
-                                UsuariosAdminState.opciones_empresas_disponibles,
-                                lambda e: rx.select.item(
-                                    e["nombre_comercial"],
-                                    value=e["id"],
-                                ),
+                rx.select.root(
+                    rx.select.trigger(
+                        placeholder="Seleccionar empresa...",
+                        width="100%",
+                    ),
+                    rx.select.content(
+                        rx.foreach(
+                            UsuariosAdminState.opciones_empresas_disponibles,
+                            lambda e: rx.select.item(
+                                e["nombre_comercial"],
+                                value=e["id"],
                             ),
                         ),
-                        value=UsuariosAdminState.form_empresa_id,
-                        on_change=UsuariosAdminState.set_form_empresa_id,
-                        width="100%",
                     ),
-                    boton_guardar(
-                        texto="Asignar",
-                        texto_guardando="Asignando...",
-                        on_click=UsuariosAdminState.asignar_empresa,
-                        saving=UsuariosAdminState.saving,
-                        disabled=UsuariosAdminState.form_empresa_id == "",
-                        size="2",
-                        width="100%",
+                    value=UsuariosAdminState.form_empresa_id,
+                    on_change=UsuariosAdminState.set_form_empresa_id,
+                    width="100%",
+                ),
+                boton_guardar(
+                    texto="Asignar",
+                    texto_guardando="Asignando...",
+                    on_click=UsuariosAdminState.asignar_empresa,
+                    saving=UsuariosAdminState.saving,
+                    disabled=UsuariosAdminState.form_empresa_id == "",
+                    size="2",
+                    width="100%",
+                ),
+                width="100%",
+                spacing="2",
+            ),
+
+            rx.separator(),
+
+            # Lista de empresas asignadas
+            rx.cond(
+                UsuariosAdminState.empresas_usuario.length() > 0,
+                rx.vstack(
+                    rx.foreach(
+                        UsuariosAdminState.empresas_usuario,
+                        _fila_empresa_asignada,
                     ),
                     width="100%",
-                    spacing="2",
+                    spacing="0",
                 ),
-
-                rx.separator(),
-
-                # Lista de empresas asignadas
-                rx.cond(
-                    UsuariosAdminState.empresas_usuario.length() > 0,
-                    rx.vstack(
-                        rx.foreach(
-                            UsuariosAdminState.empresas_usuario,
-                            _fila_empresa_asignada,
-                        ),
-                        width="100%",
-                        spacing="0",
-                    ),
-                    rx.center(
-                        rx.text("Sin empresas asignadas", color="gray", size="2"),
-                        padding="6",
-                    ),
+                rx.center(
+                    rx.text("Sin empresas asignadas", color="gray", size="2"),
+                    padding="6",
                 ),
-
-                spacing="4",
-                width="100%",
             ),
 
-            # Boton cerrar
-            rx.hstack(
-                rx.button(
-                    "Cerrar",
-                    variant="soft",
-                    color_scheme="gray",
-                    on_click=UsuariosAdminState.cerrar_modal_empresas,
-                ),
-                justify="end",
-                width="100%",
-                margin_top="16px",
-            ),
-
-            max_width="500px",
-            padding="24px",
-            overflow_x="hidden",
+            spacing="4",
+            width="100%",
         ),
-        open=UsuariosAdminState.mostrar_modal_empresas,
-        # No cerrar al hacer click fuera - solo con botones
-        on_open_change=rx.noop,
     )
 
 

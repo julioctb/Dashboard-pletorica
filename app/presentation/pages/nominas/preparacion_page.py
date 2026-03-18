@@ -15,6 +15,8 @@ from app.presentation.pages.nominas.nomina_modals import (
 )
 from app.presentation.components.ui import (
     input_busqueda,
+    metadata_divider,
+    metadata_item,
     payroll_period_status_badge,
     tabla_vacia,
     table_pagination,
@@ -23,67 +25,51 @@ from app.presentation.components.ui import (
 from app.presentation.layout import page_layout, page_header
 from app.presentation.theme import Colors, Radius, Spacing, Typography
 
-
-def _metadata_item(label: str, value, *, tone: str = "primary") -> rx.Component:
-    color = Colors.TEXT_PRIMARY if tone == "primary" else Colors.TEXT_SECONDARY
-    return rx.vstack(
-        rx.text(
-            label,
-            font_size="10px",
-            font_weight=Typography.WEIGHT_SEMIBOLD,
-            color=Colors.TEXT_MUTED,
-            text_transform="uppercase",
-            letter_spacing="0.04em",
-            width="100%",
-            text_align="left",
-        ),
-        rx.text(
-            value,
-            font_size=Typography.SIZE_SM,
-            font_weight=Typography.WEIGHT_MEDIUM,
-            color=color,
-            width="100%",
-            text_align="left",
-        ),
-        spacing="1",
-        align="start",
-        min_width="120px",
-    )
-
-
-def _metadata_divider() -> rx.Component:
-    return rx.box(
-        width="1px",
-        align_self="stretch",
-        background=Colors.BORDER,
-        opacity="0.7",
-    )
-
-
 def _metadata_periodo() -> rx.Component:
     return rx.box(
         rx.flex(
-            _metadata_item("Periodo", NominaRRHHState.periodo_rango_compacto),
-            _metadata_divider(),
-            _metadata_item("Tipo", NominaRRHHState.periodo_tipo_ficha_label),
-            _metadata_divider(),
-            _metadata_item("Fecha de pago", NominaRRHHState.periodo_actual["fecha_pago_fmt"]),
-            _metadata_divider(),
-            _metadata_item(
+            metadata_item(
+                "Periodo",
+                NominaRRHHState.periodo_rango_compacto,
+                min_width="120px",
+                label_weight=Typography.WEIGHT_SEMIBOLD,
+            ),
+            metadata_divider(),
+            metadata_item(
+                "Tipo",
+                NominaRRHHState.periodo_tipo_ficha_label,
+                min_width="120px",
+                label_weight=Typography.WEIGHT_SEMIBOLD,
+            ),
+            metadata_divider(),
+            metadata_item(
+                "Fecha de pago",
+                NominaRRHHState.periodo_actual["fecha_pago_fmt"],
+                min_width="120px",
+                label_weight=Typography.WEIGHT_SEMIBOLD,
+            ),
+            metadata_divider(),
+            metadata_item(
                 "Empleados",
                 NominaRRHHState.total_empleados_resumen_preparacion.to(str),
+                min_width="120px",
+                label_weight=Typography.WEIGHT_SEMIBOLD,
             ),
-            _metadata_divider(),
-            _metadata_item(
+            metadata_divider(),
+            metadata_item(
                 "Generada",
                 NominaRRHHState.periodo_actual["fecha_creacion_fmt"],
                 tone="secondary",
+                min_width="120px",
+                label_weight=Typography.WEIGHT_SEMIBOLD,
             ),
-            _metadata_divider(),
-            _metadata_item(
+            metadata_divider(),
+            metadata_item(
                 "Generado por",
                 NominaRRHHState.periodo_actual["creado_por_nombre_fmt"],
                 tone="secondary",
+                min_width="120px",
+                label_weight=Typography.WEIGHT_SEMIBOLD,
             ),
             width="100%",
             wrap="wrap",

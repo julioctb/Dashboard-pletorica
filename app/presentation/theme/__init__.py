@@ -27,6 +27,8 @@ from .tokens import (
     InputStyles,
 )
 
+from .breakpoints import Layout, content_container
+
 from .styles import (
     GLOBAL_STYLES,
     APP_SHELL_STYLE,
@@ -70,8 +72,10 @@ __all__ = [
     
     # Layout
     "Breakpoints",
+    "Layout",
     "Sidebar",
     "ZIndex",
+    "content_container",
     
     # Estilos compuestos (tokens)
     "ButtonStyles",

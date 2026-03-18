@@ -37,6 +37,8 @@ class PortalState(AuthState):
     total_contratos: int = 0
     total_plazas_ocupadas: int = 0
     total_plazas_vacantes: int = 0
+    plazas_minimas: int = 0
+    plazas_maximas: int = 0
     tiene_contratos_con_personal: bool = False
     gestion_nomina_activa_empresa: bool = False
     metricas_cargadas: bool = False
@@ -170,11 +172,6 @@ class PortalState(AuthState):
         async for _ in self._montar_pagina(*operaciones):
             yield
 
-    async def on_mount_dashboard(self):
-        """Montaje del dashboard: verificar auth + cargar metricas."""
-        async for _ in self._montar_pagina_portal(self._fetch_metricas):
-            yield
-
     # ========================
     # CARGA DE DATOS
     # ========================
@@ -199,6 +196,8 @@ class PortalState(AuthState):
             self.total_contratos = 0
             self.total_plazas_ocupadas = 0
             self.total_plazas_vacantes = 0
+            self.plazas_minimas = 0
+            self.plazas_maximas = 0
             self.tiene_contratos_con_personal = False
             return
 
@@ -217,23 +216,16 @@ class PortalState(AuthState):
                 for contrato in contratos
             )
 
-            # Plazas: sumar de todos los contratos
+            # Plazas: batch via resumen de contratos (sin N+1)
             from app.services import plaza_service
-            ocupadas = 0
-            vacantes = 0
-            for contrato in contratos:
-                try:
-                    resumen = await plaza_service.calcular_totales_contrato(contrato.id)
-                    ocupadas += resumen.plazas_ocupadas
-                    vacantes += resumen.plazas_vacantes
-                except Exception as e:
-                    logger.debug(
-                        "Error calculando métricas de plazas para contrato %s: %s",
-                        contrato.id,
-                        e,
-                    )
-            self.total_plazas_ocupadas = ocupadas
-            self.total_plazas_vacantes = vacantes
+            resumen_contratos = await plaza_service.obtener_resumen_contratos_con_plazas(
+                empresa_id=self.id_empresa_actual,
+                solo_activos=True,
+            )
+            self.total_plazas_ocupadas = sum(r.get("plazas_ocupadas", 0) for r in resumen_contratos)
+            self.total_plazas_vacantes = sum(r.get("plazas_vacantes", 0) for r in resumen_contratos)
+            self.plazas_minimas = sum(r.get("cantidad_plazas_minima", 0) for r in resumen_contratos)
+            self.plazas_maximas = sum(r.get("cantidad_plazas_maxima", 0) for r in resumen_contratos)
 
             self.metricas_cargadas = True
         except DatabaseError as e:

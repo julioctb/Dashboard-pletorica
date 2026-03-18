@@ -9,6 +9,8 @@ from datetime import date
 from decimal import Decimal
 from typing import ClassVar, Optional
 
+from ._shared import VigenciaPorFechaMixin, resolver_vigencia
+
 
 @dataclass(frozen=True)
 class RangoISR:
@@ -27,7 +29,7 @@ class RangoISR:
 
 
 @dataclass(frozen=True)
-class PoliticaSubsidioEmpleo:
+class PoliticaSubsidioEmpleo(VigenciaPorFechaMixin):
     """Monto de subsidio al empleo aplicable por fecha."""
 
     desde: date
@@ -35,10 +37,6 @@ class PoliticaSubsidioEmpleo:
     porcentaje_uma_mensual: Decimal
     subsidio_mensual: Decimal
     limite_ingreso_mensual: Decimal
-
-    def aplica_a(self, fecha_referencia: date) -> bool:
-        return self.desde <= fecha_referencia <= self.hasta
-
 
 class CatalogoISR:
     """Tabla ISR mensual y política de subsidio al empleo."""
@@ -104,30 +102,17 @@ class CatalogoISR:
     LIMITE_SUBSIDIO: ClassVar[Decimal] = POLITICAS_SUBSIDIO[-1].limite_ingreso_mensual
 
     @classmethod
-    def _coerce_fecha(cls, fecha_referencia: date | str | None) -> date:
-        if fecha_referencia is None:
-            return date.today()
-        if isinstance(fecha_referencia, date):
-            return fecha_referencia
-        return date.fromisoformat(str(fecha_referencia))
-
-    @classmethod
     def obtener_politica_subsidio(
         cls,
         fecha_referencia: date | str | None,
         *,
         permitir_fallback: bool = False,
     ) -> PoliticaSubsidioEmpleo | None:
-        fecha = cls._coerce_fecha(fecha_referencia)
-        for politica in cls.POLITICAS_SUBSIDIO:
-            if politica.aplica_a(fecha):
-                return politica
-        if not permitir_fallback:
-            return None
-        anteriores = [item for item in cls.POLITICAS_SUBSIDIO if item.desde <= fecha]
-        if anteriores:
-            return anteriores[-1]
-        return cls.POLITICAS_SUBSIDIO[0] if cls.POLITICAS_SUBSIDIO else None
+        return resolver_vigencia(
+            cls.POLITICAS_SUBSIDIO,
+            fecha_referencia,
+            permitir_fallback=permitir_fallback,
+        )
 
     @classmethod
     def obtener_rango(cls, base_gravable: Decimal) -> Optional[RangoISR]:

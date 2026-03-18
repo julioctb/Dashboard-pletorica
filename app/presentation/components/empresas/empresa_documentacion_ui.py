@@ -16,6 +16,7 @@ from app.presentation.components.reusable.document_row_primitives import (
 )
 from app.presentation.components.ui import (
     form_input,
+    select_items_from_options,
     tabla_action_button,
     tabla_action_buttons,
     table_cell_text_sm,
@@ -66,7 +67,11 @@ def _acciones_documento(item, state, *, can_edit, readonly: bool) -> rx.Componen
         botones.append(
             tabla_action_button(
                 icon="upload",
-                tooltip=rx.cond(item["subido"], "Reemplazar PDF", "Subir PDF"),
+                tooltip=rx.cond(
+                    item["es_anual"],
+                    rx.cond(item["subido"], "Reemplazar PDF del año", "Subir PDF del año"),
+                    rx.cond(item["subido"], "Actualizar documento vigente", "Subir documento vigente"),
+                ),
                 on_click=state.abrir_modal_subir(item),
                 color_scheme="blue",
                 visible=can_edit,
@@ -214,13 +219,28 @@ def resumen_documentacion_empresa(state) -> rx.Component:
 def toolbar_documentacion_empresa(state, *, allow_change_year: bool = True) -> rx.Component:
     selector_anio = (
         rx.select.root(
-            rx.select.trigger(width="180px", placeholder="Año"),
-            rx.select.content(
-                rx.foreach(
-                    state.opciones_anio_documentacion,
-                    lambda opt: rx.select.item(opt["label"], value=opt["value"]),
-                )
+            rx.select.trigger(
+                rx.hstack(
+                    rx.hstack(
+                        rx.icon("calendar-range", size=16, color=Colors.TEXT_MUTED),
+                        rx.text(
+                            "Año " + state.anio_seleccionado.to(str),
+                            font_size=Typography.SIZE_SM,
+                            font_weight=Typography.WEIGHT_MEDIUM,
+                            color=Colors.TEXT_PRIMARY,
+                        ),
+                        spacing="2",
+                        align="center",
+                        min_width="0",
+                    ),
+                    rx.icon("chevrons-up-down", size=14, color=Colors.TEXT_MUTED),
+                    justify="between",
+                    align="center",
+                    width="100%",
+                ),
+                width="180px",
             ),
+            rx.select.content(select_items_from_options(state.opciones_anio_documentacion)),
             value=state.anio_seleccionado.to(str),
             on_change=state.cambiar_anio_documentacion,
             size="2",
@@ -571,8 +591,11 @@ def panel_documentacion_empresa(
                 document_section_header(
                     title="Checklist anual",
                     subtitle=(
-                        "Carga los PDFs requeridos por año. La vigencia legal se muestra "
-                        "como guía, sin validación automática en esta versión."
+                        "Carga los PDFs del expediente del año seleccionado. Los documentos "
+                        "marcados como Vigente se reutilizan entre años hasta que cambien; "
+                        "si cambió el representante, el acta o la identificación, reemplaza "
+                        "la versión vigente. La vigencia legal se muestra como guía, sin "
+                        "validación automática en esta versión."
                     ),
                     actions=acciones_checklist,
                 ),

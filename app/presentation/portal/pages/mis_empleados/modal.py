@@ -8,9 +8,11 @@ from app.presentation.components.ui import (
     employee_status_badge,
     form_date,
     form_input,
-    modal_formulario,
     form_select,
     form_textarea,
+    boton_cancelar,
+    boton_guardar,
+    feedback_callout,
 )
 from app.presentation.components.reusable import (
     employee_form_body,
@@ -28,6 +30,8 @@ from app.presentation.components.reusable import (
     employee_recurring_discounts_section,
     employee_rfc_nss_row,
 )
+
+from app.presentation.components.ui.modals import modal_detalle, modal_formulario
 
 from .state import MisEmpleadosState
 from ..expedientes.state import ExpedientesState
@@ -57,6 +61,23 @@ def modal_empleado() -> rx.Component:
             font_size=Typography.SIZE_SM,
             color=Colors.TEXT_SECONDARY,
         ),
+        header_icon=rx.cond(
+            MisEmpleadosState.es_edicion,
+            rx.box(
+                rx.icon("user-pen", size=20, color=Colors.PORTAL_PRIMARY_TEXT),
+                background=Colors.PORTAL_PRIMARY_LIGHT,
+                border_radius=Radius.LG,
+                padding="10px",
+                flex_shrink="0",
+            ),
+            rx.box(
+                rx.icon("user-plus", size=20, color=Colors.PORTAL_PRIMARY_TEXT),
+                background=Colors.PORTAL_PRIMARY_LIGHT,
+                border_radius=Radius.LG,
+                padding="10px",
+                flex_shrink="0",
+            ),
+        ),
         body=rx.vstack(
             _employee_modal_identificacion_section(),
             _employee_modal_contacto_section(),
@@ -77,7 +98,7 @@ def modal_empleado() -> rx.Component:
         ),
         saving=MisEmpleadosState.saving,
         save_loading_text="Guardando...",
-        save_color_scheme="teal",
+        save_color_scheme=Colors.PORTAL_ACCENT_SCHEME,
         max_width="920px",
     )
 
@@ -87,37 +108,41 @@ def _employee_modal_section(
     *children,
     description: rx.Component | None = None,
     header_action: rx.Component | None = None,
+    first: bool = False,
 ) -> rx.Component:
-    """Contenedor visual de sección para el modal de empleado."""
-    return rx.box(
+    """Sección del modal de empleado con divider + título uppercase muted (sin card/borde)."""
+    section_header = rx.hstack(
         rx.vstack(
-            rx.hstack(
-                rx.vstack(
-                    rx.text(
-                        title,
-                        font_size=Typography.SIZE_SM,
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                        color=Colors.TEXT_PRIMARY,
-                    ),
-                    description if description is not None else rx.fragment(),
-                    spacing="1",
-                    align="start",
-                ),
-                rx.spacer(),
-                header_action if header_action is not None else rx.fragment(),
-                width="100%",
-                align="center",
+            rx.text(
+                title.upper(),
+                font_size=Typography.SIZE_XS,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_MUTED,
+                letter_spacing="0.04em",
             ),
-            *children,
-            width="100%",
-            gap=Spacing.MD,
-            align="stretch",
+            description if description is not None else rx.fragment(),
+            spacing="1",
+            align="start",
         ),
+        rx.spacer(),
+        header_action if header_action is not None else rx.fragment(),
         width="100%",
-        padding=Spacing.MD,
-        background=Colors.SURFACE,
-        border=f"1px solid {Colors.BORDER}",
-        border_radius=Radius.LG,
+        align="center",
+    )
+    content = rx.vstack(
+        section_header,
+        *children,
+        width="100%",
+        gap=Spacing.MD,
+        align="stretch",
+    )
+    if first:
+        return content
+    return rx.vstack(
+        rx.divider(border_color=Colors.BORDER),
+        content,
+        width="100%",
+        spacing="3",
     )
 
 
@@ -312,6 +337,7 @@ def _employee_modal_identificacion_section() -> rx.Component:
                 required=True,
             ),
         ),
+        first=True,
     )
 
 
@@ -430,7 +456,7 @@ def _employee_modal_datos_bancarios_section() -> rx.Component:
             rx.button(
                 MisEmpleadosState.texto_accion_datos_bancarios,
                 variant="soft",
-                color_scheme="teal",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                 size="2",
                 on_click=MisEmpleadosState.habilitar_edicion_datos_bancarios,
             ),
@@ -546,7 +572,7 @@ def _employee_modal_descuentos_section() -> rx.Component:
         rx.box(
             _employee_modal_descuento_row(
                 form_key="infonavit",
-                title="INFONAVIT",
+                title="Infonavit",
                 badge_text="INF",
                 badge_color_scheme="blue",
                 active=MisEmpleadosState.form_descuento_infonavit_activo,
@@ -557,9 +583,9 @@ def _employee_modal_descuentos_section() -> rx.Component:
             ),
             _employee_modal_descuento_row(
                 form_key="fonacot",
-                title="FONACOT",
+                title="Fonacot",
                 badge_text="FON",
-                badge_color_scheme="orange",
+                badge_color_scheme="amber",
                 active=MisEmpleadosState.form_descuento_fonacot_activo,
                 amount_value=MisEmpleadosState.form_descuento_fonacot_monto,
                 start_value=MisEmpleadosState.form_descuento_fonacot_inicio,
@@ -570,7 +596,7 @@ def _employee_modal_descuentos_section() -> rx.Component:
                 form_key="prestamo_empresa",
                 title="Préstamo empresa",
                 badge_text="PRE",
-                badge_color_scheme="teal",
+                badge_color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                 active=MisEmpleadosState.form_descuento_prestamo_empresa_activo,
                 amount_value=MisEmpleadosState.form_descuento_prestamo_empresa_monto,
                 start_value=MisEmpleadosState.form_descuento_prestamo_empresa_inicio,
@@ -581,7 +607,7 @@ def _employee_modal_descuentos_section() -> rx.Component:
                 form_key="pension_alimenticia",
                 title="Pensión alimenticia",
                 badge_text="PEN",
-                badge_color_scheme="red",
+                badge_color_scheme="pink",
                 active=MisEmpleadosState.form_descuento_pension_alimenticia_activo,
                 amount_value=MisEmpleadosState.form_descuento_pension_alimenticia_monto,
                 start_value=MisEmpleadosState.form_descuento_pension_alimenticia_inicio,
@@ -605,11 +631,17 @@ def _employee_modal_descuentos_section() -> rx.Component:
 
 def _employee_modal_notas_field() -> rx.Component:
     """Campo de notas generales fuera de las secciones principales."""
-    return _employee_modal_input(
-        label="Notas",
-        value=MisEmpleadosState.form_notas,
-        on_change=MisEmpleadosState.set_form_notas,
-        placeholder="Observaciones adicionales",
+    return rx.vstack(
+        rx.divider(border_color=Colors.BORDER),
+        _employee_modal_input(
+            label="Notas",
+            value=MisEmpleadosState.form_notas,
+            on_change=MisEmpleadosState.set_form_notas,
+            placeholder="Observaciones adicionales",
+            hint="Opcional",
+        ),
+        spacing="3",
+        width="100%",
     )
 
 
@@ -619,16 +651,19 @@ def modal_asignacion_plaza() -> rx.Component:
         open=MisEmpleadosState.mostrar_modal_asignacion_plaza,
         titulo=MisEmpleadosState.titulo_modal_asignacion_plaza,
         descripcion=MisEmpleadosState.descripcion_modal_asignacion_plaza,
+        icono="users",
+        color_icono="teal",
+        on_guardar=MisEmpleadosState.confirmar_asignacion_plaza,
+        on_cancelar=MisEmpleadosState.cerrar_modal_asignacion_plaza,
+        puede_guardar=MisEmpleadosState.puede_confirmar_asignacion_plaza,
+        loading=MisEmpleadosState.saving,
+        texto_guardar=MisEmpleadosState.texto_guardar_asignacion_plaza,
+        color_guardar="teal",
+        max_width="460px",
         contenido=rx.vstack(
-            rx.callout(
-                rx.text(
-                    "La plaza conserva su sede y categoría. Aquí solo se asigna o reasigna al empleado.",
-                    font_size=Typography.SIZE_SM,
-                ),
-                icon="briefcase",
-                color_scheme="blue",
-                size="1",
-                width="100%",
+            feedback_callout(
+                "La plaza conserva su sede y categoría. Aquí solo se asigna o reasigna al empleado.",
+                "info",
             ),
             form_select(
                 label="Empleado",
@@ -643,6 +678,8 @@ def modal_asignacion_plaza() -> rx.Component:
                     "",
                     "Si no hay empleados disponibles, primero capture uno nuevo.",
                 ),
+                label_variant="portal",
+                style_variant="portal",
             ),
             rx.cond(
                 MisEmpleadosState.cargando_empleados_plaza,
@@ -669,7 +706,7 @@ def modal_asignacion_plaza() -> rx.Component:
                         MisEmpleadosState.abrir_modal_crear,
                     ],
                     variant="outline",
-                    color_scheme="teal",
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                     align_self="start",
                 ),
                 rx.fragment(),
@@ -677,17 +714,6 @@ def modal_asignacion_plaza() -> rx.Component:
             spacing="4",
             width="100%",
         ),
-        on_guardar=MisEmpleadosState.confirmar_asignacion_plaza,
-        on_cancelar=MisEmpleadosState.cerrar_modal_asignacion_plaza,
-        puede_guardar=MisEmpleadosState.puede_confirmar_asignacion_plaza,
-        loading=MisEmpleadosState.saving,
-        texto_guardar=MisEmpleadosState.texto_guardar_asignacion_plaza,
-        texto_guardando=rx.cond(
-            MisEmpleadosState.modo_asignacion_plaza == "reasignar",
-            "Reasignando...",
-            "Asignando...",
-        ),
-        max_width="460px",
     )
 
 
@@ -805,7 +831,7 @@ def modal_detalle_empleado() -> rx.Component:
                                 rx.badge(
                                     "Expediente " + MisEmpleadosState.detalle_expediente_resumen,
                                     variant="soft",
-                                    color_scheme="teal",
+                                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                                     size="2",
                                 ),
                                 on_click=ExpedientesState.abrir_panel_expediente(
@@ -818,7 +844,7 @@ def modal_detalle_empleado() -> rx.Component:
                             rx.badge(
                                 "Expediente " + MisEmpleadosState.detalle_expediente_resumen,
                                 variant="soft",
-                                color_scheme="teal",
+                                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                                 size="2",
                             ),
                         ),
@@ -1037,7 +1063,7 @@ def modal_detalle_empleado() -> rx.Component:
                         rx.icon("pencil", size=14),
                         "Editar",
                         variant="soft",
-                        color_scheme="teal",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         on_click=MisEmpleadosState.abrir_modal_editar_desde_detalle,
                     ),
                     rx.fragment(),
@@ -1069,72 +1095,48 @@ def modal_detalle_empleado() -> rx.Component:
 
 def modal_historial_bancario() -> rx.Component:
     """Modal secundario con el historial de cambios bancarios del empleado."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.hstack(
-                rx.vstack(
-                    rx.dialog.title("Historial bancario"),
-                    rx.text(
-                        MisEmpleadosState.detalle_nombre_empleado,
-                        color=Colors.TEXT_SECONDARY,
-                        font_size=Typography.SIZE_SM,
-                    ),
-                    spacing="1",
-                    align="start",
-                ),
-                rx.button(
-                    rx.icon("x", size=16),
-                    variant="ghost",
-                    color_scheme="gray",
-                    size="1",
-                    on_click=MisEmpleadosState.cerrar_modal_historial_bancario,
-                ),
-                align="start",
-                justify="between",
-                width="100%",
-            ),
-            rx.cond(
-                MisEmpleadosState.tiene_historial_bancario,
-                rx.box(
-                    rx.vstack(
-                        rx.foreach(
-                            MisEmpleadosState.historial_bancario,
-                            _tarjeta_historial_bancario,
-                        ),
-                        spacing="3",
-                        width="100%",
-                    ),
-                    max_height="420px",
-                    overflow_y="auto",
-                    width="100%",
-                    padding_right="2",
-                ),
-                rx.center(
-                    rx.text(
-                        "No hay cambios bancarios registrados para este empleado.",
-                        color=Colors.TEXT_SECONDARY,
-                        font_size=Typography.SIZE_SM,
-                    ),
-                    min_height="220px",
-                    width="100%",
-                ),
-            ),
-            rx.hstack(
-                rx.spacer(),
-                rx.button(
-                    "Cerrar",
-                    variant="soft",
-                    color_scheme="gray",
-                    on_click=MisEmpleadosState.cerrar_modal_historial_bancario,
-                ),
-                width="100%",
-                margin_top="4",
-            ),
-            max_width="760px",
-            padding="6",
+    contenido = rx.vstack(
+        rx.text(
+            MisEmpleadosState.detalle_nombre_empleado,
+            color=Colors.TEXT_SECONDARY,
+            font_size=Typography.SIZE_SM,
         ),
+        rx.cond(
+            MisEmpleadosState.tiene_historial_bancario,
+            rx.box(
+                rx.vstack(
+                    rx.foreach(
+                        MisEmpleadosState.historial_bancario,
+                        _tarjeta_historial_bancario,
+                    ),
+                    spacing="3",
+                    width="100%",
+                ),
+                max_height="420px",
+                overflow_y="auto",
+                width="100%",
+                padding_right="2",
+            ),
+            rx.center(
+                rx.text(
+                    "No hay cambios bancarios registrados para este empleado.",
+                    color=Colors.TEXT_SECONDARY,
+                    font_size=Typography.SIZE_SM,
+                ),
+                min_height="220px",
+                width="100%",
+            ),
+        ),
+        spacing="3",
+        width="100%",
+    )
+
+    return modal_detalle(
         open=MisEmpleadosState.mostrar_modal_historial_bancario,
-        on_open_change=rx.noop,
+        titulo="Historial bancario",
+        contenido=contenido,
+        on_cerrar=MisEmpleadosState.cerrar_modal_historial_bancario,
+        max_width="760px",
     )
 
 
@@ -1510,7 +1512,7 @@ def _seccion_datos_bancarios() -> rx.Component:
             rx.button(
                 MisEmpleadosState.texto_accion_datos_bancarios,
                 variant="soft",
-                color_scheme="teal",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                 size="2",
                 on_click=MisEmpleadosState.habilitar_edicion_datos_bancarios,
             ),

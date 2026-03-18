@@ -4,6 +4,7 @@ Estado de Reflex para el módulo de Nóminas (vista RRHH).
 Gestiona el ciclo de vida de períodos, poblado de empleados,
 captura de descuentos y envío a Contabilidad.
 """
+import asyncio
 import logging
 from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
@@ -437,7 +438,7 @@ class NominaRRHHState(NominaBaseState):
 
     @rx.var
     def nombre_empleado_seleccionado(self) -> str:
-        return self.empleado_seleccionado.get('nombre_empleado', '')
+        return capitalizar_palabras(self.empleado_seleccionado.get('nombre_empleado', ''))
 
     @rx.var
     def opciones_conceptos_rrhh(self) -> list[dict]:
@@ -480,6 +481,10 @@ class NominaRRHHState(NominaBaseState):
     @rx.var
     def es_form_aguinaldo(self) -> bool:
         return self.form_tipo_corrida == TipoPeriodoNomina.AGUINALDO.value
+
+    @rx.var
+    def es_diciembre(self) -> bool:
+        return datetime.now().month == 12
 
     @rx.var
     def opciones_tipo_corrida(self) -> list[dict]:
@@ -973,14 +978,15 @@ class NominaRRHHState(NominaBaseState):
 
     async def _cargar_contratos_nomina(self):
         try:
-            self.contratos_nomina_opciones = (
-                await configuracion_operativa_service.listar_contratos_nomina_disponibles(
+            contratos, config = await asyncio.gather(
+                configuracion_operativa_service.listar_contratos_nomina_disponibles(
                     self.id_empresa_actual
-                )
+                ),
+                configuracion_operativa_service.obtener_por_empresa(
+                    self.id_empresa_actual
+                ),
             )
-            config = await configuracion_operativa_service.obtener_por_empresa(
-                self.id_empresa_actual
-            )
+            self.contratos_nomina_opciones = contratos
             contrato_configurado = str(getattr(config, "contrato_nomina_id", "") or "")
             opciones_validas = {
                 str(opcion.get("value") or "")
@@ -1004,6 +1010,7 @@ class NominaRRHHState(NominaBaseState):
         self.form_generado_por_preview = (
             str(self.usuario_actual.get("nombre_completo", "") or "").strip() or "Sin dato"
         )
+        self.form_fecha_pago = date.today().isoformat()
 
     def _resolver_tipo_corrida_inicial(self) -> str:
         if self.periodos_disponibles_catalogo:
@@ -1039,9 +1046,15 @@ class NominaRRHHState(NominaBaseState):
         self.limpiar_mensajes()
         self._limpiar_form_periodo()
         self._prellenar_datos_generacion_periodo()
-        await self._cargar_contratos_nomina()
-        await self._cargar_periodos_disponibles()
-        await self._cargar_ejercicios_aguinaldo()
+        self.mostrar_modal_periodo = True
+        yield  # Enviar estado al frontend → el modal aparece inmediatamente
+        tareas = [
+            self._cargar_contratos_nomina(),
+            self._cargar_periodos_disponibles(),
+        ]
+        if datetime.now().month == 12:
+            tareas.append(self._cargar_ejercicios_aguinaldo())
+        await asyncio.gather(*tareas)
         self.form_tipo_corrida = self._resolver_tipo_corrida_inicial()
         self._autoseleccionar_catalogo_modal()
         if (
@@ -1068,7 +1081,6 @@ class NominaRRHHState(NominaBaseState):
                 "No hay ejercicios de aguinaldo disponibles para generar.",
                 "warning",
             )
-        self.mostrar_modal_periodo = True
 
     def cerrar_modal_periodo(self):
         self.mostrar_modal_periodo = False

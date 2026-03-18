@@ -11,12 +11,12 @@ import reflex as rx
 from app.core.constants.permisos import PERMISOS_DEFAULT, ROLES_ASIGNABLES_POR_ADMIN_EMPRESA
 from app.core.exceptions import DatabaseError, DuplicateError, BusinessRuleError, NotFoundError
 from app.core.ui_helpers import FILTRO_TODOS
-from app.presentation.portal.state.portal_state import PortalState
-from app.presentation.pages.admin.usuarios.usuarios_validators import (
-    validar_email,
-    validar_nombre_completo,
-    validar_telefono,
+from app.core.validation import (
+    validar_email_usuario as validar_email,
+    validar_nombre_completo_usuario as validar_nombre_completo,
+    validar_telefono_usuario as validar_telefono,
 )
+from app.presentation.portal.state.portal_state import PortalState
 from app.services import user_service
 
 

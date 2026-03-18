@@ -4,7 +4,7 @@ Validadores personalizados para campos complejos.
 Contiene validadores que requieren lógica específica más allá de
 patrón/longitud simple, como RFC con feedback detallado.
 
-Estos validadores son usados tanto por frontend (empresas_validators.py)
+Estos validadores son usados tanto por formularios frontend
 como por backend (entities con Pydantic).
 """
 import re

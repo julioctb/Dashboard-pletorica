@@ -24,11 +24,20 @@ def _tarjeta_paso(
     contenido: rx.Component,
 ) -> rx.Component:
     """Contenedor visual consistente para cada paso del wizard."""
-    return rx.card(
+    return rx.box(
         rx.vstack(
             rx.vstack(
-                rx.text(titulo, size="4", weight="bold", color=Colors.TEXT_PRIMARY),
-                rx.text(descripcion, size="2", color=Colors.TEXT_SECONDARY),
+                rx.text(
+                    titulo,
+                    font_size=Typography.SIZE_BASE,
+                    font_weight=Typography.WEIGHT_SEMIBOLD,
+                    color=Colors.TEXT_PRIMARY,
+                ),
+                rx.text(
+                    descripcion,
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
                 spacing="1",
                 width="100%",
                 align="start",
@@ -39,7 +48,10 @@ def _tarjeta_paso(
             align="stretch",
         ),
         width="100%",
-        variant="surface",
+        padding=Spacing.LG,
+        border=f"1px solid {Colors.BORDER}",
+        border_radius=Radius.LG,
+        background=Colors.SURFACE,
     )
 
 
@@ -69,20 +81,20 @@ def _indicador_pasos() -> rx.Component:
             border_radius="999px",
             background=rx.cond(
                 es_actual,
-                Colors.PRIMARY,
-                rx.cond(es_completado, Colors.PRIMARY_LIGHTER, Colors.SURFACE),
+                Colors.PORTAL_PRIMARY,
+                rx.cond(es_completado, Colors.PORTAL_PRIMARY, Colors.SURFACE),
             ),
             color=rx.cond(
                 es_actual,
                 Colors.TEXT_INVERSE,
-                rx.cond(es_completado, Colors.PRIMARY, Colors.TEXT_SECONDARY),
+                rx.cond(es_completado, Colors.TEXT_INVERSE, Colors.TEXT_MUTED),
             ),
             border=rx.cond(
                 es_actual,
-                f"1px solid {Colors.PRIMARY}",
+                f"1px solid {Colors.PORTAL_PRIMARY}",
                 rx.cond(
                     es_completado,
-                    f"1px solid {Colors.PRIMARY_LIGHT}",
+                    f"1px solid {Colors.PORTAL_PRIMARY}",
                     f"1px solid {Colors.BORDER}",
                 ),
             ),
@@ -98,7 +110,7 @@ def _indicador_pasos() -> rx.Component:
         return rx.box(
             width="32px",
             height="1px",
-            background=rx.cond(activo, Colors.PRIMARY_LIGHT, Colors.BORDER),
+            background=rx.cond(activo, Colors.PORTAL_PRIMARY, Colors.BORDER),
             flex_shrink="0",
         )
 
@@ -186,6 +198,7 @@ def _paso_contrato() -> rx.Component:
                         checked=ContratosState.form_tiene_personal,
                         on_change=ContratosState.set_form_tiene_personal,
                         disabled=ContratosState.es_adquisicion,
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                     ),
                     align="center",
                     spacing="3",
@@ -731,7 +744,8 @@ def _paso_plazas() -> rx.Component:
                         "Agregar",
                         on_click=ContratosState.agregar_categoria_contrato,
                         disabled=~ContratosState.puede_agregar_categoria_contrato,
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                        variant="outline",
                         size="2",
                         width="100%",
                     ),
@@ -935,7 +949,7 @@ def _paso_plazas() -> rx.Component:
                     "Agregar",
                     variant="outline",
                     size="1",
-                    color_scheme="gray",
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                     on_click=ContratosState.mostrar_form_crear_categoria_contrato,
                 ),
             ),
@@ -1224,7 +1238,8 @@ def _paso_entregables() -> rx.Component:
                 ),
                 rx.button(
                     "Agregar",
-                    color_scheme="blue",
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                    variant="outline",
                     size="2",
                     on_click=ContratosState.agregar_tipo_entregable,
                     disabled=~ContratosState.puede_agregar_entregable,
@@ -1306,27 +1321,14 @@ def _paso_entregables() -> rx.Component:
                         "Agregar tipo",
                         variant="outline",
                         size="1",
-                        color_scheme="gray",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         on_click=ContratosState.mostrar_form_entregable,
                     ),
                 ),
             ),
-            rx.box(
-                rx.hstack(
-                    rx.icon("info", size=16, color=Colors.INFO),
-                    rx.text(
-                        "Puede dejar este paso vacío si el contrato no requiere entregables configurables desde el alta.",
-                        font_size="12.5px",
-                        color=Colors.INFO,
-                    ),
-                    spacing="2",
-                    width="100%",
-                    align="center",
-                ),
-                width="100%",
-                padding=Spacing.MD,
-                background=Colors.INFO_LIGHT,
-                border_radius=Radius.MD,
+            feedback_callout(
+                "Puede dejar este paso vacío si el contrato no requiere entregables configurables desde el alta.",
+                "info",
             ),
             spacing="4",
             width="100%",
@@ -1349,6 +1351,13 @@ def modal_contrato() -> rx.Component:
             rx.vstack(
                 rx.vstack(
                     rx.hstack(
+                        rx.box(
+                            rx.icon("file-plus", size=20, color=Colors.PORTAL_PRIMARY_TEXT),
+                            padding="8px",
+                            background=Colors.PORTAL_PRIMARY_LIGHTER,
+                            border_radius=Radius.LG,
+                            flex_shrink="0",
+                        ),
                         rx.vstack(
                             rx.dialog.title(
                                 rx.cond(
@@ -1369,13 +1378,20 @@ def modal_contrato() -> rx.Component:
                                 color=Colors.TEXT_MUTED,
                             ),
                             spacing="1",
-                            width="100%",
                             align="start",
                         ),
                         rx.spacer(),
                         _indicador_pasos(),
+                        rx.icon_button(
+                            rx.icon("x", size=16),
+                            variant="ghost",
+                            color_scheme="gray",
+                            size="2",
+                            on_click=ContratosState.cerrar_modal_contrato,
+                        ),
                         width="100%",
                         align="center",
+                        spacing="3",
                     ),
                     rx.box(width="100%", height="1px", background=Colors.BORDER),
                     rx.cond(
@@ -1454,6 +1470,7 @@ def modal_contrato() -> rx.Component:
                             on_click=ContratosState.guardar_contrato,
                             saving=ContratosState.saving,
                             disabled=~ContratosState.puede_guardar,
+                            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         ),
                         boton_guardar(
                             texto="Siguiente",
@@ -1461,6 +1478,7 @@ def modal_contrato() -> rx.Component:
                             on_click=ContratosState.ir_paso_siguiente,
                             saving=False,
                             disabled=~ContratosState.puede_avanzar_paso_actual_wizard,
+                            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         ),
                     ),
                     spacing="2",

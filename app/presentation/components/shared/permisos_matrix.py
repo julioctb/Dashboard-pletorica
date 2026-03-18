@@ -7,6 +7,19 @@ Reutilizado en:
 """
 import reflex as rx
 
+from app.presentation.theme import Colors, Radius, Spacing, Typography
+
+
+PERMISSION_ROWS = [
+    ("requisiciones", "Requisiciones", True),
+    ("entregables", "Entregables", True),
+    ("pagos", "Pagos", True),
+    ("contratos", "Contratos", False),
+    ("empresas", "Empresas", False),
+    ("empleados", "Empleados", False),
+]
+PERMISSION_ACTION_COLUMN_WIDTH = f"calc({Spacing.XL} * 4)"
+
 
 def _fila_permiso_generica(
     modulo: str,
@@ -14,8 +27,71 @@ def _fila_permiso_generica(
     tiene_autorizar: bool,
     permisos_modulo_var,
     toggle_fn,
+    variant: str = "default",
+    checkbox_color_scheme: str = "blue",
+    show_unavailable_checkbox: bool = False,
+    is_last: bool = False,
 ) -> rx.Component:
     """Fila de la matriz de permisos para un módulo."""
+    if variant == "portal":
+        checkbox_operar = rx.checkbox(
+            checked=permisos_modulo_var["operar"].to(bool),
+            on_change=lambda _v: toggle_fn(modulo, "operar"),
+            size="2",
+            color_scheme=checkbox_color_scheme,
+        )
+        checkbox_autorizar = (
+            rx.checkbox(
+                checked=permisos_modulo_var["autorizar"].to(bool),
+                on_change=lambda _v: toggle_fn(modulo, "autorizar"),
+                size="2",
+                color_scheme=checkbox_color_scheme,
+            )
+            if tiene_autorizar
+            else (
+                rx.checkbox(
+                    checked=False,
+                    disabled=True,
+                    size="2",
+                    color_scheme=checkbox_color_scheme,
+                )
+                if show_unavailable_checkbox
+                else rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED)
+            )
+        )
+
+        return rx.hstack(
+            rx.text(
+                label,
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_PRIMARY,
+                flex="1",
+            ),
+            rx.box(
+                checkbox_operar,
+                width=PERMISSION_ACTION_COLUMN_WIDTH,
+                display="flex",
+                justify_content="center",
+                align_items="center",
+                flex_shrink="0",
+            ),
+            rx.box(
+                checkbox_autorizar,
+                width=PERMISSION_ACTION_COLUMN_WIDTH,
+                display="flex",
+                justify_content="center",
+                align_items="center",
+                flex_shrink="0",
+            ),
+            align="center",
+            width="100%",
+            padding_top=Spacing.MD,
+            padding_bottom=Spacing.MD,
+            padding_left=Spacing.BASE,
+            padding_right=Spacing.BASE,
+            border_bottom=f"1px solid {Colors.BORDER}" if not is_last else "none",
+        )
+
     return rx.hstack(
         rx.text(label, size="2", width="120px"),
         rx.box(
@@ -56,6 +132,9 @@ def matriz_permisos_component(
     superadmin_condition=None,
     gestion_usuarios_var=None,
     gestion_usuarios_fn=None,
+    variant: str = "default",
+    checkbox_color_scheme: str = "blue",
+    show_unavailable_checkbox: bool = False,
 ) -> rx.Component:
     """
     Matriz de permisos con checkboxes (operar/autorizar por módulo).
@@ -68,6 +147,21 @@ def matriz_permisos_component(
         gestion_usuarios_var: rx.Var bool para el checkbox de gestión de usuarios
         gestion_usuarios_fn: setter para el checkbox de gestión de usuarios
     """
+    rows = [
+        _fila_permiso_generica(
+            modulo,
+            label,
+            tiene_autorizar,
+            permisos_var[modulo].to(dict),
+            toggle_fn,
+            variant=variant,
+            checkbox_color_scheme=checkbox_color_scheme,
+            show_unavailable_checkbox=show_unavailable_checkbox,
+            is_last=index == len(PERMISSION_ROWS) - 1,
+        )
+        for index, (modulo, label, tiene_autorizar) in enumerate(PERMISSION_ROWS)
+    ]
+
     # Sección opcional de gestión de usuarios (solo backoffice con superadmin)
     if superadmin_condition is not None and gestion_usuarios_var is not None:
         seccion_superadmin = rx.cond(
@@ -92,6 +186,80 @@ def matriz_permisos_component(
     else:
         seccion_superadmin = rx.fragment()
 
+    if variant == "portal":
+        return rx.vstack(
+            rx.box(
+                rx.box(
+                    rx.text(
+                        "PERMISOS DEL USUARIO",
+                        font_size=Typography.SIZE_XS,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_MUTED,
+                        text_transform="uppercase",
+                        letter_spacing="0.04em",
+                    ),
+                    padding=f"{Spacing.SM} {Spacing.BASE}",
+                    background=Colors.SECONDARY_LIGHT,
+                ),
+                rx.vstack(
+                    rx.hstack(
+                        rx.text(
+                            "Modulo",
+                            font_size=Typography.SIZE_XS,
+                            font_weight=Typography.WEIGHT_MEDIUM,
+                            color=Colors.TEXT_SECONDARY,
+                            flex="1",
+                        ),
+                        rx.box(
+                            rx.text(
+                                "Operar",
+                                font_size=Typography.SIZE_XS,
+                                font_weight=Typography.WEIGHT_MEDIUM,
+                                color=Colors.TEXT_SECONDARY,
+                                text_align="center",
+                            ),
+                            width=PERMISSION_ACTION_COLUMN_WIDTH,
+                            display="flex",
+                            justify_content="center",
+                            flex_shrink="0",
+                        ),
+                        rx.box(
+                            rx.text(
+                                "Autorizar",
+                                font_size=Typography.SIZE_XS,
+                                font_weight=Typography.WEIGHT_MEDIUM,
+                                color=Colors.TEXT_SECONDARY,
+                                text_align="center",
+                            ),
+                            width=PERMISSION_ACTION_COLUMN_WIDTH,
+                            display="flex",
+                            justify_content="center",
+                            flex_shrink="0",
+                        ),
+                        align="center",
+                        width="100%",
+                        padding_top=Spacing.SM,
+                        padding_bottom=Spacing.SM,
+                        padding_left=Spacing.BASE,
+                        padding_right=Spacing.BASE,
+                        border_bottom=f"1px solid {Colors.BORDER}",
+                    ),
+                    *rows,
+                    gap=Spacing.NONE,
+                    width="100%",
+                    background=Colors.SURFACE,
+                ),
+                width="100%",
+                border=f"1px solid {Colors.BORDER}",
+                border_radius=Radius.LG,
+                overflow="hidden",
+                background=Colors.SURFACE,
+            ),
+            seccion_superadmin,
+            gap=Spacing.BASE,
+            width="100%",
+        )
+
     return rx.vstack(
         rx.text("Permisos del usuario", size="2", weight="bold", color="var(--gray-11)"),
         rx.box(
@@ -104,31 +272,7 @@ def matriz_permisos_component(
                 border_bottom="1px solid var(--gray-5)",
                 width="100%",
             ),
-            # Filas por módulo
-            _fila_permiso_generica(
-                "requisiciones", "Requisiciones", True,
-                permisos_var["requisiciones"].to(dict), toggle_fn,
-            ),
-            _fila_permiso_generica(
-                "entregables", "Entregables", True,
-                permisos_var["entregables"].to(dict), toggle_fn,
-            ),
-            _fila_permiso_generica(
-                "pagos", "Pagos", True,
-                permisos_var["pagos"].to(dict), toggle_fn,
-            ),
-            _fila_permiso_generica(
-                "contratos", "Contratos", False,
-                permisos_var["contratos"].to(dict), toggle_fn,
-            ),
-            _fila_permiso_generica(
-                "empresas", "Empresas", False,
-                permisos_var["empresas"].to(dict), toggle_fn,
-            ),
-            _fila_permiso_generica(
-                "empleados", "Empleados", False,
-                permisos_var["empleados"].to(dict), toggle_fn,
-            ),
+            *rows,
             width="100%",
         ),
         seccion_superadmin,

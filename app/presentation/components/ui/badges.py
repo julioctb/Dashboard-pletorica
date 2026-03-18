@@ -12,6 +12,7 @@ Uso:
 from typing import Any
 
 import reflex as rx
+from app.presentation.theme import Colors
 
 
 def identifier_badge(
@@ -116,6 +117,6 @@ def badge_onboarding(estatus: str) -> rx.Component:
         ("EN_REVISION", rx.badge("En Revision", color_scheme="blue", variant="soft", size="1")),
         ("APROBADO", rx.badge("Aprobado", color_scheme="green", variant="soft", size="1")),
         ("RECHAZADO", rx.badge("Rechazado", color_scheme="red", variant="soft", size="1")),
-        ("ACTIVO_COMPLETO", rx.badge("Completo", color_scheme="teal", variant="soft", size="1")),
+        ("ACTIVO_COMPLETO", rx.badge("Completo", color_scheme=Colors.PORTAL_ACCENT_SCHEME, variant="soft", size="1")),
         rx.badge(estatus, size="1"),
     )

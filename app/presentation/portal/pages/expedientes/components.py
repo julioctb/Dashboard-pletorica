@@ -10,10 +10,10 @@ from app.presentation.components.reusable import (
     documento_subido_icon,
 )
 from app.presentation.components.ui import (
-    boton_cancelar,
-    boton_guardar,
     document_status_badge,
     employee_status_badge,
+    form_textarea,
+    modal_formulario,
     tabla_action_button,
 )
 from app.presentation.theme import Colors, Radius, Spacing, Typography
@@ -378,7 +378,7 @@ def _contenido_expediente(
                 value=ExpedientesState.porcentaje_expediente,
                 max=100,
                 width="100%",
-                color_scheme="teal",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
             width="100%",
             spacing="2",
@@ -444,57 +444,35 @@ def _metric_card(label: str, value, color_scheme: str) -> rx.Component:
 
 
 def modal_rechazo() -> rx.Component:
-    """Modal para ingresar observacion de rechazo."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title("Rechazar Documento"),
-            rx.dialog.description(
-                "Ingrese el motivo del rechazo. El empleado podra ver esta observacion."
-            ),
-            rx.vstack(
-                rx.text(
-                    "Observacion *",
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                ),
-                rx.text_area(
-                    value=ExpedientesState.form_observacion_rechazo,
-                    on_change=ExpedientesState.set_form_observacion_rechazo,
-                    placeholder="Describa el motivo del rechazo (min. 5 caracteres)...",
-                    width="100%",
-                    rows="4",
-                ),
-                rx.cond(
-                    ExpedientesState.error_observacion != "",
-                    rx.text(
-                        ExpedientesState.error_observacion,
-                        font_size=Typography.SIZE_XS,
-                        color=Colors.ERROR,
-                    ),
-                ),
-                spacing="2",
-                width="100%",
-                padding_y=Spacing.BASE,
-            ),
-            rx.hstack(
-                boton_cancelar(
-                    on_click=ExpedientesState.cerrar_modal_rechazo,
-                ),
-                boton_guardar(
-                    texto="Rechazar",
-                    texto_guardando="Rechazando...",
-                    on_click=ExpedientesState.confirmar_rechazo,
-                    saving=ExpedientesState.saving,
-                    color_scheme="red",
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-            ),
-            max_width="500px",
-        ),
+    """Modal para ingresar observación de rechazo."""
+    return modal_formulario(
         open=ExpedientesState.mostrar_modal_rechazo,
-        on_open_change=rx.noop,
+        titulo="Rechazar documento",
+        descripcion="Ingrese el motivo del rechazo. El empleado podrá ver esta observación.",
+        icono="circle-x",
+        color_icono="red",
+        color_guardar="red",
+        texto_guardar="Rechazar",
+        texto_guardando="Rechazando...",
+        on_guardar=ExpedientesState.confirmar_rechazo,
+        on_cancelar=ExpedientesState.cerrar_modal_rechazo,
+        loading=ExpedientesState.saving,
+        max_width="500px",
+        contenido=rx.vstack(
+            form_textarea(
+                label="Observación",
+                required=True,
+                value=ExpedientesState.form_observacion_rechazo,
+                on_change=ExpedientesState.set_form_observacion_rechazo,
+                placeholder="Describa el motivo del rechazo (mín. 5 caracteres)...",
+                error=ExpedientesState.error_observacion,
+                label_variant="portal",
+                style_variant="portal",
+                rows="4",
+            ),
+            spacing="4",
+            width="100%",
+        ),
     )
 
 

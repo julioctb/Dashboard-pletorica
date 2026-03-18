@@ -254,6 +254,78 @@ class AsistenciaIncidenciaService:
             "sede_real_id": datos.sede_real_id,
         }
 
+    async def obtener_resumen_incidencias_rango(
+        self,
+        empresa_id: int,
+        fecha_inicio: date,
+        fecha_fin: date,
+    ) -> dict:
+        """
+        Resumen de incidencias para el dashboard del portal.
+
+        Returns:
+            {
+                por_empleado: [{nombre, total}],  # top 5
+                por_tipo: [{tipo, cantidad}],      # top 5
+                total_faltas: int,
+            }
+        """
+        try:
+            result = (
+                self.root.supabase.table("incidencias_asistencia")
+                .select("empleado_id, tipo_incidencia")
+                .eq("empresa_id", empresa_id)
+                .gte("fecha", fecha_inicio.isoformat())
+                .lte("fecha", fecha_fin.isoformat())
+                .execute()
+            )
+            rows = result.data or []
+            if not rows:
+                return {"por_empleado": [], "por_tipo": [], "total_faltas": 0}
+
+            # Agrupar por empleado
+            conteo_empleado: dict[int, int] = {}
+            conteo_tipo: dict[str, int] = {}
+            for row in rows:
+                emp_id = row.get("empleado_id")
+                tipo = row.get("tipo_incidencia", "OTRO")
+                if emp_id:
+                    conteo_empleado[emp_id] = conteo_empleado.get(emp_id, 0) + 1
+                conteo_tipo[tipo] = conteo_tipo.get(tipo, 0) + 1
+
+            # Top 5 empleados - enriquecer con nombres
+            top_emp_ids = sorted(conteo_empleado, key=conteo_empleado.get, reverse=True)[:5]
+            nombres_map: dict[int, str] = {}
+            if top_emp_ids:
+                emp_result = (
+                    self.root.supabase.table("empleados")
+                    .select("id, nombre, apellido_paterno")
+                    .in_("id", top_emp_ids)
+                    .execute()
+                )
+                for emp in (emp_result.data or []):
+                    nombres_map[emp["id"]] = (
+                        f"{emp.get('nombre', '')} {emp.get('apellido_paterno', '')}".strip()
+                    )
+
+            por_empleado = [
+                {"nombre": nombres_map.get(eid, f"Empleado {eid}"), "total": conteo_empleado[eid]}
+                for eid in top_emp_ids
+            ]
+
+            # Top 5 tipos
+            top_tipos = sorted(conteo_tipo.items(), key=lambda x: x[1], reverse=True)[:5]
+            por_tipo = [{"tipo": t, "cantidad": c} for t, c in top_tipos]
+
+            return {
+                "por_empleado": por_empleado,
+                "por_tipo": por_tipo,
+                "total_faltas": len(rows),
+            }
+        except Exception as exc:
+            logger.error("Error obteniendo resumen incidencias: %s", exc)
+            return {"por_empleado": [], "por_tipo": [], "total_faltas": 0}
+
     def validar_valores_incidencia(self, datos: IncidenciaAsistenciaCreate) -> None:
         if datos.tipo_incidencia == TipoIncidencia.RETARDO and int(datos.minutos_retardo or 0) <= 0:
             raise BusinessRuleError("Captura minutos de retardo mayores a 0")

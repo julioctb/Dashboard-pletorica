@@ -51,6 +51,14 @@ MSG_CP_SOLO_NUMEROS = "Solo números permitidos"
 
 
 # =============================================================================
+# MENSAJES DE CÓDIGO CORTO
+# =============================================================================
+
+MSG_CODIGO_CORTO_REQUERIDO = "El código corto es requerido"
+MSG_CODIGO_CORTO_INVALIDO = "Use 3 caracteres alfanuméricos"
+
+
+# =============================================================================
 # MENSAJES DE REGISTRO PATRONAL
 # =============================================================================
 

@@ -14,14 +14,14 @@ from app.entities.categoria_puesto import (
 )
 from app.services import categoria_puesto_service, tipo_servicio_service
 from app.core.exceptions import NotFoundError, DuplicateError, DatabaseError, BusinessRuleError
-from app.presentation.components.shared.base_state import BaseState
-from app.presentation.pages.categorias_puesto.categorias_puesto_validators import (
-    validar_clave,
-    validar_nombre,
-    validar_descripcion,
-    validar_orden,
-    validar_tipo_servicio_id,
+from app.core.validation.catalogo_form_validators import (
+    validar_clave_catalogo_form as validar_clave,
+    validar_nombre_catalogo_form as validar_nombre,
+    validar_descripcion_catalogo_form as validar_descripcion,
+    validar_orden_categoria_puesto_form as validar_orden,
+    validar_tipo_servicio_id_categoria_puesto_form as validar_tipo_servicio_id,
 )
+from app.presentation.components.shared.base_state import BaseState
 
 
 class CategoriasPuestoState(BaseState):

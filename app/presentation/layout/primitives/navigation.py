@@ -22,6 +22,8 @@ def nav_item(
     icon_color=Colors.TEXT_SECONDARY,
     text_color=Colors.TEXT_PRIMARY,
     hover_bg=Colors.SIDEBAR_ITEM_HOVER,
+    active_bg=Colors.SIDEBAR_ITEM_ACTIVE,
+    active_text=Colors.SIDEBAR_ITEM_ACTIVE_TEXT,
 ) -> rx.Component:
     """Item de navegación estándar para sidebars/listas de links."""
     return rx.link(
@@ -29,14 +31,14 @@ def nav_item(
             rx.icon(
                 icon,
                 size=20,
-                color=rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE_TEXT, icon_color),
+                color=rx.cond(is_active, active_text, icon_color),
                 flex_shrink="0",
             ),
             rx.text(
                 text,
                 font_size=Typography.SIZE_SM,
                 font_weight=Typography.WEIGHT_MEDIUM,
-                color=rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE_TEXT, text_color),
+                color=rx.cond(is_active, active_text, text_color),
                 white_space="nowrap",
             ),
             width="100%",
@@ -47,9 +49,9 @@ def nav_item(
             border_radius=Radius.LG,
             transition=Transitions.FAST,
             style={
-                "background": rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE, "transparent"),
+                "background": rx.cond(is_active, active_bg, "transparent"),
                 "_hover": {
-                    "background": rx.cond(is_active, Colors.SIDEBAR_ITEM_ACTIVE, hover_bg),
+                    "background": rx.cond(is_active, active_bg, hover_bg),
                 },
             },
         ),

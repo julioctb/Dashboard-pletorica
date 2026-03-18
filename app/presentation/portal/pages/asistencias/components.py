@@ -16,6 +16,8 @@ from app.presentation.components.ui import (
     segmented_tabs,
     table_shell,
 )
+from app.presentation.components.ui.modals import modal_formulario
+from app.presentation.components.ui import form_input, form_select, form_textarea
 from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 from .state import AsistenciasState
@@ -780,383 +782,426 @@ def configuracion_asistencias() -> rx.Component:
 
 
 def modal_incidencia() -> rx.Component:
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(AsistenciasState.titulo_modal_incidencia),
-            rx.dialog.description(
-                rx.cond(
-                    AsistenciasState.empleado_seleccionado,
-                    "Empleado: " + AsistenciasState.empleado_seleccionado["nombre_completo"].to(str),
-                    "Captura la novedad del dia",
-                )
+    contenido = rx.vstack(
+        form_select(
+            label="Tipo de incidencia",
+            required=True,
+            placeholder="Tipo de incidencia",
+            value=AsistenciasState.form_tipo_incidencia,
+            on_change=AsistenciasState.set_form_tipo_incidencia,
+            options=[
+                {"value": item.value, "label": item.value.replace("_", " ")}
+                for item in TipoIncidencia
+            ],
+            label_variant="portal",
+            style_variant="portal",
+        ),
+        rx.grid(
+            form_input(
+                label="Minutos de retardo",
+                placeholder="Minutos retardo",
+                type="number",
+                value=AsistenciasState.form_minutos_retardo,
+                on_change=AsistenciasState.set_form_minutos_retardo,
+                label_variant="portal",
+                style_variant="portal",
             ),
-            rx.vstack(
+            form_input(
+                label="Horas extra",
+                placeholder="Horas extra",
+                type="number",
+                value=AsistenciasState.form_horas_extra,
+                on_change=AsistenciasState.set_form_horas_extra,
+                label_variant="portal",
+                style_variant="portal",
+            ),
+            columns="2",
+            spacing="3",
+            width="100%",
+        ),
+        form_textarea(
+            label="Motivo o detalle operativo",
+            placeholder="Motivo o detalle operativo",
+            value=AsistenciasState.form_motivo,
+            on_change=AsistenciasState.set_form_motivo,
+            label_variant="portal",
+            style_variant="portal",
+            rows="4",
+        ),
+        spacing="4",
+        width="100%",
+    )
+
+    boton_limpiar = rx.cond(
+        AsistenciasState.empleado_seleccionado.get("incidencia_id", 0) != 0,
+        rx.button(
+            "Limpiar",
+            variant="ghost",
+            color_scheme="red",
+            size="2",
+            on_click=AsistenciasState.limpiar_incidencia_actual,
+            disabled=AsistenciasState.saving,
+        ),
+        rx.fragment(),
+    )
+
+    return modal_formulario(
+        open=AsistenciasState.modal_incidencia_abierto,
+        titulo=AsistenciasState.titulo_modal_incidencia,
+        descripcion=rx.cond(
+            AsistenciasState.empleado_seleccionado,
+            "Empleado: " + AsistenciasState.empleado_seleccionado["nombre_completo"].to(str),
+            "Captura la novedad del dia",
+        ),
+        icono="clipboard-list",
+        color_icono="teal",
+        color_guardar="teal",
+        contenido=contenido,
+        on_guardar=AsistenciasState.guardar_incidencia,
+        on_cancelar=AsistenciasState.cerrar_modal_incidencia,
+        loading=AsistenciasState.saving,
+        texto_guardar=AsistenciasState.texto_guardar_incidencia,
+        texto_guardando=rx.cond(
+            AsistenciasState.modo_precarga_rrhh,
+            "Guardando precarga...",
+            "Guardando incidencia...",
+        ),
+        max_width=INCIDENCIA_MODAL_WIDTH,
+        extra_footer_left=boton_limpiar,
+    )
+
+
+def _horario_dia_row(dia: dict) -> rx.Component:
+    """Fila compacta de un día laborable en el modal de horario."""
+    return rx.box(
+        rx.flex(
+            rx.flex(
+                rx.switch(
+                    checked=dia["habilitado"],
+                    on_change=lambda value: AsistenciasState.set_form_horario_dia_habilitado(
+                        dia["clave"],
+                        value,
+                    ),
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                    size="1",
+                ),
+                rx.text(
+                    dia["label"],
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=rx.cond(dia["habilitado"], Colors.TEXT_PRIMARY, Colors.TEXT_SECONDARY),
+                ),
+                align="center",
+                spacing="2",
+            ),
+            rx.text(
+                rx.cond(
+                    dia["habilitado"],
+                    dia["entrada"].to(str) + " – " + dia["salida"].to(str),
+                    "Descanso",
+                ),
+                font_size=Typography.SIZE_XS,
+                color=rx.cond(dia["habilitado"], Colors.TEXT_SECONDARY, Colors.TEXT_MUTED),
+            ),
+            justify="between",
+            align="center",
+            width="100%",
+            padding=f"{Spacing.SM} {Spacing.MD}",
+            background=Colors.SECONDARY_LIGHT,
+        ),
+        rx.cond(
+            dia["habilitado"],
+            rx.grid(
                 rx.vstack(
-                    _field_label("Tipo de incidencia"),
-                    rx.select.root(
-                        rx.select.trigger(placeholder="Tipo de incidencia"),
-                        rx.select.content(
-                            rx.foreach(
-                                [item.value for item in TipoIncidencia],
-                                lambda valor: rx.select.item(valor.replace("_", " "), value=valor),
-                            )
+                    rx.text(
+                        "Entrada",
+                        font_size=Typography.SIZE_XS,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    rx.input(
+                        type="time",
+                        value=dia["entrada"],
+                        on_change=lambda value: AsistenciasState.set_form_horario_dia_hora(
+                            dia["clave"],
+                            "entrada",
+                            value,
                         ),
-                        value=AsistenciasState.form_tipo_incidencia,
-                        on_change=AsistenciasState.set_form_tipo_incidencia,
-                        size="2",
                         width="100%",
                     ),
                     spacing="1",
                     width="100%",
                 ),
-                rx.hstack(
-                    rx.vstack(
-                        _field_label("Minutos de retardo"),
-                        rx.input(
-                            type="number",
-                            min="0",
-                            step="1",
-                            value=AsistenciasState.form_minutos_retardo,
-                            on_change=AsistenciasState.set_form_minutos_retardo,
-                            placeholder="Minutos retardo",
-                            width="100%",
-                        ),
-                        spacing="1",
-                        width="100%",
-                    ),
-                    rx.vstack(
-                        _field_label("Horas extra"),
-                        rx.input(
-                            type="number",
-                            min="0",
-                            step="0.5",
-                            value=AsistenciasState.form_horas_extra,
-                            on_change=AsistenciasState.set_form_horas_extra,
-                            placeholder="Horas extra",
-                            width="100%",
-                        ),
-                        spacing="1",
-                        width="100%",
-                    ),
-                    spacing="3",
-                    width="100%",
-                ),
                 rx.vstack(
-                    _field_label("Motivo o detalle operativo"),
-                    rx.text_area(
-                        value=AsistenciasState.form_motivo,
-                        on_change=AsistenciasState.set_form_motivo,
-                        placeholder="Motivo o detalle operativo",
-                        min_height=INCIDENCIA_DETAIL_MIN_HEIGHT,
+                    rx.text(
+                        "Salida",
+                        font_size=Typography.SIZE_XS,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    rx.input(
+                        type="time",
+                        value=dia["salida"],
+                        on_change=lambda value: AsistenciasState.set_form_horario_dia_hora(
+                            dia["clave"],
+                            "salida",
+                            value,
+                        ),
                         width="100%",
                     ),
                     spacing="1",
                     width="100%",
                 ),
-                rx.hstack(
-                    rx.cond(
-                        AsistenciasState.empleado_seleccionado.get("incidencia_id", 0) != 0,
-                        rx.button(
-                            "Limpiar",
-                            variant="ghost",
-                            color_scheme="red",
-                            on_click=AsistenciasState.limpiar_incidencia_actual,
-                            disabled=AsistenciasState.saving,
-                        ),
-                        rx.fragment(),
-                    ),
-                    rx.spacer(),
-                    boton_cancelar(
-                        on_click=AsistenciasState.cerrar_modal_incidencia,
-                        disabled=AsistenciasState.saving,
-                    ),
-                    boton_guardar(
-                        texto=AsistenciasState.texto_guardar_incidencia,
-                        texto_guardando=rx.cond(
-                            AsistenciasState.modo_precarga_rrhh,
-                            "Guardando precarga...",
-                            "Guardando incidencia...",
-                        ),
-                        on_click=AsistenciasState.guardar_incidencia,
-                        saving=AsistenciasState.saving,
-                    ),
-                    justify="between",
-                    align="center",
-                    wrap="wrap",
-                    width="100%",
-                ),
-                spacing="4",
+                columns="2",
+                spacing="3",
+                padding=f"{Spacing.SM} {Spacing.MD}",
                 width="100%",
             ),
-            width=INCIDENCIA_MODAL_WIDTH,
+            rx.fragment(),
         ),
-        open=AsistenciasState.modal_incidencia_abierto,
+        width="100%",
+        border_bottom=f"1px solid {Colors.BORDER}",
+        opacity=rx.cond(dia["habilitado"], "1", "0.55"),
     )
 
 
 def modal_horario() -> rx.Component:
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(AsistenciasState.titulo_modal_horario),
-            rx.dialog.description(
-                "Configura el horario contractual base usado por la jornada y la consolidacion."
-            ),
+    return modal_formulario(
+        open=AsistenciasState.modal_horario_abierto,
+        titulo=AsistenciasState.titulo_modal_horario,
+        descripcion="Configura el horario contractual base usado por la jornada y la consolidación.",
+        contenido=rx.vstack(
+            # Nombre
             rx.vstack(
-                rx.vstack(
-                    _field_label("Nombre"),
-                    rx.input(
-                        value=AsistenciasState.form_horario_nombre,
-                        on_change=AsistenciasState.set_form_horario_nombre,
-                        placeholder="Ej. Horario Jardineria 2025",
-                        width="100%",
-                    ),
-                    spacing="1",
+                rx.text(
+                    "Nombre",
+                    font_size=Typography.SIZE_XS,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                rx.input(
+                    value=AsistenciasState.form_horario_nombre,
+                    on_change=AsistenciasState.set_form_horario_nombre,
+                    placeholder="Ej. Horario Jardineria 2025",
                     width="100%",
                 ),
-                rx.vstack(
-                    _field_label("Descripcion"),
-                    rx.text_area(
-                        value=AsistenciasState.form_horario_descripcion,
-                        on_change=AsistenciasState.set_form_horario_descripcion,
-                        placeholder="Descripcion operativa del horario",
-                        min_height=HORARIO_DESCRIPTION_MIN_HEIGHT,
-                        width="100%",
-                    ),
-                    spacing="1",
-                    width="100%",
-                ),
-                rx.hstack(
-                    rx.vstack(
-                        _field_label("Tolerancia entrada"),
-                        rx.input(
-                            type="number",
-                            min="0",
-                            max="60",
-                            value=AsistenciasState.form_horario_tolerancia_entrada,
-                            on_change=AsistenciasState.set_form_horario_tolerancia_entrada,
-                            placeholder="Tolerancia entrada",
-                            width="100%",
-                        ),
-                        spacing="1",
-                        width="100%",
-                    ),
-                    rx.vstack(
-                        _field_label("Tolerancia salida"),
-                        rx.input(
-                            type="number",
-                            min="0",
-                            max="60",
-                            value=AsistenciasState.form_horario_tolerancia_salida,
-                            on_change=AsistenciasState.set_form_horario_tolerancia_salida,
-                            placeholder="Tolerancia salida",
-                            width="100%",
-                        ),
-                        spacing="1",
-                        width="100%",
-                    ),
-                    spacing="3",
-                    width="100%",
-                ),
-                rx.hstack(
-                    rx.switch(
-                        checked=AsistenciasState.form_horario_activo,
-                        on_change=AsistenciasState.set_form_horario_activo,
-                    ),
-                    rx.text("Marcar como horario activo del contrato", size="2"),
-                    spacing="2",
-                    align="center",
-                    width="100%",
-                ),
-                rx.vstack(
-                    _field_label("Dias laborables"),
-                    rx.foreach(
-                        AsistenciasState.form_horario_dias_ui,
-                        lambda dia: rx.card(
-                            rx.hstack(
-                                rx.hstack(
-                                    rx.switch(
-                                        checked=dia["habilitado"],
-                                        on_change=lambda value: AsistenciasState.set_form_horario_dia_habilitado(
-                                            dia["clave"],
-                                            value,
-                                        ),
-                                    ),
-                                    rx.text(
-                                        dia["label"],
-                                        font_weight=Typography.WEIGHT_MEDIUM,
-                                    ),
-                                    spacing="2",
-                                    align="center",
-                                    min_width=HORARIO_DAY_LABEL_MIN_WIDTH,
-                                ),
-                                rx.vstack(
-                                    _field_micro_label("Entrada"),
-                                    rx.input(
-                                        type="time",
-                                        value=dia["entrada"],
-                                        on_change=lambda value: AsistenciasState.set_form_horario_dia_hora(
-                                            dia["clave"],
-                                            "entrada",
-                                            value,
-                                        ),
-                                        disabled=~dia["habilitado"],
-                                        width="100%",
-                                    ),
-                                    spacing="1",
-                                    width="100%",
-                                ),
-                                rx.vstack(
-                                    _field_micro_label("Salida"),
-                                    rx.input(
-                                        type="time",
-                                        value=dia["salida"],
-                                        on_change=lambda value: AsistenciasState.set_form_horario_dia_hora(
-                                            dia["clave"],
-                                            "salida",
-                                            value,
-                                        ),
-                                        disabled=~dia["habilitado"],
-                                        width="100%",
-                                    ),
-                                    spacing="1",
-                                    width="100%",
-                                ),
-                                spacing="3",
-                                width="100%",
-                                wrap="wrap",
-                                align="center",
-                            ),
-                            width="100%",
-                        ),
-                    ),
-                    spacing="2",
-                    width="100%",
-                ),
-                rx.hstack(
-                    boton_cancelar(
-                        on_click=AsistenciasState.cerrar_modal_horario,
-                        disabled=AsistenciasState.saving,
-                    ),
-                    boton_guardar(
-                        texto=AsistenciasState.texto_guardar_horario,
-                        texto_guardando="Guardando horario...",
-                        on_click=AsistenciasState.guardar_horario,
-                        saving=AsistenciasState.saving,
-                    ),
-                    justify="end",
-                    width="100%",
-                ),
-                spacing="4",
+                spacing="1",
                 width="100%",
             ),
-            width=HORARIO_MODAL_WIDTH,
+            # Descripción
+            rx.vstack(
+                rx.text(
+                    "Descripción",
+                    font_size=Typography.SIZE_XS,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                rx.text_area(
+                    value=AsistenciasState.form_horario_descripcion,
+                    on_change=AsistenciasState.set_form_horario_descripcion,
+                    placeholder="Descripción operativa del horario",
+                    min_height=HORARIO_DESCRIPTION_MIN_HEIGHT,
+                    width="100%",
+                ),
+                spacing="1",
+                width="100%",
+            ),
+            # Tolerancias en grid 2 columnas
+            rx.grid(
+                rx.vstack(
+                    rx.text(
+                        "Tolerancia entrada ",
+                        rx.text.span(
+                            "(min)",
+                            font_weight=Typography.WEIGHT_REGULAR,
+                            color=Colors.TEXT_MUTED,
+                        ),
+                        font_size=Typography.SIZE_XS,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    rx.input(
+                        type="number",
+                        min="0",
+                        max="60",
+                        value=AsistenciasState.form_horario_tolerancia_entrada,
+                        on_change=AsistenciasState.set_form_horario_tolerancia_entrada,
+                        placeholder="0",
+                        width="100%",
+                    ),
+                    spacing="1",
+                    width="100%",
+                ),
+                rx.vstack(
+                    rx.text(
+                        "Tolerancia salida ",
+                        rx.text.span(
+                            "(min)",
+                            font_weight=Typography.WEIGHT_REGULAR,
+                            color=Colors.TEXT_MUTED,
+                        ),
+                        font_size=Typography.SIZE_XS,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
+                    rx.input(
+                        type="number",
+                        min="0",
+                        max="60",
+                        value=AsistenciasState.form_horario_tolerancia_salida,
+                        on_change=AsistenciasState.set_form_horario_tolerancia_salida,
+                        placeholder="0",
+                        width="100%",
+                    ),
+                    spacing="1",
+                    width="100%",
+                ),
+                columns="2",
+                spacing="3",
+                width="100%",
+            ),
+            # Toggle horario activo
+            rx.flex(
+                rx.switch(
+                    checked=AsistenciasState.form_horario_activo,
+                    on_change=AsistenciasState.set_form_horario_activo,
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                ),
+                rx.text("Marcar como horario activo del contrato", size="2"),
+                spacing="2",
+                align="center",
+                width="100%",
+            ),
+            # Divider + título sección días
+            rx.divider(border_color=Colors.BORDER),
+            rx.text(
+                "DÍAS LABORABLES",
+                font_size=Typography.SIZE_XS,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_MUTED,
+                letter_spacing="0.04em",
+            ),
+            # Contenedor único con filas por día
+            rx.box(
+                rx.foreach(
+                    AsistenciasState.form_horario_dias_ui,
+                    _horario_dia_row,
+                ),
+                border=f"1px solid {Colors.BORDER}",
+                border_radius=Radius.LG,
+                overflow="hidden",
+                width="100%",
+            ),
+            spacing="3",
+            width="100%",
         ),
-        open=AsistenciasState.modal_horario_abierto,
+        on_guardar=AsistenciasState.guardar_horario,
+        on_cancelar=AsistenciasState.cerrar_modal_horario,
+        loading=AsistenciasState.saving,
+        texto_guardar=AsistenciasState.texto_guardar_horario,
+        texto_guardando="Guardando horario...",
+        max_width="520px",
+        icono="clock",
+        color_icono="teal",
+        scroll_body=True,
+        max_body_height="65vh",
+        color_guardar="teal",
     )
 
 
 def modal_supervision() -> rx.Component:
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(AsistenciasState.titulo_modal_supervision),
-            rx.dialog.description(
-                "Relaciona supervisores operativos con las sedes que deben cubrir."
-            ),
+    return modal_formulario(
+        open=AsistenciasState.modal_supervision_abierto,
+        titulo=AsistenciasState.titulo_modal_supervision,
+        descripcion="Relaciona supervisores operativos con las sedes que deben cubrir.",
+        icono="shield-check",
+        color_icono="teal",
+        on_guardar=AsistenciasState.guardar_supervision,
+        on_cancelar=AsistenciasState.cerrar_modal_supervision,
+        loading=AsistenciasState.saving,
+        texto_guardar=AsistenciasState.texto_guardar_supervision,
+        texto_guardando="Guardando asignacion...",
+        color_guardar="teal",
+        max_width=SUPERVISION_MODAL_WIDTH,
+        disable_cancelar_guardando=True,
+        contenido=rx.vstack(
             rx.vstack(
-                rx.vstack(
-                    _field_label("Supervisor"),
-                    rx.select.root(
-                        rx.select.trigger(placeholder="Supervisor", width="100%"),
-                        rx.select.content(
-                            rx.foreach(
-                                AsistenciasState.supervisores_disponibles,
-                                lambda supervisor: rx.select.item(
-                                    supervisor["nombre"].to(str) + " · " + supervisor["clave"].to(str),
-                                    value=supervisor["id"].to(str),
-                                ),
-                            )
-                        ),
-                        value=AsistenciasState.form_supervision_supervisor_id,
-                        on_change=AsistenciasState.set_form_supervision_supervisor_id,
-                        size="2",
+                _field_label("Supervisor"),
+                rx.select.root(
+                    rx.select.trigger(placeholder="Supervisor", width="100%"),
+                    rx.select.content(
+                        rx.foreach(
+                            AsistenciasState.supervisores_disponibles,
+                            lambda supervisor: rx.select.item(
+                                supervisor["nombre"].to(str) + " · " + supervisor["clave"].to(str),
+                                value=supervisor["id"].to(str),
+                            ),
+                        )
                     ),
-                    spacing="1",
-                    width="100%",
+                    value=AsistenciasState.form_supervision_supervisor_id,
+                    on_change=AsistenciasState.set_form_supervision_supervisor_id,
+                    size="2",
                 ),
-                rx.vstack(
-                    _field_label("Sede"),
-                    rx.select.root(
-                        rx.select.trigger(placeholder="Sede", width="100%"),
-                        rx.select.content(
-                            rx.foreach(
-                                AsistenciasState.sedes_catalogo,
-                                lambda sede: rx.select.item(
-                                    sede["nombre"].to(str) + " · " + sede["codigo"].to(str),
-                                    value=sede["id"].to(str),
-                                ),
-                            )
-                        ),
-                        value=AsistenciasState.form_supervision_sede_id,
-                        on_change=AsistenciasState.set_form_supervision_sede_id,
-                        size="2",
-                    ),
-                    spacing="1",
-                    width="100%",
-                ),
-                rx.hstack(
-                    form_date(
-                        label="Fecha inicio",
-                        value=AsistenciasState.form_supervision_fecha_inicio,
-                        on_change=AsistenciasState.set_form_supervision_fecha_inicio,
-                    ),
-                    form_date(
-                        label="Fecha fin",
-                        value=AsistenciasState.form_supervision_fecha_fin,
-                        on_change=AsistenciasState.set_form_supervision_fecha_fin,
-                    ),
-                    spacing="3",
-                    width="100%",
-                ),
-                rx.hstack(
-                    rx.switch(
-                        checked=AsistenciasState.form_supervision_activo,
-                        on_change=AsistenciasState.set_form_supervision_activo,
-                    ),
-                    rx.text("Mantener asignacion activa", size="2"),
-                    spacing="2",
-                    align="center",
-                    width="100%",
-                ),
-                rx.vstack(
-                    _field_label("Notas"),
-                    rx.text_area(
-                        value=AsistenciasState.form_supervision_notas,
-                        on_change=AsistenciasState.set_form_supervision_notas,
-                        placeholder="Notas de cobertura, excepciones o contexto",
-                        min_height=SUPERVISION_NOTES_MIN_HEIGHT,
-                        width="100%",
-                    ),
-                    spacing="1",
-                    width="100%",
-                ),
-                rx.hstack(
-                    boton_cancelar(
-                        on_click=AsistenciasState.cerrar_modal_supervision,
-                        disabled=AsistenciasState.saving,
-                    ),
-                    boton_guardar(
-                        texto=AsistenciasState.texto_guardar_supervision,
-                        texto_guardando="Guardando asignacion...",
-                        on_click=AsistenciasState.guardar_supervision,
-                        saving=AsistenciasState.saving,
-                    ),
-                    justify="end",
-                    width="100%",
-                ),
-                spacing="4",
+                spacing="1",
                 width="100%",
             ),
-            width=SUPERVISION_MODAL_WIDTH,
+            rx.vstack(
+                _field_label("Sede"),
+                rx.select.root(
+                    rx.select.trigger(placeholder="Sede", width="100%"),
+                    rx.select.content(
+                        rx.foreach(
+                            AsistenciasState.sedes_catalogo,
+                            lambda sede: rx.select.item(
+                                sede["nombre"].to(str) + " · " + sede["codigo"].to(str),
+                                value=sede["id"].to(str),
+                            ),
+                        )
+                    ),
+                    value=AsistenciasState.form_supervision_sede_id,
+                    on_change=AsistenciasState.set_form_supervision_sede_id,
+                    size="2",
+                ),
+                spacing="1",
+                width="100%",
+            ),
+            rx.hstack(
+                form_date(
+                    label="Fecha inicio",
+                    value=AsistenciasState.form_supervision_fecha_inicio,
+                    on_change=AsistenciasState.set_form_supervision_fecha_inicio,
+                ),
+                form_date(
+                    label="Fecha fin",
+                    value=AsistenciasState.form_supervision_fecha_fin,
+                    on_change=AsistenciasState.set_form_supervision_fecha_fin,
+                ),
+                spacing="3",
+                width="100%",
+            ),
+            rx.hstack(
+                rx.switch(
+                    checked=AsistenciasState.form_supervision_activo,
+                    on_change=AsistenciasState.set_form_supervision_activo,
+                ),
+                rx.text("Mantener asignacion activa", size="2"),
+                spacing="2",
+                align="center",
+                width="100%",
+            ),
+            rx.vstack(
+                _field_label("Notas"),
+                rx.text_area(
+                    value=AsistenciasState.form_supervision_notas,
+                    on_change=AsistenciasState.set_form_supervision_notas,
+                    placeholder="Notas de cobertura, excepciones o contexto",
+                    min_height=SUPERVISION_NOTES_MIN_HEIGHT,
+                    width="100%",
+                ),
+                spacing="1",
+                width="100%",
+            ),
+            spacing="4",
+            width="100%",
         ),
-        open=AsistenciasState.modal_supervision_abierto,
     )

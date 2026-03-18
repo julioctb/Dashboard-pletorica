@@ -9,9 +9,11 @@ from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from typing import ClassVar
 
+from ._shared import CatalogoVigenciasMixin, VigenciaPorFechaMixin
+
 
 @dataclass(frozen=True)
-class VigenciaUMA:
+class VigenciaUMA(VigenciaPorFechaMixin):
     """Valor de UMA vigente para un rango de fechas."""
 
     desde: date
@@ -32,11 +34,7 @@ class VigenciaUMA:
             rounding=ROUND_HALF_UP,
         )
 
-    def aplica_a(self, fecha_referencia: date) -> bool:
-        return self.desde <= fecha_referencia <= self.hasta
-
-
-class CatalogoUMA:
+class CatalogoUMA(CatalogoVigenciasMixin[VigenciaUMA]):
     """Resuelve UMA diaria, mensual y topes por fecha."""
 
     VIGENCIAS: ClassVar[tuple[VigenciaUMA, ...]] = (
@@ -72,32 +70,6 @@ class CatalogoUMA:
     }
     TRES_UMA: ClassVar[Decimal] = DIARIO * 3
     TOPE_SBC: ClassVar[Decimal] = DIARIO * 25
-
-    @classmethod
-    def _coerce_fecha(cls, fecha_referencia: date | str | None) -> date:
-        if fecha_referencia is None:
-            return date.today()
-        if isinstance(fecha_referencia, date):
-            return fecha_referencia
-        return date.fromisoformat(str(fecha_referencia))
-
-    @classmethod
-    def obtener_vigencia(
-        cls,
-        fecha_referencia: date | str | None,
-        *,
-        permitir_fallback: bool = False,
-    ) -> VigenciaUMA | None:
-        fecha = cls._coerce_fecha(fecha_referencia)
-        for vigencia in cls.VIGENCIAS:
-            if vigencia.aplica_a(fecha):
-                return vigencia
-        if not permitir_fallback:
-            return None
-        anteriores = [vigencia for vigencia in cls.VIGENCIAS if vigencia.desde <= fecha]
-        if anteriores:
-            return anteriores[-1]
-        return cls.VIGENCIAS[0] if cls.VIGENCIAS else None
 
     @classmethod
     def obtener(cls, ano: int = 2026) -> Decimal:

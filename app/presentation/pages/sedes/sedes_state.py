@@ -7,14 +7,14 @@ from typing import List, Optional
 
 from app.core.enums import TipoSede
 from app.core.text_utils import normalizar_mayusculas
+from app.core.validation.sede_form_validators import (
+    validar_codigo_sede_form as validar_codigo,
+    validar_nombre_sede_form as validar_nombre,
+    validar_nombre_corto_sede_form as validar_nombre_corto,
+)
 from app.entities import SedeCreate, SedeUpdate
 from app.services import sede_service
 from app.presentation.components.shared.base_state import BaseState
-from app.presentation.pages.sedes.sedes_validators import (
-    validar_codigo,
-    validar_nombre,
-    validar_nombre_corto,
-)
 
 # Campos con sus valores por defecto para limpiar formulario
 FORM_DEFAULTS = {

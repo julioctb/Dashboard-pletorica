@@ -5,11 +5,12 @@ import reflex as rx
 
 from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.ui import (
+    feedback_callout,
     filtros_inline,
+    form_textarea,
+    modal_formulario,
     table_shell,
     empty_state_card,
-    boton_cancelar,
-    boton_guardar,
     tabla_cta_button,
     table_cell_actions,
     table_cell_badge,
@@ -225,54 +226,35 @@ def tabla_bajas() -> rx.Component:
 
 def modal_cancelacion() -> rx.Component:
     """Modal para cancelar una baja."""
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title("Cancelar baja"),
-            rx.dialog.description(
-                "Esta accion cancelara el proceso de baja y reactivara al empleado."
-            ),
-            rx.vstack(
-                rx.text(
-                    "Motivo de cancelacion *",
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                ),
-                rx.text_area(
-                    value=BajasState.form_notas_cancelacion,
-                    on_change=BajasState.set_form_notas_cancelacion,
-                    placeholder="Explique por que se cancela la baja (min. 5 caracteres)...",
-                    width="100%",
-                    rows="4",
-                ),
-                rx.callout(
-                    rx.text(
-                        "Al cancelar, el empleado se reactivara y la baja quedara marcada como cancelada.",
-                        font_size=Typography.SIZE_BASE,
-                    ),
-                    icon="info",
-                    color_scheme="blue",
-                    size="1",
-                    width="100%",
-                ),
-                spacing="3",
-                width="100%",
-                padding_y=Spacing.BASE,
-            ),
-            rx.hstack(
-                boton_cancelar(on_click=BajasState.cerrar_modal_accion),
-                boton_guardar(
-                    texto="Cancelar baja",
-                    texto_guardando="Cancelando...",
-                    on_click=BajasState.cancelar_baja,
-                    saving=BajasState.saving,
-                    color_scheme="red",
-                ),
-                spacing="3",
-                justify="end",
-                width="100%",
-            ),
-            max_width="500px",
-        ),
+    return modal_formulario(
         open=BajasState.mostrar_modal_accion,
-        on_open_change=rx.noop,
+        titulo="Cancelar baja",
+        descripcion="Esta acción cancelará el proceso de baja y reactivará al empleado.",
+        icono="user-x",
+        color_icono="red",
+        color_guardar="red",
+        texto_guardar="Cancelar baja",
+        texto_guardando="Cancelando...",
+        on_guardar=BajasState.cancelar_baja,
+        on_cancelar=BajasState.cerrar_modal_accion,
+        loading=BajasState.saving,
+        max_width="500px",
+        contenido=rx.vstack(
+            form_textarea(
+                label="Motivo de cancelación",
+                required=True,
+                value=BajasState.form_notas_cancelacion,
+                on_change=BajasState.set_form_notas_cancelacion,
+                placeholder="Explique por qué se cancela la baja (mín. 5 caracteres)...",
+                label_variant="portal",
+                style_variant="portal",
+                rows="4",
+            ),
+            feedback_callout(
+                "Al cancelar, el empleado se reactivará y la baja quedará marcada como cancelada.",
+                "info",
+            ),
+            spacing="4",
+            width="100%",
+        ),
     )

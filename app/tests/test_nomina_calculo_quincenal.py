@@ -41,7 +41,12 @@ sys.modules.setdefault(
     ),
 )
 
-from app.core.catalogs import CatalogoISR, CatalogoSalarioMinimo, CatalogoUMA
+from app.core.catalogs import (
+    CatalogoISR,
+    CatalogoSalarioMinimo,
+    CatalogoUMA,
+    PoliticaFiscalResolver,
+)
 from app.core.enums import (
     PeriodicidadNomina,
     ReglaCalculoQuincenal,
@@ -284,6 +289,33 @@ def test_catalogos_fiscales_resuelven_por_fecha():
         Decimal("10000"),
         "2026-03-15",
     ) == Decimal("541.40")
+
+
+def test_catalogos_fiscales_hacen_fallback_a_ultima_vigencia_previa():
+    assert CatalogoSalarioMinimo.obtener_vigencia("2027-01-15") is None
+
+    vigencia_salario = CatalogoSalarioMinimo.obtener_vigencia(
+        "2027-01-15",
+        permitir_fallback=True,
+    )
+    politica_subsidio = CatalogoISR.obtener_politica_subsidio(
+        "2027-01-15",
+        permitir_fallback=True,
+    )
+
+    assert vigencia_salario is not None
+    assert vigencia_salario.general == Decimal("315.04")
+    assert politica_subsidio is not None
+    assert politica_subsidio.subsidio_mensual == Decimal("541.40")
+
+
+def test_politica_fiscal_resolver_marca_fallback_cuando_no_hay_vigencia_exacta():
+    contexto = PoliticaFiscalResolver.resolver("2027-01-15")
+
+    assert contexto.vigencia_soportada is False
+    assert "fallback" in contexto.mensaje_vigencia.lower()
+    assert contexto.salario_minimo_diario_aplicable == Decimal("315.04")
+    assert contexto.subsidio_mensual == Decimal("541.40")
 
 
 def test_calculo_aplica_art36_en_salario_minimo_jornada_completa(monkeypatch):

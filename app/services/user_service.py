@@ -310,6 +310,10 @@ class UserService:
         """
         return await self._profile_service.actualizar_perfil(user_id, datos)
 
+    async def actualizar_email_usuario(self, user_id: UUID, nuevo_email: str) -> None:
+        """Actualiza el email del usuario en Supabase Auth."""
+        await self._auth_service.actualizar_email_usuario(user_id, nuevo_email)
+
     async def cambiar_rol(self, user_id: UUID, nuevo_rol: str) -> UserProfile:
         """
         Cambia el rol de un usuario.

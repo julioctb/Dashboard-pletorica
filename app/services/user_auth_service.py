@@ -297,3 +297,20 @@ class UserAuthService:
         except Exception as exc:
             logger.error("Error reseteando contraseña de %s: %s", user_id, exc)
             raise DatabaseError(f"Error al resetear contraseña: {exc}")
+
+    async def actualizar_email_usuario(self, user_id: UUID, nuevo_email: str) -> None:
+        """Actualiza el email de auth.users para un usuario existente."""
+        if not self.root.supabase_admin:
+            raise BusinessRuleError(
+                "No se puede actualizar email: SUPABASE_SERVICE_KEY no configurada"
+            )
+
+        try:
+            self.root.supabase_admin.auth.admin.update_user_by_id(
+                str(user_id),
+                {"email": nuevo_email.strip().lower()},
+            )
+            logger.info("Email actualizado para usuario %s", user_id)
+        except Exception as exc:
+            logger.error("Error actualizando email de %s: %s", user_id, exc)
+            raise DatabaseError(f"Error al actualizar email: {exc}")

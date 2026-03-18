@@ -17,6 +17,9 @@ from .common_validators import (
     validar_monto_opcional,
     validar_montos_min_max,
 )
+from .form_shared_validators import (
+    validar_tipo_servicio_id_form as validar_tipo_servicio_id_contrato,
+)
 from app.core.error_messages import (
     msg_campos_faltantes,
     MSG_FECHA_FIN_ANTERIOR,
@@ -37,10 +40,6 @@ validar_poliza_detalle_contrato = crear_validador(CAMPO_POLIZA_DETALLE)
 
 def validar_empresa_id_contrato(valor: str) -> str:
     return validar_select_requerido(valor, "empresa")
-
-
-def validar_tipo_servicio_id_contrato(valor: str) -> str:
-    return validar_select_requerido(valor, "tipo de servicio")
 
 
 def validar_modalidad_adjudicacion_contrato(valor: str) -> str:
@@ -84,60 +83,6 @@ def validar_montos_coherentes_contrato(monto_minimo: str, monto_maximo: str) -> 
     return MSG_MONTO_MAX_MENOR_MIN if error else ""
 
 
-def validar_campos_requeridos_contrato(
-    empresa_id: str,
-    tipo_servicio_id: str,
-    modalidad: str,
-    tipo_duracion: str,
-    fecha_inicio: str,
-) -> str:
-    faltantes = []
-    if validar_empresa_id_contrato(empresa_id):
-        faltantes.append("Empresa")
-    if validar_tipo_servicio_id_contrato(tipo_servicio_id):
-        faltantes.append("Tipo de servicio")
-    if validar_modalidad_adjudicacion_contrato(modalidad):
-        faltantes.append("Modalidad de adjudicación")
-    if validar_tipo_duracion_contrato(tipo_duracion):
-        faltantes.append("Tipo de duración")
-    if validar_fecha_inicio_contrato(fecha_inicio):
-        faltantes.append("Fecha de inicio")
-    return msg_campos_faltantes(faltantes) if faltantes else ""
-
-
-def validar_formulario_completo_contrato(
-    empresa_id: str,
-    tipo_servicio_id: str,
-    modalidad: str,
-    tipo_duracion: str,
-    fecha_inicio: str,
-    fecha_fin: str,
-    monto_minimo: str,
-    monto_maximo: str,
-) -> dict:
-    errores = {}
-    if error := validar_empresa_id_contrato(empresa_id):
-        errores["empresa_id"] = error
-    if error := validar_tipo_servicio_id_contrato(tipo_servicio_id):
-        errores["tipo_servicio_id"] = error
-    if error := validar_modalidad_adjudicacion_contrato(modalidad):
-        errores["modalidad_adjudicacion"] = error
-    if error := validar_tipo_duracion_contrato(tipo_duracion):
-        errores["tipo_duracion"] = error
-    if error := validar_fecha_inicio_contrato(fecha_inicio):
-        errores["fecha_inicio"] = error
-    if error := validar_fecha_fin_contrato(fecha_fin, fecha_inicio, tipo_duracion):
-        errores["fecha_fin"] = error
-    if error := validar_monto_minimo_contrato(monto_minimo):
-        errores["monto_minimo"] = error
-    if error := validar_monto_maximo_contrato(monto_maximo):
-        errores["monto_maximo"] = error
-    if "monto_minimo" not in errores and "monto_maximo" not in errores:
-        if error := validar_montos_coherentes_contrato(monto_minimo, monto_maximo):
-            errores["monto_maximo"] = error
-    return errores
-
-
 __all__ = [
     "validar_codigo_contrato",
     "validar_folio_buap_contrato",
@@ -156,6 +101,4 @@ __all__ = [
     "validar_monto_minimo_contrato",
     "validar_monto_maximo_contrato",
     "validar_montos_coherentes_contrato",
-    "validar_campos_requeridos_contrato",
-    "validar_formulario_completo_contrato",
 ]

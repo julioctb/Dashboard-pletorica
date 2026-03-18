@@ -92,6 +92,16 @@ from .entity_card import (
 
 from .metric_card import metric_card
 from .cards import empty_state_card
+from .detail_fields import (
+    detail_label,
+    section_title,
+    modal_section_label,
+    fallback_text,
+    detail_text_item,
+    detail_link_item,
+    metadata_item,
+    metadata_divider,
+)
 
 from .notification_bell import (
     notification_bell,
@@ -181,6 +191,15 @@ __all__ = [
     "metric_card",
     # Empty state card
     "empty_state_card",
+    # Detail / metadata fields
+    "detail_label",
+    "section_title",
+    "modal_section_label",
+    "fallback_text",
+    "detail_text_item",
+    "detail_link_item",
+    "metadata_item",
+    "metadata_divider",
     # Notification bell
     "notification_bell",
     "notification_bell_portal",

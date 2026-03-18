@@ -538,7 +538,7 @@ def _dev_view_switcher() -> rx.Component:
         rx.cond(~SidebarState.is_collapsed, rx.text("Cliente", font_size=Typography.SIZE_XS), rx.fragment()),
         size="1",
         variant=rx.cond(AuthState.dev_modo_cliente_activo, "solid", "outline"),
-        color_scheme="teal",
+        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
         on_click=AuthState.on_dev_view_change("cliente"),
         flex="1",
         cursor="pointer",

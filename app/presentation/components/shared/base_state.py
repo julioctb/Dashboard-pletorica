@@ -89,6 +89,33 @@ class BaseState(rx.State):
         except (ValueError, TypeError):
             logger.debug("Valor float inválido para %s: %r", attr, value)
 
+    def set_form_value(
+        self,
+        campo: str,
+        valor: Any,
+        *,
+        normalizador: Optional[Callable[[Any], Any]] = None,
+        max_length: Optional[int] = None,
+        error_attr: Optional[str] = None,
+    ) -> None:
+        """
+        Asigna un `form_<campo>` y limpia su error asociado de forma consistente.
+
+        Mantiene el patrón reusable para setters explícitos de Reflex sin
+        duplicar la misma secuencia en cada state.
+        """
+        nuevo_valor = valor if valor is not None else ""
+        if normalizador is not None:
+            nuevo_valor = normalizador(nuevo_valor)
+        if max_length is not None and isinstance(nuevo_valor, str):
+            nuevo_valor = nuevo_valor[:max_length]
+
+        setattr(self, f"form_{campo}", nuevo_valor)
+
+        attr_error = error_attr or f"error_{campo}"
+        if hasattr(self, attr_error):
+            setattr(self, attr_error, "")
+
     # ========================
     # MENSAJES
     # ========================

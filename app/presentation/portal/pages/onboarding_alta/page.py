@@ -4,6 +4,7 @@ Pagina Alta de Empleados (Onboarding) del portal de cliente.
 import reflex as rx
 
 from app.presentation.layout import page_layout, page_header, page_toolbar
+from app.presentation.theme import Colors
 
 from .state import OnboardingAltaState
 from .components import tabla_onboarding, filtros_onboarding
@@ -22,7 +23,7 @@ def onboarding_alta_page() -> rx.Component:
                     rx.icon("plus", size=16),
                     "Nuevo Empleado",
                     on_click=OnboardingAltaState.abrir_modal_alta,
-                    color_scheme="teal",
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                 ),
             ),
             toolbar=page_toolbar(

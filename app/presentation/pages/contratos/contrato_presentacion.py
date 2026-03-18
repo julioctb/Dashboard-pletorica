@@ -5,7 +5,55 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from app.core.text_utils import formatear_fecha, formatear_moneda
+from app.core.text_utils import (
+    capitalizar_palabras,
+    capitalizar_con_preposiciones,
+    formatear_fecha,
+    formatear_moneda,
+)
+
+
+# Mapeos de enum → label legible (fuente: app/core/enums.py .descripcion)
+_MODALIDAD_LABELS = {
+    "INVITACION_3": "Invitación a cuando menos 3 personas",
+    "ADJUDICACION_DIRECTA": "Adjudicación directa",
+    "LICITACION_PUBLICA": "Licitación pública",
+}
+
+_TIPO_DURACION_LABELS = {
+    "TIEMPO_DETERMINADO": "Tiempo determinado",
+    "TIEMPO_INDEFINIDO": "Tiempo indefinido",
+    "OBRA_DETERMINADA": "Obra determinada",
+}
+
+_TIPO_CONTRATO_LABELS = {
+    "ADQUISICION": "Adquisición",
+    "SERVICIOS": "Servicios",
+}
+
+_PLACEHOLDERS_VACIOS = {"sin empresa", "no aplica", "sin folio", "sin tipo", ""}
+
+
+def _humanizar_enum(valor: str | None, mapeo: dict[str, str]) -> str:
+    """Convierte un valor de enum DB a texto legible."""
+    if not valor:
+        return ""
+    texto = str(valor).strip()
+    if texto.lower() in _PLACEHOLDERS_VACIOS:
+        return ""
+    if texto in mapeo:
+        return mapeo[texto]
+    # Fallback: reemplazar _ por espacio y capitalizar
+    return capitalizar_con_preposiciones(texto.replace("_", " ").lower())
+
+
+def _limpiar_placeholder(valor: str | None) -> str:
+    """Devuelve cadena vacía si el valor es un placeholder de datos vacíos."""
+    if not valor:
+        return ""
+    if str(valor).strip().lower() in _PLACEHOLDERS_VACIOS:
+        return ""
+    return str(valor).strip()
 
 
 def _get(source: Any, key: str, default=None):
@@ -106,6 +154,27 @@ def enriquecer_contrato_presentacion(
     data["vigencia_color_scheme"] = (
         "red" if data["vigencia_label"] == "VENCIDO" else "green"
     )
+
+    # Campos humanizados para la UI
+    data["modalidad_adjudicacion_fmt"] = _humanizar_enum(
+        _get(contrato, "modalidad_adjudicacion"), _MODALIDAD_LABELS,
+    )
+    data["tipo_duracion_fmt"] = _humanizar_enum(
+        _get(contrato, "tipo_duracion"), _TIPO_DURACION_LABELS,
+    )
+    data["tipo_contrato_fmt"] = _humanizar_enum(
+        _get(contrato, "tipo_contrato"), _TIPO_CONTRATO_LABELS,
+    )
+    data["nombre_empresa_fmt"] = _limpiar_placeholder(
+        data.get("nombre_empresa"),
+    )
+    data["nombre_servicio_fmt"] = _limpiar_placeholder(
+        data.get("nombre_servicio"),
+    )
+    data["numero_folio_buap_fmt"] = _limpiar_placeholder(
+        _get(contrato, "numero_folio_buap"),
+    )
+
     return data
 
 
@@ -118,8 +187,8 @@ def serializar_categoria_contrato_detalle(item: Any) -> dict:
     return {
         "id": _get(item, "id"),
         "categoria_puesto_id": _get(item, "categoria_puesto_id"),
-        "categoria_clave": _get(item, "categoria_clave", ""),
-        "categoria_nombre": _get(item, "categoria_nombre", ""),
+        "categoria_clave": (_get(item, "categoria_clave", "") or "").upper(),
+        "categoria_nombre": capitalizar_palabras(_get(item, "categoria_nombre", "")),
         "cantidad_minima": _get(item, "cantidad_minima", 0),
         "cantidad_maxima": _get(item, "cantidad_maxima", 0),
         "costo_unitario_fmt": (

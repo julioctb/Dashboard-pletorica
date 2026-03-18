@@ -9,6 +9,7 @@ import reflex as rx
 from app.presentation.layout.shell_layout import authenticated_sidebar_shell
 from app.presentation.portal.layout.portal_sidebar import portal_sidebar
 from app.presentation.portal.state.portal_state import PortalState
+from app.presentation.theme import content_container
 
 
 def portal_index(content: rx.Component) -> rx.Component:
@@ -24,7 +25,7 @@ def portal_index(content: rx.Component) -> rx.Component:
     return rx.box(
         authenticated_sidebar_shell(
             sidebar_component=portal_sidebar(),
-            content=content,
+            content=content_container(content),
         ),
         # Al cambiar de empresa, se remonta el shell completo y cada página
         # vuelve a ejecutar su on_mount con el nuevo contexto activo.

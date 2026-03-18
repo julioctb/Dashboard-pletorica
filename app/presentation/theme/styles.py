@@ -171,7 +171,7 @@ APP_SHELL_CONTENT_VIEWPORT_STYLE = {
 APP_SHELL_CONTENT_INNER_STYLE = {
     "width": "100%",
     "min_height": "100%",
-    "padding": Spacing.XL,
+    "padding_y": Spacing.XL,
 }
 
 

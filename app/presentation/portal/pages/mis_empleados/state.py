@@ -48,17 +48,14 @@ from app.core.validation import (
     validar_fecha_nacimiento_empleado,
     validar_contacto_emergencia_nombre,
     validar_contacto_emergencia_telefono,
-)
-
-from app.presentation.pages.empleados.empleados_validators import (
-    normalizar_banco,
-    validar_banco,
-    validar_clabe,
-    validar_cuenta_bancaria,
-    validar_curp,
-    validar_nombre,
-    validar_apellido_paterno,
-    validar_email,
+    normalizar_nombre_banco as normalizar_banco,
+    validar_banco_empleado as validar_banco,
+    validar_clabe_empleado as validar_clabe,
+    validar_cuenta_bancaria_empleado as validar_cuenta_bancaria,
+    validar_curp_empleado as validar_curp,
+    validar_nombre_empleado as validar_nombre,
+    validar_apellido_paterno_empleado as validar_apellido_paterno,
+    validar_email_empleado as validar_email,
 )
 
 

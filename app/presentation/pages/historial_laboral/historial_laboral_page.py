@@ -21,7 +21,7 @@ from app.presentation.components.ui import (
     identifier_badge,
 )
 from app.presentation.theme import Colors, Spacing, Shadows, Typography
-from app.presentation.pages.historial_laboral.historial_laboral_modals import modal_detalle
+from app.presentation.pages.historial_laboral.historial_laboral_modals import modal_detalle_historial
 
 
 # =============================================================================
@@ -36,7 +36,7 @@ def tipo_movimiento_badge(tipo: str) -> rx.Component:
         ("Asignación a plaza", rx.badge("Asignación", color_scheme="green", variant="soft", size="1")),
         ("Cambio de plaza", rx.badge("Cambio", color_scheme="cyan", variant="soft", size="1")),
         ("Suspensión", rx.badge("Suspensión", color_scheme="amber", variant="soft", size="1")),
-        ("Reactivación", rx.badge("Reactivación", color_scheme="teal", variant="soft", size="1")),
+        ("Reactivación", rx.badge("Reactivación", color_scheme=Colors.PORTAL_ACCENT_SCHEME, variant="soft", size="1")),
         ("Baja del sistema", rx.badge("Baja", color_scheme="red", variant="soft", size="1")),
         # Default: usar rx.cond en lugar de "or" para variables reactivas
         rx.cond(
@@ -327,7 +327,7 @@ def historial_laboral_page() -> rx.Component:
                 ),
 
                 # Modal de detalle
-                modal_detalle(),
+                modal_detalle_historial(),
 
                 spacing="4",
                 width="100%",

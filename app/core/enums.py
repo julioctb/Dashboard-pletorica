@@ -7,6 +7,18 @@ Centralizar enums evita duplicación y garantiza consistencia.
 from enum import Enum
 
 
+_DESCRIPCIONES_ORIGEN_NOMINA = {
+    'SISTEMA': 'Calculado por el sistema',
+    'RRHH': 'Capturado por RRHH',
+    'CONTABILIDAD': 'Capturado por Contabilidad',
+}
+
+
+def _descripcion_desde_mapa(valor: str, descripciones: dict[str, str]) -> str:
+    """Resuelve una descripción legible con fallback al valor original."""
+    return descripciones.get(valor, valor)
+
+
 # =============================================================================
 # ENUMS DE ESTATUS
 # =============================================================================
@@ -982,7 +994,7 @@ class TipoDocumentoEmpresa(str, Enum):
 
     @property
     def es_anual(self) -> bool:
-        """Documentos persistentes se reutilizan entre años hasta que se actualicen."""
+        """Define si el documento debe capturarse por ejercicio o reutilizarse como vigente."""
         return self not in {
             TipoDocumentoEmpresa.ACTA_CONSTITUTIVA,
             TipoDocumentoEmpresa.IDENTIFICACION_OFICIAL,
@@ -1054,11 +1066,15 @@ class TipoDocumentoEmpresa(str, Enum):
         """Texto guía mostrado en la UI; no se valida automáticamente en v1."""
         ayudas = {
             "ACTA_CONSTITUTIVA": (
-                "PDF legible del acta constitutiva vigente. Los complementos se pueden "
+                "PDF legible del acta constitutiva vigente. Este documento se reutiliza "
+                "entre ejercicios y solo debe actualizarse cuando exista una reforma, "
+                "cambio societario o nueva protocolización. Los complementos se pueden "
                 "agregar como documentos adicionales por empresa."
             ),
             "IDENTIFICACION_OFICIAL": (
-                "IFE/INE, pasaporte o cédula profesional del representante legal."
+                "IFE/INE, pasaporte o cédula profesional del representante legal. "
+                "Se reutiliza entre años mientras siga vigente; reemplázala si cambia "
+                "el representante o vence el documento."
             ),
             "CONSTANCIA_SITUACION_FISCAL": (
                 "Emitida por el SAT, con antigüedad no mayor a 30 días previos a la requisición."
@@ -1091,11 +1107,13 @@ class TipoDocumentoEmpresa(str, Enum):
             ),
             "MANIFESTACION_69B_CFF": (
                 "Manifestación legal firmada respecto al artículo 69-B del Código Fiscal "
-                "de la Federación."
+                "de la Federación. Se conserva como vigente entre ejercicios hasta que "
+                "se firme una versión nueva."
             ),
             "MANIFESTACION_77_LAASSP": (
                 "Manifestación legal firmada respecto al artículo 77 de la Ley de "
-                "Adquisiciones, Arrendamientos y Servicios del Sector Público."
+                "Adquisiciones, Arrendamientos y Servicios del Sector Público. Se "
+                "conserva como vigente entre ejercicios hasta que se firme una versión nueva."
             ),
             "MANIFESTACION_69B_77": (
                 "Documento legado: la nueva carga separa 69-B y artículo 77 en dos archivos."
@@ -1192,12 +1210,7 @@ class OrigenCaptura(str, Enum):
 
     @property
     def descripcion(self) -> str:
-        descripciones = {
-            'SISTEMA': 'Calculado por el sistema',
-            'RRHH': 'Capturado por RRHH',
-            'CONTABILIDAD': 'Capturado por Contabilidad',
-        }
-        return descripciones.get(self.value, self.value)
+        return _descripcion_desde_mapa(self.value, _DESCRIPCIONES_ORIGEN_NOMINA)
 
 
 # =============================================================================
@@ -1297,12 +1310,7 @@ class OrigenMovimiento(str, Enum):
 
     @property
     def descripcion(self) -> str:
-        descripciones = {
-            'SISTEMA': 'Calculado por el sistema',
-            'RRHH': 'Capturado por RRHH',
-            'CONTABILIDAD': 'Capturado por Contabilidad',
-        }
-        return descripciones.get(self.value, self.value)
+        return _descripcion_desde_mapa(self.value, _DESCRIPCIONES_ORIGEN_NOMINA)
 
 
 class EstatusNominaEmpleado(str, Enum):

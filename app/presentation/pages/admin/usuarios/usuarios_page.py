@@ -27,6 +27,7 @@ from app.presentation.components.ui import (
     tabla_action_button,
     tabla_action_buttons,
 )
+from app.presentation.theme import Colors
 
 
 # =============================================================================
@@ -40,7 +41,7 @@ def _badge_rol(rol: str) -> rx.Component:
         ("admin", rx.badge("Admin", color_scheme="blue", variant="soft", size="1")),
         ("superadmin", rx.badge("Super Admin", color_scheme="blue", variant="soft", size="1")),
         ("institucion", rx.badge("Institución", color_scheme="amber", variant="soft", size="1")),
-        ("proveedor", rx.badge("Proveedor", color_scheme="teal", variant="soft", size="1")),
+        ("proveedor", rx.badge("Proveedor", color_scheme=Colors.PORTAL_ACCENT_SCHEME, variant="soft", size="1")),
         ("client", rx.badge("Cliente", color_scheme="gray", variant="soft", size="1")),
         rx.badge(rol, size="1"),
     )
@@ -80,7 +81,7 @@ def _acciones_usuario(usuario: dict) -> rx.Component:
             icon="building",
             tooltip="Gestionar empresas",
             on_click=lambda: UsuariosAdminState.abrir_modal_empresas(usuario),
-            color_scheme="teal",
+            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             visible=puede_gestionar & puede_gestionar_empresas,
             disabled=UsuariosAdminState.saving,
         ),

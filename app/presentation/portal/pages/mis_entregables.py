@@ -184,7 +184,7 @@ def _accion_entregable(entregable: dict) -> rx.Component:
             _boton_accion(
                 "Subir",
                 lambda: MisEntregablesState.abrir_entregable(entregable["id"]),
-                color_scheme="teal",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
         ),
         (
@@ -192,7 +192,7 @@ def _accion_entregable(entregable: dict) -> rx.Component:
             _boton_accion(
                 "Subir",
                 lambda: MisEntregablesState.abrir_entregable(entregable["id"]),
-                color_scheme="teal",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
         ),
         (
@@ -200,7 +200,7 @@ def _accion_entregable(entregable: dict) -> rx.Component:
             _boton_accion(
                 "Subir",
                 lambda: MisEntregablesState.abrir_modal_prefactura(entregable["id"]),
-                color_scheme="teal",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
         ),
         (
@@ -208,7 +208,7 @@ def _accion_entregable(entregable: dict) -> rx.Component:
             _boton_accion(
                 "Subir",
                 lambda: MisEntregablesState.abrir_modal_prefactura(entregable["id"]),
-                color_scheme="teal",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
         ),
         (
@@ -216,7 +216,7 @@ def _accion_entregable(entregable: dict) -> rx.Component:
             _boton_accion(
                 "Subir factura",
                 lambda: MisEntregablesState.abrir_modal_factura(entregable["id"]),
-                color_scheme="teal",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
         ),
         _boton_accion(
@@ -496,7 +496,7 @@ def _seccion_archivos_modal() -> rx.Component:
                                 on_click=MisEntregablesState.subir_archivos(rx.upload_files(upload_id="upload_entregable")),
                                 disabled=MisEntregablesState.subiendo_archivo,
                                 size="2",
-                                color_scheme="teal",
+                                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                             ),
                             spacing="3",
                             width="100%",
@@ -575,7 +575,7 @@ def _modal_entregable() -> rx.Component:
                             rx.button(
                                 rx.icon("send", size=14),
                                 "Enviar para revisión",
-                                color_scheme="teal",
+                                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                                 on_click=MisEntregablesState.enviar_para_revision,
                                 loading=MisEntregablesState.enviando,
                             ),
@@ -691,7 +691,7 @@ def _modal_prefactura() -> rx.Component:
                         rx.button(
                             rx.icon("send", size=14),
                             "Enviar Prefactura",
-                            color_scheme="teal",
+                            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                             disabled=rx.selected_files("upload_prefactura").length() == 0,
                             loading=MisEntregablesState.enviando_prefactura,
                             on_click=MisEntregablesState.subir_prefactura(rx.upload_files(upload_id="upload_prefactura")),
@@ -845,7 +845,7 @@ def _modal_factura() -> rx.Component:
                                 rx.button(
                                     "Subir PDF",
                                     size="2",
-                                    color_scheme="teal",
+                                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                                     loading=MisEntregablesState.subiendo_factura_pdf,
                                     on_click=MisEntregablesState.subir_factura_pdf(rx.upload_files(upload_id="upload_factura_pdf")),
                                 ),
@@ -882,7 +882,7 @@ def _modal_factura() -> rx.Component:
                                 rx.button(
                                     "Subir y Validar XML",
                                     size="2",
-                                    color_scheme="teal",
+                                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                                     loading=MisEntregablesState.subiendo_factura_xml,
                                     on_click=MisEntregablesState.subir_factura_xml(rx.upload_files(upload_id="upload_factura_xml")),
                                 ),
@@ -902,7 +902,7 @@ def _modal_factura() -> rx.Component:
                         rx.button(
                             rx.icon("send", size=14),
                             "Enviar Factura",
-                            color_scheme="teal",
+                            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                             disabled=MisEntregablesState.folio_fiscal_xml == "",
                             loading=MisEntregablesState.enviando_factura,
                             on_click=MisEntregablesState.enviar_factura,

@@ -531,6 +531,77 @@ def test_documento_persistente_se_reutiliza_desde_anio_previo():
     assert identificacion["origen_documento_texto"] == "Vigente desde 2024"
 
 
+def test_documento_persistente_prioriza_version_vigente_mas_reciente():
+    service, _ = _service_with_results(
+        FakeResponse(
+            data=[
+                {
+                    "id": 70,
+                    "empresa_id": 10,
+                    "anio": 2024,
+                    "tipo_documento": "IDENTIFICACION_OFICIAL",
+                    "archivo_id": 77,
+                    "nombre_archivo": "ine-2024.pdf",
+                    "version": 1,
+                    "es_vigente": True,
+                },
+                {
+                    "id": 71,
+                    "empresa_id": 10,
+                    "anio": 2026,
+                    "tipo_documento": "IDENTIFICACION_OFICIAL",
+                    "archivo_id": 88,
+                    "nombre_archivo": "ine-2026.pdf",
+                    "version": 2,
+                    "es_vigente": True,
+                },
+            ]
+        ),
+        FakeResponse(data=[]),
+    )
+
+    expediente = _run(service.obtener_expediente_empresa(empresa_id=10, anio=2026))
+    identificacion = next(
+        item for item in expediente["documentos"]
+        if item["tipo_documento"] == "IDENTIFICACION_OFICIAL"
+    )
+
+    assert identificacion["subido"] is True
+    assert identificacion["anio_documento"] == 2026
+    assert identificacion["nombre_archivo"] == "ine-2026.pdf"
+    assert identificacion["origen_documento_texto"] == ""
+
+
+def test_documento_anual_no_se_reutiliza_desde_anio_previo():
+    service, _ = _service_with_results(
+        FakeResponse(
+            data=[
+                {
+                    "id": 72,
+                    "empresa_id": 10,
+                    "anio": 2025,
+                    "tipo_documento": "CONSTANCIA_SITUACION_FISCAL",
+                    "archivo_id": 77,
+                    "nombre_archivo": "csf-2025.pdf",
+                    "version": 1,
+                    "es_vigente": True,
+                }
+            ]
+        ),
+        FakeResponse(data=[]),
+    )
+
+    expediente = _run(service.obtener_expediente_empresa(empresa_id=10, anio=2026))
+    constancia = next(
+        item for item in expediente["documentos"]
+        if item["tipo_documento"] == "CONSTANCIA_SITUACION_FISCAL"
+    )
+
+    assert constancia["subido"] is False
+    assert constancia["anio_documento"] is None
+    assert constancia["estatus"] == "Pendiente"
+
+
 def test_expediente_incluye_documentos_personalizados_por_empresa():
     service, _ = _service_with_results(
         FakeResponse(
@@ -575,6 +646,51 @@ def test_expediente_incluye_documentos_personalizados_por_empresa():
     assert personalizado["tipo_documento_label"] == "Acta constitutiva - reforma 2021"
     assert personalizado["subido"] is True
     assert personalizado["es_personalizado"] is True
+
+
+def test_documento_personalizado_anual_no_se_reutiliza_fuera_del_anio():
+    service, _ = _service_with_results(
+        FakeResponse(
+            data=[
+                {
+                    "id": 82,
+                    "empresa_id": 10,
+                    "anio": 2025,
+                    "tipo_documento": "DOCUMENTO_ADICIONAL",
+                    "requisito_id": 6,
+                    "archivo_id": 90,
+                    "nombre_archivo": "constancia-anual-2025.pdf",
+                    "version": 1,
+                    "es_vigente": True,
+                }
+            ]
+        ),
+        FakeResponse(
+            data=[
+                {
+                    "id": 6,
+                    "empresa_id": 10,
+                    "codigo": "DOC_10_101_CONSTANCIA_ANUAL",
+                    "nombre": "Constancia anual de cumplimiento",
+                    "ayuda": "Documento renovable por ejercicio.",
+                    "es_obligatorio": True,
+                    "es_anual": True,
+                    "orden": 101,
+                    "activo": True,
+                }
+            ]
+        ),
+    )
+
+    expediente = _run(service.obtener_expediente_empresa(empresa_id=10, anio=2026))
+    personalizado = next(
+        item for item in expediente["documentos"]
+        if item["requisito_id"] == 6
+    )
+
+    assert personalizado["subido"] is False
+    assert personalizado["anio_documento"] is None
+    assert personalizado["estatus"] == "Pendiente"
 
 
 def test_generar_share_link_guarda_hash_y_retorna_path_publico():

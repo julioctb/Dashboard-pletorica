@@ -536,7 +536,7 @@ class SupabasePlazaRepository:
             categoria_ids = sorted({
                 item["categoria_puesto_id"] for item in plazas if item.get("categoria_puesto_id") is not None
             })
-            contratos_map, categorias_map = await self._obtener_detalles_relacionados(contrato_ids, categoria_ids)
+            contratos_map, categorias_map, _ = await self._obtener_detalles_relacionados(contrato_ids, categoria_ids, [])
 
             agrupados: dict[tuple[int, Optional[int]], dict] = {}
             for item in plazas:

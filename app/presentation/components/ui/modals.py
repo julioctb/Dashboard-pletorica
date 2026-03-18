@@ -24,10 +24,10 @@ Uso:
     )
 """
 import reflex as rx
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
-from app.presentation.components.ui.buttons import botones_modal
-from app.presentation.theme import Spacing
+from app.presentation.components.ui.buttons import boton_guardar, botones_modal
+from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 
 MODAL_CONTENT_PADDING = Spacing.XL
@@ -173,10 +173,19 @@ def modal_confirmar_accion(
             )
         )
 
-    if nota_adicional:
-        contenido.append(
-            rx.text(nota_adicional, size="2", color="gray")
-        )
+    if nota_adicional is not None:
+        if isinstance(nota_adicional, rx.Var):
+            contenido.append(
+                rx.cond(
+                    nota_adicional != "",
+                    rx.text(nota_adicional, size="2", color="gray"),
+                    rx.fragment(),
+                )
+            )
+        else:
+            contenido.append(
+                rx.text(nota_adicional, size="2", color="gray")
+            )
 
     return rx.alert_dialog.root(
         rx.alert_dialog.content(
@@ -211,66 +220,207 @@ def modal_confirmar_accion(
 
 def modal_formulario(
     open: Union[bool, rx.Var],
-    titulo: str,
-    descripcion: str,
-    contenido: rx.Component,
-    on_guardar: callable,
-    on_cancelar: callable,
+    titulo: Any,
+    descripcion: Any = "",
+    contenido: rx.Component = None,
+    on_guardar: callable = None,
+    on_cancelar: callable = None,
     puede_guardar: Union[bool, rx.Var] = True,
     loading: Union[bool, rx.Var] = False,
-    texto_guardar: str = "Guardar",
+    texto_guardar: Any = "Guardar",
     texto_guardando: str = "Guardando...",
     texto_cancelar: str = "Cancelar",
     max_width: str = "500px",
+    icono: Optional[str] = None,
+    icono_componente: Optional[rx.Component] = None,
+    color_icono: str = "teal",
+    scroll_body: bool = False,
+    max_body_height: str = "70vh",
+    color_guardar: str = "blue",
+    disable_cancelar_guardando: bool = False,
+    extra_footer_left: Optional[rx.Component] = None,
 ) -> rx.Component:
-    """
-    Modal genérico para formularios.
+    """Modal genérico para formularios. Todos los modales del sistema heredan de aquí.
 
     Args:
         open: Estado que controla si el modal está abierto
-        titulo: Título del modal
-        descripcion: Descripción debajo del título
+        titulo: Título del modal (str o rx.Var para títulos dinámicos)
+        descripcion: Descripción debajo del título (str, rx.Var o rx.Component)
         contenido: Componente con los campos del formulario
         on_guardar: Evento al guardar
         on_cancelar: Evento al cancelar
         puede_guardar: Si el botón guardar está habilitado
         loading: Estado de carga
-        texto_guardar: Texto del botón guardar
+        texto_guardar: Texto del botón guardar (acepta rx.Var)
         texto_guardando: Texto mostrado mientras guarda
         texto_cancelar: Texto del botón cancelar
         max_width: Ancho máximo del modal
-
-    Returns:
-        Componente rx.dialog configurado
+        icono: Nombre de ícono lucide para el header (ej: "building", "clock")
+        icono_componente: Componente de ícono ya construido (alternativa a icono)
+        color_icono: Ramp Radix para colorear el ícono ("teal", "blue", "amber", etc.)
+        scroll_body: Si True, el body tiene overflow_y=auto con max_body_height
+        max_body_height: Alto máximo del body scrolleable
+        color_guardar: Color del botón guardar (ramp Radix)
+        disable_cancelar_guardando: Si True, deshabilita Cancelar mientras loading
+        extra_footer_left: Componente extra alineado a la izquierda del footer (ej: botón "Limpiar")
     """
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(titulo),
+    cancel_disabled = loading if disable_cancelar_guardando else False
+    if puede_guardar is True:
+        guardar_disabled: Any = False
+    elif isinstance(puede_guardar, rx.Var):
+        guardar_disabled = ~puede_guardar
+    else:
+        guardar_disabled = not puede_guardar
+
+    # Ícono en header
+    _icon_box = None
+    if icono_componente is not None:
+        _icon_box = icono_componente
+    elif icono is not None:
+        _icon_box = rx.box(
+            rx.icon(icono, size=20, color=f"var(--{color_icono}-11)"),
+            background=f"var(--{color_icono}-3)",
+            border_radius=Radius.LG,
+            padding="10px",
+            flex_shrink="0",
+        )
+
+    # Bloque título + descripción (elementos accesibles de Radix Dialog)
+    _desc_children = [
+        rx.dialog.title(
+            titulo,
+            margin="0",
+            font_size=Typography.SIZE_LG,
+            font_weight=Typography.WEIGHT_SEMIBOLD,
+            color=Colors.TEXT_PRIMARY,
+            line_height=Typography.LINE_HEIGHT_TIGHT,
+        ),
+    ]
+    if isinstance(descripcion, rx.Var):
+        _desc_children.append(
+            rx.cond(
+                descripcion != "",
+                rx.dialog.description(
+                    descripcion,
+                    margin="0",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                    line_height=Typography.LINE_HEIGHT_NORMAL,
+                ),
+                rx.fragment(),
+            )
+        )
+    elif descripcion != "":
+        _desc_children.append(
             rx.dialog.description(
                 descripcion,
-                margin_bottom=MODAL_SECTION_GAP,
-            ),
-            contenido,
-            rx.box(
-                botones_modal(
-                    on_guardar=on_guardar,
-                    on_cancelar=on_cancelar,
-                    saving=loading,
-                    disabled=(
-                        ~puede_guardar if isinstance(puede_guardar, rx.Var) else not puede_guardar
-                    ),
-                    texto_guardar=texto_guardar,
-                    texto_guardando=texto_guardando,
-                    texto_cancelar=texto_cancelar,
+                margin="0",
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_SECONDARY,
+                line_height=Typography.LINE_HEIGHT_NORMAL,
+            )
+        )
+
+    _title_block = rx.vstack(
+        *_desc_children,
+        spacing="0",
+        align="start",
+        flex="1",
+    )
+
+    # Header: [icon?] [title_block] [X button]
+    _header_children = []
+    if _icon_box is not None:
+        _header_children.append(_icon_box)
+    _header_children.append(_title_block)
+    _header_children.append(
+        rx.button(
+            rx.icon("x", size=16),
+            variant="ghost",
+            color_scheme="gray",
+            size="2",
+            on_click=on_cancelar,
+            disabled=cancel_disabled,
+            padding="4px",
+            cursor="pointer",
+            flex_shrink="0",
+        )
+    )
+
+    # Body props opcionales
+    _body_extra: dict = {}
+    if scroll_body:
+        _body_extra["overflow_y"] = "auto"
+        _body_extra["max_height"] = max_body_height
+
+    _vstack_extra: dict = {}
+    if scroll_body:
+        _vstack_extra["max_height"] = "min(88vh, 960px)"
+
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.vstack(
+                # Header con ícono, título y botón X
+                rx.hstack(
+                    *_header_children,
+                    width="100%",
+                    align="center",
+                    spacing="3",
+                    padding_x=Spacing.XL,
+                    padding_y=Spacing.BASE,
+                    border_bottom=f"1px solid {Colors.BORDER}",
                 ),
+                # Body (scrolleable si scroll_body=True)
+                rx.box(
+                    contenido,
+                    width="100%",
+                    flex="1",
+                    padding_x=Spacing.XL,
+                    padding_top=Spacing.BASE,
+                    padding_bottom=Spacing.XL,
+                    **_body_extra,
+                ),
+                # Footer
+                rx.hstack(
+                    extra_footer_left if extra_footer_left is not None else rx.fragment(),
+                    rx.spacer() if extra_footer_left is not None else rx.fragment(),
+                    rx.button(
+                        texto_cancelar,
+                        variant="outline",
+                        color_scheme="gray",
+                        size="2",
+                        on_click=on_cancelar,
+                        disabled=cancel_disabled,
+                    ),
+                    boton_guardar(
+                        texto=texto_guardar,
+                        texto_guardando=texto_guardando,
+                        on_click=on_guardar,
+                        saving=loading,
+                        disabled=guardar_disabled,
+                        color_scheme=color_guardar,
+                    ),
+                    justify="end" if extra_footer_left is None else "between",
+                    spacing="2",
+                    width="100%",
+                    align="center",
+                    padding_x=Spacing.XL,
+                    padding_y=Spacing.BASE,
+                    border_top=f"1px solid {Colors.BORDER}",
+                ),
+                spacing="0",
                 width="100%",
-                margin_top=MODAL_SECTION_GAP,
+                align="stretch",
+                **_vstack_extra,
             ),
             max_width=max_width,
-            padding=MODAL_CONTENT_PADDING,
+            width=f"calc(100vw - {Spacing.XXL})",
+            padding="0",
+            overflow="hidden",
+            background=Colors.SURFACE,
+            border_radius=Radius.XL,
         ),
         open=open,
-        # No cerrar al hacer click fuera - solo con botones
         on_open_change=rx.noop,
     )
 
