@@ -34,7 +34,6 @@ from app.presentation.components.reusable import (
 from app.presentation.components.ui.modals import modal_detalle, modal_formulario
 
 from .state import MisEmpleadosState
-from ..expedientes.state import ExpedientesState
 
 
 def modal_empleado() -> rx.Component:
@@ -834,7 +833,7 @@ def modal_detalle_empleado() -> rx.Component:
                                     color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                                     size="2",
                                 ),
-                                on_click=ExpedientesState.abrir_panel_expediente(
+                                on_click=MisEmpleadosState.ver_expediente(
                                     MisEmpleadosState.empleado_detalle
                                 ),
                                 variant="ghost",

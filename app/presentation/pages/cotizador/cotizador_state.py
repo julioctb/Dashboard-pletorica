@@ -138,6 +138,14 @@ class CotizadorState(PortalState):
             data["fecha_fin_texto"],
         )
         data["cantidad_partidas_texto"] = str(int(data.get("cantidad_partidas") or 0))
+
+        # Montos formateados para la tabla
+        total_min = float(data.get("total_minimo") or 0)
+        total_max = float(data.get("total_maximo") or 0)
+        data["monto_minimo_texto"] = f"$ {total_min:,.2f}"
+        data["monto_maximo_texto"] = f"$ {total_max:,.2f}"
+        data["monto_es_rango"] = abs(total_max - total_min) > 0.01
+
         return data
 
     def _periodo_default(self) -> tuple[str, str]:

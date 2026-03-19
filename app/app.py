@@ -1,4 +1,5 @@
 import reflex as rx
+from reflex.compiler import templates as rx_templates
 
 from app.presentation.theme.feedback import DEFAULT_TOAST_POSITION
 from app.presentation.theme import GLOBAL_STYLES
@@ -73,6 +74,7 @@ from .presentation.portal.pages.mis_empleados import (
     alta_masiva_redirect_page,
     mis_empleados_page,
 )
+from .presentation.portal.pages.empleado_ficha import empleado_ficha_page
 from .presentation.portal.pages.expedientes import expedientes_page
 from .presentation.portal.pages.bajas import bajas_page
 
@@ -86,6 +88,41 @@ from .presentation.portal.pages.usuarios_empresa import usuarios_empresa_page
 from .presentation.pages.shared.empresa_documentacion_share_page import (
     empresa_documentacion_share_page,
 )
+
+
+def _patch_reflex_context_defaults() -> None:
+    """Evita null-context crashes de React Refresh en Reflex 0.8.x."""
+    original_context_template = rx_templates.context_template
+
+    def _context_template_with_safe_defaults(*, is_dev_mode, default_color_mode, initial_state=None, state_name=None, client_storage=None):
+        generated = original_context_template(
+            is_dev_mode=is_dev_mode,
+            default_color_mode=default_color_mode,
+            initial_state=initial_state,
+            state_name=state_name,
+            client_storage=client_storage,
+        )
+        generated = generated.replace(
+            "export const ColorModeContext = createContext(null);",
+            (
+                "export const ColorModeContext = createContext({"
+                "rawColorMode: defaultColorMode, "
+                "resolvedColorMode: defaultColorMode === \"system\" ? \"light\" : defaultColorMode, "
+                "toggleColorMode: () => {}, "
+                "setColorMode: () => {}"
+                "});"
+            ),
+        )
+        generated = generated.replace(
+            "export const EventLoopContext = createContext(null);",
+            "export const EventLoopContext = createContext([(..._args) => {}, []]);",
+        )
+        return generated
+
+    rx_templates.context_template = _context_template_with_safe_defaults
+
+
+_patch_reflex_context_defaults()
 
 
 def index(content: rx.Component) -> rx.Component:
@@ -239,12 +276,19 @@ app.add_page(lambda: portal_index(usuarios_empresa_page()), route="/portal/usuar
 # =============================================================================
 app.add_page(lambda: portal_index(mis_empleados_page()), route="/portal/empleados")
 app.add_page(
+    lambda: portal_index(empleado_ficha_page()),
+    route="/portal/empleados/[id]",
+)
+app.add_page(
     lambda: portal_index(alta_masiva_redirect_page()),
     route="/portal/alta-masiva",
 )
 app.add_page(lambda: portal_index(portal_plazas_redirect_page()), route="/portal/plazas")
 app.add_page(lambda: portal_index(portal_onboarding_redirect_page()), route="/portal/onboarding")
-app.add_page(lambda: portal_index(expedientes_page()), route="/portal/empleados/expedientes")
+app.add_page(
+    lambda: portal_index(expedientes_page()),
+    route="/portal/empleados/[id]/expediente",
+)
 app.add_page(lambda: portal_index(bajas_page()), route="/portal/bajas")
 app.add_page(lambda: portal_index(periodos_nomina_page()), route="/portal/nominas")
 app.add_page(lambda: portal_index(preparacion_nomina_page()), route="/portal/nominas/preparacion")

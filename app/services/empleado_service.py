@@ -81,6 +81,15 @@ class EmpleadoService:
         """
         return await self._query_service.obtener_por_id(empleado_id)
 
+    async def obtener_por_uuid(self, empleado_uuid: str) -> Optional[Empleado]:
+        """
+        Obtiene un empleado por UUID público.
+
+        Returns:
+            Empleado si existe, None si no existe.
+        """
+        return await self._query_service.obtener_por_uuid(empleado_uuid)
+
     async def obtener_por_curp(self, curp: str) -> Optional[Empleado]:
         """
         Obtiene un empleado por su CURP.

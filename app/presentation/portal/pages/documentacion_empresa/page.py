@@ -6,6 +6,7 @@ from app.presentation.components.empresas.empresa_documentacion_ui import (
     panel_documentacion_empresa,
 )
 from app.presentation.layout import page_header, page_layout
+from app.presentation.theme import Colors
 
 from .state import DocumentacionEmpresaPortalState
 
@@ -17,6 +18,7 @@ def documentacion_empresa_portal_page() -> rx.Component:
                 titulo="Documentación Anual",
                 subtitulo="Carga y comparte el expediente anual de tu empresa",
                 icono="folder-lock",
+                color_icono=Colors.PORTAL_ACCENT_SCHEME,
             ),
             toolbar=rx.fragment(),
             content=panel_documentacion_empresa(

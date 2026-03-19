@@ -4,6 +4,7 @@ Pagina de Bajas de Personal del portal RRHH.
 import reflex as rx
 
 from app.presentation.layout import page_layout, page_header, page_toolbar
+from app.presentation.theme import Colors
 
 from .state import BajasState
 from .components import alertas_liquidacion, filtros_bajas, tabla_bajas, modal_cancelacion
@@ -18,6 +19,7 @@ def bajas_page() -> rx.Component:
                     titulo="Bajas de personal",
                     subtitulo="Seguimiento de liquidacion y cierre de bajas",
                     icono="user-minus",
+                    color_icono=Colors.PORTAL_ACCENT_SCHEME,
                 ),
                 content=rx.vstack(
                     page_toolbar(

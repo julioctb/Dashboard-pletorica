@@ -4,6 +4,7 @@ Pagina de asistencias del portal de operaciones.
 import reflex as rx
 
 from app.presentation.layout import page_header, page_layout
+from app.presentation.theme import Colors
 
 from .components import (
     configuracion_asistencias,
@@ -28,6 +29,7 @@ def asistencias_page() -> rx.Component:
                     titulo="Asistencias",
                     subtitulo="Operacion, precargas y configuracion operativa",
                     icono="clipboard-check",
+                    color_icono=Colors.PORTAL_ACCENT_SCHEME,
                 ),
                 toolbar=toolbar_asistencias(),
                 content=rx.vstack(

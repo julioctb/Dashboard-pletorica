@@ -910,6 +910,7 @@ def mi_empresa_page() -> rx.Component:
                 icono="building-2",
                 accion_principal=_header_actions(),
                 show_divider=False,
+                color_icono=Colors.PORTAL_ACCENT_SCHEME,
             ),
             toolbar=rx.fragment(),
             content=rx.cond(

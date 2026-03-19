@@ -47,6 +47,7 @@ class Colors:
     PORTAL_PRIMARY_LIGHTER = "var(--teal-2)"  # Fondos muy sutiles
     PORTAL_ACCENT_SCHEME = "teal"             # Nombre del color scheme Radix — usar en color_scheme= de botones, badges, etc.
     NEUTRAL_SCHEME = "gray"                   # Color scheme Radix neutral — badges informativos, iconos, elementos sin énfasis
+    WARNING_SCHEME = "amber"                  # Color scheme Radix para acciones de atención (no error)
 
     # === FONDOS ===
     BG_APP = "#F8FAFC"            # Fondo general de la aplicación
@@ -143,6 +144,12 @@ class StatusColors:
     INACTIVO_BG = "#FEE2E2"       # Fondo
     INACTIVO_ICON = "circle-x"    # Icono sugerido
     INACTIVO_SCHEME = "red"       # Color scheme para rx.badge
+
+    # Estado: BAJA (empleado dado de baja con proceso formal)
+    BAJA = "#DC2626"              # Rojo - baja procesada
+    BAJA_BG = "#FEE2E2"           # Fondo
+    BAJA_ICON = "user-minus"      # Icono sugerido
+    BAJA_SCHEME = "red"           # Color scheme para rx.badge
 
     # =========================================================================
     # Estados de Plaza
@@ -258,6 +265,7 @@ class StatusColors:
             "CANCELADO": cls.CANCELADO,
             "CERRADO": cls.CERRADO,
             "INACTIVO": cls.INACTIVO,
+            "BAJA": cls.BAJA,
             # Estados de Plaza
             "VACANTE": cls.VACANTE,
             "OCUPADA": cls.OCUPADA,
@@ -289,6 +297,7 @@ class StatusColors:
             "CANCELADO": cls.CANCELADO_BG,
             "CERRADO": cls.CERRADO_BG,
             "INACTIVO": cls.INACTIVO_BG,
+            "BAJA": cls.BAJA_BG,
             # Estados de Plaza
             "VACANTE": cls.VACANTE_BG,
             "OCUPADA": cls.OCUPADA_BG,
@@ -320,6 +329,7 @@ class StatusColors:
             "CANCELADO": cls.CANCELADO_ICON,
             "CERRADO": cls.CERRADO_ICON,
             "INACTIVO": cls.INACTIVO_ICON,
+            "BAJA": cls.BAJA_ICON,
             # Estados de Plaza
             "VACANTE": cls.VACANTE_ICON,
             "OCUPADA": cls.OCUPADA_ICON,
@@ -356,6 +366,7 @@ class StatusColors:
             "CANCELADO": cls.CANCELADO_SCHEME,
             "CERRADO": cls.CERRADO_SCHEME,
             "INACTIVO": cls.INACTIVO_SCHEME,
+            "BAJA": cls.BAJA_SCHEME,
             # Estados de Plaza
             "VACANTE": cls.VACANTE_SCHEME,
             "OCUPADA": cls.OCUPADA_SCHEME,

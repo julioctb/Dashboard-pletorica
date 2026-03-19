@@ -228,6 +228,7 @@ def configuracion_empresa_page() -> rx.Component:
                 titulo="Configuracion Operativa",
                 subtitulo="Politica de nomina y reglas de pago",
                 icono="settings",
+                color_icono=Colors.PORTAL_ACCENT_SCHEME,
             ),
             toolbar=rx.fragment(),
             content=rx.cond(

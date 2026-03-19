@@ -200,7 +200,8 @@ def _portal_navigation() -> rx.Component:
                 "/portal/empleados",
                 active_paths=(
                     "/portal/empleados",
-                    "/portal/empleados/expedientes",
+                    "/portal/empleados/[id]",
+                    "/portal/empleados/[id]/expediente",
                     "/portal/plazas",
                     "/portal/onboarding",
                 ),

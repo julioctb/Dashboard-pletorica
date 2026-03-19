@@ -8,9 +8,8 @@ Ruta: /portal/cotizador
 import reflex as rx
 
 from app.presentation.theme import Colors, Spacing, Typography, Radius
-from app.presentation.theme import CARD_INTERACTIVE_STYLE
 from app.presentation.layout import page_layout, page_header, page_toolbar
-from app.presentation.components.ui import form_input, form_textarea, form_row, botones_modal
+from app.presentation.components.ui import form_input, form_textarea, form_row
 from app.presentation.pages.cotizador.cotizador_state import CotizadorState
 from app.presentation.pages.cotizador.cotizador_components import (
     _header_label,
@@ -116,7 +115,7 @@ def _fila_agregar_categoria(partida_idx: rx.Var) -> rx.Component:
                     "Agregar",
                     on_click=CotizadorState.confirmar_agregar_categoria,
                     size="1",
-                    color_scheme="blue",
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                     variant="soft",
                 ),
                 rx.button(
@@ -138,7 +137,7 @@ def _fila_agregar_categoria(partida_idx: rx.Var) -> rx.Component:
             on_click=CotizadorState.iniciar_agregar_categoria(partida_idx),
             size="1",
             variant="ghost",
-            color_scheme="blue",
+            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
         ),
     )
 
@@ -236,7 +235,7 @@ def _indicador_pasos() -> rx.Component:
             width="32px",
             height="32px",
             border_radius="50%",
-            background=rx.cond(es_activo, Colors.PRIMARY, Colors.SECONDARY_LIGHT),
+            background=rx.cond(es_activo, Colors.PORTAL_PRIMARY, Colors.SECONDARY_LIGHT),
             color=rx.cond(es_activo, Colors.TEXT_INVERSE, Colors.TEXT_SECONDARY),
             cursor="pointer",
             flex_shrink="0",
@@ -284,68 +283,147 @@ def _indicador_pasos() -> rx.Component:
 
 def _modal_selector_tipo() -> rx.Component:
     """Modal para elegir tipo de cotización antes del wizard."""
+
     def _card_tipo(icon_name: str, titulo: str, descripcion: str, tipo: str) -> rx.Component:
-        return rx.card(
+        return rx.box(
             rx.vstack(
-                rx.icon(icon_name, size=32, color=Colors.PRIMARY),
+                rx.box(
+                    rx.icon(icon_name, size=20, color=Colors.PORTAL_PRIMARY_TEXT),
+                    background=Colors.PORTAL_PRIMARY_LIGHT,
+                    border_radius=Radius.LG,
+                    padding="10px",
+                ),
                 rx.text(
                     titulo,
-                    font_size=Typography.SIZE_LG,
+                    font_size=Typography.SIZE_SM,
                     font_weight=Typography.WEIGHT_SEMIBOLD,
                     color=Colors.TEXT_PRIMARY,
                 ),
                 rx.text(
                     descripcion,
-                    font_size=Typography.SIZE_SM,
+                    font_size=Typography.SIZE_XS,
                     color=Colors.TEXT_SECONDARY,
                     text_align="center",
+                    line_height="1.4",
                 ),
                 align="center",
                 spacing="2",
-                padding=Spacing.MD,
             ),
+            border=f"1px solid {Colors.BORDER}",
+            border_radius=Radius.LG,
+            padding=Spacing.XL,
+            text_align="center",
             cursor="pointer",
-            style=CARD_INTERACTIVE_STYLE,
+            transition="all 0.15s ease",
+            _hover={
+                "border_color": Colors.PORTAL_PRIMARY,
+                "background": Colors.PORTAL_PRIMARY_LIGHTER,
+            },
             on_click=CotizadorState.seleccionar_tipo_cotizacion(tipo),
             width="100%",
         )
 
     return rx.dialog.root(
         rx.dialog.content(
-            rx.dialog.title("Nueva Cotización"),
-            rx.dialog.description(
-                "Selecciona el tipo de cotización que deseas crear.",
-                margin_bottom="16px",
-            ),
-            rx.grid(
-                _card_tipo(
-                    "package",
-                    "Productos / Servicios",
-                    "Cotiza bienes y servicios generales con tabla de conceptos",
-                    "PRODUCTOS_SERVICIOS",
+            rx.vstack(
+                # Header: ícono teal + título + descripción + botón X
+                rx.hstack(
+                    rx.box(
+                        rx.icon("file-plus", size=20, color=Colors.PORTAL_PRIMARY_TEXT),
+                        background=Colors.PORTAL_PRIMARY_LIGHT,
+                        border_radius=Radius.LG,
+                        padding="10px",
+                        flex_shrink="0",
+                    ),
+                    rx.vstack(
+                        rx.dialog.title(
+                            "Nueva cotización",
+                            margin="0",
+                            font_size=Typography.SIZE_LG,
+                            font_weight=Typography.WEIGHT_SEMIBOLD,
+                            color=Colors.TEXT_PRIMARY,
+                            line_height=Typography.LINE_HEIGHT_TIGHT,
+                        ),
+                        rx.dialog.description(
+                            "Selecciona el tipo de cotización que deseas crear.",
+                            margin="0",
+                            font_size=Typography.SIZE_SM,
+                            color=Colors.TEXT_SECONDARY,
+                            line_height=Typography.LINE_HEIGHT_NORMAL,
+                        ),
+                        spacing="0",
+                        align="start",
+                        flex="1",
+                    ),
+                    rx.button(
+                        rx.icon("x", size=16),
+                        variant="ghost",
+                        color_scheme=Colors.NEUTRAL_SCHEME,
+                        size="2",
+                        on_click=CotizadorState.cerrar_selector_tipo,
+                        padding="4px",
+                        cursor="pointer",
+                        flex_shrink="0",
+                    ),
+                    width="100%",
+                    align="center",
+                    spacing="3",
+                    padding_x=Spacing.XL,
+                    padding_y=Spacing.BASE,
+                    border_bottom=f"1px solid {Colors.BORDER}",
                 ),
-                _card_tipo(
-                    "users",
-                    "Personal",
-                    "Cotiza personal con cálculo patronal por perfil",
-                    "PERSONAL",
+                # Body: grid de 2 cards
+                rx.box(
+                    rx.grid(
+                        _card_tipo(
+                            "package",
+                            "Productos / Servicios",
+                            "Cotiza bienes y servicios generales con tabla de conceptos",
+                            "PRODUCTOS_SERVICIOS",
+                        ),
+                        _card_tipo(
+                            "users",
+                            "Personal",
+                            "Cotiza personal con cálculo patronal por perfil",
+                            "PERSONAL",
+                        ),
+                        columns="2",
+                        spacing="3",
+                        width="100%",
+                    ),
+                    width="100%",
+                    flex="1",
+                    padding_x=Spacing.XL,
+                    padding_top=Spacing.BASE,
+                    padding_bottom=Spacing.XL,
                 ),
-                columns="2",
-                spacing="4",
+                # Footer: botón Cancelar alineado a la derecha
+                rx.hstack(
+                    rx.button(
+                        "Cancelar",
+                        variant="outline",
+                        color_scheme=Colors.NEUTRAL_SCHEME,
+                        size="2",
+                        on_click=CotizadorState.cerrar_selector_tipo,
+                    ),
+                    justify="end",
+                    spacing="2",
+                    width="100%",
+                    align="center",
+                    padding_x=Spacing.XL,
+                    padding_y=Spacing.BASE,
+                    border_top=f"1px solid {Colors.BORDER}",
+                ),
+                spacing="0",
                 width="100%",
+                align="stretch",
             ),
-            rx.hstack(
-                rx.button(
-                    "Cancelar",
-                    variant="soft",
-                    size="2",
-                    on_click=CotizadorState.cerrar_selector_tipo,
-                ),
-                spacing="2",
-                width="100%",
-                padding_top=Spacing.SM,
-            ),
-            max_width="550px",
+            max_width="440px",
+            width=f"calc(100vw - {Spacing.XXL})",
+            padding="0",
+            overflow="hidden",
+            background=Colors.SURFACE,
+            border_radius=Radius.XL,
         ),
         open=CotizadorState.mostrar_selector_tipo,
         on_open_change=rx.noop,
@@ -519,7 +597,7 @@ def _partida_items_form(partida: dict) -> rx.Component:
                 on_click=CotizadorState.agregar_item_partida(p_idx),
                 size="1",
                 variant="ghost",
-                color_scheme="blue",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
             spacing="2",
             width="100%",
@@ -547,7 +625,7 @@ def _paso_partidas() -> rx.Component:
                 on_click=CotizadorState.agregar_partida_form,
                 size="1",
                 variant="ghost",
-                color_scheme="blue",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
             width="100%",
             align="center",
@@ -756,7 +834,7 @@ def _paso_resumen() -> rx.Component:
                 on_click=CotizadorState.agregar_item_global,
                 size="1",
                 variant="ghost",
-                color_scheme="blue",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
         ),
         # Notas
@@ -800,7 +878,7 @@ def _paso_resumen() -> rx.Component:
                 rx.hstack(
                     rx.text("Total:", font_size=Typography.SIZE_LG, font_weight=Typography.WEIGHT_BOLD),
                     rx.spacer(),
-                    rx.text(CotizadorState.resumen_total, font_size=Typography.SIZE_LG, font_weight=Typography.WEIGHT_BOLD, color=Colors.PRIMARY),
+                    rx.text(CotizadorState.resumen_total, font_size=Typography.SIZE_LG, font_weight=Typography.WEIGHT_BOLD, color=Colors.PORTAL_PRIMARY),
                     width="100%",
                 ),
                 spacing="2",
@@ -811,7 +889,7 @@ def _paso_resumen() -> rx.Component:
         rx.callout(
             "Después de crear la cotización podrás editar conceptos y valores en el detalle.",
             icon="info",
-            color_scheme="blue",
+            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             size="2",
             width="100%",
         ),
@@ -833,7 +911,7 @@ def _modal_crear_cotizacion() -> rx.Component:
                     "Nueva Cotización",
                     rx.cond(
                         CotizadorState.es_tipo_personal,
-                        rx.badge("Personal", color_scheme="blue", variant="soft", size="1"),
+                        rx.badge("Personal", color_scheme=Colors.PORTAL_ACCENT_SCHEME, variant="soft", size="1"),
                         rx.badge("Productos/Servicios", color_scheme="green", variant="soft", size="1"),
                     ),
                     spacing="2",
@@ -889,7 +967,7 @@ def _modal_crear_cotizacion() -> rx.Component:
                         rx.icon("chevron-right", size=14),
                         variant="outline",
                         size="2",
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         on_click=CotizadorState.ir_paso_siguiente,
                     ),
                 ),
@@ -905,7 +983,7 @@ def _modal_crear_cotizacion() -> rx.Component:
                     ),
                     on_click=CotizadorState.crear_cotizacion,
                     disabled=CotizadorState.saving_cotizacion,
-                    color_scheme="blue",
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                     size="2",
                 ),
                 spacing="2",
@@ -972,11 +1050,12 @@ def cotizador_page() -> rx.Component:
                 titulo="Cotizador",
                 subtitulo="Gestiona cotizaciones de servicios para presentar a clientes",
                 icono="file-text",
+                color_icono=Colors.PORTAL_ACCENT_SCHEME,
                 accion_principal=rx.button(
                     rx.icon("plus", size=16),
                     "Nueva Cotización",
                     on_click=CotizadorState.abrir_modal_crear,
-                    color_scheme="blue",
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                     size="2",
                 ),
             ),
@@ -984,6 +1063,7 @@ def cotizador_page() -> rx.Component:
                 show_search=False,
                 show_view_toggle=False,
                 filters=_filtros(),
+                wrapped=False,
             ),
             content=rx.vstack(
                 rx.cond(

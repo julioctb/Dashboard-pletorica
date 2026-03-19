@@ -25,6 +25,7 @@ def onboarding_alta_page() -> rx.Component:
                     on_click=OnboardingAltaState.abrir_modal_alta,
                     color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                 ),
+                color_icono=Colors.PORTAL_ACCENT_SCHEME,
             ),
             toolbar=page_toolbar(
                 search_value=OnboardingAltaState.filtro_busqueda,

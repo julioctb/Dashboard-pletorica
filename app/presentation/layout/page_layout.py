@@ -29,6 +29,7 @@ def page_header(
     titulo_compuesto: rx.Component = None,
     subtitulo_compuesto: rx.Component = None,
     show_divider: bool = True,
+    color_icono: str | None = None,
 ) -> rx.Component:
     """Adapter compatible que delega al header shared de UI."""
     return rx.box(
@@ -39,6 +40,7 @@ def page_header(
             titulo_compuesto=titulo_compuesto,
             subtitulo_compuesto=subtitulo_compuesto,
             accion_principal=accion_principal,
+            color_icono=color_icono,
         ),
         width="100%",
         padding_bottom=Spacing.LG,

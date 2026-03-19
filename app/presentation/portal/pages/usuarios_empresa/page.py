@@ -200,6 +200,7 @@ def usuarios_empresa_page() -> rx.Component:
                 titulo="Usuarios",
                 subtitulo="Gestion del equipo de la empresa",
                 icono="users-round",
+                color_icono=Colors.PORTAL_ACCENT_SCHEME,
                 accion_principal=rx.button(
                     rx.icon("plus", size=16),
                     "Agregar Usuario",

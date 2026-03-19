@@ -254,6 +254,36 @@ class TipoMovimiento(str, Enum):
         return descripciones.get(self.value, self.value)
 
 
+class TipoMovimientoHistorial(str, Enum):
+    """Tipos de movimiento persistidos en historial_laboral."""
+
+    ALTA = "ALTA"
+    ASIGNACION = "ASIGNACION"
+    CAMBIO_PLAZA = "CAMBIO_PLAZA"
+    CAMBIO_SEDE = "CAMBIO_SEDE"
+    CAMBIO_CATEGORIA = "CAMBIO_CATEGORIA"
+    SUSPENSION = "SUSPENSION"
+    REACTIVACION = "REACTIVACION"
+    REINGRESO = "REINGRESO"
+    BAJA = "BAJA"
+
+    @classmethod
+    def get_label(cls, value: str) -> str:
+        """Label legible para UI."""
+        labels = {
+            cls.ALTA: "Alta",
+            cls.ASIGNACION: "Asignación de plaza",
+            cls.CAMBIO_PLAZA: "Cambio de plaza",
+            cls.CAMBIO_SEDE: "Cambio de sede",
+            cls.CAMBIO_CATEGORIA: "Cambio de categoría",
+            cls.SUSPENSION: "Suspensión",
+            cls.REACTIVACION: "Reactivación",
+            cls.REINGRESO: "Reingreso",
+            cls.BAJA: "Baja",
+        }
+        return labels.get(value, value)
+
+
 # =============================================================================
 # ENUMS DE BAJA DE EMPLEADO
 # =============================================================================

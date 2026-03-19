@@ -2,7 +2,8 @@ import reflex as rx
 
 config = rx.Config(
     app_name="app",
-    built_with_reflex=False,  # Oculta el badge "Built with Reflex"
+    built_with_reflex=False,  # Compatibilidad en versiones anteriores.
+    show_built_with_reflex=False,  # Flag actual para ocultar badge en frontend.
     plugins=[
         rx.plugins.SitemapPlugin(),
         rx.plugins.TailwindV4Plugin(),

@@ -10,7 +10,7 @@ Muestra contenido condicional segun el estatus de onboarding:
 import reflex as rx
 
 from app.presentation.layout import page_layout, page_header
-from app.presentation.theme import Spacing
+from app.presentation.theme import Colors, Spacing
 
 from .state import MisDatosState
 from .components import (
@@ -31,6 +31,7 @@ def mis_datos_page() -> rx.Component:
                 titulo="Mis Datos",
                 subtitulo=MisDatosState.subtitulo_pagina,
                 icono="user",
+                color_icono=Colors.PORTAL_ACCENT_SCHEME,
             ),
             toolbar=rx.fragment(),
             content=rx.cond(

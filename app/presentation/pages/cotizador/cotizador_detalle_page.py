@@ -39,11 +39,11 @@ def _meta_bloque(icono: str, etiqueta: str, valor: rx.Var | str) -> rx.Component
     return rx.card(
         rx.hstack(
             rx.center(
-                rx.icon(icono, size=18, color=Colors.PRIMARY),
+                rx.icon(icono, size=18, color=Colors.PORTAL_PRIMARY_TEXT),
                 width="40px",
                 height="40px",
                 border_radius="12px",
-                background=Colors.PRIMARY_LIGHT,
+                background=Colors.PORTAL_PRIMARY_LIGHT,
                 flex_shrink="0",
             ),
             rx.vstack(
@@ -76,7 +76,7 @@ def _boton_cotizador(
     icono: str,
     on_click,
     *,
-    color_scheme: str = "gray",
+    color_scheme: str = Colors.NEUTRAL_SCHEME,
     variant: str = "soft",
     size: str = "2",
     width: str | None = None,
@@ -447,13 +447,13 @@ def _header_detalle() -> rx.Component:
                 rx.hstack(
                     rx.badge(
                         CotizadorDetalleState.version_cotizacion,
-                        color_scheme="gray",
+                        color_scheme=Colors.NEUTRAL_SCHEME,
                         variant="soft",
                         size="1",
                     ),
                     rx.badge(
                         CotizadorDetalleState.cantidad_partidas_texto,
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         variant="soft",
                         size="1",
                     ),
@@ -472,7 +472,7 @@ def _header_detalle() -> rx.Component:
                         "Nueva versión",
                         "copy",
                         CotizadorDetalleState.crear_nueva_version_actual,
-                        color_scheme="gray",
+                        color_scheme=Colors.NEUTRAL_SCHEME,
                     ),
                     rx.fragment(),
                 ),
@@ -482,7 +482,7 @@ def _header_detalle() -> rx.Component:
                         "Editar información",
                         "pencil-line",
                         CotizadorDetalleState.abrir_modal_editar_cotizacion,
-                        color_scheme="gray",
+                        color_scheme=Colors.NEUTRAL_SCHEME,
                     ),
                     rx.fragment(),
                 ),
@@ -492,7 +492,7 @@ def _header_detalle() -> rx.Component:
                         "Descargar PDF",
                         "download",
                         CotizadorDetalleState.descargar_pdf,
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                     ),
                     rx.fragment(),
                 ),
@@ -502,7 +502,7 @@ def _header_detalle() -> rx.Component:
                         "Nueva Partida",
                         "plus",
                         CotizadorDetalleState.agregar_partida,
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         variant="solid",
                     ),
                     rx.fragment(),
@@ -586,7 +586,7 @@ def _toolbar_estatus_cotizacion() -> rx.Component:
                         "Preparar",
                         "badge-check",
                         CotizadorDetalleState.cambiar_estatus_cotizacion("PREPARADA"),
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                     ),
                     rx.fragment(),
                 ),
@@ -653,7 +653,7 @@ def _tabs_partidas() -> rx.Component:
                         "Agregar primera partida",
                         "plus",
                         CotizadorDetalleState.agregar_partida,
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         variant="soft",
                     ),
                     rx.fragment(),
@@ -765,7 +765,7 @@ def _tabla_items_partida() -> rx.Component:
                         "Agregar",
                         "plus",
                         CotizadorDetalleState.abrir_modal_item_partida,
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         size="1",
                     ),
                     rx.fragment(),
@@ -838,7 +838,7 @@ def _tabla_items_globales() -> rx.Component:
                         "Agregar global",
                         "plus",
                         CotizadorDetalleState.abrir_modal_item_global,
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         size="1",
                     ),
                     rx.fragment(),
@@ -1040,7 +1040,7 @@ def _panel_acciones_partida() -> rx.Component:
                 rx.text(
                     CotizadorDetalleState.partida_rango_total_texto,
                     font_size=Typography.SIZE_SM,
-                    color=Colors.PRIMARY,
+                    color=Colors.PORTAL_PRIMARY,
                     font_weight="600",
                 ),
                 spacing="1",
@@ -1063,7 +1063,7 @@ def _panel_acciones_partida() -> rx.Component:
                             "Editar",
                             "pencil-line",
                             CotizadorDetalleState.abrir_modal_editar_partida,
-                            color_scheme="gray",
+                            color_scheme=Colors.NEUTRAL_SCHEME,
                             size="1",
                         ),
                         rx.fragment(),
@@ -1150,7 +1150,7 @@ def _tabla_categorias() -> rx.Component:
                         "Agregar",
                         "plus",
                         CotizadorDetalleState.abrir_modal_categoria,
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         size="1",
                     ),
                     rx.fragment(),
@@ -1256,7 +1256,7 @@ def _fila_categoria(cat: dict) -> rx.Component:
         rx.table.cell(
             _money_text(
                 cat['precio_unitario_final'],
-                color=Colors.PRIMARY,
+                color=Colors.PORTAL_PRIMARY,
                 weight="700",
             )
         ),
@@ -1267,7 +1267,7 @@ def _fila_categoria(cat: dict) -> rx.Component:
                         icon="calculator",
                         tooltip="Recalcular costo patronal",
                         on_click=CotizadorDetalleState.recalcular_costo_patronal(cat['id']),
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                     ),
                     tabla_action_button(
                         icon="pencil",
@@ -1316,7 +1316,7 @@ def _seccion_conceptos() -> rx.Component:
                         "Agregar",
                         "plus",
                         CotizadorDetalleState.abrir_modal_concepto,
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         size="1",
                     ),
                     rx.fragment(),
@@ -1388,8 +1388,8 @@ def _fila_concepto(concepto: dict) -> rx.Component:
             rx.vstack(
                 rx.cond(
                     concepto.get('tipo_concepto') == 'PATRONAL',
-                    rx.badge("Patronal", color_scheme='blue', size="1"),
-                    rx.badge("Indirecto", color_scheme='gray', size="1"),
+                    rx.badge("Patronal", color_scheme=Colors.PORTAL_ACCENT_SCHEME, size="1"),
+                    rx.badge("Indirecto", color_scheme=Colors.NEUTRAL_SCHEME, size="1"),
                 ),
                 rx.text(
                     rx.cond(
@@ -1409,7 +1409,7 @@ def _fila_concepto(concepto: dict) -> rx.Component:
                 rx.cond(
                     concepto.get('es_autogenerado', False),
                     rx.badge("Motor", color_scheme="green", variant="soft", size="1"),
-                    rx.badge("Manual", color_scheme="gray", variant="soft", size="1"),
+                    rx.badge("Manual", color_scheme=Colors.NEUTRAL_SCHEME, variant="soft", size="1"),
                 ),
                 justify="center",
             )

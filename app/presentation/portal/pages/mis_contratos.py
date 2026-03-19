@@ -600,10 +600,11 @@ def mis_contratos_page() -> rx.Component:
                         rx.icon("plus", size=16),
                         "Nuevo Contrato",
                         on_click=ContratosState.abrir_modal_crear_portal,
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                     ),
                     rx.fragment(),
                 ),
+                color_icono=Colors.PORTAL_ACCENT_SCHEME,
             ),
             toolbar=page_toolbar(
                 search_value=MisContratosState.filtro_busqueda_cto,

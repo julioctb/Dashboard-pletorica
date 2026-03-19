@@ -27,6 +27,9 @@ class EmpleadoQueryService:
     async def obtener_por_id(self, empleado_id: int) -> Empleado:
         return await self.root.repository.obtener_por_id(empleado_id)
 
+    async def obtener_por_uuid(self, empleado_uuid: str) -> Optional[Empleado]:
+        return await self.root.repository.obtener_por_uuid(empleado_uuid)
+
     async def obtener_por_curp(self, curp: str) -> Optional[Empleado]:
         return await self.root.repository.obtener_por_curp(curp.upper())
 

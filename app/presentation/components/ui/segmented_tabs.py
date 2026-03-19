@@ -18,22 +18,31 @@ SEGMENTED_TAB_TRIGGER_STYLE = {
         "background": Colors.SECONDARY_LIGHT,
         "color": Colors.TEXT_PRIMARY,
     },
-    "&[data-state='active']": {
-        "background": Colors.PRIMARY,
-        "color": Colors.TEXT_INVERSE,
-    },
-    "&[data-state='active']:hover": {
-        "background": Colors.PRIMARY_HOVER,
-    },
 }
 
 
-def segmented_tab_trigger(label: str, value: str) -> rx.Component:
+def segmented_tab_trigger(
+    label: str,
+    value: str,
+    *,
+    active_background: str = Colors.PRIMARY,
+    active_hover_background: str = Colors.PRIMARY_HOVER,
+) -> rx.Component:
     """Trigger compacto para tabs segmentadas."""
+    style = {
+        **SEGMENTED_TAB_TRIGGER_STYLE,
+        "&[data-state='active']": {
+            "background": active_background,
+            "color": Colors.TEXT_INVERSE,
+        },
+        "&[data-state='active']:hover": {
+            "background": active_hover_background,
+        },
+    }
     return rx.tabs.trigger(
         label,
         value=value,
-        style=SEGMENTED_TAB_TRIGGER_STYLE,
+        style=style,
     )
 
 

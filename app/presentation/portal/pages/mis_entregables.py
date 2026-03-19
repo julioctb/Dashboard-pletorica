@@ -15,18 +15,19 @@ from app.presentation.components.ui import (
     skeleton_tabla,
     status_badge_reactive,
 )
-from app.presentation.theme import Colors, Spacing, Typography, Radius, Transitions
+from app.presentation.components.ui.action_buttons import tabla_cta_button
+from app.presentation.theme import Colors, Spacing, Typography, Radius
 
 
 # =============================================================================
 # FILTROS POR ESTATUS
 # =============================================================================
 ENCABEZADOS_TABLA = [
-    {"nombre": "Período", "ancho": "220px"},
-    {"nombre": "Contrato", "ancho": "170px"},
-    {"nombre": "Tipo de entregable", "ancho": "220px"},
-    {"nombre": "Estado", "ancho": "180px"},
-    {"nombre": "Acción", "ancho": "140px", "header_align": "right"},
+    {"nombre": "Período", "ancho": "180px", "header_align": "left"},
+    {"nombre": "Contrato", "ancho": "140px", "header_align": "center"},
+    {"nombre": "Tipo de entregable", "ancho": "160px", "header_align": "center"},
+    {"nombre": "Estado", "ancho": "160px", "header_align": "center"},
+    {"nombre": "Acción", "ancho": "120px", "header_align": "center"},
 ]
 def _seccion_estadisticas() -> rx.Component:
     """Pills compactas que actúan como filtros de la tabla."""
@@ -135,7 +136,7 @@ def _badge_estatus_entregable(status: rx.Var) -> rx.Component:
 
     return rx.match(
         status,
-        ("PENDIENTE", _badge("Pendiente", "gray")),
+        ("PENDIENTE", _badge("Pendiente", Colors.NEUTRAL_SCHEME)),
         ("EN_REVISION", _badge("En revisión", "sky")),
         ("APROBADO", _badge("Aprobado", "green")),
         ("RECHAZADO", _badge("Rechazado", "red")),
@@ -144,7 +145,7 @@ def _badge_estatus_entregable(status: rx.Var) -> rx.Component:
         ("PREFACTURA_APROBADA", _badge("Prefactura aprobada", "green")),
         ("FACTURADO", _badge("Facturado", "amber")),
         ("PAGADO", _badge("Pagado", "green")),
-        _badge("Sin estatus", "gray"),
+        _badge("Sin estatus", Colors.NEUTRAL_SCHEME),
     )
 
 
@@ -161,67 +162,33 @@ def _tipo_entregable(status: rx.Var) -> rx.Component:
     )
 
 
-def _boton_accion(
-    label: str,
-    on_click,
-    *,
-    color_scheme: str = "gray",
-) -> rx.Component:
-    return rx.button(
-        label,
-        size="1",
-        variant="outline",
-        color_scheme=color_scheme,
-        on_click=on_click,
-    )
-
-
 def _accion_entregable(entregable: dict) -> rx.Component:
-    return rx.match(
-        entregable["estatus"],
-        (
-            "PENDIENTE",
-            _boton_accion(
-                "Subir",
-                lambda: MisEntregablesState.abrir_entregable(entregable["id"]),
-                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-            ),
-        ),
-        (
-            "RECHAZADO",
-            _boton_accion(
-                "Subir",
-                lambda: MisEntregablesState.abrir_entregable(entregable["id"]),
-                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-            ),
-        ),
-        (
-            "APROBADO",
-            _boton_accion(
-                "Subir",
-                lambda: MisEntregablesState.abrir_modal_prefactura(entregable["id"]),
-                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-            ),
-        ),
-        (
-            "PREFACTURA_RECHAZADA",
-            _boton_accion(
-                "Subir",
-                lambda: MisEntregablesState.abrir_modal_prefactura(entregable["id"]),
-                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-            ),
-        ),
-        (
-            "PREFACTURA_APROBADA",
-            _boton_accion(
-                "Subir factura",
-                lambda: MisEntregablesState.abrir_modal_factura(entregable["id"]),
-                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-            ),
-        ),
-        _boton_accion(
+    return tabla_cta_button(
+        text=rx.match(
+            entregable["estatus"],
+            ("PENDIENTE", "Subir"),
+            ("RECHAZADO", "Subir"),
+            ("APROBADO", "Subir"),
+            ("PREFACTURA_RECHAZADA", "Corregir"),
+            ("PREFACTURA_APROBADA", "Subir factura"),
+            ("PREFACTURA_ENVIADA", "En revisión"),
             "Ver",
-            lambda: MisEntregablesState.abrir_entregable(entregable["id"]),
+        ),
+        on_click=rx.match(
+            entregable["estatus"],
+            ("APROBADO", MisEntregablesState.abrir_modal_prefactura(entregable["id"])),
+            ("PREFACTURA_RECHAZADA", MisEntregablesState.abrir_modal_prefactura(entregable["id"])),
+            ("PREFACTURA_APROBADA", MisEntregablesState.abrir_modal_factura(entregable["id"])),
+            MisEntregablesState.abrir_entregable(entregable["id"]),
+        ),
+        color_scheme=rx.match(
+            entregable["estatus"],
+            ("PENDIENTE", Colors.PORTAL_ACCENT_SCHEME),
+            ("RECHAZADO", Colors.PORTAL_ACCENT_SCHEME),
+            ("APROBADO", Colors.PORTAL_ACCENT_SCHEME),
+            ("PREFACTURA_RECHAZADA", "amber"),
+            ("PREFACTURA_APROBADA", Colors.PORTAL_ACCENT_SCHEME),
+            Colors.NEUTRAL_SCHEME,
         ),
     )
 
@@ -271,25 +238,27 @@ def _fila_entregable(entregable: dict) -> rx.Component:
             _texto_celda(entregable["contrato_codigo"], tone="secondary"),
             padding=f"{Spacing.SM} {Spacing.MD}",
             vertical_align="middle",
+            text_align="center",
         ),
         rx.table.cell(
             _tipo_entregable(entregable["estatus"]),
             padding=f"{Spacing.SM} {Spacing.MD}",
             vertical_align="middle",
+            text_align="center",
         ),
         rx.table.cell(
-            _badge_estatus_entregable(entregable["estatus"]),
+            rx.center(_badge_estatus_entregable(entregable["estatus"]), width="100%"),
             padding=f"{Spacing.SM} {Spacing.MD}",
             vertical_align="middle",
+            text_align="center",
         ),
         rx.table.cell(
-            rx.hstack(
+            rx.center(
                 _accion_entregable(entregable),
-                justify="end",
                 width="100%",
             ),
             padding=f"{Spacing.SM} {Spacing.MD}",
-            text_align="right",
+            text_align="center",
             vertical_align="middle",
         ),
         border_bottom=f"1px solid {Colors.BORDER}",
@@ -302,15 +271,14 @@ def _tabla_entregables() -> rx.Component:
         rx.table.root(
             rx.table.header(
                 rx.table.row(
-                    _encabezado_tabla("Período", width=ENCABEZADOS_TABLA[0]["ancho"]),
-                    _encabezado_tabla("Contrato", width=ENCABEZADOS_TABLA[1]["ancho"]),
-                    _encabezado_tabla("Tipo de entregable", width=ENCABEZADOS_TABLA[2]["ancho"]),
-                    _encabezado_tabla("Estado", width=ENCABEZADOS_TABLA[3]["ancho"]),
-                    _encabezado_tabla(
-                        "Acción",
-                        width=ENCABEZADOS_TABLA[4]["ancho"],
-                        align=ENCABEZADOS_TABLA[4]["header_align"],
-                    ),
+                    *[
+                        _encabezado_tabla(
+                            h["nombre"],
+                            width=h["ancho"],
+                            align=h.get("header_align", "left"),
+                        )
+                        for h in ENCABEZADOS_TABLA
+                    ],
                 ),
             ),
             rx.table.body(
@@ -381,7 +349,7 @@ def _archivo_item(archivo: dict) -> rx.Component:
             background=rx.cond(
                 archivo["es_imagen"],
                 Colors.PORTAL_PRIMARY_LIGHT,
-                "var(--red-3)",
+                Colors.ERROR_LIGHT,
             ),
             flex_shrink="0",
         ),
@@ -417,7 +385,7 @@ def _seccion_archivos_modal() -> rx.Component:
     return rx.vstack(
         rx.hstack(
             rx.text("Archivos subidos", font_size=Typography.SIZE_SM, weight="bold"),
-            rx.badge(MisEntregablesState.archivos_entregable.length(), color_scheme="gray", size="1"),
+            rx.badge(MisEntregablesState.archivos_entregable.length(), color_scheme=Colors.NEUTRAL_SCHEME, size="1"),
             spacing="2",
             align="center",
         ),
@@ -530,7 +498,7 @@ def _modal_entregable() -> rx.Component:
                     rx.hstack(
                         rx.vstack(
                             rx.hstack(
-                                rx.badge(MisEntregablesState.entregable_actual["contrato_codigo"], color_scheme="blue", size="1"),
+                                rx.badge(MisEntregablesState.entregable_actual["contrato_codigo"], color_scheme=Colors.PORTAL_ACCENT_SCHEME, size="1"),
                                 rx.text(f"Período {MisEntregablesState.entregable_actual['numero_periodo']}", size="5", weight="bold"),
                                 spacing="2",
                                 align="center",
@@ -566,7 +534,7 @@ def _modal_entregable() -> rx.Component:
                         rx.button(
                             "Cerrar",
                             variant="soft",
-                            color_scheme="gray",
+                            color_scheme=Colors.NEUTRAL_SCHEME,
                             on_click=MisEntregablesState.cerrar_modal_entregable,
                         ),
                         rx.spacer(),
@@ -613,7 +581,7 @@ def _modal_prefactura() -> rx.Component:
                         rx.vstack(
                             rx.text("Subir Prefactura", size="5", weight="bold"),
                             rx.hstack(
-                                rx.badge(MisEntregablesState.entregable_actual["contrato_codigo"], color_scheme="blue", size="1"),
+                                rx.badge(MisEntregablesState.entregable_actual["contrato_codigo"], color_scheme=Colors.PORTAL_ACCENT_SCHEME, size="1"),
                                 rx.text(f"Periodo {MisEntregablesState.entregable_actual['numero_periodo']}", size="2", color=Colors.TEXT_SECONDARY),
                                 spacing="2",
                                 align="center",
@@ -642,7 +610,7 @@ def _modal_prefactura() -> rx.Component:
                     rx.callout(
                         rx.text("BUAP validara los datos fiscales antes de solicitar la factura definitiva.", size="2"),
                         icon="info",
-                        color_scheme="blue",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         size="1",
                         width="100%",
                     ),
@@ -686,7 +654,7 @@ def _modal_prefactura() -> rx.Component:
                     ),
                     rx.divider(),
                     rx.hstack(
-                        rx.button("Cancelar", variant="soft", color_scheme="gray", on_click=MisEntregablesState.cerrar_modal_prefactura),
+                        rx.button("Cancelar", variant="soft", color_scheme=Colors.NEUTRAL_SCHEME, on_click=MisEntregablesState.cerrar_modal_prefactura),
                         rx.spacer(),
                         rx.button(
                             rx.icon("send", size=14),
@@ -793,7 +761,7 @@ def _modal_factura() -> rx.Component:
                         rx.vstack(
                             rx.text("Subir Factura", size="5", weight="bold"),
                             rx.hstack(
-                                rx.badge(MisEntregablesState.entregable_actual["contrato_codigo"], color_scheme="blue", size="1"),
+                                rx.badge(MisEntregablesState.entregable_actual["contrato_codigo"], color_scheme=Colors.PORTAL_ACCENT_SCHEME, size="1"),
                                 rx.text(f"Periodo {MisEntregablesState.entregable_actual['numero_periodo']}", size="2", color=Colors.TEXT_SECONDARY),
                                 spacing="2",
                                 align="center",
@@ -897,7 +865,7 @@ def _modal_factura() -> rx.Component:
                     _validacion_xml(),
                     rx.divider(),
                     rx.hstack(
-                        rx.button("Cancelar", variant="soft", color_scheme="gray", on_click=MisEntregablesState.cerrar_modal_factura),
+                        rx.button("Cancelar", variant="soft", color_scheme=Colors.NEUTRAL_SCHEME, on_click=MisEntregablesState.cerrar_modal_factura),
                         rx.spacer(),
                         rx.button(
                             rx.icon("send", size=14),
@@ -948,6 +916,7 @@ def mis_entregables_page() -> rx.Component:
                 titulo="Mis entregables",
                 subtitulo="Suba archivos y envíe para revisión de BUAP",
                 icono="package-check",
+                color_icono=Colors.PORTAL_ACCENT_SCHEME,
             ),
             toolbar=page_toolbar(
                 search_value=MisEntregablesState.filtro_busqueda,
@@ -956,6 +925,7 @@ def mis_entregables_page() -> rx.Component:
                 on_search_clear=lambda: MisEntregablesState.set_filtro_busqueda(""),
                 show_view_toggle=False,
                 filters=_barra_filtros(),
+                wrapped=False,
             ),
             content=_contenido_principal(),
         ),

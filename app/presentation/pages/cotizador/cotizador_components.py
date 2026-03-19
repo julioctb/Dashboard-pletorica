@@ -11,6 +11,7 @@ import reflex as rx
 from app.presentation.components.ui.action_buttons import (
     tabla_action_button,
     tabla_action_buttons,
+    tabla_cta_button,
 )
 from app.presentation.components.ui import (
     table_cell_actions,
@@ -101,22 +102,37 @@ def _celda_dos_lineas(
 
 def tipo_cotizacion_badge(tipo: rx.Var) -> rx.Component:
     """Badge de tipo de cotización."""
-    return rx.cond(
-        tipo == 'PERSONAL',
-        rx.badge(
-            rx.icon("users", size=12),
-            "Personal",
-            color_scheme='blue',
-            variant='soft',
-            size="1",
+    return rx.match(
+        tipo,
+        (
+            "PERSONAL",
+            rx.badge(
+                rx.hstack(
+                    rx.icon("users", size=12),
+                    "Personal",
+                    spacing="1",
+                    align="center",
+                ),
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                variant="soft",
+                size="1",
+            ),
         ),
-        rx.badge(
-            rx.icon("package", size=12),
-            "Productos",
-            color_scheme='green',
-            variant='soft',
-            size="1",
+        (
+            "PRODUCTOS_SERVICIOS",
+            rx.badge(
+                rx.hstack(
+                    rx.icon("package", size=12),
+                    "Producto",
+                    spacing="1",
+                    align="center",
+                ),
+                color_scheme="purple",
+                variant="soft",
+                size="1",
+            ),
         ),
+        rx.badge(tipo, color_scheme=Colors.NEUTRAL_SCHEME, variant="soft", size="1"),
     )
 
 
@@ -124,10 +140,10 @@ def badge_estatus_cotizacion(estatus: rx.Var) -> rx.Component:
     """Badge de estatus para cotizaciones."""
     return rx.cond(
         estatus == 'BORRADOR',
-        rx.badge("Borrador", color_scheme='gray', variant='soft', size="1"),
+        rx.badge("Borrador", color_scheme=Colors.NEUTRAL_SCHEME, variant='soft', size="1"),
         rx.cond(
             estatus == 'PREPARADA',
-            rx.badge("Preparada", color_scheme='blue', variant='soft', size="1"),
+            rx.badge("Preparada", color_scheme=Colors.PORTAL_ACCENT_SCHEME, variant='soft', size="1"),
             rx.cond(
                 estatus == 'ENVIADA',
                 rx.badge("Enviada", color_scheme='orange', variant='soft', size="1"),
@@ -137,7 +153,7 @@ def badge_estatus_cotizacion(estatus: rx.Var) -> rx.Component:
                     rx.cond(
                         estatus == 'RECHAZADA',
                         rx.badge("Rechazada", color_scheme='red', variant='soft', size="1"),
-                        rx.badge(estatus, color_scheme='gray', variant='soft', size="1"),
+                        rx.badge(estatus, color_scheme=Colors.NEUTRAL_SCHEME, variant='soft', size="1"),
                     ),
                 ),
             ),
@@ -149,7 +165,7 @@ def badge_estatus_partida(estatus: rx.Var) -> rx.Component:
     """Badge de estatus para partidas."""
     return rx.cond(
         estatus == 'PENDIENTE',
-        rx.badge("Pendiente", color_scheme='gray', variant='soft', size="1"),
+        rx.badge("Pendiente", color_scheme=Colors.NEUTRAL_SCHEME, variant='soft', size="1"),
         rx.cond(
             estatus == 'ACEPTADA',
             rx.badge("Aceptada", color_scheme='green', variant='soft', size="1"),
@@ -158,8 +174,8 @@ def badge_estatus_partida(estatus: rx.Var) -> rx.Component:
                 rx.badge("No asignada", color_scheme='orange', variant='soft', size="1"),
                 rx.cond(
                     estatus == 'CONVERTIDA',
-                    rx.badge("Convertida", color_scheme='blue', variant='soft', size="1"),
-                    rx.badge(estatus, color_scheme='gray', variant='soft', size="1"),
+                    rx.badge("Convertida", color_scheme=Colors.PORTAL_ACCENT_SCHEME, variant='soft', size="1"),
+                    rx.badge(estatus, color_scheme=Colors.NEUTRAL_SCHEME, variant='soft', size="1"),
                 ),
             ),
         ),
@@ -175,7 +191,7 @@ def fila_cotizacion(cotizacion: dict) -> rx.Component:
             rx.link(
                 table_text_sm(
                     cotizacion["codigo"],
-                    color=Colors.PRIMARY,
+                    color=Colors.PORTAL_PRIMARY_TEXT,
                     weight=Typography.WEIGHT_SEMIBOLD,
                     white_space="nowrap",
                 ),
@@ -194,20 +210,6 @@ def fila_cotizacion(cotizacion: dict) -> rx.Component:
         _celda_centrada(
             tipo_cotizacion_badge(cotizacion.get("tipo", "PERSONAL"))
         ),
-        _celda_dos_lineas(
-            table_text_sm(
-                cotizacion.get("nombre_empresa", ""),
-                fallback="-",
-            ),
-            rx.cond(
-                cotizacion.get("destinatario_nombre", "") != "",
-                table_text_sm(
-                    cotizacion["destinatario_nombre"],
-                    tone="muted",
-                ),
-                rx.fragment(),
-            )
-        ),
         table_cell_text_sm(
             cotizacion.get("cantidad_partidas_texto", "0"),
             tone="secondary",
@@ -215,33 +217,64 @@ def fila_cotizacion(cotizacion: dict) -> rx.Component:
             text_align="center",
             width="100%",
         ),
-        table_cell_badge(
+        # Monto (rango o fijo)
+        rx.table.cell(
+            rx.cond(
+                cotizacion.get("monto_es_rango", False),
+                rx.text(
+                    cotizacion.get("monto_minimo_texto", "$ 0.00"),
+                    " - ",
+                    cotizacion.get("monto_maximo_texto", "$ 0.00"),
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_PRIMARY,
+                    text_align="right",
+                    font_variant_numeric="tabular-nums",
+                    white_space="nowrap",
+                ),
+                rx.text(
+                    cotizacion.get("monto_maximo_texto", "$ 0.00"),
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_PRIMARY,
+                    text_align="right",
+                    font_variant_numeric="tabular-nums",
+                    white_space="nowrap",
+                ),
+            ),
+        ),
+        _celda_centrada(
             badge_estatus_cotizacion(cotizacion.get("estatus", "BORRADOR"))
         ),
         table_cell_actions(
-            tabla_action_buttons(
-                [
-                    rx.tooltip(
-                        rx.link(
-                            rx.icon_button(
-                                rx.icon("eye", size=16),
-                                size="2",
-                                variant="soft",
-                                color_scheme="blue",
-                            ),
-                            href="/portal/cotizador/" + cotizacion["codigo"].to(str),
-                        ),
-                        content="Ver detalle",
+            rx.hstack(
+                tabla_cta_button(
+                    text=rx.match(
+                        cotizacion.get("estatus", "BORRADOR"),
+                        ("BORRADOR", "Editar"),
+                        ("RECHAZADA", "Revisar"),
+                        ("ENVIADA", "Consultar"),
+                        ("APROBADA", "Consultar"),
+                        ("PREPARADA", "Consultar"),
+                        "Consultar",
                     ),
-                    tabla_action_button(
-                        icon="copy",
-                        tooltip="Crear nueva versión",
-                        on_click=CotizadorState.crear_nueva_version(cotizacion["id"]),
-                        color_scheme="gray",
-                        visible=cotizacion.get("estatus") != "APROBADA",
+                    on_click=rx.redirect(
+                        "/portal/cotizador/" + cotizacion["codigo"].to(str),
                     ),
-                ],
+                    color_scheme=rx.match(
+                        cotizacion.get("estatus", "BORRADOR"),
+                        ("BORRADOR", "amber"),
+                        ("RECHAZADA", Colors.PORTAL_ACCENT_SCHEME),
+                        Colors.NEUTRAL_SCHEME,
+                    ),
+                ),
+                tabla_action_button(
+                    icon="copy",
+                    tooltip="Duplicar cotización",
+                    on_click=CotizadorState.crear_nueva_version(cotizacion["id"]),
+                    color_scheme=Colors.NEUTRAL_SCHEME,
+                ),
                 spacing="1",
+                align="center",
+                justify="end",
             )
         ),
         _hover={"background": Colors.BG_APP},
@@ -251,11 +284,11 @@ def fila_cotizacion(cotizacion: dict) -> rx.Component:
 def tabla_cotizaciones(cotizaciones: rx.Var, loading: rx.Var) -> rx.Component:
     """Tabla principal del listado de cotizaciones."""
     headers = [
-        {"nombre": "Código"},
+        {"nombre": "Código", "header_align": "left"},
         {"nombre": "Tipo", "header_align": "center"},
-        {"nombre": "Empresa"},
         {"nombre": "Partidas", "header_align": "center"},
-        {"nombre": "Estatus"},
+        {"nombre": "Monto", "header_align": "center"},
+        {"nombre": "Estatus", "header_align": "center"},
         {"nombre": "Acciones", "header_align": "center"},
     ]
 
@@ -319,11 +352,11 @@ def resumen_partida_card(partida: dict) -> rx.Component:
         rx.divider(),
         rx.hstack(
             rx.text("TOTAL:", font_size=Typography.SIZE_BASE, color=Colors.TEXT_PRIMARY, font_weight="700", min_width="120px"),
-            rx.text(CotizadorDetalleState.resumen_total_min, font_size=Typography.SIZE_BASE, font_weight="700", color=Colors.PRIMARY),
+            rx.text(CotizadorDetalleState.resumen_total_min, font_size=Typography.SIZE_BASE, font_weight="700", color=Colors.PORTAL_PRIMARY),
             rx.spacer(),
-            rx.text(CotizadorDetalleState.resumen_total_max, font_size=Typography.SIZE_BASE, font_weight="700", color=Colors.PRIMARY),
+            rx.text(CotizadorDetalleState.resumen_total_max, font_size=Typography.SIZE_BASE, font_weight="700", color=Colors.PORTAL_PRIMARY),
             width="100%",
-            background=Colors.PRIMARY_LIGHTER,
+            background=Colors.PORTAL_PRIMARY_LIGHTER,
             padding=Spacing.SM,
             border_radius="10px",
         ),
@@ -352,9 +385,9 @@ def resumen_partida_card(partida: dict) -> rx.Component:
         rx.hstack(
             rx.text("TOTAL:", font_size=Typography.SIZE_BASE, color=Colors.TEXT_PRIMARY, font_weight="700", min_width="120px"),
             rx.spacer(),
-            rx.text(CotizadorDetalleState.resumen_total_min, font_size=Typography.SIZE_BASE, font_weight="700", color=Colors.PRIMARY),
+            rx.text(CotizadorDetalleState.resumen_total_min, font_size=Typography.SIZE_BASE, font_weight="700", color=Colors.PORTAL_PRIMARY),
             width="100%",
-            background=Colors.PRIMARY_LIGHTER,
+            background=Colors.PORTAL_PRIMARY_LIGHTER,
             padding=Spacing.SM,
             border_radius="10px",
         ),
@@ -429,7 +462,7 @@ def fila_partida_tab(partida: dict, activa: rx.Var) -> rx.Component:
                 rx.text(
                     partida.get('total_minimo_texto', '$0.00'),
                     font_size=Typography.SIZE_SM,
-                    color=rx.cond(es_activa, Colors.PRIMARY_HOVER, Colors.PRIMARY),
+                    color=rx.cond(es_activa, Colors.PORTAL_PRIMARY_HOVER, Colors.PORTAL_PRIMARY),
                     font_weight="600",
                     width="100%",
                     text_align="left",
@@ -439,7 +472,7 @@ def fila_partida_tab(partida: dict, activa: rx.Var) -> rx.Component:
                     " a ",
                     partida.get('total_maximo_texto', '$0.00'),
                     font_size=Typography.SIZE_SM,
-                    color=rx.cond(es_activa, Colors.PRIMARY_HOVER, Colors.PRIMARY),
+                    color=rx.cond(es_activa, Colors.PORTAL_PRIMARY_HOVER, Colors.PORTAL_PRIMARY),
                     font_weight="600",
                     width="100%",
                     text_align="left",
@@ -456,17 +489,17 @@ def fila_partida_tab(partida: dict, activa: rx.Var) -> rx.Component:
         ),
         color_scheme=rx.cond(
             es_activa,
-            "blue",
-            "gray",
+            Colors.PORTAL_ACCENT_SCHEME,
+            Colors.NEUTRAL_SCHEME,
         ),
         background=rx.cond(
             es_activa,
-            Colors.PRIMARY_LIGHTER,
+            Colors.PORTAL_PRIMARY_LIGHTER,
             Colors.SURFACE,
         ),
         border=rx.cond(
             es_activa,
-            f"1px solid {Colors.PRIMARY_LIGHT}",
+            f"1px solid {Colors.PORTAL_PRIMARY_LIGHT}",
             f"1px solid {Colors.BORDER}",
         ),
         size="2",
@@ -477,7 +510,7 @@ def fila_partida_tab(partida: dict, activa: rx.Var) -> rx.Component:
         padding=Spacing.MD,
         box_shadow=rx.cond(
             es_activa,
-            "0 4px 12px rgba(30, 64, 175, 0.08)",
+            "0 4px 12px rgba(13, 148, 136, 0.08)",
             "none",
         ),
     )
@@ -589,8 +622,8 @@ def _fila_matriz(concepto: dict) -> rx.Component:
             rx.vstack(
                 rx.cond(
                     concepto.get('tipo_concepto') == 'PATRONAL',
-                    rx.badge("Patronal", color_scheme="blue", variant="soft", size="1"),
-                    rx.badge("Indirecto", color_scheme="gray", variant="soft", size="1"),
+                    rx.badge("Patronal", color_scheme=Colors.PORTAL_ACCENT_SCHEME, variant="soft", size="1"),
+                    rx.badge("Indirecto", color_scheme=Colors.NEUTRAL_SCHEME, variant="soft", size="1"),
                 ),
                 rx.text(
                     concepto.get('tipo_valor_texto', ''),
@@ -684,7 +717,7 @@ def tabla_matriz_costos(
                                         font_weight="700",
                                         color=Colors.TEXT_PRIMARY,
                                     ),
-                                    background=Colors.PRIMARY_LIGHTER,
+                                    background=Colors.PORTAL_PRIMARY_LIGHTER,
                                     position="sticky",
                                     left="0",
                                     z_index="1",
@@ -695,7 +728,7 @@ def tabla_matriz_costos(
                                         font_size=Typography.SIZE_XS,
                                         color=Colors.TEXT_SECONDARY,
                                     ),
-                                    background=Colors.PRIMARY_LIGHTER,
+                                    background=Colors.PORTAL_PRIMARY_LIGHTER,
                                     position="sticky",
                                     left="220px",
                                     z_index="1",
@@ -705,7 +738,7 @@ def tabla_matriz_costos(
                                     lambda columna: rx.table.cell(
                                         _money_text(
                                             columna.get('precio_unitario_texto', '$0.00'),
-                                            color=Colors.PRIMARY,
+                                            color=Colors.PORTAL_PRIMARY,
                                             weight="700",
                                         )
                                     ),
@@ -768,11 +801,11 @@ def resumen_cotizacion_card() -> rx.Component:
         rx.divider(),
         rx.hstack(
             rx.text("TOTAL:", font_size=Typography.SIZE_LG, color=Colors.TEXT_PRIMARY, font_weight="700", min_width="140px"),
-            rx.text(CotizadorDetalleState.cot_total_min, font_size=Typography.SIZE_LG, font_weight="700", color=Colors.PRIMARY),
+            rx.text(CotizadorDetalleState.cot_total_min, font_size=Typography.SIZE_LG, font_weight="700", color=Colors.PORTAL_PRIMARY),
             rx.spacer(),
-            rx.text(CotizadorDetalleState.cot_total_max, font_size=Typography.SIZE_LG, font_weight="700", color=Colors.PRIMARY),
+            rx.text(CotizadorDetalleState.cot_total_max, font_size=Typography.SIZE_LG, font_weight="700", color=Colors.PORTAL_PRIMARY),
             width="100%",
-            background=Colors.PRIMARY_LIGHTER,
+            background=Colors.PORTAL_PRIMARY_LIGHTER,
             padding=Spacing.SM,
             border_radius="10px",
         ),
@@ -801,9 +834,9 @@ def resumen_cotizacion_card() -> rx.Component:
         rx.hstack(
             rx.text("TOTAL:", font_size=Typography.SIZE_LG, color=Colors.TEXT_PRIMARY, font_weight="700", min_width="140px"),
             rx.spacer(),
-            rx.text(CotizadorDetalleState.cot_total_min, font_size=Typography.SIZE_LG, font_weight="700", color=Colors.PRIMARY),
+            rx.text(CotizadorDetalleState.cot_total_min, font_size=Typography.SIZE_LG, font_weight="700", color=Colors.PORTAL_PRIMARY),
             width="100%",
-            background=Colors.PRIMARY_LIGHTER,
+            background=Colors.PORTAL_PRIMARY_LIGHTER,
             padding=Spacing.SM,
             border_radius="10px",
         ),
@@ -814,7 +847,7 @@ def resumen_cotizacion_card() -> rx.Component:
     return rx.card(
         rx.vstack(
             rx.hstack(
-                rx.icon("calculator", size=18, color=Colors.PRIMARY),
+                rx.icon("calculator", size=18, color=Colors.PORTAL_PRIMARY),
                 rx.text(
                     "Total de la Cotización",
                     font_size=Typography.SIZE_BASE,
@@ -868,5 +901,5 @@ def resumen_cotizacion_card() -> rx.Component:
         ),
         padding=Spacing.LG,
         width="100%",
-        border=f"2px solid {Colors.PRIMARY_LIGHT}",
+        border=f"2px solid {Colors.PORTAL_PRIMARY_LIGHT}",
     )

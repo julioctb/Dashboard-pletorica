@@ -20,8 +20,7 @@ from app.presentation.components.ui import (
     table_shell,
     table_text_sm,
 )
-from app.presentation.portal.pages.expedientes.state import ExpedientesState
-from app.presentation.theme import Colors, Radius, Spacing, Typography
+from app.presentation.theme import Colors, Radius, Spacing, StatusColors, Typography
 
 from .state import MisEmpleadosState, VISTA_PERSONAL_EMPLEADO, VISTA_PERSONAL_PLAZA
 
@@ -68,51 +67,38 @@ def _celda_dos_lineas(
     )
 
 
-def _barra_cobertura() -> rx.Component:
-    return rx.center(
-        rx.box(
-            rx.box(
-                width=MisEmpleadosState.metrica_porcentaje_cobertura.to(str) + "%",
-                height=Spacing.XS,
-                border_radius=Radius.FULL,
-                background=Colors.SUCCESS,
-            ),
-            width="100%",
-            max_width="160px",
-            height=Spacing.XS,
-            border_radius=Radius.FULL,
-            background=Colors.BORDER,
-            overflow="hidden",
-        ),
-        width="100%",
-    )
-
-
 def metricas_empleados() -> rx.Component:
     return rx.grid(
         metric_card(
             titulo="Plazas totales",
             valor=MisEmpleadosState.metrica_plazas_totales,
             icono=None,
-            descripcion=MisEmpleadosState.metrica_hint_plazas,
             show_icon=False,
             background=Colors.SECONDARY_LIGHT,
             border="none",
             hoverable=False,
             align="center",
+            footer=rx.text(
+                MisEmpleadosState.metrica_hint_plazas,
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_MUTED,
+            ),
         ),
         metric_card(
             titulo="Ocupadas",
             valor=MisEmpleadosState.metrica_plazas_ocupadas,
             icono=None,
-            descripcion=MisEmpleadosState.metrica_hint_cobertura,
             show_icon=False,
             background=Colors.SECONDARY_LIGHT,
             border="none",
             hoverable=False,
             value_color=Colors.SUCCESS,
-            footer=_barra_cobertura(),
             align="center",
+            footer=rx.text(
+                MisEmpleadosState.metrica_hint_cobertura,
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_MUTED,
+            ),
         ),
         metric_card(
             titulo="Vacantes",
@@ -129,13 +115,17 @@ def metricas_empleados() -> rx.Component:
             titulo="Propuestas por alta",
             valor=MisEmpleadosState.metrica_propuestas_alta,
             icono=None,
-            descripcion=MisEmpleadosState.metrica_hint_propuestas,
             show_icon=False,
             background=Colors.SECONDARY_LIGHT,
             border="none",
             hoverable=False,
             value_color=Colors.WARNING,
             align="center",
+            footer=rx.text(
+                MisEmpleadosState.metrica_hint_propuestas,
+                font_size=Typography.SIZE_XS,
+                color=Colors.WARNING,
+            ),
         ),
         metric_card(
             titulo="Suspendidas",
@@ -147,16 +137,26 @@ def metricas_empleados() -> rx.Component:
             hoverable=False,
             align="center",
         ),
-        grid_template_columns="repeat(5, minmax(0, 1fr))",
-        gap=Spacing.SM,
+        columns=rx.breakpoints(initial="2", sm="3", md="5"),
+        spacing="3",
         width="100%",
     )
 
 
 def selector_vista_personal() -> rx.Component:
     return segmented_tabs(
-        segmented_tab_trigger("Por empleado", VISTA_PERSONAL_EMPLEADO),
-        segmented_tab_trigger("Por plaza", VISTA_PERSONAL_PLAZA),
+        segmented_tab_trigger(
+            "Por empleado",
+            VISTA_PERSONAL_EMPLEADO,
+            active_background=Colors.PORTAL_PRIMARY,
+            active_hover_background=Colors.PORTAL_PRIMARY_HOVER,
+        ),
+        segmented_tab_trigger(
+            "Por plaza",
+            VISTA_PERSONAL_PLAZA,
+            active_background=Colors.PORTAL_PRIMARY,
+            active_hover_background=Colors.PORTAL_PRIMARY_HOVER,
+        ),
         value=MisEmpleadosState.vista_personal,
         on_change=MisEmpleadosState.set_vista_personal,
     )
@@ -219,67 +219,157 @@ def filtro_contrato_empleados() -> rx.Component:
     )
 
 
-def _expediente_cell(emp: dict) -> rx.Component:
+def _celda_texto_centrada(
+    valor,
+    *,
+    color: str = Colors.TEXT_SECONDARY,
+    fallback: str = "—",
+    font_variant_numeric: str | None = None,
+) -> rx.Component:
+    texto_props = {
+        "font_size": Typography.SIZE_XS,
+        "color": color,
+    }
+    if font_variant_numeric is not None:
+        texto_props["font_variant_numeric"] = font_variant_numeric
+
+    fallback_props = dict(texto_props)
+    fallback_props["color"] = Colors.TEXT_MUTED
+
     return rx.table.cell(
-        rx.button(
-            emp.get("expediente_resumen_ui", "0/0"),
-            on_click=ExpedientesState.abrir_panel_expediente(emp),
-            variant="ghost",
-            size="1",
-            padding="0",
-            height="auto",
-            justify="start",
-            font_size=Typography.SIZE_SM,
-            font_weight=Typography.WEIGHT_MEDIUM,
-            font_variant_numeric="tabular-nums",
-            color=rx.match(
-                emp.get("expediente_tone", "secondary"),
-                ("warning", Colors.WARNING),
-                ("success", Colors.SUCCESS),
-                Colors.TEXT_SECONDARY,
-            ),
+        rx.cond(
+            valor != "",
+            rx.text(valor, **texto_props),
+            rx.text(fallback, **fallback_props),
         ),
+        text_align="center",
+    )
+
+
+def _docs_color_texto(tone) -> rx.Var | str:
+    return rx.match(
+        tone,
+        ("success", Colors.SUCCESS),
+        ("warning", Colors.WARNING),
+        Colors.TEXT_MUTED,
+    )
+
+
+def _docs_color_barra(tone) -> rx.Var | str:
+    return rx.match(
+        tone,
+        ("success", Colors.SUCCESS),
+        ("warning", Colors.WARNING),
+        Colors.BORDER,
+    )
+
+
+def _docs_cell(emp: dict) -> rx.Component:
+    docs_tone = emp.get("docs_tone", "muted")
+    return rx.table.cell(
+        rx.center(
+            rx.flex(
+                rx.text(
+                    emp.get("docs_resumen_ui", "0/0"),
+                    font_size=Typography.SIZE_XS,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    font_variant_numeric="tabular-nums",
+                    color=_docs_color_texto(docs_tone),
+                ),
+                rx.box(
+                    rx.box(
+                        width=emp.get("docs_porcentaje_ui", "0%"),
+                        height="100%",
+                        border_radius=Radius.FULL,
+                        background=_docs_color_barra(docs_tone),
+                    ),
+                    width=Spacing.XXL,
+                    height=Spacing.XS,
+                    background=Colors.SECONDARY_LIGHT,
+                    border_radius=Radius.FULL,
+                    overflow="hidden",
+                ),
+                align="center",
+                justify="center",
+                gap=Spacing.XS,
+                width="100%",
+                cursor="pointer",
+                on_click=MisEmpleadosState.ver_expediente(emp),
+            ),
+            width="100%",
+        ),
+        text_align="center",
     )
 
 
 def _accion_empleado(emp: dict) -> rx.Component:
+    on_click_editar = MisEmpleadosState.abrir_modal_editar(emp)
+    on_click_detalle = MisEmpleadosState.ver_expediente(emp)
+    on_click_baja = MisEmpleadosState.ver_baja_empleado(emp)
+    accion_ver_perfil = tabla_cta_button(
+        "Ver perfil",
+        on_click_detalle,
+        color_scheme=Colors.NEUTRAL_SCHEME,
+    )
+    accion_ver_y_editar = rx.cond(
+        MisEmpleadosState.puede_gestionar_personal,
+        rx.hstack(
+            accion_ver_perfil,
+            tabla_cta_button(
+                "Editar",
+                on_click_editar,
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+            ),
+            spacing="1",
+            align="center",
+            justify="center",
+            wrap="wrap",
+        ),
+        accion_ver_perfil,
+    )
     return rx.match(
         emp.get("estatus_personal", ""),
         (
+            "INACTIVO",
+            tabla_cta_button(
+                "Completar datos",
+                on_click_editar,
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+            ),
+        ),
+        (
             "EN_ALTA",
             tabla_cta_button(
-                "Completar alta",
-                MisEmpleadosState.abrir_modal_editar(emp),
-                color_scheme="amber",
+                "Completar datos",
+                on_click_editar,
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+            ),
+        ),
+        (
+            "BAJA",
+            tabla_cta_button(
+                "Ver baja",
+                on_click_baja,
+                color_scheme=Colors.WARNING_SCHEME,
             ),
         ),
         (
             "EN_BAJA",
             tabla_cta_button(
                 "Ver baja",
-                MisEmpleadosState.ver_baja_empleado(emp),
-                color_scheme="red",
+                on_click_baja,
+                color_scheme=Colors.WARNING_SCHEME,
             ),
         ),
         (
+            "ACTIVO",
+            accion_ver_y_editar,
+        ),
+        (
             "SUSPENDIDO",
-            tabla_cta_button(
-                "Ver",
-                MisEmpleadosState.abrir_modal_detalle(emp),
-            ),
+            accion_ver_y_editar,
         ),
-        rx.cond(
-            emp.get("expediente_requiere_accion", False),
-            tabla_cta_button(
-                "Completar expediente",
-                ExpedientesState.abrir_panel_expediente(emp),
-                color_scheme="amber",
-            ),
-            tabla_cta_button(
-                "Ver",
-                MisEmpleadosState.abrir_modal_detalle(emp),
-            ),
-        ),
+        accion_ver_perfil,
     )
 
 
@@ -290,40 +380,74 @@ def fila_empleado(emp: dict) -> rx.Component:
             emp.get("contacto_secundario_ui", ""),
             fallback="Sin nombre",
         ),
-        table_cell_text_sm(
+        _celda_texto_centrada(
             emp.get("contrato_codigo", ""),
-            tone="secondary",
-            fallback="—",
         ),
-        table_cell_text_sm(
+        _celda_texto_centrada(
             emp.get("categoria_nombre", ""),
-            tone="secondary",
-            fallback="—",
         ),
-        table_cell_badge(
-            employee_status_badge(emp.get("estatus_personal", "")),
+        _celda_texto_centrada(
+            emp.get("sede_nombre_ui", ""),
+            color=Colors.TEXT_PRIMARY,
         ),
-        _expediente_cell(emp),
-        table_cell_actions(
-            _accion_empleado(emp),
+        _celda_texto_centrada(
+            emp.get("telefono_ui", ""),
+            color=Colors.TEXT_SECONDARY,
+            font_variant_numeric="tabular-nums",
+        ),
+        rx.table.cell(
+            rx.center(
+                employee_status_badge(emp.get("estatus_personal", "")),
+                width="100%",
+            ),
+            text_align="center",
+        ),
+        _docs_cell(emp),
+        rx.table.cell(
+            rx.center(
+                _accion_empleado(emp),
+                width="100%",
+            ),
+            text_align="center",
         ),
     )
 
 
 ENCABEZADOS_EMPLEADOS = [
-    {"nombre": "Nombre", "ancho": "290px"},
-    {"nombre": "Contrato", "ancho": "140px"},
-    {"nombre": "Categoría", "ancho": "180px"},
-    {"nombre": "Estatus", "ancho": "130px"},
-    {"nombre": "Expediente", "ancho": "140px"},
-    {"nombre": "Acción", "ancho": "180px"},
+    {"nombre": "Nombre", "ancho": "220px", "header_align": "left"},
+    {"nombre": "Contrato", "ancho": "120px", "header_align": "center"},
+    {"nombre": "Categoría", "ancho": "120px", "header_align": "center"},
+    {"nombre": "Sede", "ancho": "140px", "header_align": "center"},
+    {"nombre": "Teléfono", "ancho": "120px", "header_align": "center"},
+    {"nombre": "Estatus", "ancho": "90px", "header_align": "center"},
+    {"nombre": "Docs", "ancho": "80px", "header_align": "center"},
+    {"nombre": "Acción", "ancho": "120px", "header_align": "center"},
 ]
+
+
+def _table_headers_empleados() -> list[rx.Component]:
+    return [
+        rx.table.column_header_cell(
+            rx.text(
+                col["nombre"],
+                font_size=Typography.SIZE_XS,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_SECONDARY,
+                text_transform="uppercase",
+                letter_spacing="0.04em",
+            ),
+            width=col.get("ancho", "auto"),
+            text_align=col.get("header_align", "left"),
+        )
+        for col in ENCABEZADOS_EMPLEADOS
+    ]
 
 
 def tabla_empleados() -> rx.Component:
     return table_shell(
         loading=MisEmpleadosState.loading,
         headers=ENCABEZADOS_EMPLEADOS,
+        header_cells=_table_headers_empleados(),
         rows=MisEmpleadosState.empleados_paginados,
         row_renderer=fila_empleado,
         has_rows=MisEmpleadosState.total_empleados_filtrados > 0,
@@ -368,17 +492,17 @@ def _badge_estado_plaza(estatus) -> rx.Component:
         estatus,
         (
             EstatusPlaza.OCUPADA.value,
-            rx.badge("Ocupada", color_scheme="green", variant="soft", size="1"),
+            rx.badge("Ocupada", color_scheme=StatusColors.OCUPADA_SCHEME, variant="soft", size="1"),
         ),
         (
             EstatusPlaza.VACANTE.value,
-            rx.badge("Vacante", color_scheme="blue", variant="soft", size="1"),
+            rx.badge("Vacante", color_scheme=StatusColors.VACANTE_SCHEME, variant="soft", size="1"),
         ),
         (
             EstatusPlaza.SUSPENDIDA.value,
-            rx.badge("Suspendida", color_scheme="gray", variant="soft", size="1"),
+            rx.badge("Suspendida", color_scheme=StatusColors.SUSPENDIDA_SCHEME, variant="soft", size="1"),
         ),
-        rx.badge("Sin estatus", color_scheme="gray", variant="soft", size="1"),
+        rx.badge("Sin estatus", color_scheme=Colors.NEUTRAL_SCHEME, variant="soft", size="1"),
     )
 
 
@@ -402,9 +526,20 @@ def _accion_plaza(plaza: dict) -> rx.Component:
         plaza.get("estatus", ""),
         (
             EstatusPlaza.OCUPADA.value,
-            tabla_cta_button(
-                "Reasignar",
-                MisEmpleadosState.abrir_modal_asignacion_plaza(plaza),
+            rx.hstack(
+                tabla_cta_button(
+                    "Ver perfil",
+                    MisEmpleadosState.ver_perfil_plaza(plaza),
+                    color_scheme=Colors.NEUTRAL_SCHEME,
+                ),
+                tabla_cta_button(
+                    "Reasignar",
+                    MisEmpleadosState.abrir_modal_asignacion_plaza(plaza),
+                ),
+                spacing="1",
+                align="center",
+                justify="center",
+                wrap="wrap",
             ),
         ),
         (
@@ -426,7 +561,7 @@ def _accion_plaza(plaza: dict) -> rx.Component:
             tabla_cta_button(
                 "Reactivar",
                 MisEmpleadosState.reactivar_plaza_portal(plaza),
-                color_scheme="amber",
+                color_scheme=Colors.WARNING_SCHEME,
             ),
         ),
         tabla_cta_button(
@@ -616,17 +751,17 @@ def _encabezado_contrato_plaza(bloque: dict) -> rx.Component:
         rx.flex(
             _badge_resumen_contrato(
                 f"{bloque.get('plazas_ocupadas', 0)} ocupadas",
-                "green",
+                StatusColors.OCUPADA_SCHEME,
             ),
             _badge_resumen_contrato(
                 f"{bloque.get('plazas_vacantes', 0)} vacantes",
-                "blue",
+                StatusColors.VACANTE_SCHEME,
             ),
             rx.cond(
                 bloque.get("mostrar_badge_suspendidas", False),
                 _badge_resumen_contrato(
                     f"{bloque.get('plazas_suspendidas', 0)} suspendidas",
-                    "gray",
+                    Colors.NEUTRAL_SCHEME,
                 ),
                 rx.fragment(),
             ),

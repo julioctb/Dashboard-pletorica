@@ -501,12 +501,66 @@ def metricas_jornada() -> rx.Component:
     )
 
 
-def resumen_jornada() -> rx.Component:
-    return rx.vstack(
-        barra_jornada(),
-        metricas_jornada(),
-        spacing="4",
+def _barra_jornada_skeleton() -> rx.Component:
+    return rx.flex(
+        rx.hstack(
+            rx.skeleton(width=STATUS_DOT_SIZE, height=STATUS_DOT_SIZE, border_radius=Radius.FULL),
+            rx.skeleton(width="180px", height="14px"),
+            spacing="2",
+            align="center",
+        ),
+        rx.skeleton(width="120px", height="32px", border_radius=Radius.MD),
         width="100%",
+        align="center",
+        justify="between",
+        wrap="wrap",
+        gap=Spacing.SM,
+        padding=Spacing.MD,
+        background=Colors.SECONDARY_LIGHT,
+        border_radius=Radius.LG,
+    )
+
+
+def _metric_card_skeleton() -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.skeleton(width="120px", height="12px"),
+            rx.skeleton(width="60px", height="24px"),
+            rx.skeleton(width="140px", height="12px"),
+            spacing="2",
+            width="100%",
+        ),
+        padding=Spacing.MD,
+        background=Colors.SECONDARY_LIGHT,
+        border_radius=Radius.LG,
+        width="100%",
+    )
+
+
+def _metricas_jornada_skeleton() -> rx.Component:
+    return rx.grid(
+        *[_metric_card_skeleton() for _ in range(3)],
+        columns=rx.breakpoints(initial="1", md="3"),
+        spacing="3",
+        width="100%",
+    )
+
+
+def resumen_jornada() -> rx.Component:
+    return rx.cond(
+        AsistenciasState.loading,
+        rx.vstack(
+            _barra_jornada_skeleton(),
+            _metricas_jornada_skeleton(),
+            spacing="4",
+            width="100%",
+        ),
+        rx.vstack(
+            barra_jornada(),
+            metricas_jornada(),
+            spacing="4",
+            width="100%",
+        ),
     )
 
 

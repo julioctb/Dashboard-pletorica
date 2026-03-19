@@ -65,6 +65,10 @@ class Empleado(BaseModel):
 
     # Identificación interna
     id: Optional[int] = None
+    uuid: Optional[UUID] = Field(
+        default=None,
+        description="UUID público para rutas seguras del portal",
+    )
     clave: str = Field(
         max_length=CLAVE_EMPLEADO_MAX,
         pattern=CLAVE_EMPLEADO_PATTERN,
@@ -519,6 +523,7 @@ class EmpleadoResumen(BaseModel):
     )
 
     id: int
+    uuid: Optional[UUID] = None
     clave: str
     curp: str
     nombre_completo: str
@@ -550,6 +555,7 @@ class EmpleadoResumen(BaseModel):
         """Factory method para crear desde un empleado completo."""
         return cls(
             id=empleado.id,
+            uuid=empleado.uuid,
             clave=empleado.clave,
             curp=empleado.curp,
             nombre_completo=empleado.nombre_completo(),
@@ -590,6 +596,7 @@ class EmpleadoResumen(BaseModel):
 
         return cls(
             id=data['id'],
+            uuid=data.get('uuid'),
             clave=data['clave'],
             curp=data['curp'],
             nombre_completo=nombre_completo,

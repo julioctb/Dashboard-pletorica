@@ -63,6 +63,30 @@ class SupabaseEmpleadoRepository:
             logger.error(f"Error obteniendo empleado {empleado_id}: {e}")
             raise DatabaseError(f"Error de base de datos al obtener empleado: {str(e)}")
 
+    async def obtener_por_uuid(self, empleado_uuid: str) -> Optional[Empleado]:
+        """
+        Obtiene un empleado por UUID público.
+
+        Returns:
+            Empleado si existe, None si no existe.
+        """
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select("*")
+                .eq("uuid", str(empleado_uuid).strip())
+                .limit(1)
+                .execute()
+            )
+
+            if not result.data:
+                return None
+
+            return Empleado(**result.data[0])
+        except Exception as e:
+            logger.error(f"Error obteniendo empleado por uuid {empleado_uuid}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
     async def obtener_por_clave(self, clave: str) -> Optional[Empleado]:
         """
         Obtiene un empleado por su clave (B25-00001).
@@ -141,7 +165,7 @@ class SupabaseEmpleadoRepository:
             # Preparar datos (mode='json' para serializar date/datetime)
             datos = empleado.model_dump(
                 mode='json',
-                exclude={'id', 'fecha_creacion', 'fecha_actualizacion'}
+                exclude={'id', 'uuid', 'fecha_creacion', 'fecha_actualizacion'}
             )
 
             result = self.supabase.table(self.tabla).insert(datos).execute()
@@ -169,7 +193,7 @@ class SupabaseEmpleadoRepository:
             # Excluir campos que no deben actualizarse
             datos = empleado.model_dump(
                 mode='json',
-                exclude={'id', 'clave', 'curp', 'fecha_creacion', 'fecha_actualizacion'}
+                exclude={'id', 'uuid', 'clave', 'curp', 'fecha_creacion', 'fecha_actualizacion'}
             )
 
             result = self.supabase.table(self.tabla)\

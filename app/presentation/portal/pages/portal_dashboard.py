@@ -31,6 +31,31 @@ def _section_label(text: str) -> rx.Component:
     )
 
 
+def _widget_skeleton() -> rx.Component:
+    """Skeleton de un widget de seguimiento."""
+    return rx.card(
+        rx.vstack(
+            # Header
+            rx.hstack(
+                rx.skeleton(width="140px", height="14px"),
+                rx.spacer(),
+                rx.skeleton(width="70px", height="12px"),
+                width="100%",
+                align="center",
+            ),
+            # Body lines
+            rx.skeleton(width="100%", height="12px"),
+            rx.skeleton(width="85%", height="12px"),
+            rx.skeleton(width="70%", height="12px"),
+            rx.skeleton(width="90%", height="12px"),
+            spacing="3",
+            width="100%",
+        ),
+        width="100%",
+        style={**CardStyles.BASE},
+    )
+
+
 def _widget_container(*children: rx.Component) -> rx.Component:
     """Card base para widgets sin hover."""
     return rx.card(
@@ -666,17 +691,26 @@ def _widget_gastos_placeholder() -> rx.Component:
 # =============================================================================
 
 def _seguimiento_grid() -> rx.Component:
-    """Grid de 6 widgets en 2 columnas."""
-    return rx.grid(
-        _widget_cobertura(),
-        _widget_nomina(),
-        _widget_entregables(),
-        _widget_ausencias_empleados(),
-        _widget_gastos_placeholder(),
-        _widget_tipos_ausencia(),
-        columns=rx.breakpoints(initial="1", md="2"),
-        spacing="4",
-        width="100%",
+    """Grid de 6 widgets en 2 columnas con skeleton loading."""
+    return rx.cond(
+        PortalDashboardState.loading,
+        rx.grid(
+            *[_widget_skeleton() for _ in range(6)],
+            columns=rx.breakpoints(initial="1", md="2"),
+            spacing="4",
+            width="100%",
+        ),
+        rx.grid(
+            _widget_cobertura(),
+            _widget_nomina(),
+            _widget_entregables(),
+            _widget_ausencias_empleados(),
+            _widget_gastos_placeholder(),
+            _widget_tipos_ausencia(),
+            columns=rx.breakpoints(initial="1", md="2"),
+            spacing="4",
+            width="100%",
+        ),
     )
 
 
@@ -696,6 +730,7 @@ def portal_dashboard_page() -> rx.Component:
                 ),
                 subtitulo=PortalDashboardState.nombre_empresa_actual,
                 icono="layout-dashboard",
+                color_icono=Colors.PORTAL_ACCENT_SCHEME,
             ),
             content=rx.vstack(
                 _section_label("RESUMEN OPERATIVO"),

@@ -9,10 +9,12 @@ from typing import List
 import reflex as rx
 
 from app.core.text_utils import (
+    capitalizar_con_preposiciones,
     capitalizar_palabras,
     formatear_fecha,
     formatear_fecha_hora,
     formatear_moneda,
+    formatear_telefono,
 )
 from app.core.utils import normalize_date_input, parse_date_input
 from app.core.enums import EstatusPlaza, GeneroEmpleado
@@ -103,6 +105,7 @@ def _empty_empleado_detalle() -> dict:
     """Payload base del detalle para evitar claves ausentes en render."""
     return {
         "id": 0,
+        "uuid": "",
         "empresa_id": 0,
         "user_id": "",
         "clave": "",
@@ -639,15 +642,50 @@ class MisEmpleadosState(
 
     @staticmethod
     def _texto_contacto_secundario(payload: dict) -> str:
+        telefono = formatear_telefono(str(payload.get("telefono") or ""))
+        if telefono:
+            return telefono
         return str(
-            payload.get("telefono")
-            or payload.get("email")
+            payload.get("email")
             or ""
         ).strip()
 
     @staticmethod
     def _normalizar_nombre_visual(nombre: str) -> str:
         return capitalizar_palabras(nombre)
+
+    @staticmethod
+    def _normalizar_sede_visual(nombre: str) -> str:
+        sede = str(nombre or "").strip()
+        if not sede or sede.lower() == "sin sede":
+            return ""
+        return capitalizar_con_preposiciones(sede)
+
+    @staticmethod
+    def _normalizar_telefono_visual(telefono: str) -> str:
+        return formatear_telefono(str(telefono or "").strip())
+
+    @staticmethod
+    def _resumen_docs(aprobados: int, requeridos: int) -> dict:
+        porcentaje = 0
+        if requeridos > 0:
+            porcentaje = int(round((aprobados / requeridos) * 100))
+            porcentaje = max(0, min(100, porcentaje))
+
+        tone = "muted"
+        if requeridos > 0 and aprobados >= requeridos:
+            tone = "success"
+        elif aprobados > 0:
+            tone = "warning"
+
+        return {
+            "docs_aprobados": aprobados,
+            "docs_requeridos": requeridos,
+            "docs_porcentaje": porcentaje,
+            "docs_porcentaje_ui": f"{porcentaje}%",
+            "docs_resumen_ui": f"{aprobados}/{requeridos}",
+            "docs_tone": tone,
+        }
 
     def _resolver_nombre_empleado_visual(self, empleado) -> str:
         """Resuelve nombre visible desde modelos/dicts sin serializar métodos."""
@@ -748,12 +786,18 @@ class MisEmpleadosState(
         *,
         pendiente: bool = False,
     ) -> dict:
+        porcentaje = 0
+        if requeridos > 0:
+            porcentaje = int(round((aprobados / requeridos) * 100))
+            porcentaje = max(0, min(100, porcentaje))
+
         if pendiente or (requeridos > 0 and aprobados <= 0):
             return {
-                "expediente_resumen_ui": "Pendiente",
+                "expediente_resumen_ui": f"{aprobados}/{requeridos}",
                 "expediente_tone": "warning",
                 "expediente_completo": False,
                 "expediente_requiere_accion": True,
+                "expediente_porcentaje": porcentaje,
             }
         if requeridos > 0 and aprobados >= requeridos:
             return {
@@ -761,12 +805,14 @@ class MisEmpleadosState(
                 "expediente_tone": "success",
                 "expediente_completo": True,
                 "expediente_requiere_accion": False,
+                "expediente_porcentaje": porcentaje,
             }
         return {
             "expediente_resumen_ui": f"{aprobados}/{requeridos}",
-            "expediente_tone": "secondary",
+            "expediente_tone": "warning" if aprobados > 0 else "secondary",
             "expediente_completo": False,
             "expediente_requiere_accion": requeridos > 0 and aprobados < requeridos,
+            "expediente_porcentaje": porcentaje,
         }
 
     @staticmethod
@@ -790,6 +836,7 @@ class MisEmpleadosState(
             if hasattr(empleado, "model_dump")
             else dict(empleado)
         )
+        data["uuid"] = str(data.get("uuid", "") or "")
         empleado_id = int(data.get("id") or 0)
         plaza = plazas_por_empleado.get(empleado_id, {})
         aprobados = int(data.get("documentos_aprobados_expediente", 0) or 0)
@@ -804,11 +851,14 @@ class MisEmpleadosState(
             str(plaza.get("categoria_nombre", "") or "")
         )
         data["categoria_clave"] = str(plaza.get("categoria_clave", "") or "").strip().upper()
+        data["sede_nombre_ui"] = self._normalizar_sede_visual(str(plaza.get("sede_nombre", "") or ""))
+        data["telefono_ui"] = self._normalizar_telefono_visual(str(data.get("telefono", "") or ""))
         data["expediente_resumen"] = (
             str(aprobados)
             + "/"
             + str(requeridos)
         )
+        data.update(self._resumen_docs(aprobados, requeridos))
         data.update(self._estado_expediente(aprobados, requeridos))
         return data
 
@@ -817,6 +867,7 @@ class MisEmpleadosState(
         plaza = plazas_por_empleado.get(empleado_id, {})
         return {
             "id": empleado_id,
+            "uuid": str(onboarding.get("uuid", "") or ""),
             "clave": str(onboarding.get("clave", "") or "").strip().upper(),
             "curp": onboarding.get("curp", ""),
             "nombre_completo_ui": self._normalizar_nombre_visual(
@@ -834,10 +885,13 @@ class MisEmpleadosState(
                 str(plaza.get("categoria_nombre", "") or "")
             ),
             "categoria_clave": str(plaza.get("categoria_clave", "") or "").strip().upper(),
+            "sede_nombre_ui": self._normalizar_sede_visual(str(plaza.get("sede_nombre", "") or "")),
+            "telefono_ui": "",
             "documentos_aprobados_expediente": 0,
             "documentos_requeridos_expediente": 0,
             "expediente_resumen": "Pendiente",
             "expediente_pendiente": True,
+            **self._resumen_docs(0, 0),
             **self._estado_expediente(0, 0, pendiente=True),
         }
 
@@ -846,6 +900,7 @@ class MisEmpleadosState(
         plaza = plazas_por_empleado.get(empleado_id, {})
         return {
             "id": empleado_id,
+            "uuid": str(baja.get("empleado_uuid", "") or ""),
             "clave": str(baja.get("empleado_clave", "") or "").strip().upper(),
             "curp": "",
             "nombre_completo_ui": self._normalizar_nombre_visual(
@@ -862,10 +917,13 @@ class MisEmpleadosState(
                 str(plaza.get("categoria_nombre", "") or "")
             ),
             "categoria_clave": str(plaza.get("categoria_clave", "") or "").strip().upper(),
+            "sede_nombre_ui": self._normalizar_sede_visual(str(plaza.get("sede_nombre", "") or "")),
+            "telefono_ui": "",
             "documentos_aprobados_expediente": 0,
             "documentos_requeridos_expediente": 0,
             "expediente_resumen": "Pendiente",
             "expediente_pendiente": True,
+            **self._resumen_docs(0, 0),
             **self._estado_expediente(0, 0, pendiente=True),
         }
 
@@ -1380,10 +1438,14 @@ class MisEmpleadosState(
     @rx.var
     def detalle_expediente_href(self) -> str:
         """URL del expediente del empleado visible en el modal de detalle."""
+        empleado_uuid = str(self.empleado_detalle.get("uuid", "") or "").strip()
+        if empleado_uuid:
+            return f"/portal/empleados/{empleado_uuid}"
+
         empleado_id = self.empleado_detalle.get("id")
         if not empleado_id:
             return ""
-        return f"/portal/empleados/expedientes?empleado_id={empleado_id}"
+        return f"/portal/empleados/{empleado_id}/expediente"
 
     @rx.var
     def detalle_banco_actual(self) -> str:
@@ -1482,6 +1544,7 @@ class MisEmpleadosState(
                 "contrato_codigo": plaza_dict.get("contrato_codigo", ""),
                 "categoria_nombre": plaza_dict.get("categoria_nombre", ""),
                 "categoria_clave": plaza_dict.get("categoria_clave", ""),
+                "sede_nombre": plaza_dict.get("sede_nombre", ""),
             }
         return plazas_por_empleado
 
@@ -2042,15 +2105,48 @@ class MisEmpleadosState(
 
     @rx.event
     def ver_expediente(self, empleado: dict):
-        """Navega al detalle de expediente del empleado en la pagina dedicada."""
-        if not self.puede_acceder_rrhh or not isinstance(empleado, dict):
+        """Navega a la ficha del empleado usando UUID (fallback por ID)."""
+        puede_ver_ficha = (
+            self.puede_acceder_rrhh
+            or self.puede_registrar_personal
+            or self.es_institucion
+        )
+        if not puede_ver_ficha or not isinstance(empleado, dict):
             return
+
+        empleado_uuid = str(empleado.get("uuid", "") or "").strip()
+        if empleado_uuid:
+            return rx.redirect(f"/portal/empleados/{empleado_uuid}")
 
         empleado_id = empleado.get("id")
-        if not empleado_id:
+        if empleado_id:
+            return rx.redirect(f"/portal/empleados/{empleado_id}/expediente")
+        return
+
+    @rx.event
+    def ver_perfil_plaza(self, plaza: dict):
+        """Abre perfil desde vista por plaza (prioriza UUID cuando esté disponible)."""
+        puede_ver_ficha = (
+            self.puede_acceder_rrhh
+            or self.puede_registrar_personal
+            or self.es_institucion
+        )
+        if not puede_ver_ficha or not isinstance(plaza, dict):
             return
 
-        return rx.redirect(f"/portal/empleados/expedientes?empleado_id={empleado_id}")
+        empleado_id = int(plaza.get("empleado_id") or 0)
+        if empleado_id <= 0:
+            return
+
+        for emp in self.empleados:
+            if int(emp.get("id") or 0) != empleado_id:
+                continue
+            empleado_uuid = str(emp.get("uuid", "") or "").strip()
+            if empleado_uuid:
+                return rx.redirect(f"/portal/empleados/{empleado_uuid}")
+            break
+
+        return rx.redirect(f"/portal/empleados/{empleado_id}/expediente")
 
     async def abrir_modal_asignacion_plaza(self, plaza: dict):
         """Abre el selector para asignar o reasignar una plaza."""
@@ -2681,6 +2777,7 @@ class MisEmpleadosState(
         detalle = _empty_empleado_detalle()
         detalle.update({
             "id": resumen.get("id"),
+            "uuid": str(resumen.get("uuid", "") or ""),
             "empresa_id": resumen.get("empresa_id"),
             "clave": resumen.get("clave", "") or "",
             "nombre_completo": (
@@ -2719,6 +2816,7 @@ class MisEmpleadosState(
         detalle = _empty_empleado_detalle()
         detalle.update({
             "id": empleado.id,
+            "uuid": str(empleado.uuid) if getattr(empleado, "uuid", None) else "",
             "empresa_id": empleado.empresa_id,
             "user_id": str(empleado.user_id) if empleado.user_id else "",
             "clave": empleado.clave,

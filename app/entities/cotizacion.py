@@ -165,5 +165,9 @@ class CotizacionResumen(BaseModel):
     estatus: EstatusCotizacion = EstatusCotizacion.BORRADOR
     notas: Optional[str] = None
     cantidad_partidas: int = 0
+    subtotal_minimo: Decimal = Decimal('0')
+    subtotal_maximo: Decimal = Decimal('0')
+    total_minimo: Decimal = Decimal('0')
+    total_maximo: Decimal = Decimal('0')
     fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None

@@ -236,7 +236,12 @@ class CotizacionService:
         try:
             query = (
                 self.supabase.table('cotizaciones')
-                .select('*, empresas(nombre_comercial), cotizacion_partidas(id)')
+                .select(
+                    '*, empresas(nombre_comercial),'
+                    ' cotizacion_partidas(id,'
+                    '   cotizacion_partida_categorias(cantidad_minima, cantidad_maxima, precio_unitario_final)),'
+                    ' cotizacion_items(importe, partida_id, partida_categoria_id)'
+                )
                 .eq('empresa_id', empresa_id)
                 .order('fecha_creacion', desc=True)
             )
@@ -249,12 +254,19 @@ class CotizacionService:
             for row in rows:
                 empresa_data = row.pop('empresas', {}) or {}
                 nombre_empresa = empresa_data.get('nombre_comercial', '')
-                cantidad_partidas = len(row.pop('cotizacion_partidas', []) or [])
+                partidas_data = row.pop('cotizacion_partidas', []) or []
+                items_data = row.pop('cotizacion_items', []) or []
+                cantidad_partidas = len(partidas_data)
+
+                totales = self._calcular_totales_listado(
+                    row, partidas_data, items_data,
+                )
 
                 resumen = CotizacionResumen(
                     **row,
                     nombre_empresa=nombre_empresa,
                     cantidad_partidas=cantidad_partidas,
+                    **totales,
                 )
                 cotizaciones.append(resumen)
 
@@ -1874,6 +1886,57 @@ class CotizacionService:
         concepto = result.data
         await self._obtener_partida(concepto['partida_id'], empresa_id=empresa_id)
         return concepto
+
+    def _calcular_totales_listado(
+        self,
+        row: dict,
+        partidas_data: list[dict],
+        items_data: list[dict],
+    ) -> dict:
+        """Calcula totales de una cotización para el listado, sin queries extra.
+
+        Usa los datos ya traídos en el select de obtener_por_empresa:
+        - partidas_data: partidas con sus categorías inline
+        - items_data: todos los items de la cotización
+        """
+        tipo = row.get('tipo', 'PERSONAL')
+        aplicar_iva = row.get('aplicar_iva', False)
+        meses = row.get('cantidad_meses', 1) or 1
+        iva_rate = Decimal('0.16') if aplicar_iva else Decimal('0')
+
+        subtotal_min = Decimal('0')
+        subtotal_max = Decimal('0')
+
+        if tipo == 'PERSONAL':
+            for partida in partidas_data:
+                cats = partida.get('cotizacion_partida_categorias', []) or []
+                for cat in cats:
+                    precio = Decimal(str(cat.get('precio_unitario_final') or 0))
+                    subtotal_min += Decimal(str(cat.get('cantidad_minima', 0))) * precio * meses
+                    subtotal_max += Decimal(str(cat.get('cantidad_maxima', 0))) * precio * meses
+            # Items globales y de partida (sin partida_categoria_id)
+            for item in items_data:
+                if item.get('partida_categoria_id') is None:
+                    importe = Decimal(str(item.get('importe') or 0))
+                    subtotal_min += importe
+                    subtotal_max += importe
+        else:
+            # PRODUCTOS_SERVICIOS: sum all items
+            total_items = sum(
+                Decimal(str(item.get('importe') or 0)) for item in items_data
+            )
+            subtotal_min = total_items
+            subtotal_max = total_items
+
+        total_min = subtotal_min * (1 + iva_rate)
+        total_max = subtotal_max * (1 + iva_rate)
+
+        return {
+            'subtotal_minimo': subtotal_min,
+            'subtotal_maximo': subtotal_max,
+            'total_minimo': total_min,
+            'total_maximo': total_max,
+        }
 
     async def _calcular_totales_partida_dict(
         self,
