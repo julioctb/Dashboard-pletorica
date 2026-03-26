@@ -1,0 +1,5 @@
+"""Módulo Cotizador — Listado y Detalle de Cotizaciones."""
+from core.presentation.pages.backoffice.cotizador.cotizador_page import cotizador_page
+from core.presentation.pages.backoffice.cotizador.cotizador_detalle_page import cotizador_detalle_page
+
+__all__ = ["cotizador_page", "cotizador_detalle_page"]

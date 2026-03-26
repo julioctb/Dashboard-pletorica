@@ -1,0 +1,385 @@
+"""
+Estado de Reflex para la pagina de Pagos.
+Muestra todos los pagos del sistema con filtros.
+"""
+import reflex as rx
+from typing import List, Optional
+from decimal import Decimal
+from datetime import date
+
+from core.presentation.components.shared.base_state import BaseState
+from core.core.utils import normalize_date_input, parse_date_input
+from core.domain.services import pago_service, contrato_service
+from core.core.text_utils import formatear_moneda, formatear_fecha
+from core.core.ui_helpers import FILTRO_TODOS
+from core.domain.models import PagoCreate, PagoUpdate
+
+
+class PagosPageState(BaseState):
+    """Estado para la pagina de Pagos."""
+
+    # ========================
+    # DATOS
+    # ========================
+    pagos: List[dict] = []
+    total_registros: int = 0
+
+    # Catalogos
+    contratos_opciones: List[dict] = []
+
+    # ========================
+    # FILTROS
+    # ========================
+    filtro_contrato_id: str = FILTRO_TODOS
+    filtro_fecha_desde: str = ""
+    filtro_fecha_hasta: str = ""
+
+    # ========================
+    # UI
+    # ========================
+    mostrar_modal_pago: bool = False
+    mostrar_modal_eliminar: bool = False
+    es_edicion: bool = False
+    pago_seleccionado: Optional[dict] = None
+
+    # ========================
+    # FORMULARIO
+    # ========================
+    form_contrato_id: str = ""
+    form_fecha_pago: str = ""
+    form_monto: str = ""
+    form_concepto: str = ""
+    form_numero_factura: str = ""
+    form_comprobante: str = ""
+    form_notas: str = ""
+
+    # Errores
+    error_contrato_id: str = ""
+    error_fecha_pago: str = ""
+    error_monto: str = ""
+    error_concepto: str = ""
+
+    # ========================
+    # SETTERS
+    # ========================
+    @staticmethod
+    def _validar_contrato_id(valor: str) -> str:
+        return "" if valor else "Seleccione un contrato"
+
+    @staticmethod
+    def _validar_fecha_pago(valor: str) -> str:
+        if not valor:
+            return "La fecha es obligatoria"
+        return "" if parse_date_input(valor) is not None else "La fecha no es válida"
+
+    @staticmethod
+    def _validar_monto(valor: str) -> str:
+        if not valor:
+            return "El monto es obligatorio"
+        try:
+            monto = Decimal(str(valor).replace(",", "").replace("$", "").strip())
+            if monto <= 0:
+                return "El monto debe ser mayor a 0"
+        except Exception:
+            return "Monto invalido"
+        return ""
+
+    @staticmethod
+    def _validar_concepto(valor: str) -> str:
+        texto = (valor or "").strip()
+        if len(texto) < 3:
+            return "El concepto debe tener al menos 3 caracteres"
+        return ""
+
+    def set_filtro_contrato_id(self, value: str):
+        self.filtro_contrato_id = value if value else FILTRO_TODOS
+
+    def set_filtro_fecha_desde(self, value: str):
+        self.filtro_fecha_desde = normalize_date_input(value)
+
+    def set_filtro_fecha_hasta(self, value: str):
+        self.filtro_fecha_hasta = normalize_date_input(value)
+
+    def set_form_contrato_id(self, value: str):
+        self.form_contrato_id = value
+        self.limpiar_errores_campos(["contrato_id"])
+
+    def set_form_fecha_pago(self, value: str):
+        self.form_fecha_pago = normalize_date_input(value)
+        self.limpiar_errores_campos(["fecha_pago"])
+
+    def set_form_monto(self, value: str):
+        self.form_monto = value
+        self.limpiar_errores_campos(["monto"])
+
+    def set_form_concepto(self, value: str):
+        self.form_concepto = value
+        self.limpiar_errores_campos(["concepto"])
+
+    def set_form_numero_factura(self, value: str):
+        self.form_numero_factura = value.upper() if value else ""
+
+    def set_form_comprobante(self, value: str):
+        self.form_comprobante = value
+
+    def set_form_notas(self, value: str):
+        self.form_notas = value
+
+    # ========================
+    # CARGA
+    # ========================
+    async def on_mount(self):
+        """Se ejecuta al montar la pagina."""
+        async for _ in self._montar_pagina(
+            self._fetch_pagos,
+            self._cargar_contratos,
+        ):
+            yield
+
+    async def _fetch_pagos(self):
+        """Carga los pagos con filtros."""
+        try:
+            contrato_id = None
+            if self.filtro_contrato_id and self.filtro_contrato_id != FILTRO_TODOS:
+                contrato_id = int(self.filtro_contrato_id)
+
+            fecha_desde = (
+                normalize_date_input(self.filtro_fecha_desde)
+                if parse_date_input(self.filtro_fecha_desde) is not None
+                else None
+            )
+            fecha_hasta = (
+                normalize_date_input(self.filtro_fecha_hasta)
+                if parse_date_input(self.filtro_fecha_hasta) is not None
+                else None
+            )
+
+            pagos_data = await pago_service.obtener_todos(
+                contrato_id=contrato_id,
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta,
+                limite=100,
+                offset=0,
+            )
+
+            # Formatear para la tabla
+            self.pagos = []
+            for p in pagos_data:
+                fecha = formatear_fecha(
+                    p.get("fecha_pago", ""),
+                    valor_vacio="",
+                )
+
+                monto = p.get("monto", 0)
+                self.pagos.append({
+                    "id": p.get("id"),
+                    "contrato_id": p.get("contrato_id"),
+                    "contrato_codigo": p.get("contrato_codigo", ""),
+                    "empresa_nombre": p.get("empresa_nombre", ""),
+                    "fecha_pago": p.get("fecha_pago", ""),
+                    "fecha_pago_fmt": fecha,
+                    "monto": monto,
+                    "monto_fmt": formatear_moneda(str(monto)),
+                    "concepto": p.get("concepto", ""),
+                    "numero_factura": p.get("numero_factura", ""),
+                })
+
+            self.total_registros = len(self.pagos)
+        except Exception as e:
+            self.manejar_error(e, "al cargar pagos")
+            self.pagos = []
+
+    async def _cargar_contratos(self):
+        """Carga el catalogo de contratos para filtros."""
+        try:
+            contratos = await contrato_service.obtener_todos(limite=500)
+            self.contratos_opciones = [
+                {"label": "Todos", "value": FILTRO_TODOS}
+            ]
+            for c in contratos:
+                self.contratos_opciones.append({
+                    "label": c.codigo,
+                    "value": str(c.id),
+                })
+        except Exception:
+            self.contratos_opciones = [{"label": "Todos", "value": FILTRO_TODOS}]
+
+    # ========================
+    # FILTROS
+    # ========================
+    async def aplicar_filtros(self):
+        """Aplica los filtros y recarga."""
+        async for _ in self._recargar_datos(self._fetch_pagos):
+            yield
+
+    async def limpiar_filtros(self):
+        """Limpia filtros estructurados y búsqueda, y recarga la lista."""
+        self.filtro_busqueda = ""
+        self.filtro_contrato_id = FILTRO_TODOS
+        self.filtro_fecha_desde = ""
+        self.filtro_fecha_hasta = ""
+        async for _ in self._recargar_datos(self._fetch_pagos):
+            yield
+
+    # ========================
+    # MODAL CREAR/EDITAR
+    # ========================
+    def abrir_modal_crear(self):
+        """Abre el modal para crear pago."""
+        self._limpiar_formulario()
+        self.es_edicion = False
+        self.mostrar_modal_pago = True
+
+    def abrir_modal_editar(self, pago: dict):
+        """Abre el modal para editar pago."""
+        self.pago_seleccionado = pago
+        self.es_edicion = True
+        self.form_contrato_id = str(pago.get("contrato_id", ""))
+        self.form_fecha_pago = str(pago.get("fecha_pago", ""))
+        self.form_monto = str(pago.get("monto", ""))
+        self.form_concepto = pago.get("concepto", "")
+        self.form_numero_factura = pago.get("numero_factura", "") or ""
+        self.form_comprobante = pago.get("comprobante", "") or ""
+        self.form_notas = pago.get("notas", "") or ""
+        self._limpiar_errores()
+        self.mostrar_modal_pago = True
+
+    def cerrar_modal_pago(self):
+        """Cierra el modal de pago."""
+        self.mostrar_modal_pago = False
+        self._limpiar_formulario()
+
+    def _limpiar_formulario(self):
+        """Limpia el formulario."""
+        self.form_contrato_id = ""
+        self.form_fecha_pago = ""
+        self.form_monto = ""
+        self.form_concepto = ""
+        self.form_numero_factura = ""
+        self.form_comprobante = ""
+        self.form_notas = ""
+        self._limpiar_errores()
+        self.pago_seleccionado = None
+
+    def _limpiar_errores(self):
+        """Limpia los errores."""
+        self.limpiar_errores_campos(
+            ["contrato_id", "fecha_pago", "monto", "concepto"]
+        )
+
+    def _validar_formulario(self) -> bool:
+        """Valida el formulario. Retorna True si hay errores."""
+        todos_validos = self.validar_lote_campos(
+            [
+                ("error_contrato_id", self.form_contrato_id, self._validar_contrato_id),
+                ("error_fecha_pago", self.form_fecha_pago, self._validar_fecha_pago),
+                ("error_monto", self.form_monto, self._validar_monto),
+                ("error_concepto", self.form_concepto, self._validar_concepto),
+            ]
+        )
+        return not todos_validos
+
+    async def guardar_pago(self):
+        """Guarda el pago (crear o editar)."""
+        if self._validar_formulario():
+            return
+
+        self.saving = True
+        try:
+            monto = Decimal(self.form_monto.replace(",", "").replace("$", "").strip())
+
+            if self.es_edicion and self.pago_seleccionado:
+                update = PagoUpdate(
+                    fecha_pago=self.form_fecha_pago,
+                    monto=monto,
+                    concepto=self.form_concepto.strip(),
+                    numero_factura=self.form_numero_factura.strip() or None,
+                    comprobante=self.form_comprobante.strip() or None,
+                    notas=self.form_notas.strip() or None,
+                )
+                await pago_service.actualizar(self.pago_seleccionado["id"], update)
+                self.cerrar_modal_pago()
+                await self._fetch_pagos()
+                return rx.toast.success("Pago actualizado", position="top-center")
+            else:
+                create = PagoCreate(
+                    contrato_id=int(self.form_contrato_id),
+                    fecha_pago=self.form_fecha_pago,
+                    monto=monto,
+                    concepto=self.form_concepto.strip(),
+                    numero_factura=self.form_numero_factura.strip() or None,
+                    comprobante=self.form_comprobante.strip() or None,
+                    notas=self.form_notas.strip() or None,
+                )
+                await pago_service.crear(create)
+                self.cerrar_modal_pago()
+                await self._fetch_pagos()
+                return rx.toast.success("Pago registrado", position="top-center")
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "al guardar pago")
+        finally:
+            self.saving = False
+
+    # ========================
+    # ELIMINAR
+    # ========================
+    def abrir_modal_eliminar(self, pago: dict):
+        """Abre el modal de confirmacion."""
+        self.pago_seleccionado = pago
+        self.mostrar_modal_eliminar = True
+
+    def cerrar_modal_eliminar(self):
+        """Cierra el modal de confirmacion."""
+        self.mostrar_modal_eliminar = False
+        self.pago_seleccionado = None
+
+    async def eliminar_pago(self):
+        """Elimina el pago seleccionado."""
+        if not self.pago_seleccionado:
+            return
+
+        self.saving = True
+        try:
+            await pago_service.eliminar(self.pago_seleccionado["id"])
+            self.cerrar_modal_eliminar()
+            await self._fetch_pagos()
+            return rx.toast.success("Pago eliminado", position="top-center")
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "al eliminar pago")
+        finally:
+            self.saving = False
+
+    # ========================
+    # COMPUTED
+    # ========================
+    @rx.var
+    def pagos_filtrados(self) -> List[dict]:
+        """Filtra por búsqueda local sobre el subconjunto ya cargado."""
+        termino = self.filtro_busqueda.strip().lower()
+        if not termino:
+            return self.pagos
+
+        return [
+            pago for pago in self.pagos
+            if termino in (pago.get("concepto") or "").lower()
+            or termino in (pago.get("numero_factura") or "").lower()
+            or termino in (pago.get("contrato_codigo") or "").lower()
+            or termino in (pago.get("empresa_nombre") or "").lower()
+        ]
+
+    @rx.var
+    def total_filtrado(self) -> int:
+        return len(self.pagos_filtrados)
+
+    @rx.var
+    def tiene_filtros_activos(self) -> bool:
+        return bool(
+            self.filtro_busqueda.strip()
+            or self.filtro_contrato_id != FILTRO_TODOS
+            or self.filtro_fecha_desde
+            or self.filtro_fecha_hasta
+        )
+
+    @rx.var
+    def tiene_pagos(self) -> bool:
+        return len(self.pagos_filtrados) > 0

@@ -1,0 +1,492 @@
+"""
+Página de detalle por empleado (vista Contabilidad).
+
+Ruta: /nominas/empleado-detalle
+Acceso: es_contabilidad | es_admin_empresa
+
+Muestra el desglose completo de percepciones, deducciones y otros pagos
+del recibo de nómina de un empleado en el período activo.
+"""
+import reflex as rx
+
+from core.presentation.pages.backoffice.nominas.nomina_contabilidad_state import NominaContabilidadState
+from core.presentation.layouts.backoffice import page_layout, page_header
+from core.presentation.theme import Colors, Spacing, Radius
+
+
+# =============================================================================
+# BADGE ORIGEN
+# =============================================================================
+
+def _badge_origen(origen: rx.Var) -> rx.Component:
+    return rx.match(
+        origen,
+        ('SISTEMA',      rx.badge('Sistema',      color_scheme='gray',   size='1', variant='soft')),
+        ('RRHH',         rx.badge('RRHH',         color_scheme='orange', size='1', variant='soft')),
+        ('CONTABILIDAD', rx.badge('Contabilidad', color_scheme='blue',   size='1', variant='soft')),
+        rx.badge(origen, size='1'),
+    )
+
+
+# =============================================================================
+# TABLA DE MOVIMIENTOS
+# =============================================================================
+
+ENCABEZADOS_DESGLOSE = [
+    {"nombre": "Concepto",  "ancho": "240px"},
+    {"nombre": "Monto",     "ancho": "110px"},
+    {"nombre": "Gravable",  "ancho": "110px"},
+    {"nombre": "Exento",    "ancho": "110px"},
+    {"nombre": "Origen",    "ancho": "110px"},
+]
+
+
+def _fila_movimiento(mov: dict) -> rx.Component:
+    """Fila de desglose de un movimiento (percepción, deducción u otro pago)."""
+    return rx.table.row(
+        rx.table.cell(
+            rx.text(mov['concepto_nombre'], size="2", weight="medium"),
+        ),
+        rx.table.cell(
+            rx.text("$" + mov['monto'].to(str), size="2", weight="medium"),
+        ),
+        rx.table.cell(
+            rx.text(
+                "$" + mov['monto_gravable'].to(str),
+                size="2",
+                color=Colors.TEXT_SECONDARY,
+            ),
+        ),
+        rx.table.cell(
+            rx.text(
+                "$" + mov['monto_exento'].to(str),
+                size="2",
+                color=Colors.TEXT_SECONDARY,
+            ),
+        ),
+        rx.table.cell(
+            _badge_origen(mov['origen']),
+        ),
+    )
+
+
+def _tabla_movimientos(movimientos_var: rx.Var) -> rx.Component:
+    """Tabla genérica de movimientos."""
+    return rx.table.root(
+        rx.table.header(
+            rx.table.row(
+                *[
+                    rx.table.column_header_cell(
+                        rx.text(h["nombre"], size="1", color=Colors.TEXT_MUTED),
+                        width=h["ancho"],
+                    )
+                    for h in ENCABEZADOS_DESGLOSE
+                ]
+            )
+        ),
+        rx.table.body(
+            rx.foreach(movimientos_var, _fila_movimiento),
+        ),
+        width="100%",
+        variant="surface",
+        size="1",
+    )
+
+
+def _seccion(
+    titulo: str,
+    icono: str,
+    color_scheme: str,
+    movimientos_var: rx.Var,
+    tiene_var: rx.Var,
+) -> rx.Component:
+    """Sección con encabezado y tabla de movimientos de un tipo."""
+    return rx.cond(
+        tiene_var,
+        rx.vstack(
+            rx.hstack(
+                rx.icon(icono, size=16, color=f"var(--{color_scheme}-9)"),
+                rx.text(titulo, size="3", weight="bold"),
+                spacing="2",
+                align="center",
+            ),
+            _tabla_movimientos(movimientos_var),
+            width="100%",
+            spacing="2",
+        ),
+        rx.fragment(),
+    )
+
+
+# =============================================================================
+# PANEL TOTALES
+# =============================================================================
+
+def _resumen_totales() -> rx.Component:
+    """Tarjetas con percepciones, deducciones, otros pagos y NETO del empleado."""
+    return rx.box(
+        rx.hstack(
+            rx.vstack(
+                rx.text("Percepciones", size="1", color=Colors.TEXT_MUTED),
+                rx.text(
+                    "$" + NominaContabilidadState.detalle_total_percepciones.to(str),
+                    size="4",
+                    weight="bold",
+                    color=Colors.SUCCESS,
+                ),
+                spacing="0",
+                align="start",
+            ),
+            rx.separator(orientation="vertical", size="2"),
+            rx.vstack(
+                rx.text("Deducciones", size="1", color=Colors.TEXT_MUTED),
+                rx.text(
+                    "$" + NominaContabilidadState.detalle_total_deducciones.to(str),
+                    size="4",
+                    weight="bold",
+                    color=Colors.ERROR,
+                ),
+                spacing="0",
+                align="start",
+            ),
+            rx.separator(orientation="vertical", size="2"),
+            rx.vstack(
+                rx.text("Otros pagos", size="1", color=Colors.TEXT_MUTED),
+                rx.text(
+                    "$" + NominaContabilidadState.detalle_total_otros_pagos.to(str),
+                    size="4",
+                    weight="bold",
+                    color=Colors.TEXT_SECONDARY,
+                ),
+                spacing="0",
+                align="start",
+            ),
+            rx.separator(orientation="vertical", size="2"),
+            rx.vstack(
+                rx.text("NETO A PAGAR", size="1", color=Colors.TEXT_MUTED, weight="bold"),
+                rx.text(
+                    "$" + NominaContabilidadState.detalle_total_neto.to(str),
+                    size="6",
+                    weight="bold",
+                    color=Colors.PRIMARY,
+                ),
+                spacing="0",
+                align="start",
+            ),
+            rx.spacer(),
+            # Recalcular (solo si período no cerrado)
+            rx.cond(
+                ~NominaContabilidadState.periodo_cerrado,
+                rx.button(
+                    rx.icon("refresh-cw", size=14),
+                    "Recalcular",
+                    on_click=NominaContabilidadState.recalcular_empleado,
+                    loading=NominaContabilidadState.saving,
+                    variant="soft",
+                    color_scheme="blue",
+                    size="2",
+                ),
+                rx.fragment(),
+            ),
+            spacing="6",
+            align="center",
+            wrap="wrap",
+            width="100%",
+        ),
+        padding=Spacing.LG,
+        background=Colors.SURFACE,
+        border=f"1px solid {Colors.BORDER}",
+        border_radius=Radius.LG,
+        width="100%",
+    )
+
+
+def _panel_fiscal() -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.text("Pre-timbrado fiscal", size="3", weight="bold"),
+                rx.spacer(),
+                rx.cond(
+                    NominaContabilidadState.detalle_listo_para_timbrar,
+                    rx.badge("Listo para timbrar", color_scheme="green", size="2", variant="soft"),
+                    rx.badge("No listo", color_scheme="red", size="2", variant="soft"),
+                ),
+                width="100%",
+                align="center",
+            ),
+            rx.grid(
+                rx.vstack(
+                    rx.text("Jornada", size="1", color=Colors.TEXT_MUTED),
+                    rx.text(NominaContabilidadState.detalle_tipo_jornada_label, size="2", weight="medium"),
+                    spacing="1",
+                    align="start",
+                ),
+                rx.vstack(
+                    rx.text("Factor", size="1", color=Colors.TEXT_MUTED),
+                    rx.text(NominaContabilidadState.detalle_factor_jornada.to(str), size="2", weight="medium"),
+                    spacing="1",
+                    align="start",
+                ),
+                rx.vstack(
+                    rx.text("Mínimo aplicable", size="1", color=Colors.TEXT_MUTED),
+                    rx.text(
+                        "$" + NominaContabilidadState.detalle_salario_minimo_diario_aplicable.to(str),
+                        size="2",
+                        weight="medium",
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+                rx.vstack(
+                    rx.text("Art. 36", size="1", color=Colors.TEXT_MUTED),
+                    rx.cond(
+                        NominaContabilidadState.detalle_art36_aplico,
+                        rx.badge("Aplicado", color_scheme="green", size="1", variant="soft"),
+                        rx.cond(
+                            NominaContabilidadState.detalle_es_salario_minimo_art36,
+                            rx.badge("Elegible sin absorción", color_scheme="amber", size="1", variant="soft"),
+                            rx.badge("No aplica", color_scheme="gray", size="1", variant="soft"),
+                        ),
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+                rx.vstack(
+                    rx.text("IMSS absorbido", size="1", color=Colors.TEXT_MUTED),
+                    rx.text(
+                        "$" + NominaContabilidadState.detalle_imss_obrero_absorbido.to(str),
+                        size="2",
+                        weight="medium",
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+                columns="5",
+                spacing="5",
+                width="100%",
+            ),
+            rx.cond(
+                NominaContabilidadState.detalle_observaciones_fiscales.length() > 0,
+                rx.vstack(
+                    rx.foreach(
+                        NominaContabilidadState.detalle_observaciones_fiscales,
+                        _callout_observacion_fiscal,
+                    ),
+                    spacing="2",
+                    width="100%",
+                ),
+                rx.fragment(),
+            ),
+            spacing="4",
+            width="100%",
+        ),
+        padding=Spacing.LG,
+        background=Colors.SURFACE,
+        border=f"1px solid {Colors.BORDER}",
+        border_radius=Radius.LG,
+        width="100%",
+    )
+
+
+def _panel_aguinaldo() -> rx.Component:
+    return rx.cond(
+        NominaContabilidadState.detalle_es_aguinaldo,
+        rx.box(
+            rx.vstack(
+                rx.hstack(
+                    rx.text("Resumen de aguinaldo", size="3", weight="bold"),
+                    rx.spacer(),
+                    rx.badge(
+                        NominaContabilidadState.detalle_modo_calculo_aguinaldo_label,
+                        color_scheme=rx.cond(
+                            NominaContabilidadState.detalle_modo_calculo_aguinaldo_label == "Manual",
+                            "orange",
+                            "gray",
+                        ),
+                        size="2",
+                        variant="soft",
+                    ),
+                    width="100%",
+                    align="center",
+                ),
+                rx.grid(
+                    rx.vstack(
+                        rx.text("Ingreso vigente", size="1", color=Colors.TEXT_MUTED),
+                        rx.text(
+                            NominaContabilidadState.detalle_fecha_ingreso_vigente_aguinaldo,
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    rx.vstack(
+                        rx.text("Días laborados", size="1", color=Colors.TEXT_MUTED),
+                        rx.text(
+                            NominaContabilidadState.detalle_dias_laborados_aguinaldo.to(str),
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    rx.vstack(
+                        rx.text("Factor", size="1", color=Colors.TEXT_MUTED),
+                        rx.text(
+                            NominaContabilidadState.detalle_factor_proporcional_aguinaldo.to(str),
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    rx.vstack(
+                        rx.text("Días de aguinaldo", size="1", color=Colors.TEXT_MUTED),
+                        rx.text(
+                            NominaContabilidadState.detalle_dias_aguinaldo_snapshot.to(str),
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    rx.vstack(
+                        rx.text("Monto bruto", size="1", color=Colors.TEXT_MUTED),
+                        rx.text(
+                            NominaContabilidadState.detalle_monto_aguinaldo_bruto,
+                            size="2",
+                            weight="medium",
+                        ),
+                        spacing="1",
+                        align="start",
+                    ),
+                    columns="5",
+                    spacing="5",
+                    width="100%",
+                ),
+                spacing="4",
+                width="100%",
+            ),
+            padding=Spacing.LG,
+            background=Colors.SURFACE,
+            border=f"1px solid {Colors.BORDER}",
+            border_radius=Radius.LG,
+            width="100%",
+        ),
+        rx.fragment(),
+    )
+
+
+def _callout_observacion_fiscal(observacion: dict) -> rx.Component:
+    return rx.callout(
+        observacion["mensaje"],
+        icon=rx.cond(
+            observacion["severity"] == "error",
+            "triangle-alert",
+            "info",
+        ),
+        color_scheme=rx.cond(
+            observacion["severity"] == "error",
+            "red",
+            "amber",
+        ),
+        size="1",
+        width="100%",
+    )
+
+
+# =============================================================================
+# COMPUTED VARS PARA CONDICIONAR SECCIONES
+# Usamos len() Python-side en vars booleanas del state:
+#   movimientos_percepciones: list[dict] - ya filtrado en state
+# =============================================================================
+
+def _tiene_percepciones() -> rx.Var:
+    return NominaContabilidadState.movimientos_percepciones.length() > 0
+
+
+def _tiene_deducciones() -> rx.Var:
+    return NominaContabilidadState.movimientos_deducciones.length() > 0
+
+
+def _tiene_otros_pagos() -> rx.Var:
+    return NominaContabilidadState.movimientos_otros_pagos.length() > 0
+
+
+# =============================================================================
+# PÁGINA
+# =============================================================================
+
+def detalle_empleado_page() -> rx.Component:
+    """Página de desglose de nómina por empleado."""
+    return rx.box(
+        page_layout(
+            header=page_header(
+                titulo=rx.hstack(
+                    rx.link(
+                        "Nóminas",
+                        href=NominaContabilidadState.nomina_base_path,
+                        size="4",
+                        color=Colors.TEXT_MUTED,
+                    ),
+                    rx.icon("chevron-right", size=14, color=Colors.TEXT_MUTED),
+                    rx.link(
+                        NominaContabilidadState.periodo_nombre,
+                        href=NominaContabilidadState.nomina_calculo_path,
+                        size="4",
+                        color=Colors.TEXT_MUTED,
+                    ),
+                    rx.icon("chevron-right", size=14, color=Colors.TEXT_MUTED),
+                    rx.text(
+                        NominaContabilidadState.detalle_nombre_empleado,
+                        size="4",
+                        weight="bold",
+                    ),
+                    spacing="2",
+                    align="center",
+                ),
+                subtitulo=rx.hstack(
+                    rx.text("Clave:", size="2", color=Colors.TEXT_MUTED),
+                    rx.text(
+                        NominaContabilidadState.detalle_clave_empleado,
+                        size="2",
+                        weight="medium",
+                    ),
+                    spacing="1",
+                ),
+                icono="receipt",
+            ),
+            content=rx.vstack(
+                _resumen_totales(),
+                _panel_aguinaldo(),
+                _panel_fiscal(),
+                _seccion(
+                    "Percepciones",
+                    "trending-up",
+                    "green",
+                    NominaContabilidadState.movimientos_percepciones,
+                    _tiene_percepciones(),
+                ),
+                _seccion(
+                    "Otros Pagos",
+                    "gift",
+                    "blue",
+                    NominaContabilidadState.movimientos_otros_pagos,
+                    _tiene_otros_pagos(),
+                ),
+                _seccion(
+                    "Deducciones",
+                    "trending-down",
+                    "red",
+                    NominaContabilidadState.movimientos_deducciones,
+                    _tiene_deducciones(),
+                ),
+                spacing="6",
+                width="100%",
+            ),
+        ),
+        width="100%",
+        min_height="100vh",
+        on_mount=NominaContabilidadState.on_mount_detalle,
+    )

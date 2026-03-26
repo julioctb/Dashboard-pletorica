@@ -1,0 +1,340 @@
+"""
+Página principal de Historial Laboral.
+
+Esta página es de SOLO LECTURA.
+Muestra la bitácora automática de movimientos de empleados.
+Los registros se crean automáticamente desde empleado_service.
+"""
+import reflex as rx
+from core.presentation.pages.backoffice.historial_laboral.historial_laboral_state import HistorialLaboralState
+from core.presentation.layouts.backoffice import (
+    page_layout,
+    page_header,
+    page_toolbar,
+)
+from core.presentation.components.ui import (
+    acciones_filtros,
+    filtros_inline,
+    table_shell,
+    tabla_vacia,
+    action_buttons_reactive,
+    identifier_badge,
+)
+from core.presentation.theme import Colors, Spacing, Shadows, Typography
+from core.presentation.pages.backoffice.historial_laboral.historial_laboral_modals import modal_detalle_historial
+
+
+# =============================================================================
+# HELPERS
+# =============================================================================
+
+def tipo_movimiento_badge(tipo: str) -> rx.Component:
+    """Badge para tipo de movimiento"""
+    return rx.match(
+        tipo,
+        ("Alta en sistema", rx.badge("Alta", color_scheme="blue", variant="soft", size="1")),
+        ("Asignación a plaza", rx.badge("Asignación", color_scheme="green", variant="soft", size="1")),
+        ("Cambio de plaza", rx.badge("Cambio", color_scheme="cyan", variant="soft", size="1")),
+        ("Cambio de sueldo", rx.badge("Sueldo", color_scheme=Colors.PORTAL_ACCENT_SCHEME, variant="soft", size="1")),
+        ("Suspensión", rx.badge("Suspensión", color_scheme="amber", variant="soft", size="1")),
+        ("Reactivación", rx.badge("Reactivación", color_scheme=Colors.PORTAL_ACCENT_SCHEME, variant="soft", size="1")),
+        ("Baja del sistema", rx.badge("Baja", color_scheme="red", variant="soft", size="1")),
+        # Default: usar rx.cond en lugar de "or" para variables reactivas
+        rx.cond(
+            tipo,
+            rx.badge(tipo, color_scheme="gray", variant="soft", size="1"),
+            rx.badge("N/A", color_scheme="gray", variant="soft", size="1"),
+        ),
+    )
+
+
+def acciones_historial(registro: rx.Var) -> rx.Component:
+    """Acciones para cada registro de historial (solo ver detalle)"""
+    return action_buttons_reactive(
+        item=registro,
+        ver_action=HistorialLaboralState.abrir_modal_detalle(registro),
+        puede_editar=False,
+        puede_eliminar=False,
+    )
+
+
+# =============================================================================
+# TABLA
+# =============================================================================
+
+def fila_historial(registro: dict) -> rx.Component:
+    """Fila de la tabla para un registro de historial"""
+    return rx.table.row(
+        # Empleado
+        rx.table.cell(
+            rx.vstack(
+                rx.text(registro["empleado_clave"], font_weight=Typography.WEIGHT_BOLD, font_size=Typography.SIZE_SM),
+                rx.text(registro["empleado_nombre"], font_size=Typography.SIZE_XS, color=Colors.TEXT_MUTED),
+                spacing="0",
+                align_items="start",
+            ),
+        ),
+        # Tipo de Movimiento
+        rx.table.cell(
+            tipo_movimiento_badge(registro["tipo_movimiento"]),
+        ),
+        # Plaza (puede ser None)
+        rx.table.cell(
+            rx.cond(
+                registro["plaza_numero"],
+                rx.vstack(
+                    rx.text(f"#{registro['plaza_numero']}", font_size=Typography.SIZE_SM),
+                    rx.text(registro["categoria_nombre"], font_size=Typography.SIZE_XS, color=Colors.TEXT_MUTED),
+                    spacing="0",
+                    align_items="start",
+                ),
+                rx.text("Sin plaza", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED, style={"fontStyle": "italic"}),
+            ),
+        ),
+        # Empresa (puede ser None)
+        rx.table.cell(
+            rx.cond(
+                registro["empresa_nombre"],
+                rx.text(registro["empresa_nombre"], font_size=Typography.SIZE_SM),
+                rx.text("-", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
+            ),
+        ),
+        # Periodo
+        rx.table.cell(
+            rx.text(registro["periodo_texto"], font_size=Typography.SIZE_SM),
+        ),
+        # Duracion
+        rx.table.cell(
+            rx.text(registro["duracion_texto"], font_size=Typography.SIZE_SM),
+        ),
+        # Acciones
+        rx.table.cell(
+            acciones_historial(registro),
+        ),
+        cursor="pointer",
+        _hover={"background": Colors.SURFACE_HOVER},
+        on_click=lambda: HistorialLaboralState.abrir_modal_detalle(registro),
+    )
+
+
+ENCABEZADOS_HISTORIAL = [
+    {"nombre": "Empleado", "ancho": "170px"},
+    {"nombre": "Movimiento", "ancho": "120px"},
+    {"nombre": "Plaza", "ancho": "130px"},
+    {"nombre": "Empresa", "ancho": "140px"},
+    {"nombre": "Período", "ancho": "140px"},
+    {"nombre": "Duración", "ancho": "100px"},
+    {"nombre": "", "ancho": "50px"},
+]
+
+
+def tabla_historial() -> rx.Component:
+    """Vista de tabla de historial"""
+    return table_shell(
+        loading=HistorialLaboralState.loading,
+        headers=ENCABEZADOS_HISTORIAL,
+        rows=HistorialLaboralState.historial_filtrado,
+        row_renderer=fila_historial,
+        has_rows=HistorialLaboralState.tiene_historial,
+        empty_component=tabla_vacia(
+            mensaje="No hay registros de historial laboral",
+            submensaje="Los registros se crean automaticamente cuando se realizan cambios en empleados.",
+        ),
+        total_caption="Mostrando " + HistorialLaboralState.total_filtrado.to(str) + " registro(s)",
+        loading_rows=5,
+    )
+
+
+# =============================================================================
+# VISTA DE CARDS
+# =============================================================================
+
+def card_historial(registro: dict) -> rx.Component:
+    """Card individual para un registro de historial"""
+    return rx.card(
+        rx.vstack(
+            # Header con empleado y tipo de movimiento
+            rx.hstack(
+                rx.vstack(
+                    identifier_badge(registro["empleado_clave"]),
+                    rx.text(registro["empleado_nombre"], font_weight=Typography.WEIGHT_BOLD, font_size=Typography.SIZE_BASE),
+                    spacing="1",
+                    align_items="start",
+                ),
+                rx.spacer(),
+                tipo_movimiento_badge(registro["tipo_movimiento"]),
+                width="100%",
+                align="start",
+            ),
+
+            rx.divider(),
+
+            # Plaza y empresa
+            rx.vstack(
+                rx.hstack(
+                    rx.icon("briefcase", size=14, color=Colors.TEXT_MUTED),
+                    rx.cond(
+                        registro["plaza_numero"],
+                        rx.text(f"Plaza #{registro['plaza_numero']} - {registro['categoria_nombre']}", font_size=Typography.SIZE_SM),
+                        rx.text("Sin plaza asignada", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED, style={"fontStyle": "italic"}),
+                    ),
+                    spacing="2",
+                    align="center",
+                ),
+                rx.cond(
+                    registro["empresa_nombre"],
+                    rx.hstack(
+                        rx.icon("building-2", size=14, color=Colors.TEXT_MUTED),
+                        rx.text(registro["empresa_nombre"], font_size=Typography.SIZE_SM),
+                        spacing="2",
+                        align="center",
+                    ),
+                    rx.fragment(),
+                ),
+                spacing="2",
+                align_items="start",
+                width="100%",
+            ),
+
+            # Periodo y duracion
+            rx.hstack(
+                rx.vstack(
+                    rx.text("Periodo", font_size=Typography.SIZE_XS, color=Colors.TEXT_MUTED),
+                    rx.text(registro["periodo_texto"], font_size=Typography.SIZE_SM),
+                    spacing="0",
+                ),
+                rx.vstack(
+                    rx.text("Duracion", font_size=Typography.SIZE_XS, color=Colors.TEXT_MUTED),
+                    rx.text(registro["duracion_texto"], font_size=Typography.SIZE_SM, font_weight=Typography.WEIGHT_MEDIUM),
+                    spacing="0",
+                ),
+                spacing="4",
+                width="100%",
+            ),
+
+            # Acciones
+            rx.hstack(
+                acciones_historial(registro),
+                width="100%",
+                justify="end",
+            ),
+
+            spacing="3",
+            width="100%",
+        ),
+        width="100%",
+        style={
+            "transition": "all 0.2s ease",
+            "cursor": "pointer",
+            "_hover": {
+                "box_shadow": Shadows.MD,
+                "border_color": Colors.BORDER_STRONG,
+            },
+        },
+        on_click=lambda: HistorialLaboralState.abrir_modal_detalle(registro),
+    )
+
+
+def grid_historial() -> rx.Component:
+    """Vista de cards de historial"""
+    return rx.cond(
+        HistorialLaboralState.loading,
+        rx.center(rx.spinner(size="3"), padding="8"),
+        rx.cond(
+            HistorialLaboralState.tiene_historial,
+            rx.vstack(
+                rx.box(
+                    rx.foreach(
+                        HistorialLaboralState.historial_filtrado,
+                        card_historial,
+                    ),
+                    display="grid",
+                    grid_template_columns="repeat(auto-fill, minmax(350px, 1fr))",
+                    gap=Spacing.MD,
+                    width="100%",
+                ),
+                # Contador
+                rx.text(
+                    "Mostrando ", HistorialLaboralState.total_filtrado, " registro(s)",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
+                ),
+                width="100%",
+                spacing="3",
+            ),
+            tabla_vacia(
+                mensaje="No hay registros de historial laboral",
+                submensaje="Los registros se crean automaticamente cuando se realizan cambios en empleados.",
+            ),
+        ),
+    )
+
+
+# =============================================================================
+# FILTROS
+# =============================================================================
+
+def filtros_historial() -> rx.Component:
+    """Filtros para historial"""
+    return filtros_inline(
+        acciones_filtros(
+            on_apply=HistorialLaboralState.aplicar_filtros,
+            on_clear=HistorialLaboralState.limpiar_filtros,
+            show_clear=HistorialLaboralState.tiene_filtros_activos,
+            apply_label="Aplicar",
+        ),
+    )
+
+
+# =============================================================================
+# PÁGINA PRINCIPAL
+# =============================================================================
+
+def historial_laboral_page() -> rx.Component:
+    """Página de Historial Laboral (solo lectura)"""
+    return rx.box(
+        page_layout(
+            header=page_header(
+                titulo="Historial Laboral",
+                subtitulo="Bitácora automática de movimientos de empleados",
+                icono="history",
+                # Sin botón de acción - es solo lectura
+            ),
+            toolbar=page_toolbar(
+                search_value=HistorialLaboralState.filtro_busqueda,
+                search_placeholder="Buscar por empleado, plaza, empresa o movimiento...",
+                on_search_change=HistorialLaboralState.set_filtro_busqueda,
+                on_search_clear=lambda: HistorialLaboralState.set_filtro_busqueda(""),
+                filters=filtros_historial(),
+                show_view_toggle=True,
+                current_view=HistorialLaboralState.view_mode,
+                on_view_table=HistorialLaboralState.set_view_table,
+                on_view_cards=HistorialLaboralState.set_view_cards,
+            ),
+            content=rx.vstack(
+                # Info banner
+                rx.callout(
+                    "Los registros de historial se crean automáticamente cuando se realizan cambios en los empleados (alta, suspensión, reactivación, baja).",
+                    icon="info",
+                    color_scheme="blue",
+                    size="1",
+                ),
+
+                # Contenido según vista
+                rx.cond(
+                    HistorialLaboralState.is_table_view,
+                    tabla_historial(),
+                    grid_historial(),
+                ),
+
+                # Modal de detalle
+                modal_detalle_historial(),
+
+                spacing="4",
+                width="100%",
+            ),
+        ),
+        width="100%",
+        min_height="100vh",
+        on_mount=HistorialLaboralState.on_mount,
+    )

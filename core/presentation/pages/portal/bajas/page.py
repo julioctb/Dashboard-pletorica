@@ -1,0 +1,52 @@
+"""
+Pagina de Bajas de Personal del portal RRHH.
+"""
+import reflex as rx
+
+from core.presentation.layouts.backoffice import page_layout, page_header, page_toolbar
+from core.presentation.theme import Colors
+
+from .state import BajasState
+from .components import alertas_liquidacion, filtros_bajas, tabla_bajas, modal_cancelacion
+
+
+def bajas_page() -> rx.Component:
+    """Pagina de bajas del portal."""
+    return rx.box(
+        rx.box(
+            page_layout(
+                header=page_header(
+                    titulo="Bajas de personal",
+                    subtitulo="Seguimiento de liquidacion y cierre de bajas",
+                    icono="user-minus",
+                    color_icono=Colors.PORTAL_ACCENT_SCHEME,
+                ),
+                content=rx.vstack(
+                    page_toolbar(
+                        search_value=BajasState.filtro_busqueda,
+                        search_placeholder="Buscar por empleado o motivo...",
+                        on_search_change=BajasState.set_filtro_busqueda,
+                        on_search_clear=lambda: BajasState.set_filtro_busqueda(""),
+                        show_view_toggle=False,
+                        filters=filtros_bajas(),
+                        wrapped=False,
+                        compact=True,
+                        search_min_width="0px",
+                        search_max_width=None,
+                        search_flex="1 1 0px",
+                    ),
+                    alertas_liquidacion(),
+                    tabla_bajas(),
+                    modal_cancelacion(),
+                    spacing="4",
+                    width="100%",
+                ),
+            ),
+            width="100%",
+            max_width="900px",
+            margin_x="auto",
+        ),
+        width="100%",
+        min_height="100vh",
+        on_mount=BajasState.on_mount_bajas,
+    )

@@ -1,5 +1,5 @@
-"""Paquete principal de la aplicación Reflex."""
+"""Legacy entrypoint compatibility shim."""
 
-from .app import app
+from core import app
 
 __all__ = ["app"]

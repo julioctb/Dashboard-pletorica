@@ -1,0 +1,422 @@
+"""
+Entidades de dominio para Perfiles de Usuario.
+
+Los perfiles de usuario extienden la tabla auth.users de Supabase
+con datos específicos de la aplicación: rol, nombre, teléfono, etc.
+
+El ID es un UUID que viene directamente de Supabase Auth, estableciendo
+una relación 1:1 entre auth.users y user_profiles.
+
+Roles:
+    - admin: Personal de BUAP con acceso completo al sistema
+    - client: Usuario de empresa proveedora con acceso limitado a sus empresas
+"""
+from datetime import datetime
+from typing import Optional
+from uuid import UUID
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+
+from core.core.enums import RolPlataforma
+from core.core.validation.constants import (
+    TELEFONO_DIGITOS,
+    NOMBRE_COMPLETO_MIN,
+    NOMBRE_COMPLETO_MAX,
+)
+from core.core.validation.user_validators import (
+    normalizar_email_usuario,
+    normalizar_nombre_completo_usuario,
+    normalizar_telefono_usuario,
+)
+
+
+# =============================================================================
+# ENTIDAD PRINCIPAL
+# =============================================================================
+
+class UserProfile(BaseModel):
+    """
+    Entidad principal de Perfil de Usuario.
+
+    Extiende auth.users de Supabase con datos específicos de la aplicación.
+    El ID es el mismo UUID de auth.users (relación 1:1).
+
+    Atributos:
+        id: UUID del usuario en Supabase Auth
+        rol: Rol del usuario (admin o client)
+        nombre_completo: Nombre para mostrar
+        telefono: Teléfono de contacto (10 dígitos, formato mexicano)
+        activo: Si el usuario puede acceder al sistema
+        ultimo_acceso: Timestamp del último login exitoso
+    """
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        from_attributes=True,
+    )
+
+    # Identificación (UUID de Supabase Auth)
+    id: UUID
+
+    # Rol en el sistema
+    rol: RolPlataforma = Field(default=RolPlataforma.CLIENT)
+
+    # Datos personales
+    nombre_completo: str = Field(
+        ...,
+        min_length=NOMBRE_COMPLETO_MIN,
+        max_length=NOMBRE_COMPLETO_MAX,
+        description="Nombre completo del usuario"
+    )
+
+    telefono: Optional[str] = Field(
+        default=None,
+        min_length=TELEFONO_DIGITOS,
+        max_length=TELEFONO_DIGITOS,
+        pattern=r'^\d{10}$',
+        description="Teléfono a 10 dígitos"
+    )
+
+    # Estado
+    activo: bool = Field(default=True)
+    ultimo_acceso: Optional[datetime] = None
+
+    # Institución (solo para rol='institucion')
+    institucion_id: Optional[int] = Field(
+        default=None,
+        description="FK a instituciones. Solo aplica cuando rol=institucion."
+    )
+
+    # Permisos granulares
+    puede_gestionar_usuarios: bool = Field(
+        default=False,
+        description="Super admin: puede crear/editar usuarios y asignar permisos"
+    )
+    permisos: dict = Field(
+        default_factory=lambda: {
+            "requisiciones": {"operar": False, "autorizar": False},
+            "entregables": {"operar": False, "autorizar": False},
+            "pagos": {"operar": False, "autorizar": False},
+            "contratos": {"operar": False, "autorizar": False},
+            "empresas": {"operar": False, "autorizar": False},
+            "empleados": {"operar": False, "autorizar": False},
+        },
+        description="Matriz de permisos: {modulo: {operar: bool, autorizar: bool}}"
+    )
+
+    # Auditoría
+    fecha_creacion: Optional[datetime] = None
+    fecha_actualizacion: Optional[datetime] = None
+
+    # =========================================================================
+    # VALIDADORES
+    # =========================================================================
+
+    @field_validator('nombre_completo')
+    @classmethod
+    def validar_nombre_completo(cls, v: str) -> str:
+        """Normaliza el nombre: strip y título"""
+        return normalizar_nombre_completo_usuario(v, requerido=True)
+
+    @field_validator('telefono')
+    @classmethod
+    def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
+        """Valida que el teléfono tenga exactamente 10 dígitos"""
+        return normalizar_telefono_usuario(v, requerido=False)
+
+    # =========================================================================
+    # MÉTODOS DE NEGOCIO
+    # =========================================================================
+
+    def esta_activo(self) -> bool:
+        """Verifica si el usuario está activo en el sistema."""
+        return self.activo
+
+    def es_admin(self) -> bool:
+        """Verifica si el usuario tiene rol de administrador."""
+        return (
+            self.rol in (RolPlataforma.ADMIN, RolPlataforma.SUPERADMIN)
+            if not isinstance(self.rol, str)
+            else self.rol in ('admin', 'superadmin')
+        )
+
+    def puede_iniciar_sesion(self) -> bool:
+        """Verifica si el usuario puede iniciar sesión."""
+        return self.activo
+
+    def puede_operar(self, modulo: str) -> bool:
+        """Verifica si el usuario puede operar (CRUD) en un módulo."""
+        return self.permisos.get(modulo, {}).get("operar", False)
+
+    def puede_autorizar(self, modulo: str) -> bool:
+        """Verifica si el usuario puede autorizar en un módulo."""
+        return self.permisos.get(modulo, {}).get("autorizar", False)
+
+    def registrar_acceso(self) -> None:
+        """Actualiza el timestamp de último acceso."""
+        self.ultimo_acceso = datetime.now()
+
+    def desactivar(self) -> None:
+        """Desactiva el usuario (soft delete)."""
+        if not self.activo:
+            raise ValueError("El usuario ya está desactivado")
+        self.activo = False
+
+    def activar(self) -> None:
+        """Reactiva un usuario desactivado."""
+        if self.activo:
+            raise ValueError("El usuario ya está activo")
+        self.activo = True
+
+    def __str__(self) -> str:
+        estado = "activo" if self.activo else "inactivo"
+        return f"{self.nombre_completo} ({self.rol}) - {estado}"
+
+
+# =============================================================================
+# MODELO PARA CREACIÓN
+# =============================================================================
+
+class UserProfileCreate(BaseModel):
+    """
+    Modelo para crear un nuevo usuario.
+
+    Este modelo se usa para preparar los datos que se enviarán a
+    Supabase Auth al crear el usuario. Los campos se pasarán como
+    user_metadata y el trigger en la BD creará el profile automáticamente.
+
+    Ejemplo de uso:
+        datos = UserProfileCreate(
+            email="juan@ejemplo.com",
+            password="contraseña_segura",
+            nombre_completo="Juan Pérez García",
+            rol=RolPlataforma.CLIENT,
+            telefono="5512345678"
+        )
+        # Luego se envía a supabase.auth.admin.create_user()
+    """
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+    # Credenciales (para Supabase Auth)
+    email: str = Field(..., description="Email del usuario (será su login)")
+    password: str = Field(
+        ...,
+        min_length=8,
+        description="Contraseña (mínimo 8 caracteres)"
+    )
+
+    # Datos del perfil (irán en user_metadata)
+    nombre_completo: str = Field(
+        ...,
+        min_length=NOMBRE_COMPLETO_MIN,
+        max_length=NOMBRE_COMPLETO_MAX,
+    )
+    rol: RolPlataforma = Field(default=RolPlataforma.CLIENT)
+    telefono: Optional[str] = Field(
+        default=None,
+        min_length=TELEFONO_DIGITOS,
+        max_length=TELEFONO_DIGITOS,
+        pattern=r'^\d{10}$',
+    )
+    institucion_id: Optional[int] = Field(
+        default=None,
+        gt=0,
+        description="FK a instituciones. Requerido cuando rol=institucion."
+    )
+
+    # Permisos granulares (solo para admins)
+    puede_gestionar_usuarios: bool = False
+    permisos: dict = Field(
+        default_factory=lambda: {
+            "requisiciones": {"operar": False, "autorizar": False},
+            "entregables": {"operar": False, "autorizar": False},
+            "pagos": {"operar": False, "autorizar": False},
+            "contratos": {"operar": False, "autorizar": False},
+            "empresas": {"operar": False, "autorizar": False},
+            "empleados": {"operar": False, "autorizar": False},
+        }
+    )
+
+    # =========================================================================
+    # VALIDADORES
+    # =========================================================================
+
+    @field_validator('email')
+    @classmethod
+    def validar_email(cls, v: str) -> str:
+        """Normaliza y valida el formato de email."""
+        return normalizar_email_usuario(v, requerido=True)
+
+    @field_validator('nombre_completo')
+    @classmethod
+    def validar_nombre(cls, v: str) -> str:
+        """Normaliza el nombre."""
+        return normalizar_nombre_completo_usuario(v, requerido=True)
+
+    @field_validator('telefono')
+    @classmethod
+    def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
+        """Extrae solo dígitos del teléfono."""
+        return normalizar_telefono_usuario(v, requerido=False)
+
+    @model_validator(mode='after')
+    def validar_consistencia_rol(self):
+        """Valida combinaciones de rol e institución."""
+        rol = self.rol if isinstance(self.rol, str) else self.rol.value
+
+        if rol == 'institucion' and not self.institucion_id:
+            raise ValueError("institucion_id es requerido cuando rol='institucion'")
+
+        if rol in ('admin', 'superadmin', 'proveedor', 'client', 'empleado') and self.institucion_id:
+            raise ValueError(
+                "institucion_id solo aplica para usuarios con rol='institucion'"
+            )
+
+        return self
+
+    # =========================================================================
+    # MÉTODOS HELPER
+    # =========================================================================
+
+    def to_auth_metadata(self) -> dict:
+        """
+        Convierte a formato de metadata para Supabase Auth.
+
+        Returns:
+            dict con los campos que el trigger leerá para crear el profile
+        """
+        metadata = {
+            'nombre_completo': self.nombre_completo,
+            'rol': self.rol if isinstance(self.rol, str) else self.rol.value,
+        }
+        if self.telefono:
+            metadata['telefono'] = self.telefono
+        if self.institucion_id:
+            metadata['institucion_id'] = self.institucion_id
+        return metadata
+
+
+# =============================================================================
+# MODELO PARA ACTUALIZACIÓN
+# =============================================================================
+
+class UserProfileUpdate(BaseModel):
+    """
+    Modelo para actualizar un perfil existente.
+
+    Todos los campos son opcionales. Solo se actualizan los campos
+    que se proporcionen (no-None).
+
+    Nota: El rol solo puede ser modificado por un admin.
+    """
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+    nombre_completo: Optional[str] = Field(
+        default=None,
+        min_length=NOMBRE_COMPLETO_MIN,
+        max_length=NOMBRE_COMPLETO_MAX,
+    )
+    telefono: Optional[str] = Field(
+        default=None,
+        min_length=TELEFONO_DIGITOS,
+        max_length=TELEFONO_DIGITOS,
+        pattern=r'^\d{10}$',
+    )
+    rol: Optional[RolPlataforma] = None
+    institucion_id: Optional[int] = Field(default=None, gt=0)
+    activo: Optional[bool] = None
+
+    # Permisos granulares
+    puede_gestionar_usuarios: Optional[bool] = None
+    permisos: Optional[dict] = None
+
+    # =========================================================================
+    # VALIDADORES
+    # =========================================================================
+
+    @field_validator('nombre_completo')
+    @classmethod
+    def validar_nombre(cls, v: Optional[str]) -> Optional[str]:
+        """Normaliza el nombre si se proporciona."""
+        return normalizar_nombre_completo_usuario(v, requerido=False)
+
+    @field_validator('telefono')
+    @classmethod
+    def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
+        """Valida teléfono si se proporciona."""
+        return normalizar_telefono_usuario(v, requerido=False)
+
+    @model_validator(mode='after')
+    def validar_consistencia_rol(self):
+        """Valida combinaciones cuando se actualiza rol/institución."""
+        rol = self.rol if isinstance(self.rol, str) else (self.rol.value if self.rol else None)
+
+        if rol == 'institucion' and self.institucion_id is None:
+            # Permite updates parciales sin tocar institucion_id; solo validar si se envía rol.
+            return self
+
+        if rol in ('admin', 'superadmin', 'proveedor', 'client', 'empleado') and self.institucion_id:
+            raise ValueError(
+                "institucion_id solo aplica para usuarios con rol='institucion'"
+            )
+
+        return self
+
+
+# =============================================================================
+# MODELO RESUMIDO PARA LISTADOS
+# =============================================================================
+
+class UserProfileResumen(BaseModel):
+    """
+    Modelo resumido de perfil para listados y selects.
+
+    Incluye información básica del usuario más las empresas a las que
+    tiene acceso (para contexto en interfaces de administración).
+    """
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        from_attributes=True,
+    )
+
+    id: UUID
+    nombre_completo: str
+    rol: str
+    activo: bool
+    ultimo_acceso: Optional[datetime] = None
+
+    # Permisos granulares
+    puede_gestionar_usuarios: bool = False
+    permisos: dict = Field(default_factory=dict)
+
+    # Institución (para usuarios institucionales)
+    institucion_id: Optional[int] = None
+    institucion_nombre: Optional[str] = None
+
+    # Datos enriquecidos (se llenan desde el servicio)
+    email: Optional[str] = None  # Viene de auth.users
+    cantidad_empresas: int = 0   # Cantidad de empresas asignadas
+    empresa_principal: Optional[str] = None  # Nombre de la empresa principal
+
+    @property
+    def esta_activo(self) -> bool:
+        return self.activo
+
+    @property
+    def es_admin(self) -> bool:
+        return self.rol == 'admin'
+
+    def __str__(self) -> str:
+        return f"{self.nombre_completo} ({self.rol})"

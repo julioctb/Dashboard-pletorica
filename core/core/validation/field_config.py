@@ -1,0 +1,113 @@
+"""
+Configuración declarativa de campos validables.
+
+FieldConfig unifica validación backend y frontend, además de
+proporcionar metadatos para generación automática de formularios.
+
+Uso:
+    from core.core.validation import CAMPO_RFC
+
+    # En entidad (Pydantic)
+    @field_validator('rfc', mode='before')
+    def validar_rfc(cls, v):
+        v, error = validar_con_config(v, CAMPO_RFC)
+        if error:
+            raise ValueError(error)
+        return v
+
+    # En formulario (Reflex) - usar form_input con los metadatos del FieldConfig
+    form_input(
+        label=CAMPO_RFC.label,
+        placeholder=CAMPO_RFC.placeholder,
+        hint=CAMPO_RFC.hint,
+        value=State.form_rfc,
+        error=State.error_rfc,
+    )
+"""
+from dataclasses import dataclass
+from typing import Callable, Optional, List, Tuple
+from enum import Enum
+
+
+class InputType(str, Enum):
+    """Tipos de input soportados para formularios."""
+    TEXT = "text"
+    EMAIL = "email"
+    TEL = "tel"
+    NUMBER = "number"
+    PASSWORD = "password"
+    SELECT = "select"
+    TEXTAREA = "textarea"
+
+
+@dataclass
+class FieldConfig:
+    """
+    Configuración declarativa de un campo validable.
+
+    Combina reglas de validación con metadatos de UI para generar
+    automáticamente tanto validadores como componentes de formulario.
+
+    Attributes:
+        # === Identificación ===
+        nombre: Nombre interno del campo (para mensajes de error)
+        nombre_display: Nombre para mostrar (si difiere de nombre)
+
+        # === Validación ===
+        requerido: Si el campo es obligatorio
+        min_len: Longitud mínima
+        max_len: Longitud máxima
+        patron: Regex para validar formato
+        patron_error: Mensaje de error si no cumple patrón
+        transformar: Función para transformar valor (ej: str.upper)
+        validador_custom: Función de validación personalizada
+
+        # === UI (Formularios) ===
+        label: Etiqueta del campo (ej: "Nombre comercial *")
+        placeholder: Texto placeholder del input
+        hint: Texto de ayuda debajo del campo
+        input_type: Tipo de input (text, email, select, textarea, etc.)
+        options: Opciones para select [(value, label), ...]
+        rows: Filas para textarea
+        section: Sección del formulario donde aparece
+        order: Orden dentro de la sección (menor = primero)
+        width: Ancho del campo ("full", "half", "third")
+    """
+
+    # === Identificación ===
+    nombre: str
+    nombre_display: Optional[str] = None
+
+    # === Validación ===
+    requerido: bool = False
+    min_len: Optional[int] = None
+    max_len: Optional[int] = None
+    patron: Optional[str] = None
+    patron_error: Optional[str] = None
+    transformar: Optional[Callable[[str], str]] = None
+    validador_custom: Optional[Callable[[str], str]] = None
+
+    # === UI (Formularios) ===
+    label: Optional[str] = None
+    placeholder: Optional[str] = None
+    hint: Optional[str] = None
+    input_type: InputType = InputType.TEXT
+    options: Optional[List[Tuple[str, str]]] = None  # [(value, label), ...]
+    rows: int = 4  # Para textarea
+    section: Optional[str] = None
+    order: int = 0
+    width: str = "full"  # "full", "half", "third"
+
+    def __post_init__(self):
+        """Inicializa valores por defecto basados en otros campos."""
+        if self.nombre_display is None:
+            self.nombre_display = self.nombre
+
+        if self.label is None:
+            # Auto-generar label: "Nombre comercial" + "*" si requerido
+            self.label = f"{self.nombre}{'*' if self.requerido else ''}"
+
+        if self.placeholder is None:
+            # Auto-generar placeholder igual al nombre
+            self.placeholder = self.nombre
+
