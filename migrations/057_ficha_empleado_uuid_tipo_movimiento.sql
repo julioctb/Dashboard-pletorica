@@ -37,9 +37,11 @@ BEGIN
             'CAMBIO_PLAZA',
             'CAMBIO_SEDE',
             'CAMBIO_CATEGORIA',
+            'REINGRESO',
+            'BAJA_TEMPORAL',
+            'BAJA_DEFINITIVA',
             'SUSPENSION',
             'REACTIVACION',
-            'REINGRESO',
             'BAJA'
         );
     END IF;
@@ -57,9 +59,11 @@ BEGIN
         ALTER TYPE public.tipo_movimiento_historial ADD VALUE IF NOT EXISTS 'CAMBIO_PLAZA';
         ALTER TYPE public.tipo_movimiento_historial ADD VALUE IF NOT EXISTS 'CAMBIO_SEDE';
         ALTER TYPE public.tipo_movimiento_historial ADD VALUE IF NOT EXISTS 'CAMBIO_CATEGORIA';
+        ALTER TYPE public.tipo_movimiento_historial ADD VALUE IF NOT EXISTS 'REINGRESO';
+        ALTER TYPE public.tipo_movimiento_historial ADD VALUE IF NOT EXISTS 'BAJA_TEMPORAL';
+        ALTER TYPE public.tipo_movimiento_historial ADD VALUE IF NOT EXISTS 'BAJA_DEFINITIVA';
         ALTER TYPE public.tipo_movimiento_historial ADD VALUE IF NOT EXISTS 'SUSPENSION';
         ALTER TYPE public.tipo_movimiento_historial ADD VALUE IF NOT EXISTS 'REACTIVACION';
-        ALTER TYPE public.tipo_movimiento_historial ADD VALUE IF NOT EXISTS 'REINGRESO';
         ALTER TYPE public.tipo_movimiento_historial ADD VALUE IF NOT EXISTS 'BAJA';
     END IF;
 END $$;
@@ -68,7 +72,11 @@ ALTER TABLE public.historial_laboral
     ADD COLUMN IF NOT EXISTS tipo_movimiento tipo_movimiento_historial;
 
 UPDATE public.historial_laboral
-SET tipo_movimiento = 'ASIGNACION'
+SET tipo_movimiento = CASE
+    WHEN fecha_fin IS NOT NULL AND motivo_fin IS NOT NULL THEN 'BAJA_DEFINITIVA'
+    WHEN empresa_anterior_id IS NOT NULL THEN 'CAMBIO_PLAZA'
+    ELSE 'ASIGNACION'
+END
 WHERE tipo_movimiento IS NULL;
 
 ALTER TABLE public.historial_laboral
@@ -76,6 +84,10 @@ ALTER TABLE public.historial_laboral
 
 CREATE INDEX IF NOT EXISTS idx_historial_laboral_empleado_fecha
     ON public.historial_laboral (empleado_id, fecha_inicio DESC);
+
+CREATE INDEX IF NOT EXISTS idx_historial_laboral_empleado_activo
+    ON public.historial_laboral (empleado_id)
+    WHERE fecha_fin IS NULL AND estatus = 'ACTIVA';
 
 -- 3) Trigger: estatus empleado basado en historial activo
 CREATE OR REPLACE FUNCTION public.actualizar_estatus_empleado_desde_historial()
