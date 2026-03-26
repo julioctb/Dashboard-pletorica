@@ -71,15 +71,19 @@ Usar esta referencia cuando el trabajo sea dentro de este repo y haya que decidi
 ## Feature Placement Guide
 
 Si el cambio es visual:
+
 - Tocar `page.py`, `components.py` o componentes reutilizables.
 
 Si el cambio es de interacción:
+
 - Tocar el `state.py` del módulo y sus handlers.
 
 Si el cambio es de negocio, persistencia o agregación:
+
 - Tocar `services/`.
 
 Si el cambio altera contratos o forma de los datos:
+
 - Tocar `entities/`, `api/` o ambos.
 
 ## Working Style for This Repo
