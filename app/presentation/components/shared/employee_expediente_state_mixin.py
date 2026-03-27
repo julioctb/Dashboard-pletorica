@@ -8,7 +8,7 @@ from app.domain.enums import TipoDocumentoEmpleado
 from app.core.exceptions import BusinessRuleError, ValidationError
 from app.core.text_utils import capitalizar_palabras
 from app.modules.application import archivo_service
-from app.modules.application import empleado_documento_service
+from app.modules.empleados.application import empleado_documento_service
 
 
 EMPLOYEE_EXPEDIENTE_UPLOAD_ID = "upload_doc_expediente_portal_rrhh"

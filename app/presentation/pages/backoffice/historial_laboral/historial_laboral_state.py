@@ -8,7 +8,7 @@ import reflex as rx
 from typing import List, Optional
 
 from app.presentation.components.shared.base_state import BaseState
-from app.modules.application import historial_laboral_service
+from app.modules.empleados.application import historial_laboral_service
 from app.domain.enums import TipoMovimiento
 
 

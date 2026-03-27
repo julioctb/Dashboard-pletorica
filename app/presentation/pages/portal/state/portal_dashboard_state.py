@@ -85,7 +85,6 @@ class PortalDashboardState(PortalState):
 
         import asyncio
         from app.modules.application import (
-            onboarding_service,
             contrato_service,
             contrato_categoria_service,
             plaza_service,
@@ -93,6 +92,7 @@ class PortalDashboardState(PortalState):
             entregable_service,
             asistencia_service,
         )
+        from app.modules.empleados.application import onboarding_service
 
         async def fetch_onboarding():
             try:

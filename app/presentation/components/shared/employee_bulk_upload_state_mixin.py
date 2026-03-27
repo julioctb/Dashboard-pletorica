@@ -11,7 +11,7 @@ from app.domain.models.alta_masiva import (
     ResultadoProcesamiento,
     ResultadoValidacion,
 )
-from app.modules.application import (
+from app.modules.empleados.application import (
     alta_masiva_service,
     plantilla_service,
     reporte_alta_masiva_service,

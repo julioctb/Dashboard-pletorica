@@ -16,8 +16,7 @@ from app.core.validation import (
     validar_cuenta_bancaria_empleado,
 )
 from app.presentation.pages.portal.state.portal_state import PortalState
-from app.modules.application import onboarding_service
-from app.modules.application import empleado_documento_service
+from app.modules.empleados.application import onboarding_service, empleado_documento_service
 from app.domain.enums import TipoDocumentoEmpleado
 from app.core.exceptions import (
     BusinessRuleError,
@@ -217,7 +216,7 @@ class MisDatosState(PortalState):
             return
 
         try:
-            from app.modules.application import empleado_service
+            from app.modules.empleados.application import empleado_service
 
             empleado = await empleado_service.obtener_por_user_id(user_id)
 

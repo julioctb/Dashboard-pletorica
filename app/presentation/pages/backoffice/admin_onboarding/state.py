@@ -9,7 +9,7 @@ from typing import List
 
 from app.core.ui_helpers import FILTRO_TODOS
 from app.presentation.components.shared.auth_state import AuthState
-from app.modules.application import onboarding_service
+from app.modules.empleados.application import onboarding_service
 from app.core.exceptions import DatabaseError
 from app.core.ui_options import OPCIONES_ESTATUS_ONBOARDING_PIPELINE
 

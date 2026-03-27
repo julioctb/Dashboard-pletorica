@@ -1099,7 +1099,7 @@ class PlazasState(AuthState):
         self.mostrar_modal_asignar_empleado = True
 
         try:
-            from app.modules.application import empleado_service
+            from app.modules.empleados.application import empleado_service
 
             if self.es_contexto_portal and self.id_empresa_actual:
                 empleados = await empleado_service.obtener_resumen_por_empresa(

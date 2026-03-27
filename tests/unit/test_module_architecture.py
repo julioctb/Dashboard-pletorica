@@ -8,6 +8,20 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = REPO_ROOT / "app"
 MODULES_ROOT = APP_ROOT / "modules"
 FORBIDDEN_UI_IMPORT_PREFIXES = ("app.database", "app.domain.repositories")
+FORBIDDEN_EMPLOYEE_GLOBAL_APPLICATION_IMPORTS = {
+    "alta_masiva_parser",
+    "alta_masiva_service",
+    "baja_service",
+    "cuenta_bancaria_historial_service",
+    "empleado_descuento_recurrente_service",
+    "empleado_documento_service",
+    "empleado_service",
+    "historial_laboral_service",
+    "incapacidad_service",
+    "onboarding_service",
+    "plantilla_service",
+    "reporte_alta_masiva_service",
+}
 
 
 def _iter_python_files(root: Path) -> list[Path]:
@@ -85,3 +99,31 @@ def test_no_legacy_core_imports_remain():
                 offenders.append(str(path.relative_to(REPO_ROOT)))
 
     assert offenders == [], f"Legacy core imports found: {offenders}"
+
+
+def test_presentation_avoids_employee_services_from_global_application_surface():
+    offenders: list[str] = []
+    presentation_root = APP_ROOT / "presentation"
+
+    for path in _iter_python_files(presentation_root):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            if node.module != "app.modules.application":
+                continue
+
+            forbidden_names = sorted(
+                alias.name
+                for alias in node.names
+                if alias.name in FORBIDDEN_EMPLOYEE_GLOBAL_APPLICATION_IMPORTS
+            )
+            if forbidden_names:
+                offenders.append(
+                    f"{path.relative_to(REPO_ROOT)} -> {', '.join(forbidden_names)}"
+                )
+
+    assert offenders == [], (
+        "Employee services must be imported from app.modules.empleados.application: "
+        f"{offenders}"
+    )

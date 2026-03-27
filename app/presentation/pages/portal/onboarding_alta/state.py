@@ -6,7 +6,7 @@ from typing import List
 
 from app.core.ui_helpers import FILTRO_TODOS, rango_paginacion
 from app.presentation.pages.portal.state.portal_state import PortalState
-from app.modules.application import onboarding_service
+from app.modules.empleados.application import onboarding_service
 from app.modules.application import curp_service
 from app.domain.models.onboarding import AltaEmpleadoBuap
 from app.core.exceptions import (

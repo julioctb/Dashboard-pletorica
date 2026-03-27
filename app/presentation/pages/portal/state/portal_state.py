@@ -8,7 +8,8 @@ import reflex as rx
 import logging
 
 from app.presentation.components.shared.auth_state import AuthState
-from app.modules.application import empresa_service, empleado_service, contrato_service
+from app.modules.application import empresa_service, contrato_service
+from app.modules.empleados.application import empleado_service
 from app.core.exceptions import DatabaseError
 
 logger = logging.getLogger(__name__)
