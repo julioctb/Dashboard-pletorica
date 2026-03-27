@@ -1,14 +1,13 @@
-"""Architecture checks for the new modular entrypoints."""
+"""Architecture checks for the canonical app package topology."""
 
 import ast
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CORE_ROOT = REPO_ROOT / "core"
-APP_SHIM_ROOT = REPO_ROOT / "app"
-MODULES_ROOT = CORE_ROOT / "modules"
-FORBIDDEN_UI_IMPORT_PREFIXES = ("core.database", "core.domain.repositories")
+APP_ROOT = REPO_ROOT / "app"
+MODULES_ROOT = APP_ROOT / "modules"
+FORBIDDEN_UI_IMPORT_PREFIXES = ("app.database", "app.domain.repositories")
 
 
 def _iter_python_files(root: Path) -> list[Path]:
@@ -26,18 +25,17 @@ def _imports_for(path: Path) -> list[str]:
     return imports
 
 
-def test_core_entrypoint_is_a_thin_composition_root():
-    app_py = (CORE_ROOT / "app.py").read_text(encoding="utf-8")
-    assert "from core.bootstrap import create_app" in app_py
+def test_app_entrypoint_is_a_thin_composition_root():
+    app_py = (APP_ROOT / "app.py").read_text(encoding="utf-8")
+    assert "from app.bootstrap import create_app" in app_py
     assert "app = create_app()" in app_py
     assert "add_page(" not in app_py
 
 
-def test_legacy_app_shim_supports_entrypoints():
-    package_text = (APP_SHIM_ROOT / "__init__.py").read_text(encoding="utf-8")
-    module_text = (APP_SHIM_ROOT / "app.py").read_text(encoding="utf-8")
-    assert "from core import app" in package_text
-    assert "from core.app import app" in module_text
+def test_package_root_exposes_lazy_app_proxy():
+    package_text = (APP_ROOT / "__init__.py").read_text(encoding="utf-8")
+    assert "_LazyAppProxy" in package_text
+    assert "app = _LazyAppProxy()" in package_text
 
 
 def test_modular_topology_exists_for_hotspots():
@@ -75,21 +73,15 @@ def test_new_module_ui_does_not_import_legacy_db_layers_directly():
     assert offenders == [], f"Forbidden UI imports detected: {offenders}"
 
 
-def test_no_app_imports_outside_compat_shim():
+def test_no_legacy_core_imports_remain():
     offenders: list[str] = []
-    shim_files = {
-        APP_SHIM_ROOT / "__init__.py",
-        APP_SHIM_ROOT / "app.py",
-    }
 
-    for root in (CORE_ROOT, REPO_ROOT / "tests"):
+    for root in (APP_ROOT, REPO_ROOT / "tests"):
         if not root.exists():
             continue
         for path in _iter_python_files(root):
-            if path in shim_files:
-                continue
             imports = _imports_for(path)
-            if any(imported == "app" or imported.startswith("app.") for imported in imports):
+            if any(imported == "core" or imported.startswith("core.") for imported in imports):
                 offenders.append(str(path.relative_to(REPO_ROOT)))
 
-    assert offenders == [], f"Legacy app imports found outside shim: {offenders}"
+    assert offenders == [], f"Legacy core imports found: {offenders}"

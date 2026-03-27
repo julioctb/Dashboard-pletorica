@@ -1,5 +1,7 @@
-"""Legacy entrypoint compatibility shim for ``from app.app import app``."""
+"""Top-level Reflex app composed through the bootstrap layer."""
 
-from core.app import app
+from app.bootstrap import create_app
+
+app = create_app()
 
 __all__ = ["app"]

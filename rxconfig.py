@@ -1,7 +1,7 @@
 import reflex as rx
 
 config = rx.Config(
-    app_name="core",
+    app_name="app",
     built_with_reflex=False,  # Compatibilidad en versiones anteriores.
     show_built_with_reflex=False,  # Flag actual para ocultar badge en frontend.
     plugins=[

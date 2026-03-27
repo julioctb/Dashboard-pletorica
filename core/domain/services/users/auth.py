@@ -1,5 +1,0 @@
-"""Ruta canónica del subdominio de autenticación de usuarios."""
-
-from core.domain.services.user_auth_service import UserAuthService
-
-__all__ = ["UserAuthService"]

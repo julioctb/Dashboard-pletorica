@@ -1,8 +1,8 @@
 """Route registry checks for the modular bootstrap layer."""
 
-from core.bootstrap.routes_backoffice import BACKOFFICE_PAGE_ROUTES
-from core.bootstrap.routes_core import CORE_ROUTES
-from core.bootstrap.routes_portal import PORTAL_PAGE_ROUTES
+from app.bootstrap.routes_backoffice import BACKOFFICE_PAGE_ROUTES
+from app.bootstrap.routes_core import CORE_ROUTES
+from app.bootstrap.routes_portal import PORTAL_PAGE_ROUTES
 
 
 def _route_paths(route_specs: tuple[tuple[str, object], ...]) -> set[str]:
