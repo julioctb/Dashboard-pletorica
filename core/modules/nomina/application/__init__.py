@@ -4,13 +4,16 @@ from core.modules.nomina.application import calculo as calculo_module
 from core.modules.nomina.application import catalogos as catalogos_module
 from core.modules.nomina.application import dispersion as dispersion_module
 from core.modules.nomina.application import periodos as periodos_module
-from core.modules.nomina.application.calculo import *
-from core.modules.nomina.application.catalogos import *
-from core.modules.nomina.application.dispersion import *
-from core.modules.nomina.application.periodos import *
+
+
+def _export_public_names(module) -> list[str]:
+    names = list(getattr(module, "__all__", []))
+    for name in names:
+        globals()[name] = getattr(module, name)
+    return names
 
 __all__ = []
-__all__ += periodos_module.__all__
-__all__ += calculo_module.__all__
-__all__ += dispersion_module.__all__
-__all__ += catalogos_module.__all__
+__all__ += _export_public_names(periodos_module)
+__all__ += _export_public_names(calculo_module)
+__all__ += _export_public_names(dispersion_module)
+__all__ += _export_public_names(catalogos_module)

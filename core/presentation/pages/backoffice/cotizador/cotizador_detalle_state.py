@@ -11,7 +11,7 @@ import reflex as rx
 from core.core.text_utils import formatear_fecha
 from core.core.utils import normalize_date_input, parse_date_input
 from core.presentation.pages.portal.state.portal_state import PortalState
-from core.presentation.pages.backoffice.cotizador.cotizador_validators import (
+from core.modules.cotizaciones.domain.validators import (
     validar_fecha_inicio,
     validar_fecha_fin,
     validar_salario_base,
@@ -305,7 +305,8 @@ class CotizadorDetalleState(PortalState):
         self.loading_detalle = True
 
         try:
-            from core.domain.services import cotizacion_service, categoria_puesto_service
+            from core.domain.services import categoria_puesto_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             codigo = self.cotizacion_id or ""
             if not codigo:
@@ -407,7 +408,7 @@ class CotizadorDetalleState(PortalState):
         try:
             from datetime import date as date_cls
             from core.domain.models import CotizacionUpdate
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             update_data = {
                 'destinatario_nombre': self.form_edit_destinatario_nombre or None,
@@ -462,8 +463,8 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
-            from core.core.enums import EstatusCotizacion
+            from core.modules.cotizaciones.application import cotizacion_service
+            from core.modules.cotizaciones.domain.enums import EstatusCotizacion
 
             actualizada = await cotizacion_service.cambiar_estatus(
                 cotizacion_id,
@@ -500,7 +501,7 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_pdf_service
+            from core.modules.cotizaciones.application import cotizacion_pdf_service
 
             pdf_bytes = await cotizacion_pdf_service.generar_pdf(int(cotizacion_id))
             pdf_b64 = base64.b64encode(pdf_bytes).decode()
@@ -532,7 +533,7 @@ class CotizadorDetalleState(PortalState):
         cotizacion_id: int | None = None,
     ) -> dict:
         """Obtiene todo el estado derivado de una partida en una sola carga."""
-        from core.domain.services import cotizacion_service
+        from core.modules.cotizaciones.application import cotizacion_service
 
         cot_id = cotizacion_id or self.cotizacion.get('id', 0)
 
@@ -625,7 +626,7 @@ class CotizadorDetalleState(PortalState):
         if not cotizacion_id:
             return
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             self.totales_cotizacion = await cotizacion_service.recalcular_totales_cotizacion(
                 int(cotizacion_id),
                 empresa_id=self.id_empresa_actual,
@@ -647,7 +648,7 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             partida = await cotizacion_service.agregar_partida(
                 cotizacion_id,
                 empresa_id=self.id_empresa_actual,
@@ -676,7 +677,7 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             await cotizacion_service.actualizar_partida(
                 self.partida_seleccionada_id,
@@ -714,7 +715,7 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             from core.domain.models import CotizacionPartidaCategoriaCreate
             from decimal import Decimal
 
@@ -765,7 +766,7 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             await cotizacion_service.eliminar_categoria(
                 cat_id,
                 empresa_id=self.id_empresa_actual,
@@ -793,7 +794,7 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             resultado = await cotizacion_service.calcular_costo_patronal(
                 cat_id,
                 empresa_id=empresa_id,
@@ -817,7 +818,7 @@ class CotizadorDetalleState(PortalState):
 
         try:
             from decimal import Decimal
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             valor = Decimal(self.form_costo_patronal_manual.replace(',', ''))
             await cotizacion_service.actualizar_categoria(
@@ -857,9 +858,9 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             from core.domain.models import CotizacionConceptoCreate
-            from core.core.enums import TipoConceptoCotizacion, TipoValorConcepto
+            from core.modules.cotizaciones.domain.enums import TipoConceptoCotizacion, TipoValorConcepto
 
             datos = CotizacionConceptoCreate(
                 partida_id=self.partida_seleccionada_id,
@@ -889,7 +890,7 @@ class CotizadorDetalleState(PortalState):
             return rx.toast.error("Solo admin_empresa puede editar cotizaciones")
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             await cotizacion_service.eliminar_concepto(
                 concepto_id,
                 empresa_id=self.id_empresa_actual,
@@ -910,7 +911,7 @@ class CotizadorDetalleState(PortalState):
 
         try:
             from decimal import Decimal
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             valor = Decimal(valor_str.replace(',', '') or '0')
             await cotizacion_service.actualizar_valor_concepto(
@@ -943,8 +944,8 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
-            from core.core.enums import EstatusPartidaCotizacion
+            from core.modules.cotizaciones.application import cotizacion_service
+            from core.modules.cotizaciones.domain.enums import EstatusPartidaCotizacion
             estatus_enum = EstatusPartidaCotizacion(nuevo_estatus)
             await cotizacion_service.cambiar_estatus_partida(
                 self.partida_seleccionada_id,
@@ -971,7 +972,7 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             contrato_id = await cotizacion_service.convertir_partida_a_contrato(
                 partida_id,
                 empresa_id=self.id_empresa_actual,
@@ -1007,7 +1008,7 @@ class CotizadorDetalleState(PortalState):
 
         try:
             from decimal import Decimal
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             from core.domain.models import CotizacionItemCreate
 
             cotizacion_id = self.cotizacion.get('id')
@@ -1045,7 +1046,7 @@ class CotizadorDetalleState(PortalState):
             return rx.toast.error("Solo admin_empresa puede editar cotizaciones")
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             await cotizacion_service.eliminar_item(
                 item_id,
@@ -1074,7 +1075,7 @@ class CotizadorDetalleState(PortalState):
 
         try:
             from decimal import Decimal
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             datos = {}
             if campo == 'descripcion':
@@ -1113,7 +1114,7 @@ class CotizadorDetalleState(PortalState):
 
         try:
             from core.domain.models import CotizacionUpdate
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             actualizada = await cotizacion_service.actualizar(
                 int(cotizacion_id),
@@ -1139,7 +1140,7 @@ class CotizadorDetalleState(PortalState):
 
         try:
             from core.domain.models import CotizacionUpdate
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             actualizada = await cotizacion_service.actualizar(
                 int(cotizacion_id),
@@ -1168,7 +1169,7 @@ class CotizadorDetalleState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             nueva = await cotizacion_service.crear_version(
                 int(cotizacion_id),

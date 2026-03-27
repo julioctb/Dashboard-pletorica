@@ -14,12 +14,12 @@ from typing import Optional
 import reflex as rx
 
 from core.database import db_manager
-from core.core.enums import TipoPeriodoNomina
+from core.modules.nomina.domain.enums import TipoPeriodoNomina
 from core.core.text_utils import formatear_moneda
 from core.presentation.pages.backoffice.nominas.base_state import NominaBaseState
-from core.domain.services.contrato_categoria_service import contrato_categoria_service
-from core.domain.services.configuracion_operativa_service import configuracion_operativa_service
-from core.domain.services.nomina_periodo_service import nomina_periodo_service
+from core.modules.nomina.application import contrato_categoria_service
+from core.modules.nomina.application import configuracion_operativa_service
+from core.modules.nomina.application import nomina_periodo_service
 
 logger = logging.getLogger(__name__)
 

@@ -18,13 +18,14 @@ from core.core.ui_helpers import (
     FILTRO_TODOS,
     opciones_desde_enum,
 )
-from core.domain.services import empleado_service, empresa_service
-from core.domain.services.empleado_descuento_recurrente_service import (
+from core.domain.services import empresa_service
+from core.modules.empleados.application import (
+    empleado_service,
     empleado_descuento_recurrente_service,
 )
 from core.core.text_utils import formatear_fecha, formatear_fecha_hora
 from core.core.utils import normalize_date_input, parse_date_input
-from core.core.enums import EstatusEmpleado, GeneroEmpleado, MotivoBaja
+from core.modules.empleados.domain.enums import EstatusEmpleado, GeneroEmpleado, MotivoBaja
 
 from core.domain.models import (
     EmpleadoCreate,
@@ -999,7 +1000,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 yield rx.toast.error("Fecha efectiva invalida")
                 return
 
-        from core.domain.services.baja_service import baja_service
+        from core.modules.empleados.application import baja_service
         from core.domain.models.baja_empleado import BajaEmpleadoCreate
 
         registrado_por = self.obtener_uuid_usuario_actual()

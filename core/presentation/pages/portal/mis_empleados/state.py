@@ -20,7 +20,12 @@ from core.core.text_utils import (
     obtener_iniciales,
 )
 from core.core.utils import normalize_date_input, parse_date_input
-from core.core.enums import EstatusEmpleado, EstatusPlaza, GeneroEmpleado
+from core.modules.empleados.domain.enums import (
+    EstatusEmpleado,
+    EstatusPlaza,
+    GeneroEmpleado,
+    MotivoBaja,
+)
 from core.presentation.components.shared import (
     EMPLOYEE_BULK_UPLOAD_ID,
     EmployeeBulkUploadStateMixin,
@@ -30,15 +35,15 @@ from core.presentation.components.shared.employee_form_state_mixin import Employ
 from core.domain.services import (
     categoria_puesto_service,
     contrato_categoria_service,
-    cuenta_bancaria_historial_service,
-    empleado_service,
-    onboarding_service,
     plaza_service,
     sede_service,
 )
-from core.domain.services.baja_service import baja_service
-from core.domain.services.empleado_descuento_recurrente_service import (
+from core.modules.empleados.application import (
+    baja_service,
+    cuenta_bancaria_historial_service,
     empleado_descuento_recurrente_service,
+    empleado_service,
+    onboarding_service,
 )
 from core.domain.models import EmpleadoCreate, EmpleadoUpdate, PlazaUpdate
 from core.core.exceptions import DuplicateError, BusinessRuleError, NotFoundError
@@ -3524,9 +3529,7 @@ class MisEmpleadosState(
             yield rx.toast.error("Debe seleccionar un motivo de baja")
             return
 
-        from core.domain.services.baja_service import baja_service
         from core.domain.models.baja_empleado import BajaEmpleadoCreate
-        from core.core.enums import MotivoBaja
 
         fecha_efectiva = date.today()
         if self.form_fecha_efectiva_baja:

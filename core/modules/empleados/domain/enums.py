@@ -15,6 +15,7 @@ from core.core.enums import (
     TipoDocumentoEmpleado,
     TipoIncapacidad,
     TipoJornadaPlaza,
+    TipoMovimientoHistorial,
     TipoMovimiento,
 )
 
@@ -33,6 +34,7 @@ enums___all__ = [
     "TipoDocumentoEmpleado",
     "TipoIncapacidad",
     "TipoJornadaPlaza",
+    "TipoMovimientoHistorial",
     "TipoMovimiento",
 ]
 

@@ -7,19 +7,19 @@ from core.modules.empleados.application import offboarding as offboarding_module
 from core.modules.empleados.application import onboarding_sync as onboarding_sync_module
 from core.modules.empleados.application import queries as queries_module
 from core.modules.empleados.application import restrictions as restrictions_module
-from core.modules.empleados.application.banking import *
-from core.modules.empleados.application.bulk_upload import *
-from core.modules.empleados.application.mutations import *
-from core.modules.empleados.application.offboarding import *
-from core.modules.empleados.application.onboarding_sync import *
-from core.modules.empleados.application.queries import *
-from core.modules.empleados.application.restrictions import *
+
+
+def _export_public_names(module) -> list[str]:
+    names = list(getattr(module, "__all__", []))
+    for name in names:
+        globals()[name] = getattr(module, name)
+    return names
 
 __all__ = []
-__all__ += queries_module.__all__
-__all__ += mutations_module.__all__
-__all__ += restrictions_module.__all__
-__all__ += offboarding_module.__all__
-__all__ += banking_module.__all__
-__all__ += bulk_upload_module.__all__
-__all__ += onboarding_sync_module.__all__
+__all__ += _export_public_names(queries_module)
+__all__ += _export_public_names(mutations_module)
+__all__ += _export_public_names(restrictions_module)
+__all__ += _export_public_names(offboarding_module)
+__all__ += _export_public_names(banking_module)
+__all__ += _export_public_names(bulk_upload_module)
+__all__ += _export_public_names(onboarding_sync_module)

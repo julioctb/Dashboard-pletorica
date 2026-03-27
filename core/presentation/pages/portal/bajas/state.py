@@ -8,8 +8,8 @@ from typing import List
 import reflex as rx
 
 from core.core.text_utils import capitalizar_palabras, formatear_fecha
+from core.modules.empleados.application import baja_service
 from core.presentation.pages.portal.state.portal_state import PortalState
-from core.domain.services.baja_service import baja_service
 from core.core.exceptions import BusinessRuleError
 
 logger = logging.getLogger(__name__)

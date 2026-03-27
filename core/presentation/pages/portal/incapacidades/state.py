@@ -6,7 +6,7 @@ from decimal import Decimal, InvalidOperation
 
 import reflex as rx
 
-from core.core.enums import (
+from core.modules.empleados.domain.enums import (
     EstatusEmpleado,
     EstatusIncapacidad,
     OrigenIncapacidad,
@@ -17,9 +17,8 @@ from core.core.text_utils import capitalizar_palabras, formatear_fecha, normaliz
 from core.core.ui_helpers import FILTRO_TODOS
 from core.core.utils import normalize_date_input, parse_date_input
 from core.domain.models.incapacidad import IncapacidadCreate
+from core.modules.empleados.application import empleado_service, incapacidad_service
 from core.presentation.pages.portal.state.portal_state import PortalState
-from core.domain.services.empleado_service import empleado_service
-from core.domain.services.incapacidad_service import incapacidad_service
 
 
 CATALOGO_EMPLEADOS_MODAL_LIMITE = 25

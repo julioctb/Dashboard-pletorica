@@ -6,7 +6,7 @@ from typing import Optional
 
 import reflex as rx
 
-from core.core.enums import TipoDocumentoEmpleado, TipoMovimientoHistorial
+from core.modules.empleados.domain.enums import TipoDocumentoEmpleado, TipoMovimientoHistorial
 from core.core.text_utils import (
     capitalizar_palabras,
     formatear_fecha,
@@ -16,14 +16,13 @@ from core.core.text_utils import (
     obtener_iniciales,
 )
 from core.database import db_manager
+from core.modules.empleados.application import empleado_service, historial_laboral_service
 from core.presentation.components.shared import EmployeeExpedienteStateMixin
 from core.presentation.pages.portal.state.portal_state import PortalState
 from core.domain.services import (
     asistencia_service,
     categoria_puesto_service,
     contrato_service,
-    empleado_service,
-    historial_laboral_service,
     plaza_service,
     sede_service,
 )

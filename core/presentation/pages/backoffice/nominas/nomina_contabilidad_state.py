@@ -12,13 +12,14 @@ from typing import Optional
 
 import reflex as rx
 
-from core.core.enums import TipoJornadaPlaza, TipoPeriodoNomina
+from core.modules.empleados.domain.enums import TipoJornadaPlaza
+from core.modules.nomina.domain.enums import TipoPeriodoNomina
 from core.core.text_utils import formatear_moneda
 from core.core.validation import limpiar_moneda
 from core.presentation.pages.backoffice.nominas.base_state import NominaBaseState
-from core.domain.services.nomina_periodo_service import nomina_periodo_service
-from core.domain.services.nomina_calculo_service import nomina_calculo_service
-from core.domain.services.dispersion_service import dispersion_service
+from core.modules.nomina.application import nomina_periodo_service
+from core.modules.nomina.application import nomina_calculo_service
+from core.modules.nomina.application import dispersion_service
 logger = logging.getLogger(__name__)
 
 # Bonos capturables por Contabilidad (origen_captura = CONTABILIDAD)

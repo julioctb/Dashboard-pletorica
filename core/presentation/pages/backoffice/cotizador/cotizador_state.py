@@ -44,7 +44,7 @@ class FormItemUI(TypedDict):
 
 
 from core.presentation.pages.portal.state.portal_state import PortalState
-from core.presentation.pages.backoffice.cotizador.cotizador_validators import (
+from core.modules.cotizaciones.domain.validators import (
     validar_fecha_inicio,
     validar_fecha_fin,
     validar_salario_base,
@@ -507,7 +507,7 @@ class CotizadorState(PortalState):
             return
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
 
             cotizaciones = await cotizacion_service.obtener_por_empresa(empresa_id)
             self.cotizaciones = [
@@ -546,7 +546,7 @@ class CotizadorState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             from core.domain.models import CotizacionCreate
             from core.domain.models.cotizacion_partida_categoria import (
                 CotizacionPartidaCategoriaCreate,
@@ -664,8 +664,8 @@ class CotizadorState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
-            from core.core.enums import EstatusCotizacion
+            from core.modules.cotizaciones.application import cotizacion_service
+            from core.modules.cotizaciones.domain.enums import EstatusCotizacion
             estatus_enum = EstatusCotizacion(nuevo_estatus)
             await cotizacion_service.cambiar_estatus(
                 cotizacion_id,
@@ -689,7 +689,7 @@ class CotizadorState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_service
+            from core.modules.cotizaciones.application import cotizacion_service
             nueva = await cotizacion_service.crear_version(
                 cotizacion_id,
                 empresa_id=self.id_empresa_actual,
@@ -708,7 +708,7 @@ class CotizadorState(PortalState):
         yield
 
         try:
-            from core.domain.services import cotizacion_pdf_service
+            from core.modules.cotizaciones.application import cotizacion_pdf_service
             pdf_bytes = await cotizacion_pdf_service.generar_pdf(cotizacion_id)
             # En Reflex, el download se maneja a través de un endpoint o descarga directa
             # Por ahora mostrar mensaje de éxito

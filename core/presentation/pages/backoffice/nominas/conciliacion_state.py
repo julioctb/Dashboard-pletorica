@@ -16,7 +16,7 @@ import reflex as rx
 
 from core.presentation.pages.backoffice.nominas.base_state import NominaBaseState
 from core.database import db_manager
-from core.domain.services.nomina_periodo_service import nomina_periodo_service
+from core.modules.nomina.application import nomina_periodo_service
 
 logger = logging.getLogger(__name__)
 

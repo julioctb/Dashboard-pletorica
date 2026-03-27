@@ -1,6 +1,5 @@
 """Cotizacion domain models re-exported from the legacy structure."""
 
-from core.domain.models.costo_patronal import CostoPatronal
 from core.domain.models.cotizacion import (
     Cotizacion,
     CotizacionCreate,
@@ -18,7 +17,6 @@ from core.domain.models.cotizacion_partida_categoria import (
 )
 
 models___all__ = [
-    "CostoPatronal",
     "Cotizacion",
     "CotizacionConcepto",
     "CotizacionConceptoCreate",

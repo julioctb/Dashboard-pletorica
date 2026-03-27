@@ -28,20 +28,10 @@ from core.modules.nomina.ui.backoffice import (
 )
 from core.modules.nomina.ui.portal import (
     calculo_nomina_page as portal_calculo_nomina_page,
-)
-from core.modules.nomina.ui.portal import (
     conciliacion_nomina_page as portal_conciliacion_nomina_page,
-)
-from core.modules.nomina.ui.portal import (
     dashboard_nomina_page as portal_dashboard_nomina_page,
-)
-from core.modules.nomina.ui.portal import (
     detalle_empleado_page as portal_detalle_empleado_page,
-)
-from core.modules.nomina.ui.portal import (
     periodos_nomina_page as portal_periodos_nomina_page,
-)
-from core.modules.nomina.ui.portal import (
     preparacion_nomina_page as portal_preparacion_nomina_page,
 )
 from core.presentation.pages.backoffice.admin.dashboard import super_admin_dashboard_page

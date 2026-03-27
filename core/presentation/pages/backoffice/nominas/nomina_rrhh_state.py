@@ -21,11 +21,11 @@ from core.core.text_utils import (
 )
 from core.core.utils import normalize_date_input, parse_date_input
 from core.core.validation import limpiar_moneda
-from core.core.enums import TipoPeriodoNomina
+from core.modules.nomina.domain.enums import TipoPeriodoNomina
 from core.domain.models.empleado_descuento_recurrente import DESCUENTOS_RECURRENTES_POR_CLAVE
 from core.presentation.pages.backoffice.nominas.base_state import NominaBaseState
-from core.domain.services.configuracion_operativa_service import configuracion_operativa_service
-from core.domain.services.nomina_periodo_service import nomina_periodo_service
+from core.modules.nomina.application import configuracion_operativa_service
+from core.modules.nomina.application import nomina_periodo_service
 from core.database import db_manager
 
 logger = logging.getLogger(__name__)
