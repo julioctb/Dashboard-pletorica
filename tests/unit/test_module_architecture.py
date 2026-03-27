@@ -1,6 +1,7 @@
 """Architecture checks for the canonical app package topology."""
 
 import ast
+import importlib
 from pathlib import Path
 
 
@@ -9,6 +10,21 @@ APP_ROOT = REPO_ROOT / "app"
 MODULES_ROOT = APP_ROOT / "modules"
 FORBIDDEN_UI_IMPORT_PREFIXES = ("app.database", "app.domain.repositories")
 FORBIDDEN_EMPLOYEE_GLOBAL_APPLICATION_IMPORTS = {
+    "AltaMasivaParser",
+    "AltaMasivaService",
+    "BajaService",
+    "CuentaBancariaHistorialService",
+    "EmpleadoDescuentoRecurrenteService",
+    "EmpleadoDocumentoService",
+    "EmpleadoMutationService",
+    "EmpleadoQueryService",
+    "EmpleadoRestrictionService",
+    "EmpleadoService",
+    "HistorialLaboralService",
+    "IncapacidadService",
+    "OnboardingService",
+    "PlantillaService",
+    "ReporteAltaMasivaService",
     "alta_masiva_parser",
     "alta_masiva_service",
     "baja_service",
@@ -22,6 +38,9 @@ FORBIDDEN_EMPLOYEE_GLOBAL_APPLICATION_IMPORTS = {
     "plantilla_service",
     "reporte_alta_masiva_service",
 }
+FORBIDDEN_EMPLOYEE_GLOBAL_APPLICATION_EXPORTS = set(
+    FORBIDDEN_EMPLOYEE_GLOBAL_APPLICATION_IMPORTS
+)
 
 
 def _iter_python_files(root: Path) -> list[Path]:
@@ -126,4 +145,27 @@ def test_presentation_avoids_employee_services_from_global_application_surface()
     assert offenders == [], (
         "Employee services must be imported from app.modules.empleados.application: "
         f"{offenders}"
+    )
+
+
+def test_global_application_surface_does_not_export_employee_symbols():
+    module = importlib.import_module("app.modules.application")
+    exported = set(getattr(module, "__all__", []))
+
+    leaked_exports = sorted(
+        exported & FORBIDDEN_EMPLOYEE_GLOBAL_APPLICATION_EXPORTS
+    )
+    leaked_attributes = sorted(
+        name
+        for name in FORBIDDEN_EMPLOYEE_GLOBAL_APPLICATION_EXPORTS
+        if hasattr(module, name)
+    )
+
+    assert leaked_exports == [], (
+        "Employee symbols leaked in app.modules.application.__all__: "
+        f"{leaked_exports}"
+    )
+    assert leaked_attributes == [], (
+        "Employee symbols leaked as app.modules.application attributes: "
+        f"{leaked_attributes}"
     )
