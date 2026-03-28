@@ -154,6 +154,53 @@ class MisEmpleadosState(
     EmployeeBulkUploadStateMixin,
 ):
     """State para la lista de empleados del portal."""
+    # Reflex registra handlers/vars declarados en la clase concreta del State.
+    # Reexponemos los miembros extraidos al mixin para conservar bindings en UI.
+    set_form_curp = MisEmpleadosFormStateMixin.set_form_curp
+    set_form_nombre = MisEmpleadosFormStateMixin.set_form_nombre
+    set_form_apellido_paterno = MisEmpleadosFormStateMixin.set_form_apellido_paterno
+    set_form_apellido_materno = MisEmpleadosFormStateMixin.set_form_apellido_materno
+    set_form_rfc = MisEmpleadosFormStateMixin.set_form_rfc
+    set_form_nss = MisEmpleadosFormStateMixin.set_form_nss
+    set_form_fecha_ingreso = MisEmpleadosFormStateMixin.set_form_fecha_ingreso
+    set_form_fecha_nacimiento = MisEmpleadosFormStateMixin.set_form_fecha_nacimiento
+    set_form_genero = MisEmpleadosFormStateMixin.set_form_genero
+    set_form_telefono = MisEmpleadosFormStateMixin.set_form_telefono
+    set_form_email = MisEmpleadosFormStateMixin.set_form_email
+    set_form_direccion = MisEmpleadosFormStateMixin.set_form_direccion
+    set_form_cuenta_bancaria = MisEmpleadosFormStateMixin.set_form_cuenta_bancaria
+    set_form_banco = MisEmpleadosFormStateMixin.set_form_banco
+    set_form_clabe = MisEmpleadosFormStateMixin.set_form_clabe
+    set_form_notas = MisEmpleadosFormStateMixin.set_form_notas
+    set_form_contacto_nombre = MisEmpleadosFormStateMixin.set_form_contacto_nombre
+    set_form_contacto_telefono = MisEmpleadosFormStateMixin.set_form_contacto_telefono
+    set_form_contacto_parentesco = MisEmpleadosFormStateMixin.set_form_contacto_parentesco
+    set_form_descuento_monto = MisEmpleadosFormStateMixin.set_form_descuento_monto
+    set_form_descuento_inicio = MisEmpleadosFormStateMixin.set_form_descuento_inicio
+    set_form_descuento_fin = MisEmpleadosFormStateMixin.set_form_descuento_fin
+    set_form_descuento_notas = MisEmpleadosFormStateMixin.set_form_descuento_notas
+    set_form_descuento_activo = MisEmpleadosFormStateMixin.set_form_descuento_activo
+    set_form_motivo_baja = MisEmpleadosFormStateMixin.set_form_motivo_baja
+    set_form_fecha_efectiva_baja = MisEmpleadosFormStateMixin.set_form_fecha_efectiva_baja
+    set_form_notas_baja = MisEmpleadosFormStateMixin.set_form_notas_baja
+
+    validar_curp_blur = MisEmpleadosFormStateMixin.validar_curp_blur
+    validar_nombre_blur = MisEmpleadosFormStateMixin.validar_nombre_blur
+    validar_apellido_paterno_blur = MisEmpleadosFormStateMixin.validar_apellido_paterno_blur
+    validar_apellido_materno_blur = MisEmpleadosFormStateMixin.validar_apellido_materno_blur
+    validar_rfc_blur = MisEmpleadosFormStateMixin.validar_rfc_blur
+    validar_nss_blur = MisEmpleadosFormStateMixin.validar_nss_blur
+    validar_fecha_ingreso_blur = MisEmpleadosFormStateMixin.validar_fecha_ingreso_blur
+    validar_fecha_nacimiento_blur = MisEmpleadosFormStateMixin.validar_fecha_nacimiento_blur
+    validar_genero_blur = MisEmpleadosFormStateMixin.validar_genero_blur
+    validar_email_blur = MisEmpleadosFormStateMixin.validar_email_blur
+    validar_telefono_blur = MisEmpleadosFormStateMixin.validar_telefono_blur
+    validar_contacto_nombre_blur = MisEmpleadosFormStateMixin.validar_contacto_nombre_blur
+    validar_contacto_telefono_blur = MisEmpleadosFormStateMixin.validar_contacto_telefono_blur
+    validar_contacto_parentesco_blur = MisEmpleadosFormStateMixin.validar_contacto_parentesco_blur
+    validar_cuenta_bancaria_blur = MisEmpleadosFormStateMixin.validar_cuenta_bancaria_blur
+    validar_banco_blur = MisEmpleadosFormStateMixin.validar_banco_blur
+    validar_clabe_blur = MisEmpleadosFormStateMixin.validar_clabe_blur
 
     _campos_error_formulario: List[str] = [
         "curp",
