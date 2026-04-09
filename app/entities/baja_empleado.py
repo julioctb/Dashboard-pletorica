@@ -13,7 +13,7 @@ from datetime import date, datetime
 from typing import ClassVar, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.enums import MotivoBaja, EstatusBaja, EstatusLiquidacion
 
@@ -47,15 +47,6 @@ class BajaEmpleado(BaseModel):
     contrato_id_origen: Optional[int] = None
     fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None
-
-    @field_validator('fecha_efectiva')
-    @classmethod
-    def fecha_efectiva_no_anterior_a_registro(cls, v, info):
-        fecha_reg = info.data.get('fecha_registro', date.today())
-        es_automatica = bool(info.data.get('es_automatica', False))
-        if v < fecha_reg and not es_automatica:
-            raise ValueError('La fecha efectiva no puede ser anterior a la fecha de registro')
-        return v
 
     @property
     def dias_para_liquidar(self) -> int:
