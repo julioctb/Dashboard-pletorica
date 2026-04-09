@@ -13,7 +13,7 @@ from datetime import date, datetime
 from typing import ClassVar, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.domain.enums import MotivoBaja, EstatusBaja, EstatusLiquidacion
 
@@ -48,14 +48,18 @@ class BajaEmpleado(BaseModel):
     fecha_creacion: Optional[datetime] = None
     fecha_actualizacion: Optional[datetime] = None
 
-    @field_validator('fecha_efectiva')
-    @classmethod
-    def fecha_efectiva_no_anterior_a_registro(cls, v, info):
-        fecha_reg = info.data.get('fecha_registro', date.today())
-        es_automatica = bool(info.data.get('es_automatica', False))
-        if v < fecha_reg and not es_automatica:
-            raise ValueError('La fecha efectiva no puede ser anterior a la fecha de registro')
-        return v
+    @model_validator(mode="after")
+    def validar_fechas(self) -> "BajaEmpleado":
+        """Valida coherencia de fechas solo en payloads de creación."""
+        if self.id is not None:
+            # Permite hidratar registros persistidos aunque tengan datos legacy.
+            return self
+
+        if self.fecha_efectiva < self.fecha_registro and not self.es_automatica:
+            raise ValueError(
+                "La fecha efectiva no puede ser anterior a la fecha de registro"
+            )
+        return self
 
     @property
     def dias_para_liquidar(self) -> int:

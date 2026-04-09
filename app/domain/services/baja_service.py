@@ -130,6 +130,12 @@ class BajaService:
         from app.domain.services.notificacion_service import notificacion_service
         from app.domain.models.notificacion import NotificacionCreate
 
+        fecha_registro = date.today()
+        if not datos.es_automatica and datos.fecha_efectiva < fecha_registro:
+            raise BusinessRuleError(
+                "La fecha efectiva no puede ser anterior a la fecha de registro"
+            )
+
         empleado = await empleado_service.obtener_por_id(datos.empleado_id)
         if empleado.estatus != EstatusEmpleado.ACTIVO:
             raise BusinessRuleError(
@@ -165,7 +171,7 @@ class BajaService:
                 'empresa_id': datos.empresa_id,
                 'plaza_id': plaza_id,
                 'motivo': datos.motivo.value,
-                'fecha_registro': date.today().isoformat(),
+                'fecha_registro': fecha_registro.isoformat(),
                 'fecha_efectiva': datos.fecha_efectiva.isoformat(),
                 'fecha_limite_liquidacion': fecha_limite_liq.isoformat(),
                 'notas': datos.notas,

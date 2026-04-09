@@ -4,7 +4,7 @@ import reflex as rx
 
 from app.presentation.components.ui import status_badge_reactive
 from app.presentation.layouts.backoffice import page_header, page_layout
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Typography
 
 from .components import metricas_contrato_plazas, tabla_plazas_contrato_actual
 from .modals import (
@@ -20,11 +20,11 @@ from .state import ContratoPlazasState
 def _header_plazas() -> rx.Component:
     return page_header(
         titulo="Plazas",
-        icono="briefcase",
+        icono="box",
         titulo_compuesto=rx.hstack(
             rx.link(
-                "Contratos",
-                href="/portal/contratos",
+                "Plazas",
+                href="/portal/plazas",
                 size="6",
                 weight="bold",
                 color=Colors.PORTAL_PRIMARY_TEXT,
@@ -32,7 +32,7 @@ def _header_plazas() -> rx.Component:
             ),
             rx.text("›", color=Colors.TEXT_MUTED, size="5"),
             rx.text(
-                "Plazas",
+                ContratoPlazasState.codigo_contrato_actual,
                 size="6",
                 weight="bold",
             ),
@@ -45,39 +45,10 @@ def _header_plazas() -> rx.Component:
             spacing="2",
             wrap="wrap",
         ),
-        subtitulo_compuesto=rx.vstack(
-            rx.text(
-                ContratoPlazasState.codigo_contrato_actual,
-                size="3",
-                weight="medium",
-                color=Colors.TEXT_PRIMARY,
-            ),
-            rx.hstack(
-                rx.cond(
-                    ContratoPlazasState.tipo_servicio_contrato_actual != "",
-                    rx.text(
-                        ContratoPlazasState.tipo_servicio_contrato_actual,
-                        size="3",
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    rx.fragment(),
-                ),
-                rx.cond(
-                    ContratoPlazasState.tipo_servicio_contrato_actual != "",
-                    rx.text("·", color=Colors.TEXT_MUTED),
-                    rx.fragment(),
-                ),
-                rx.text(
-                    ContratoPlazasState.descripcion_contrato_actual,
-                    size="3",
-                    color=Colors.TEXT_SECONDARY,
-                ),
-                align="center",
-                spacing="2",
-                wrap="wrap",
-            ),
-            spacing="1",
-            align="start",
+        subtitulo_compuesto=rx.text(
+            ContratoPlazasState.descripcion_contrato_actual,
+            font_size=Typography.SIZE_SM,
+            color=Colors.TEXT_SECONDARY,
         ),
         color_icono=Colors.PORTAL_ACCENT_SCHEME,
     )

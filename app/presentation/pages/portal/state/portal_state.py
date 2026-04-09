@@ -332,10 +332,7 @@ class PortalState(AuthState):
 
     @rx.var
     def ruta_plazas_principal(self) -> str:
-        contrato_id = int(self.primer_contrato_con_personal_id or 0)
-        if contrato_id > 0:
-            return f"/portal/contratos/{contrato_id}/plazas"
-        return "/portal/contratos"
+        return "/portal/plazas"
 
     @rx.var
     def ruta_entregables_principal(self) -> str:
@@ -368,7 +365,7 @@ class PortalState(AuthState):
         return self.total_plazas_ocupadas + self.total_plazas_vacantes
 
     async def redirigir_a_portal_plazas(self):
-        """Envía la entrada global de plazas al primer contrato con personal."""
+        """Envía la entrada global de plazas al nivel 1 del módulo."""
         resultado = await self.on_mount_portal()
         if resultado:
             return resultado

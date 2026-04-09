@@ -7,13 +7,13 @@ from app.presentation.components.ui import (
     empty_state_card,
     input_busqueda,
     select_items_from_options,
-    table_cell_actions,
     table_cell_badge,
     table_cell_text_sm,
     table_pagination,
     table_shell,
     table_text_sm,
 )
+from app.presentation.pages.portal.incapacidades import IncapacidadState
 from app.presentation.theme import Colors, Radius, Spacing, StatusColors, Typography
 
 
@@ -51,8 +51,8 @@ def _badge_estado_plaza(estatus) -> rx.Component:
             rx.badge("Vacante", color_scheme=StatusColors.VACANTE_SCHEME, variant="soft", size="1"),
         ),
         (
-            EstatusPlaza.SUSPENDIDA.value,
-            rx.badge("Suspendida", color_scheme=StatusColors.SUSPENDIDA_SCHEME, variant="soft", size="1"),
+            "SIN_SEDE",
+            rx.badge("Sin sede", color_scheme=Colors.NEUTRAL_SCHEME, variant="soft", size="1"),
         ),
         rx.badge("Sin estatus", color_scheme=Colors.NEUTRAL_SCHEME, variant="soft", size="1"),
     )
@@ -70,25 +70,104 @@ def _borde_izquierdo_plaza(estatus) -> rx.Var | str:
             f"3px solid {Colors.INFO}",
         ),
         (
-            EstatusPlaza.SUSPENDIDA.value,
-            f"3px solid {Colors.WARNING}",
+            "SIN_SEDE",
+            f"3px solid {Colors.INFO}",
         ),
         f"3px solid {Colors.BORDER_STRONG}",
     )
 
 
+def _acciones_plaza_ocupada(plaza: dict, state_cls) -> rx.Component:
+    return rx.menu.root(
+        rx.menu.trigger(
+            rx.button(
+                "Acciones",
+                rx.icon("chevron-down", size=12),
+                variant="outline",
+                size="1",
+                cursor="pointer",
+            ),
+        ),
+        rx.menu.content(
+            rx.menu.item(
+                rx.icon("map-pin", size=14),
+                " Cambiar sede",
+                on_click=state_cls.accion_cambiar_sede(plaza.get("id")),
+            ),
+            rx.menu.item(
+                rx.icon("heart-pulse", size=14),
+                " Registrar incapacidad",
+                on_click=lambda: IncapacidadState.abrir_modal_registro(
+                    plaza.get("empleado_id"),
+                    plaza.get("empleado_nombre"),
+                    plaza.get("id"),
+                ),
+            ),
+            rx.menu.separator(),
+            rx.menu.item(
+                rx.icon("user-minus", size=14),
+                " Iniciar baja",
+                color=Colors.ERROR,
+                on_click=state_cls.accion_iniciar_baja(plaza.get("empleado_id")),
+            ),
+        ),
+    )
+
+
+def _acciones_plaza_vacante(plaza: dict, state_cls) -> rx.Component:
+    return rx.menu.root(
+        rx.menu.trigger(
+            rx.button(
+                "Asignar",
+                rx.icon("chevron-down", size=12),
+                variant="outline",
+                size="1",
+                cursor="pointer",
+                color=Colors.PORTAL_PRIMARY_TEXT,
+                border_color=Colors.PORTAL_PRIMARY,
+            ),
+        ),
+        rx.menu.content(
+            rx.menu.item(
+                rx.icon("user-plus", size=14),
+                " Asignar empleado",
+                on_click=state_cls.accion_asignar_empleado(plaza.get("id")),
+            ),
+            rx.menu.item(
+                rx.icon("map-pin", size=14),
+                " Cambiar sede",
+                on_click=state_cls.accion_cambiar_sede(plaza.get("id")),
+            ),
+        ),
+    )
+
+
 def _accion_plaza(plaza: dict, state_cls) -> rx.Component:
-    return rx.select.root(
-        rx.select.trigger(
-            placeholder=plaza["acciones_placeholder"],
-            width="160px",
+    estatus_plaza = plaza.get("estatus_plaza", plaza.get("estatus", ""))
+    return rx.match(
+        estatus_plaza,
+        (
+            EstatusPlaza.OCUPADA.value,
+            _acciones_plaza_ocupada(plaza, state_cls),
         ),
-        rx.select.content(
-            select_items_from_options(plaza["acciones_disponibles"].to(list[dict])),
+        (
+            EstatusPlaza.VACANTE.value,
+            _acciones_plaza_vacante(plaza, state_cls),
         ),
-        value="",
-        on_change=lambda value: state_cls.ejecutar_accion_plaza(plaza, value),
-        size="1",
+        (
+            "SIN_SEDE",
+            rx.button(
+                rx.icon("map-pin", size=14),
+                "Asignar sede",
+                variant="outline",
+                size="1",
+                cursor="pointer",
+                color=Colors.PORTAL_PRIMARY_TEXT,
+                border_color=Colors.PORTAL_PRIMARY,
+                on_click=state_cls.accion_asignar_sede(plaza.get("id")),
+            ),
+        ),
+        rx.fragment(),
     )
 
 
@@ -112,18 +191,16 @@ def _celda_empleado_plaza(plaza: dict) -> rx.Component:
                         "text_decoration": "underline",
                     },
                 ),
-                table_text_sm(
-                    nombre,
-                    weight=Typography.WEIGHT_MEDIUM,
-                ),
+                table_text_sm("—", tone="muted"),
             ),
             table_text_sm("—", tone="muted"),
         ),
+        text_align="center",
     )
 
 
 def fila_plaza(plaza: dict, contrato_id, state_cls) -> rx.Component:
-    es_vacante = plaza.get("estatus", "") == EstatusPlaza.VACANTE.value
+    estatus_plaza = plaza.get("estatus_plaza", plaza.get("estatus", ""))
     return rx.table.row(
         rx.table.cell(
             rx.center(
@@ -157,22 +234,33 @@ def fila_plaza(plaza: dict, contrato_id, state_cls) -> rx.Component:
         ),
         _celda_empleado_plaza(plaza),
         table_cell_badge(
-            _badge_estado_plaza(plaza.get("estatus", "")),
+            _badge_estado_plaza(estatus_plaza),
         ),
-        table_cell_actions(
+        rx.table.cell(
             _accion_plaza(plaza, state_cls),
+            text_align="center",
         ),
-        border_left=_borde_izquierdo_plaza(plaza.get("estatus", "")),
+        border_left=_borde_izquierdo_plaza(estatus_plaza),
         background=rx.cond(
             plaza.get("seleccionada", False),
             Colors.PRIMARY_LIGHTER,
-            rx.cond(es_vacante, PLAZA_VACANTE_ROW_BG, Colors.SURFACE),
+            rx.match(
+                estatus_plaza,
+                (EstatusPlaza.VACANTE.value, PLAZA_VACANTE_ROW_BG),
+                ("SIN_SEDE", Colors.INFO_LIGHT),
+                Colors.SURFACE,
+            ),
         ),
         _hover={
             "background": rx.cond(
                 plaza.get("seleccionada", False),
                 Colors.PRIMARY_LIGHTER,
-                rx.cond(es_vacante, PLAZA_VACANTE_ROW_BG, Colors.SURFACE_HOVER),
+                rx.match(
+                    estatus_plaza,
+                    (EstatusPlaza.VACANTE.value, PLAZA_VACANTE_ROW_BG),
+                    ("SIN_SEDE", Colors.INFO_LIGHT),
+                    Colors.SURFACE_HOVER,
+                ),
             ),
         },
     )
@@ -244,7 +332,7 @@ def _plaza_filtros_internos(state_cls) -> rx.Component:
                     rx.select.item("Todos los estados", value="all"),
                     rx.select.item("Ocupada", value=EstatusPlaza.OCUPADA.value),
                     rx.select.item("Vacante", value=EstatusPlaza.VACANTE.value),
-                    rx.select.item("Suspendida", value=EstatusPlaza.SUSPENDIDA.value),
+                    rx.select.item("Sin sede", value="SIN_SEDE"),
                 ),
                 value=rx.cond(
                     state_cls.plaza_filtro_estado == "all",
@@ -382,9 +470,9 @@ def resumen_contrato_plaza(state_cls, bloque: dict) -> rx.Component:
                 StatusColors.VACANTE_SCHEME,
             ),
             rx.cond(
-                bloque.get("mostrar_badge_suspendidas", False),
+                bloque.get("mostrar_badge_sin_sede", False),
                 _badge_resumen_contrato(
-                    f"{bloque.get('plazas_suspendidas', 0)} suspendidas",
+                    f"{bloque.get('plazas_sin_sede', 0)} sin sede",
                     Colors.NEUTRAL_SCHEME,
                 ),
                 rx.fragment(),
@@ -521,7 +609,11 @@ def tabla_plazas_contrato(state_cls) -> rx.Component:
         rx.cond(
             state_cls.tiene_contrato_plaza_contexto,
             rx.vstack(
-                resumen_contrato_plaza(state_cls, state_cls.contrato_plaza_contexto),
+                rx.cond(
+                    state_cls.mostrar_resumen_contrato_plaza,
+                    resumen_contrato_plaza(state_cls, state_cls.contrato_plaza_contexto),
+                    rx.fragment(),
+                ),
                 rx.cond(
                     state_cls.cargando_plazas_contrato_actual,
                     rx.box(

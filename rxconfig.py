@@ -1,3 +1,8 @@
+import os
+
+# Evita fallback implícito a Uvicorn en Reflex 0.8.x y elimina warning de runtime.
+os.environ.setdefault("REFLEX_USE_GRANIAN", "true")
+
 import reflex as rx
 
 config = rx.Config(

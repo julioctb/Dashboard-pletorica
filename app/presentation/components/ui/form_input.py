@@ -207,8 +207,15 @@ def _render_footer(
 
 def select_items_from_options(options: Any) -> rx.Component:
     """Renderiza items de select ignorando opciones con value vacío."""
+    @var_operation
+    def _safe_options(value: Any) -> Var:
+        return var_operation_return(
+            js_expression=f"(Array.isArray({value}) ? {value} : [])",
+            var_type=list[dict[str, str]],
+        )
+
     return rx.foreach(
-        options,
+        _safe_options(options),
         lambda opt: rx.cond(
             opt["value"] != "",
             rx.select.item(opt["label"], value=opt["value"]),

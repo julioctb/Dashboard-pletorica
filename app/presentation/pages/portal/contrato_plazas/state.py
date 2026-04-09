@@ -144,9 +144,9 @@ class ContratoPlazasState(MisEmpleadosState):
             1 for plaza in plazas
             if str(plaza.get("estatus", "") or "") == EstatusPlaza.VACANTE.value
         )
-        plazas_suspendidas = sum(
+        plazas_sin_sede = sum(
             1 for plaza in plazas
-            if str(plaza.get("estatus", "") or "") == EstatusPlaza.SUSPENDIDA.value
+            if int(plaza.get("sede_id") or 0) <= 0
         )
         total_sedes = len(
             {
@@ -159,7 +159,7 @@ class ContratoPlazasState(MisEmpleadosState):
             "total_plazas": total_plazas,
             "plazas_ocupadas": plazas_ocupadas,
             "plazas_vacantes": plazas_vacantes,
-            "plazas_suspendidas": plazas_suspendidas,
+            "plazas_sin_sede": plazas_sin_sede,
             "total_sedes": total_sedes,
         }
 
@@ -177,9 +177,7 @@ class ContratoPlazasState(MisEmpleadosState):
         total_plazas = int(activo.get("total_plazas") or resumen["total_plazas"])
         plazas_ocupadas = int(activo.get("plazas_ocupadas") or resumen["plazas_ocupadas"])
         plazas_vacantes = int(activo.get("plazas_vacantes") or resumen["plazas_vacantes"])
-        plazas_suspendidas = int(
-            activo.get("plazas_suspendidas") or resumen["plazas_suspendidas"]
-        )
+        plazas_sin_sede = int(activo.get("plazas_sin_sede") or resumen["plazas_sin_sede"])
         total_sedes = int(activo.get("total_sedes") or resumen["total_sedes"])
 
         return {
@@ -202,7 +200,7 @@ class ContratoPlazasState(MisEmpleadosState):
             "total_plazas": total_plazas,
             "plazas_ocupadas": plazas_ocupadas,
             "plazas_vacantes": plazas_vacantes,
-            "plazas_suspendidas": plazas_suspendidas,
+            "plazas_sin_sede": plazas_sin_sede,
             "total_sedes": total_sedes,
             "tiene_plazas": total_plazas > 0,
             "resumen_plazas": self._texto_resumen_plazas_sedes(total_plazas, total_sedes),
@@ -220,7 +218,7 @@ class ContratoPlazasState(MisEmpleadosState):
                 self.categorias_masivas_por_contrato.get(clave, "") or ""
             ),
             "opciones_categorias_masivas": self._opciones_categoria_masiva_contrato(clave),
-            "mostrar_badge_suspendidas": plazas_suspendidas > 0,
+            "mostrar_badge_sin_sede": plazas_sin_sede > 0,
         }
 
     @rx.var
@@ -235,8 +233,8 @@ class ContratoPlazasState(MisEmpleadosState):
     def breadcrumb_items(self) -> list[dict]:
         return [
             {"texto": "Portal", "href": "/portal"},
-            {"texto": "Contratos", "href": "/portal/contratos"},
-            {"texto": "Plazas", "href": ""},
+            {"texto": "Plazas", "href": "/portal/plazas"},
+            {"texto": "Contrato", "href": ""},
         ]
 
     @rx.var
@@ -283,5 +281,10 @@ class ContratoPlazasState(MisEmpleadosState):
         return int(self.contrato_plaza_contexto.get("plazas_vacantes") or 0)
 
     @rx.var
-    def plazas_suspendidas_contrato_actual(self) -> int:
-        return int(self.contrato_plaza_contexto.get("plazas_suspendidas") or 0)
+    def plazas_sin_sede_contrato_actual(self) -> int:
+        return int(self.contrato_plaza_contexto.get("plazas_sin_sede") or 0)
+
+    @rx.var
+    def mostrar_resumen_contrato_plaza(self) -> bool:
+        """Oculta el acordeón/resumen porque el header ya contiene el contexto."""
+        return False

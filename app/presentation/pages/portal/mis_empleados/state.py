@@ -10,7 +10,6 @@ from typing import List
 import reflex as rx
 
 from app.core.text_utils import (
-    capitalizar_con_preposiciones,
     capitalizar_palabras,
     formatear_fecha,
     formatear_fecha_hora,
@@ -19,7 +18,7 @@ from app.core.text_utils import (
     normalizar_mayusculas,
     obtener_iniciales,
 )
-from app.core.utils import normalize_date_input, parse_date_input
+from app.core.utils import parse_date_input
 from app.modules.empleados.domain.enums import (
     EstatusEmpleado,
     EstatusPlaza,
@@ -943,6 +942,22 @@ class MisEmpleadosState(
             return str(acciones[0].get("label", "Acciones") or "Acciones")
         return "Acciones"
 
+    @staticmethod
+    def _estatus_visual_plaza(plaza: dict) -> str:
+        """Calcula un estatus UI para flujos operativos de la tabla."""
+        if not isinstance(plaza, dict):
+            return ""
+
+        if int(plaza.get("sede_id") or 0) <= 0:
+            return "SIN_SEDE"
+
+        estatus = str(plaza.get("estatus", "") or "").strip().upper()
+        if estatus == EstatusPlaza.OCUPADA.value:
+            return EstatusPlaza.OCUPADA.value
+        if estatus == EstatusPlaza.VACANTE.value:
+            return EstatusPlaza.VACANTE.value
+        return estatus
+
     def _serializar_plaza_portal(self, plaza) -> dict:
         plaza_dict = plaza.model_dump(mode="json")
         plaza_dict["contrato_codigo"] = str(plaza_dict.get("contrato_codigo", "") or "").strip().upper()
@@ -963,6 +978,7 @@ class MisEmpleadosState(
             if plaza_dict["sede_codigo"]
             else str(plaza_dict["sede_nombre"] or "SIN SEDE")
         )
+        plaza_dict["estatus_plaza"] = self._estatus_visual_plaza(plaza_dict)
         plaza_dict["acciones_disponibles"] = self._resolver_acciones_plaza(plaza_dict)
         plaza_dict["acciones_placeholder"] = self._placeholder_acciones_plaza(plaza_dict)
         return plaza_dict
@@ -971,7 +987,11 @@ class MisEmpleadosState(
         total_plazas = int(contrato.get("total_plazas") or 0)
         plazas_ocupadas = int(contrato.get("plazas_ocupadas") or 0)
         plazas_vacantes = int(contrato.get("plazas_vacantes") or 0)
-        plazas_suspendidas = int(contrato.get("plazas_suspendidas") or 0)
+        plazas_sin_sede = int(
+            contrato.get("plazas_sin_sede")
+            or contrato.get("plazas_suspendidas")
+            or 0
+        )
         total_sedes = int(contrato.get("total_sedes") or 0)
         return {
             "contrato_id": int(contrato.get("contrato_id") or 0),
@@ -984,7 +1004,7 @@ class MisEmpleadosState(
             "total_plazas": total_plazas,
             "plazas_ocupadas": plazas_ocupadas,
             "plazas_vacantes": plazas_vacantes,
-            "plazas_suspendidas": plazas_suspendidas,
+            "plazas_sin_sede": plazas_sin_sede,
             "total_sedes": total_sedes,
             "tiene_plazas": total_plazas > 0,
             "resumen_plazas": self._texto_resumen_plazas_sedes(total_plazas, total_sedes),
@@ -1337,12 +1357,17 @@ class MisEmpleadosState(
             "sede_masiva_value": str(self.sedes_masivas_por_contrato.get(clave, "") or ""),
             "categoria_masiva_value": str(self.categorias_masivas_por_contrato.get(clave, "") or ""),
             "opciones_categorias_masivas": self._opciones_categoria_masiva_contrato(clave),
-            "mostrar_badge_suspendidas": int(contrato.get("plazas_suspendidas") or 0) > 0,
+            "mostrar_badge_sin_sede": int(contrato.get("plazas_sin_sede") or 0) > 0,
         }
 
     @rx.var
     def tiene_contrato_plaza_activo(self) -> bool:
         return bool(self.contrato_plaza_activo)
+
+    @rx.var
+    def mostrar_resumen_contrato_plaza(self) -> bool:
+        """Controla la visibilidad del resumen contextual de contrato."""
+        return True
 
     @rx.var
     def puede_confirmar_asignacion_plaza(self) -> bool:
@@ -1578,7 +1603,8 @@ class MisEmpleadosState(
             plazas = [
                 plaza
                 for plaza in plazas
-                if str(plaza.get("estatus") or "") == self.plaza_filtro_estado
+                if str(plaza.get("estatus_plaza") or plaza.get("estatus") or "")
+                == self.plaza_filtro_estado
             ]
 
         return plazas
@@ -2911,6 +2937,46 @@ class MisEmpleadosState(
             return self.manejar_error_con_toast(e, "liberando plaza")
         finally:
             self.saving = False
+
+    def _buscar_plaza_contrato_expandido(self, plaza_id: int) -> dict:
+        plaza_id_int = int(plaza_id or 0)
+        if plaza_id_int <= 0:
+            return {}
+        return next(
+            (
+                dict(plaza)
+                for plaza in self.plazas_contrato_expandido
+                if int(plaza.get("id") or 0) == plaza_id_int
+            ),
+            {},
+        )
+
+    def accion_cambiar_sede(self, plaza_id: int):
+        """Abre el modal de cambio/asignación de sede para la plaza."""
+        plaza = self._buscar_plaza_contrato_expandido(plaza_id)
+        if not plaza:
+            return rx.toast.error("No se pudo identificar la plaza")
+        if int(plaza.get("empleado_id") or 0) > 0:
+            return rx.toast.info("Cambio de sede para plazas ocupadas: próximamente")
+        return type(self).abrir_modal_sede_plaza(plaza)
+
+    def accion_asignar_empleado(self, plaza_id: int):
+        """Abre el modal de asignación de empleado para la plaza vacante."""
+        plaza = self._buscar_plaza_contrato_expandido(plaza_id)
+        if not plaza:
+            return rx.toast.error("No se pudo identificar la plaza")
+        return type(self).abrir_modal_asignacion_plaza(plaza)
+
+    def accion_asignar_sede(self, plaza_id: int):
+        """Abre el modal para asignar sede a una plaza sin sede."""
+        return self.accion_cambiar_sede(plaza_id)
+
+    def accion_iniciar_baja(self, empleado_id: int):
+        """Redirige al módulo de bajas con el empleado preseleccionado."""
+        empleado_id_int = int(empleado_id or 0)
+        if empleado_id_int <= 0:
+            return rx.toast.error("No se pudo identificar al empleado")
+        return rx.redirect(f"/portal/bajas?empleado_id={empleado_id_int}")
 
     def ejecutar_accion_plaza(self, plaza: dict, accion: str):
         """Despacha la acción elegida desde el selector de la fila."""

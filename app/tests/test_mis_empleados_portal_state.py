@@ -35,6 +35,7 @@ async def _drain(async_gen) -> list:
 class _DummyMisEmpleadosState:
     _normalizar_nombre_visual = staticmethod(MisEmpleadosState._normalizar_nombre_visual)
     _normalizar_sede_visual = staticmethod(MisEmpleadosState._normalizar_sede_visual)
+    _estatus_visual_plaza = staticmethod(MisEmpleadosState._estatus_visual_plaza)
     _resolver_acciones_plaza = staticmethod(MisEmpleadosState._resolver_acciones_plaza)
     _placeholder_acciones_plaza = staticmethod(MisEmpleadosState._placeholder_acciones_plaza)
     _serializar_plaza_portal = MisEmpleadosState._serializar_plaza_portal

@@ -51,7 +51,7 @@ class _DummyContratoPlazasState:
         self.plazas_contrato_expandido = [
             {"id": 1, "estatus": "OCUPADA", "sede_id": 7},
             {"id": 2, "estatus": "VACANTE", "sede_id": 7},
-            {"id": 3, "estatus": "SUSPENDIDA", "sede_id": 8},
+            {"id": 3, "estatus": "VACANTE", "sede_id": 0},
         ]
         self.seleccion_plazas_por_contrato = {"44": [1, 3]}
         self.sedes_masivas_por_contrato = {"44": "7"}
@@ -66,7 +66,7 @@ class _DummyContratoPlazasState:
 def test_ruta_plazas_principal_usa_primer_contrato_con_personal():
     dummy = _DummyPortalPlazasNavState()
 
-    assert dummy.ruta_plazas_principal.fget(dummy) == "/portal/contratos/15/plazas"
+    assert dummy.ruta_plazas_principal.fget(dummy) == "/portal/plazas"
 
 
 def test_redirigir_a_portal_plazas_envia_a_contrato_contextual():
@@ -92,6 +92,6 @@ def test_contrato_plaza_contexto_construye_resumen_desde_plazas_cargadas():
     assert contexto["contrato_codigo"] == "CT-044"
     assert contexto["total_plazas"] == 3
     assert contexto["plazas_ocupadas"] == 1
-    assert contexto["plazas_vacantes"] == 1
-    assert contexto["plazas_suspendidas"] == 1
+    assert contexto["plazas_vacantes"] == 2
+    assert contexto["plazas_sin_sede"] == 1
     assert contexto["seleccion_count"] == 2

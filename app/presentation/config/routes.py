@@ -6,7 +6,6 @@ import reflex as rx
 
 from app.bootstrap.pages import (
     portal_onboarding_redirect_page,
-    portal_plazas_redirect_page,
     root_dispatcher_page,
 )
 from app.modules.cotizaciones.ui.portal import cotizador_detalle_page, cotizador_page
@@ -83,6 +82,7 @@ from app.presentation.pages.portal.mi_empresa import mi_empresa_page
 from app.presentation.pages.portal.mis_contratos import mis_contratos_page
 from app.presentation.pages.portal.mis_datos import mis_datos_page
 from app.presentation.pages.portal.mis_entregables import mis_entregables_page
+from app.presentation.pages.portal.plazas import plazas_listado_page
 from app.presentation.pages.portal.portal_dashboard import portal_dashboard_page
 from app.presentation.pages.portal.usuarios_empresa import usuarios_empresa_page
 
@@ -137,7 +137,7 @@ PORTAL_PAGE_ROUTES: tuple[PageRoute, ...] = (
     ("/portal/empleados", mis_empleados_page),
     ("/portal/empleados/[id]", empleado_ficha_page),
     ("/portal/alta-masiva", alta_masiva_redirect_page),
-    ("/portal/plazas", portal_plazas_redirect_page),
+    ("/portal/plazas", plazas_listado_page),
     ("/portal/onboarding", portal_onboarding_redirect_page),
     ("/portal/incapacidades", incapacidades_page),
     ("/portal/bajas", bajas_page),
