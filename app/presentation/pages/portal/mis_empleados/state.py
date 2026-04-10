@@ -1682,7 +1682,7 @@ class MisEmpleadosState(
         return [
             {
                 "value": str(empleado.get("id")),
-                "label": f"{empleado.get('clave', '')} - {empleado.get('nombre_completo', '')}",
+                "label": str(empleado.get("nombre_completo", "")).strip() or "Sin nombre",
             }
             for empleado in self.empleados_disponibles_plaza
         ]
@@ -2252,7 +2252,7 @@ class MisEmpleadosState(
                     plaza_id,
                     PlazaUpdate(sede_id=sede_id),
                 )
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             return rx.toast.success(
                 f"Se actualizo la sede en {len(plaza_ids)} plaza(s)"
             )
@@ -2280,7 +2280,7 @@ class MisEmpleadosState(
                     plaza_id,
                     PlazaUpdate(categoria_puesto_id=categoria_id),
                 )
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             return rx.toast.success(
                 f"Se actualizo la categoria en {len(plaza_ids)} plaza(s)"
             )
@@ -2600,7 +2600,7 @@ class MisEmpleadosState(
 
             await plaza_service.asignar_empleado(plaza_id, empleado_nuevo_id)
             self.cerrar_modal_asignacion_plaza()
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             yield rx.toast.success("Empleado asignado correctamente")
         except BusinessRuleError as e:
             yield rx.toast.error(str(e))
@@ -2683,7 +2683,7 @@ class MisEmpleadosState(
 
             await plaza_service.actualizar(plaza_id, PlazaUpdate(**payload_kwargs))
             self.cerrar_modal_categoria_plaza()
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             yield rx.toast.success(
                 "Categoria actualizada correctamente"
                 if categoria_actual_id > 0
@@ -2794,7 +2794,7 @@ class MisEmpleadosState(
                 PlazaUpdate(salario_mensual=salario_nuevo),
             )
             self.cerrar_modal_salario_plaza()
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             yield rx.toast.success("Salario actualizado correctamente")
         except BusinessRuleError as e:
             yield rx.toast.error(str(e))
@@ -2850,7 +2850,7 @@ class MisEmpleadosState(
                 plaza_destino_id=plaza_destino_id,
             )
             self.cerrar_modal_reasignacion_plaza()
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             yield rx.toast.success("Plaza reasignada correctamente")
         except BusinessRuleError as e:
             yield rx.toast.error(str(e))
@@ -2906,7 +2906,7 @@ class MisEmpleadosState(
                 plaza_id_int,
                 PlazaUpdate(sede_id=sede_id_int),
             )
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             if int(self.plaza_sede_seleccionada.get("id") or 0) == plaza_id_int:
                 self.cerrar_modal_sede_plaza()
             return rx.toast.success("Sede asignada correctamente")
@@ -2929,7 +2929,7 @@ class MisEmpleadosState(
         self.saving = True
         try:
             await plaza_service.liberar_plaza(plaza_id)
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             return rx.toast.success("Plaza liberada correctamente")
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
@@ -3018,7 +3018,7 @@ class MisEmpleadosState(
         self.saving = True
         try:
             await plaza_service.reactivar_plaza(plaza_id)
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             return rx.toast.success("Plaza reactivada correctamente")
         except BusinessRuleError as e:
             return rx.toast.error(str(e))
@@ -3098,7 +3098,12 @@ class MisEmpleadosState(
 
     async def _post_procesamiento_alta_masiva(self):
         """Recarga el listado después de una alta masiva exitosa."""
+        await self._recargar_empleados_y_sidebar()
+
+    async def _recargar_empleados_y_sidebar(self) -> None:
+        """Sincroniza el listado y el sidebar después de mutaciones portal."""
         await self._fetch_empleados()
+        await self.refrescar_sidebar()
 
     # ========================
     # ACCIONES DE MODAL
@@ -3195,7 +3200,7 @@ class MisEmpleadosState(
             )
 
             self.cerrar_modal_empleado()
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             return rx.toast.success(f"Empleado {empleado.clave} creado correctamente")
 
         except DuplicateError as e:
@@ -3301,7 +3306,7 @@ class MisEmpleadosState(
                 )
 
             self.cerrar_modal_empleado()
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
             return rx.toast.success(f"Empleado {empleado.clave} actualizado correctamente")
 
         except NotFoundError:
@@ -3376,7 +3381,7 @@ class MisEmpleadosState(
             )
 
             self.cerrar_modal_baja()
-            await self._fetch_empleados()
+            await self._recargar_empleados_y_sidebar()
 
             yield rx.toast.success(
                 "Baja registrada. Se generó una alerta de liquidación en Bajas (15 días hábiles)."

@@ -9,6 +9,9 @@ from app.presentation.pages.portal import mis_contratos as mis_contratos_module
 class _DummyMisContratosState:
     _fetch_contratos = mis_contratos_module.MisContratosState._fetch_contratos
     _enriquecer_contrato = mis_contratos_module.MisContratosState._enriquecer_contrato
+    _calcular_pct_cobertura = staticmethod(
+        mis_contratos_module.MisContratosState._calcular_pct_cobertura
+    )
     puede_navegar_plazas_desde_contratos = (
         mis_contratos_module.MisContratosState.puede_navegar_plazas_desde_contratos
     )
@@ -74,7 +77,10 @@ def test_fetch_contratos_portal_incluye_vencidos_por_default(monkeypatch):
     assert dummy.contratos[0]["vigencia_label"] == "VENCIDO"
 
 
-def test_fetch_contratos_portal_filtra_activos_solo_cuando_se_pide(monkeypatch):
+def test_fetch_contratos_portal_siempre_incluye_inactivos(monkeypatch):
+    """El filtro por estatus ahora se aplica solo en secciones en memoria;
+    el query al servicio siempre trae todos los contratos para poder pintar
+    borradores, activos e historial en la misma carga."""
     dummy = _DummyMisContratosState("ACTIVO")
     fake_service = _FakeContratoService()
 
@@ -86,16 +92,16 @@ def test_fetch_contratos_portal_filtra_activos_solo_cuando_se_pide(monkeypatch):
 
     asyncio.run(dummy._fetch_contratos())
 
-    assert fake_service.calls == [(26, False)]
+    assert fake_service.calls == [(26, True)]
     assert dummy.total_contratos_lista == 1
 
 
 def test_ir_a_plazas_contrato_redirige_a_ruta_contextual():
     dummy = _DummyMisContratosState(FILTRO_TODOS)
 
-    evento = dummy.ir_a_plazas_contrato.fn(dummy, 9)
+    evento = dummy.ir_a_plazas_contrato.fn(dummy, "man-jar-26002")
 
-    assert "/portal/contratos/9/plazas" in str(evento)
+    assert "/portal/contratos/MAN-JAR-26002/plazas" in str(evento)
 
 
 def test_contrato_detalle_tiene_plazas_respeta_permiso_y_bandera():

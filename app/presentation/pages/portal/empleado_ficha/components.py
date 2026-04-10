@@ -13,6 +13,7 @@ from app.presentation.components.ui import (
     metadata_divider,
     metadata_item,
     metric_card,
+    metric_card_grid,
     modal_formulario,
     page_header,
     segmented_tab_trigger,
@@ -513,7 +514,7 @@ def tab_datos_personales() -> rx.Component:
 def tab_datos_laborales() -> rx.Component:
     """Tab de datos laborales y asistencia."""
     return rx.flex(
-        rx.grid(
+        metric_card_grid(
             metric_card(
                 titulo="Faltas mes",
                 valor=EmpleadoFichaState.faltas_mes,
@@ -546,9 +547,6 @@ def tab_datos_laborales() -> rx.Component:
                 align="center",
                 color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
-            columns=rx.breakpoints(initial="2", md="4"),
-            spacing="3",
-            width="100%",
         ),
         rx.box(
             _row_label_value(
@@ -732,7 +730,7 @@ def _tabla_documentos(tabla_rows, titulo: str, *, obligatorio: bool) -> rx.Compo
 def tab_expediente() -> rx.Component:
     """Tab expediente documental gestionable desde la ficha."""
     return rx.flex(
-        rx.grid(
+        metric_card_grid(
             metric_card(
                 titulo="Requeridos",
                 valor=EmpleadoFichaState.total_requeridos,
@@ -765,9 +763,6 @@ def tab_expediente() -> rx.Component:
                 align="center",
                 color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
-            columns=rx.breakpoints(initial="2", md="4"),
-            spacing="3",
-            width="100%",
         ),
         rx.flex(
             _section_label("Gestión documental"),

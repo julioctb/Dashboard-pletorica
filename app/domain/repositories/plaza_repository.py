@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
-from app.domain.enums import EstatusPlaza
+from app.domain.enums import EstatusContrato, EstatusPlaza
 from app.core.exceptions import DatabaseError, DuplicateError, NotFoundError
 from app.domain.models.plaza import Plaza
 
@@ -247,6 +247,40 @@ class SupabasePlazaRepository:
             )
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
+    async def contar_activas_en_contratos_operativos_por_categoria(
+        self,
+        categoria_puesto_id: int,
+    ) -> int:
+        """
+        Cuenta plazas no canceladas ligadas a contratos operativos.
+
+        Se usa para saber si una categoría del catálogo aún puede
+        desactivarse sin afectar contratos en operación.
+        """
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select("id, contratos!inner(estatus)", count="exact")
+                .eq("categoria_puesto_id", categoria_puesto_id)
+                .neq("estatus", EstatusPlaza.CANCELADA.value)
+                .in_(
+                    "contratos.estatus",
+                    [
+                        EstatusContrato.ACTIVO.value,
+                        EstatusContrato.SUSPENDIDO.value,
+                    ],
+                )
+                .execute()
+            )
+            return result.count if result.count is not None else 0
+        except Exception as e:
+            logger.error(
+                "Error contando plazas activas en contratos operativos para categoría %s: %s",
+                categoria_puesto_id,
+                e,
+            )
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
     async def contar_vigentes_por_categoria(
         self,
         contrato_id: int,
@@ -441,6 +475,47 @@ class SupabasePlazaRepository:
         except Exception as e:
             logger.error(
                 "Error obteniendo resumen de plazas ocupadas empresa=%s: %s",
+                empresa_id,
+                e,
+            )
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def tiene_plazas_configuradas(self, empresa_id: int) -> bool:
+        """
+        Indica si la empresa ya configuró al menos una plaza con sede y salario.
+
+        Se usa para progressive disclosure del portal.
+        """
+        try:
+            contratos_result = (
+                self.supabase.table("contratos")
+                .select("id")
+                .eq("empresa_id", empresa_id)
+                .neq("estatus", "BORRADOR")
+                .execute()
+            )
+            contrato_ids = [
+                int(item.get("id") or 0)
+                for item in (contratos_result.data or [])
+                if int(item.get("id") or 0) > 0
+            ]
+            if not contrato_ids:
+                return False
+
+            result = (
+                self.supabase.table(self.tabla)
+                .select("id", count="exact")
+                .in_("contrato_id", contrato_ids)
+                .neq("estatus", EstatusPlaza.CANCELADA.value)
+                .not_.is_("sede_id", "null")
+                .gt("salario_mensual", 0)
+                .limit(1)
+                .execute()
+            )
+            return bool((result.count or 0) > 0)
+        except Exception as e:
+            logger.error(
+                "Error validando plazas configuradas empresa=%s: %s",
                 empresa_id,
                 e,
             )

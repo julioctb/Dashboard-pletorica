@@ -16,6 +16,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 from app.core.validation.decimal_converters import convertir_a_decimal_opcional
+from app.domain.enums import TipoSueldo
 
 
 class ContratoCategoria(BaseModel):
@@ -54,7 +55,31 @@ class ContratoCategoria(BaseModel):
         default=None,
         ge=0,
         decimal_places=2,
-        description="Costo por persona/mes"
+        description="Costo por persona/mes (bruto operativo). Uso legado/interno."
+    )
+    costo_contractual: Optional[Decimal] = Field(
+        default=None,
+        ge=0,
+        decimal_places=2,
+        description=(
+            "Monto mensual que la empresa cobra al cliente por persona. "
+            "Se usa para calcular el margen frente a costo empresa."
+        ),
+    )
+    sueldo_base: Optional[Decimal] = Field(
+        default=None,
+        ge=0,
+        decimal_places=2,
+        description="Sueldo capturado por el usuario (bruto o neto segun tipo_sueldo)",
+    )
+    tipo_sueldo: TipoSueldo = Field(
+        default=TipoSueldo.BRUTO,
+        description="Indica si el sueldo_base fue capturado como bruto o neto",
+    )
+    nombre: Optional[str] = Field(
+        default=None,
+        max_length=120,
+        description="Nombre visible de la categoria dentro del contrato",
     )
 
     # Observaciones
@@ -74,8 +99,8 @@ class ContratoCategoria(BaseModel):
 
     @model_validator(mode='after')
     def validar_cantidades(self) -> 'ContratoCategoria':
-        """Valida que cantidad_maxima >= cantidad_minima"""
-        if self.cantidad_maxima < self.cantidad_minima:
+        """Valida min <= max. cantidad_maxima = 0 significa contrato abierto."""
+        if self.cantidad_maxima > 0 and self.cantidad_maxima < self.cantidad_minima:
             raise ValueError(
                 f"La cantidad máxima ({self.cantidad_maxima}) debe ser mayor o igual "
                 f"a la cantidad mínima ({self.cantidad_minima})"
@@ -86,6 +111,17 @@ class ContratoCategoria(BaseModel):
     @classmethod
     def convertir_costo(cls, v):
         """Convierte el costo a Decimal si es necesario"""
+        return convertir_a_decimal_opcional(v)
+
+    @field_validator('costo_contractual', mode='before')
+    @classmethod
+    def convertir_costo_contractual(cls, v):
+        return convertir_a_decimal_opcional(v)
+
+    @field_validator('sueldo_base', mode='before')
+    @classmethod
+    def convertir_sueldo_base(cls, v):
+        """Convierte el sueldo base a Decimal si es necesario."""
         return convertir_a_decimal_opcional(v)
 
     # =========================================================================
@@ -121,12 +157,16 @@ class ContratoCategoriaCreate(BaseModel):
     cantidad_minima: int = Field(..., ge=0)
     cantidad_maxima: int = Field(..., ge=0)
     costo_unitario: Optional[Decimal] = Field(default=None, ge=0)
+    costo_contractual: Optional[Decimal] = Field(default=None, ge=0)
+    sueldo_base: Optional[Decimal] = Field(default=None, ge=0)
+    tipo_sueldo: TipoSueldo = Field(default=TipoSueldo.BRUTO)
+    nombre: Optional[str] = Field(default=None, max_length=120)
     notas: Optional[str] = Field(default=None, max_length=1000)
 
     @model_validator(mode='after')
     def validar_cantidades(self) -> 'ContratoCategoriaCreate':
-        """Valida que cantidad_maxima >= cantidad_minima"""
-        if self.cantidad_maxima < self.cantidad_minima:
+        """Valida min <= max. cantidad_maxima = 0 significa contrato abierto."""
+        if self.cantidad_maxima > 0 and self.cantidad_maxima < self.cantidad_minima:
             raise ValueError(
                 f"La cantidad máxima ({self.cantidad_maxima}) debe ser mayor o igual "
                 f"a la cantidad mínima ({self.cantidad_minima})"
@@ -137,6 +177,17 @@ class ContratoCategoriaCreate(BaseModel):
     @classmethod
     def convertir_costo(cls, v):
         """Convierte el costo a Decimal si es necesario"""
+        return convertir_a_decimal_opcional(v)
+
+    @field_validator('costo_contractual', mode='before')
+    @classmethod
+    def convertir_costo_contractual(cls, v):
+        return convertir_a_decimal_opcional(v)
+
+    @field_validator('sueldo_base', mode='before')
+    @classmethod
+    def convertir_sueldo_base(cls, v):
+        """Convierte el sueldo base a Decimal si es necesario."""
         return convertir_a_decimal_opcional(v)
 
 
@@ -151,12 +202,27 @@ class ContratoCategoriaUpdate(BaseModel):
     cantidad_minima: Optional[int] = Field(default=None, ge=0)
     cantidad_maxima: Optional[int] = Field(default=None, ge=0)
     costo_unitario: Optional[Decimal] = Field(default=None, ge=0)
+    costo_contractual: Optional[Decimal] = Field(default=None, ge=0)
+    sueldo_base: Optional[Decimal] = Field(default=None, ge=0)
+    tipo_sueldo: Optional[TipoSueldo] = Field(default=None)
+    nombre: Optional[str] = Field(default=None, max_length=120)
     notas: Optional[str] = Field(default=None, max_length=1000)
 
     @field_validator('costo_unitario', mode='before')
     @classmethod
     def convertir_costo(cls, v):
         """Convierte el costo a Decimal si es necesario"""
+        return convertir_a_decimal_opcional(v)
+
+    @field_validator('costo_contractual', mode='before')
+    @classmethod
+    def convertir_costo_contractual(cls, v):
+        return convertir_a_decimal_opcional(v)
+
+    @field_validator('sueldo_base', mode='before')
+    @classmethod
+    def convertir_sueldo_base(cls, v):
+        """Convierte el sueldo base a Decimal si es necesario."""
         return convertir_a_decimal_opcional(v)
 
 
@@ -180,6 +246,10 @@ class ContratoCategoriaResumen(BaseModel):
     cantidad_minima: int
     cantidad_maxima: int
     costo_unitario: Optional[Decimal] = None
+    costo_contractual: Optional[Decimal] = None
+    sueldo_base: Optional[Decimal] = None
+    tipo_sueldo: TipoSueldo = TipoSueldo.BRUTO
+    nombre: Optional[str] = None
     notas: Optional[str] = None
 
     # Datos de la categoría (enriquecidos)
@@ -205,6 +275,10 @@ class ContratoCategoriaResumen(BaseModel):
             cantidad_minima=cc.cantidad_minima,
             cantidad_maxima=cc.cantidad_maxima,
             costo_unitario=cc.costo_unitario,
+            costo_contractual=cc.costo_contractual,
+            sueldo_base=cc.sueldo_base,
+            tipo_sueldo=cc.tipo_sueldo,
+            nombre=cc.nombre,
             notas=cc.notas,
             categoria_clave=categoria_clave,
             categoria_nombre=categoria_nombre,

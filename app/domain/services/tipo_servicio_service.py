@@ -8,6 +8,7 @@ Patron de manejo de errores:
 - BusinessRuleError: Violaciones de reglas de negocio
 """
 import logging
+import re
 from typing import List, Optional
 
 from app.domain.models import (
@@ -15,9 +16,11 @@ from app.domain.models import (
     TipoServicioCreate,
     TipoServicioUpdate,
 )
-from app.domain.enums import Estatus, EstatusContrato
+from app.domain.enums import Estatus, EstatusContrato, OrigenTipoServicio
 from app.domain.repositories import SupabaseTipoServicioRepository
-from app.core.exceptions import BusinessRuleError
+from app.core.exceptions import BusinessRuleError, DuplicateError
+from app.core.text_utils import normalizar_mayusculas
+from app.core.utils import generar_candidatos_codigo
 from app.domain.services.base_service import BaseService
 
 logger = logging.getLogger(__name__)
@@ -78,6 +81,26 @@ class TipoServicioService(BaseService):
         """
         return await self.obtener_todas(incluir_inactivas=False)
 
+    async def obtener_portal_empresa(
+        self,
+        empresa_id: int,
+        *,
+        incluir_inactivas: bool = False,
+    ) -> List[TipoServicio]:
+        """Obtiene los tipos creados por una empresa para el portal."""
+        return await self.repository.obtener_por_empresa(
+            empresa_id,
+            incluir_inactivas=incluir_inactivas,
+            origen=OrigenTipoServicio.EMPRESA,
+        )
+
+    async def obtener_activas_portal_empresa(self, empresa_id: int) -> List[TipoServicio]:
+        """Obtiene tipos activos del catálogo de la empresa."""
+        return await self.obtener_portal_empresa(
+            empresa_id,
+            incluir_inactivas=False,
+        )
+
     async def buscar(self, termino: str, limite: int = 10) -> List[TipoServicio]:
         """
         Busca tipos por nombre o clave.
@@ -117,6 +140,38 @@ class TipoServicioService(BaseService):
 
         return await self.repository.crear(tipo)
 
+    async def crear_portal_empresa(
+        self,
+        empresa_id: int,
+        *,
+        nombre: str,
+        descripcion: Optional[str] = None,
+    ) -> TipoServicio:
+        """Crea un tipo de servicio dentro del catálogo propio de la empresa."""
+        nombre_normalizado = normalizar_mayusculas(nombre)
+        if await self.repository.existe_nombre_en_empresa(
+            empresa_id,
+            nombre_normalizado,
+            origen=OrigenTipoServicio.EMPRESA,
+        ):
+            raise DuplicateError(
+                f"El tipo '{nombre_normalizado}' ya existe en esta empresa",
+                field="nombre",
+                value=nombre_normalizado,
+            )
+
+        clave = await self._generar_clave_portal_empresa(nombre_normalizado)
+        return await self.crear(
+            TipoServicioCreate(
+                empresa_id=empresa_id,
+                clave=clave,
+                nombre=nombre_normalizado,
+                descripcion=descripcion,
+                origen=OrigenTipoServicio.EMPRESA,
+                estatus=Estatus.ACTIVO,
+            )
+        )
+
     async def actualizar(self, tipo_id: int, tipo_update: TipoServicioUpdate) -> TipoServicio:
         """
         Actualiza un tipo de servicio existente.
@@ -140,6 +195,35 @@ class TipoServicioService(BaseService):
             )
 
         return await self.repository.actualizar_entidad(tipo_actual)
+
+    async def actualizar_portal_empresa(
+        self,
+        tipo_id: int,
+        empresa_id: int,
+        *,
+        nombre: str,
+    ) -> TipoServicio:
+        """Actualiza un tipo perteneciente al catálogo de una empresa."""
+        tipo_actual = await self.obtener_por_id(tipo_id)
+        self._validar_tipo_portal_empresa(tipo_actual, empresa_id)
+
+        nombre_normalizado = normalizar_mayusculas(nombre)
+        if await self.repository.existe_nombre_en_empresa(
+            empresa_id,
+            nombre_normalizado,
+            origen=OrigenTipoServicio.EMPRESA,
+            excluir_id=tipo_actual.id,
+        ):
+            raise DuplicateError(
+                f"El tipo '{nombre_normalizado}' ya existe en esta empresa",
+                field="nombre",
+                value=nombre_normalizado,
+            )
+
+        return await self.actualizar(
+            tipo_id,
+            TipoServicioUpdate(nombre=nombre_normalizado),
+        )
 
     async def eliminar(self, tipo_id: int) -> bool:
         """
@@ -171,6 +255,12 @@ class TipoServicioService(BaseService):
         return await self._cambiar_estatus(
             tipo_id, Estatus.ACTIVO.value, self.repository, "El tipo"
         )
+
+    async def activar_portal_empresa(self, tipo_id: int, empresa_id: int) -> TipoServicio:
+        """Reactiva un tipo de servicio del catálogo de la empresa."""
+        tipo = await self.obtener_por_id(tipo_id)
+        self._validar_tipo_portal_empresa(tipo, empresa_id)
+        return await self.activar(tipo_id)
 
     # ==========================================
     # VALIDACIONES DE NEGOCIO (privadas)
@@ -209,6 +299,45 @@ class TipoServicioService(BaseService):
             DatabaseError: Si hay error de BD
         """
         return await self.repository.existe_clave(clave, excluir_id)
+
+    def _validar_tipo_portal_empresa(self, tipo: TipoServicio, empresa_id: int) -> None:
+        """Garantiza que el tipo pertenezca al catálogo editable de la empresa."""
+        if int(getattr(tipo, "empresa_id", 0) or 0) != int(empresa_id or 0):
+            raise BusinessRuleError("El tipo de servicio no pertenece a la empresa activa")
+        origen = getattr(tipo, "origen", OrigenTipoServicio.EMPRESA)
+        raw_origen = getattr(origen, "value", origen)
+        if str(raw_origen or "").upper() != OrigenTipoServicio.EMPRESA.value:
+            raise BusinessRuleError("El tipo de servicio es de solo lectura para la empresa")
+
+    async def _generar_clave_portal_empresa(self, nombre: str) -> str:
+        """Genera una clave corta única para tipos de servicio del portal."""
+        candidatos: list[str] = []
+        vistos: set[str] = set()
+
+        def agregar(valor: str) -> None:
+            candidato = re.sub(r"[^A-Z]", "", normalizar_mayusculas(valor))[:5]
+            if 2 <= len(candidato) <= 5 and candidato not in vistos:
+                vistos.add(candidato)
+                candidatos.append(candidato)
+
+        for candidato in generar_candidatos_codigo(nombre):
+            agregar(candidato)
+
+        nombre_normalizado = re.sub(r"[^A-Z]", "", normalizar_mayusculas(nombre))
+        for longitud in range(3, min(len(nombre_normalizado), 5) + 1):
+            agregar(nombre_normalizado[:longitud])
+        for indice in range(max(len(nombre_normalizado) - 4, 1)):
+            agregar(nombre_normalizado[indice: indice + 5])
+
+        agregar("TIPO")
+
+        for candidato in candidatos:
+            if not await self.repository.existe_clave(candidato):
+                return candidato
+
+        raise BusinessRuleError(
+            "No fue posible generar una clave única para el tipo de servicio"
+        )
 
 
 # ==========================================

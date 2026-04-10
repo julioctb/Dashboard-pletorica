@@ -1959,6 +1959,11 @@ class ContratosState(AuthState, CRUDStateMixin):
 
             self.cerrar_modal_contrato()
             await self._fetch_contratos()
+            if self.es_contexto_portal:
+                from app.presentation.pages.portal.state.portal_state import PortalState
+
+                portal_state = await self.get_state(PortalState)
+                await portal_state.refrescar_sidebar()
 
             yield self.crear_toast(
                 mensaje,
@@ -2006,6 +2011,11 @@ class ContratosState(AuthState, CRUDStateMixin):
 
             self.cerrar_modal_contrato()
             await self._fetch_contratos()
+            if self.es_contexto_portal:
+                from app.presentation.pages.portal.state.portal_state import PortalState
+
+                portal_state = await self.get_state(PortalState)
+                await portal_state.refrescar_sidebar()
 
             yield self.crear_toast(
                 mensaje,

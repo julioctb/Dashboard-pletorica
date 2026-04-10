@@ -8,7 +8,6 @@ import reflex as rx
 
 from app.presentation.layouts.backoffice.shell_layout import authenticated_sidebar_shell
 from app.presentation.layouts.portal.portal_sidebar import portal_sidebar
-from app.presentation.pages.portal.state.portal_state import PortalState
 from app.presentation.theme import content_container
 
 
@@ -16,18 +15,13 @@ def portal_index(content: rx.Component) -> rx.Component:
     """
     Layout del portal: sidebar de cliente + contenido.
 
-    Uso en core.py:
-        app.add_page(
-            lambda: portal_index(portal_dashboard_page()),
-            route="/portal",
-        )
+    Nota: el shell NO usa `key=id_empresa_actual` para remontar al cambiar
+    empresa. Ese patrón causaba doble mount (y por tanto doble skeleton) en
+    la hidratación inicial de las páginas protegidas. El refresh al cambiar
+    empresa activa se dispara explícitamente desde
+    `PortalState.cambiar_empresa_portal` via `rx.redirect(ruta_actual)`.
     """
-    return rx.box(
-        authenticated_sidebar_shell(
-            sidebar_component=portal_sidebar(),
-            content=content_container(content),
-        ),
-        # Al cambiar de empresa, se remonta el shell completo y cada página
-        # vuelve a ejecutar su on_mount con el nuevo contexto activo.
-        key=PortalState.id_empresa_actual.to(str),
+    return authenticated_sidebar_shell(
+        sidebar_component=portal_sidebar(),
+        content=content_container(content),
     )

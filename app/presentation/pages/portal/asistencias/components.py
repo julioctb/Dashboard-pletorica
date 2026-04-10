@@ -12,6 +12,7 @@ from app.presentation.components.ui import (
     form_date,
     input_busqueda,
     metric_card,
+    metric_card_grid,
     segmented_tab_trigger,
     segmented_tabs,
     table_shell,
@@ -461,7 +462,7 @@ def barra_jornada() -> rx.Component:
 
 
 def metricas_jornada() -> rx.Component:
-    return rx.grid(
+    return metric_card_grid(
         metric_card(
             titulo="Empleados esperados",
             valor=AsistenciasState.total_empleados_jornada,
@@ -495,9 +496,8 @@ def metricas_jornada() -> rx.Component:
             border="none",
             hoverable=False,
         ),
-        columns=rx.breakpoints(initial="1", md="3"),
-        spacing="3",
-        width="100%",
+        initial_columns="1",
+        md_columns="3",
     )
 
 

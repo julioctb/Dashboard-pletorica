@@ -206,7 +206,7 @@ class PagosState(BaseState):
     @rx.var
     def contrato_esta_cerrado(self) -> bool:
         """Verifica si el contrato está cerrado"""
-        return self.contrato_estatus == EstatusContrato.CERRADO.value
+        return self.contrato_estatus == EstatusContrato.LIQUIDADO.value
 
     # ========================
     # OPERACIONES PRINCIPALES
@@ -379,7 +379,7 @@ class PagosState(BaseState):
         try:
             # forzar=True permite cerrar aunque no esté 100% pagado
             await pago_service.cerrar_contrato(self.contrato_id, forzar=True)
-            self.contrato_estatus = EstatusContrato.CERRADO.value
+            self.contrato_estatus = EstatusContrato.LIQUIDADO.value
 
             return rx.toast.success(
                 f"Contrato {self.contrato_codigo} cerrado exitosamente",

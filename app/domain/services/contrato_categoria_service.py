@@ -11,8 +11,9 @@ Patron de manejo de errores:
 - BusinessRuleError: Reglas de negocio violadas
 """
 import logging
-from typing import List, Optional
 from decimal import Decimal
+from string import ascii_uppercase
+from typing import List, Optional
 
 from app.domain.models.contrato_categoria import (
     ContratoCategoria,
@@ -21,8 +22,11 @@ from app.domain.models.contrato_categoria import (
     ContratoCategoriaResumen,
     ResumenPersonalContrato,
 )
+from app.domain.models.categoria_puesto import CategoriaPuestoCreate
+from app.domain.enums import TipoSueldo
 from app.domain.repositories import SupabaseContratoCategoriaRepository
 from app.core.exceptions import NotFoundError, BusinessRuleError
+from app.core.text_utils import normalizar_mayusculas
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +86,22 @@ class ContratoCategoriaService:
                 cantidad_minima=item['cantidad_minima'],
                 cantidad_maxima=item['cantidad_maxima'],
                 costo_unitario=Decimal(str(item['costo_unitario'])) if item.get('costo_unitario') else None,
+                costo_contractual=(
+                    Decimal(str(item['costo_contractual']))
+                    if item.get('costo_contractual') is not None
+                    else None
+                ),
+                sueldo_base=(
+                    Decimal(str(item['sueldo_base']))
+                    if item.get('sueldo_base') is not None
+                    else (
+                        Decimal(str(item['costo_unitario']))
+                        if item.get('costo_unitario') is not None
+                        else None
+                    )
+                ),
+                tipo_sueldo=TipoSueldo(str(item.get('tipo_sueldo') or TipoSueldo.BRUTO.value)),
+                nombre=item.get('nombre') or item.get('categoria_nombre', ''),
                 notas=item.get('notas'),
                 categoria_clave=item.get('categoria_clave', ''),
                 categoria_nombre=item.get('categoria_nombre', ''),
@@ -177,6 +197,57 @@ class ContratoCategoriaService:
 
         return await self.repository.crear(contrato_categoria)
 
+    async def crear_categoria_portal(
+        self,
+        contrato_id: int,
+        *,
+        nombre: str,
+        sueldo_base: Decimal,
+        tipo_sueldo: TipoSueldo | str = TipoSueldo.BRUTO,
+        sueldo_bruto: Decimal,
+        costo_contractual: Optional[Decimal] = None,
+        min_plazas: int = 0,
+        max_plazas: Optional[int] = None,
+    ) -> ContratoCategoria:
+        """Crea una categoría contractual visible en portal con sueldo ancla."""
+        nombre_normalizado = self._normalizar_nombre_categoria_portal(nombre)
+        tipo = self._normalizar_tipo_sueldo(tipo_sueldo)
+        if not nombre_normalizado:
+            raise BusinessRuleError("Captura el nombre de la categoría")
+        if sueldo_base <= Decimal("0"):
+            raise BusinessRuleError("Captura un sueldo mayor a 0")
+        if sueldo_bruto <= Decimal("0"):
+            raise BusinessRuleError("No se pudo calcular el sueldo bruto de referencia")
+
+        min_val = max(0, int(min_plazas or 0))
+        max_val = 0 if max_plazas in (None, 0) else max(0, int(max_plazas))
+        if max_val > 0 and max_val < min_val:
+            raise BusinessRuleError(
+                "El máximo de plazas no puede ser menor al mínimo"
+            )
+        if costo_contractual is not None and costo_contractual < Decimal("0"):
+            raise BusinessRuleError("El costo contractual no puede ser negativo")
+
+        categoria_puesto_id = await self._resolver_categoria_puesto_portal(
+            contrato_id,
+            nombre_normalizado,
+            sueldo_bruto,
+        )
+
+        return await self.crear(
+            ContratoCategoriaCreate(
+                contrato_id=contrato_id,
+                categoria_puesto_id=categoria_puesto_id,
+                cantidad_minima=min_val,
+                cantidad_maxima=max_val,
+                costo_unitario=sueldo_bruto,
+                costo_contractual=costo_contractual,
+                sueldo_base=sueldo_base,
+                tipo_sueldo=tipo,
+                nombre=nombre_normalizado,
+            )
+        )
+
     async def actualizar(
         self,
         id: int,
@@ -197,19 +268,68 @@ class ContratoCategoriaService:
         nueva_min = datos_actualizados.get('cantidad_minima', asignacion_actual.cantidad_minima)
         nueva_max = datos_actualizados.get('cantidad_maxima', asignacion_actual.cantidad_maxima)
 
-        if nueva_max < nueva_min:
+        if nueva_max > 0 and nueva_max < nueva_min:
             raise BusinessRuleError(
                 f"La cantidad maxima ({nueva_max}) debe ser mayor o igual "
                 f"a la cantidad minima ({nueva_min})"
             )
 
         for campo, valor in datos_actualizados.items():
+            if campo in {'cantidad_minima', 'cantidad_maxima'}:
+                if valor is None:
+                    continue
+                setattr(asignacion_actual, campo, int(valor))
+                continue
             if valor is not None:
                 setattr(asignacion_actual, campo, valor)
 
         logger.info(f"Actualizando asignacion ID {id}")
 
         return await self.repository.actualizar(asignacion_actual)
+
+    async def actualizar_categoria_portal(
+        self,
+        id: int,
+        *,
+        nombre: str,
+        sueldo_base: Decimal,
+        tipo_sueldo: TipoSueldo | str = TipoSueldo.BRUTO,
+        sueldo_bruto: Decimal,
+        costo_contractual: Optional[Decimal] = None,
+        min_plazas: int = 0,
+        max_plazas: Optional[int] = None,
+    ) -> ContratoCategoria:
+        """Actualiza los datos visibles de una categoría contractual desde portal."""
+        nombre_normalizado = self._normalizar_nombre_categoria_portal(nombre)
+        tipo = self._normalizar_tipo_sueldo(tipo_sueldo)
+        if not nombre_normalizado:
+            raise BusinessRuleError("Captura el nombre de la categoría")
+        if sueldo_base <= Decimal("0"):
+            raise BusinessRuleError("Captura un sueldo mayor a 0")
+        if sueldo_bruto <= Decimal("0"):
+            raise BusinessRuleError("No se pudo calcular el sueldo bruto de referencia")
+
+        min_val = max(0, int(min_plazas or 0))
+        max_val = 0 if max_plazas in (None, 0) else max(0, int(max_plazas))
+        if max_val > 0 and max_val < min_val:
+            raise BusinessRuleError(
+                "El máximo de plazas no puede ser menor al mínimo"
+            )
+        if costo_contractual is not None and costo_contractual < Decimal("0"):
+            raise BusinessRuleError("El costo contractual no puede ser negativo")
+
+        return await self.actualizar(
+            id,
+            ContratoCategoriaUpdate(
+                nombre=nombre_normalizado,
+                sueldo_base=sueldo_base,
+                tipo_sueldo=tipo,
+                costo_unitario=sueldo_bruto,
+                costo_contractual=costo_contractual,
+                cantidad_minima=min_val,
+                cantidad_maxima=max_val,
+            ),
+        )
 
     async def eliminar(self, id: int) -> bool:
         """
@@ -366,6 +486,104 @@ class ContratoCategoriaService:
     async def contar_contratos_con_categoria(self, categoria_puesto_id: int) -> int:
         """Cuenta cuantos contratos usan una categoria especifica."""
         return await self.repository.contar_por_categoria(categoria_puesto_id)
+
+    async def obtener_sugerencias_nombres_empresa(self, empresa_id: int) -> List[str]:
+        """Devuelve nombres distintos de categorias ya usados en los contratos
+        de la empresa, para alimentar un autocompletado en portal."""
+        empresa_id = int(empresa_id or 0)
+        if empresa_id <= 0:
+            return []
+        try:
+            return await self.repository.obtener_nombres_por_empresa(empresa_id)
+        except Exception as e:
+            logger.error(
+                f"Error obteniendo sugerencias de categorias para empresa {empresa_id}: {e}"
+            )
+            return []
+
+    @staticmethod
+    def _normalizar_tipo_sueldo(tipo_sueldo: TipoSueldo | str) -> TipoSueldo:
+        if isinstance(tipo_sueldo, TipoSueldo):
+            return tipo_sueldo
+        return TipoSueldo(str(tipo_sueldo or TipoSueldo.BRUTO.value).upper())
+
+    @staticmethod
+    def _normalizar_nombre_categoria_portal(nombre: str) -> str:
+        return " ".join(str(nombre or "").split())
+
+    @staticmethod
+    def _iterar_claves_categoria_portal(nombre: str, existentes: set[str]):
+        palabras = [
+            "".join(letra for letra in palabra if letra.isalpha())
+            for palabra in normalizar_mayusculas(nombre).split()
+        ]
+        palabras = [palabra for palabra in palabras if palabra]
+        letras = "".join(palabras) or "CAT"
+        clave_inicial = "".join(palabra[0] for palabra in palabras)[:5]
+        if len(clave_inicial) < 2:
+            clave_inicial = letras[:5]
+        if len(clave_inicial) < 2:
+            clave_inicial = "CAT"
+        candidatos = [clave_inicial[:5], letras[:5]]
+        base = (letras[:4] or "CATX").ljust(4, "X")
+        candidatos.extend((base + sufijo)[:5] for sufijo in ascii_uppercase)
+
+        vistos: set[str] = set()
+        for candidato in candidatos:
+            candidato_norm = normalizar_mayusculas(candidato)[:5]
+            if len(candidato_norm) < 2:
+                continue
+            if candidato_norm in vistos or candidato_norm in existentes:
+                continue
+            vistos.add(candidato_norm)
+            yield candidato_norm
+
+    async def _resolver_categoria_puesto_portal(
+        self,
+        contrato_id: int,
+        nombre: str,
+        sueldo_bruto: Decimal,
+    ) -> int:
+        from app.domain.services import categoria_puesto_service, contrato_service
+
+        contrato = await contrato_service.obtener_por_id(contrato_id)
+        tipo_servicio_id = int(getattr(contrato, "tipo_servicio_id", 0) or 0)
+        if tipo_servicio_id <= 0:
+            raise BusinessRuleError(
+                f"El contrato '{contrato.codigo}' no tiene tipo de servicio configurado"
+            )
+
+        categorias = await categoria_puesto_service.obtener_por_tipo_servicio(
+            tipo_servicio_id,
+            incluir_inactivas=False,
+        )
+        nombre_normalizado = normalizar_mayusculas(nombre)
+        for categoria in categorias:
+            if normalizar_mayusculas(getattr(categoria, "nombre", "")) == nombre_normalizado:
+                return int(categoria.id or 0)
+
+        claves_existentes = {
+            normalizar_mayusculas(getattr(categoria, "clave", ""))
+            for categoria in categorias
+            if str(getattr(categoria, "clave", "") or "").strip()
+        }
+        try:
+            clave = next(
+                self._iterar_claves_categoria_portal(nombre, claves_existentes),
+            )
+        except StopIteration as exc:
+            raise BusinessRuleError("No se pudo generar una clave para la categoría") from exc
+
+        categoria = await categoria_puesto_service.crear(
+            CategoriaPuestoCreate(
+                tipo_servicio_id=tipo_servicio_id,
+                clave=clave,
+                nombre=nombre,
+                descripcion=f"Generada desde el contrato {contrato.codigo}",
+                salario_base_mensual=sueldo_bruto,
+            )
+        )
+        return int(categoria.id or 0)
 
 
 # ==========================================

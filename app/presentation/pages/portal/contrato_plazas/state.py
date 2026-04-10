@@ -3,27 +3,77 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
+from decimal import Decimal
 
 import reflex as rx
 
-from app.domain.enums import EstatusPlaza
+from app.core.calculations import CalculadoraIMSS, CalculadoraISR
+from app.core.catalogs import CatalogoINFONAVIT, Tolerancias
+from app.core.catalogs.fiscal.politica import PoliticaFiscalResolver
 from app.core.exceptions import BusinessRuleError, NotFoundError
+from app.core.text_utils import (
+    capitalizar_con_preposiciones,
+    capitalizar_palabras,
+    formatear_moneda,
+    formatear_vigencia_meses,
+    normalizar_mayusculas,
+)
+from app.domain.enums import EstatusPlaza, TipoSueldo
+from app.domain.models.costo_patronal import ConfiguracionEmpresa
+from app.modules.application import (
+    contrato_categoria_service,
+    contrato_service,
+    empresa_service,
+)
 from app.presentation.pages.backoffice.contratos.contrato_presentacion import (
     enriquecer_contrato_presentacion,
+    serializar_categoria_contrato_detalle,
 )
 from app.presentation.pages.portal.mis_empleados.state import (
     MisEmpleadosState,
     VISTA_PERSONAL_PLAZA,
 )
-from app.modules.application import contrato_service
+from app.presentation.pages.portal.state.portal_state import PortalState
+from app.presentation.theme import Colors
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_PRIMA_RIESGO = Decimal("0.025984")
+DEFAULT_PRIMA_RIESGO_LABEL = "2.59840%"
+DIAS_MES_FISCAL = Decimal("30")
+
 
 class ContratoPlazasState(MisEmpleadosState):
-    """Vista portal de plazas ligada a un contrato especifico."""
+    """Vista portal de plazas ligada a un contrato específico."""
+
+    DEFAULT_PRIMA_RIESGO = DEFAULT_PRIMA_RIESGO
+    DEFAULT_PRIMA_RIESGO_LABEL = DEFAULT_PRIMA_RIESGO_LABEL
+    DIAS_MES_FISCAL = DIAS_MES_FISCAL
 
     contrato_actual_portal: dict = {}
+    categorias_detalle_contrato: list[dict] = []
+    tab_activa: str = "plazas"
+    toggle_vista_sueldo: str = TipoSueldo.BRUTO.value
+    categoria_desglose_abierto_id: int = 0
+    modal_categoria_abierto: bool = False
+    categoria_editando_id: int = 0
+    form_nombre_categoria: str = ""
+    form_tipo_sueldo: str = TipoSueldo.BRUTO.value
+    form_sueldo_base: str = ""
+    form_costo_contractual: str = ""
+    form_min_plazas: str = "0"
+    form_max_plazas: str = ""
+    error_form_nombre_categoria: str = ""
+    error_form_sueldo_base: str = ""
+    error_form_costo_contractual: str = ""
+    error_form_min_plazas: str = ""
+    error_form_max_plazas: str = ""
+    combobox_nombre_categoria_abierto: bool = False
+    nombres_categoria_sugerencias: list[str] = []
+    empresa_prima_riesgo: str = ""
+    empresa_tiene_nivel_riesgo_configurado: bool = False
+    empresa_nombre_fiscal: str = ""
 
     def _ruta_actual(self) -> str:
         try:
@@ -41,34 +91,42 @@ class ContratoPlazasState(MisEmpleadosState):
 
         return path.split("?", maxsplit=1)[0]
 
-    def _obtener_contrato_id_ruta(self) -> int:
-        raw_contrato_id = ""
+    def _obtener_codigo_contrato_ruta(self) -> str:
+        raw_codigo = ""
 
         try:
-            raw = getattr(self, "id", None)
+            raw = getattr(self, "codigo_contrato", None)
             if raw is not None and callable(raw) is False:
-                raw_contrato_id = str(raw).strip()
+                raw_codigo = str(raw).strip()
         except Exception:
-            raw_contrato_id = ""
+            raw_codigo = ""
 
-        if not raw_contrato_id:
+        if not raw_codigo:
+            try:
+                raw = getattr(self, "contrato_codigo", None)
+                if raw is not None and callable(raw) is False:
+                    raw_codigo = str(raw).strip()
+            except Exception:
+                raw_codigo = ""
+
+        if not raw_codigo:
             router_data = self.router_data or {}
-            posibles_ids = [
-                (router_data.get("query", {}) or {}).get("id", ""),
-                (router_data.get("params", {}) or {}).get("id", ""),
-                (router_data.get("path_params", {}) or {}).get("id", ""),
-                (router_data.get("kwargs", {}) or {}).get("id", ""),
-                (router_data.get("query", {}) or {}).get("contrato_id", ""),
-                (router_data.get("params", {}) or {}).get("contrato_id", ""),
-                (router_data.get("path_params", {}) or {}).get("contrato_id", ""),
-                (router_data.get("kwargs", {}) or {}).get("contrato_id", ""),
-            ]
-            for raw_id in posibles_ids:
-                raw_contrato_id = str(raw_id or "").strip()
-                if raw_contrato_id:
+            for fuente in ("query", "params", "path_params", "kwargs"):
+                datos = router_data.get(fuente, {}) or {}
+                for llave in (
+                    "codigo_contrato",
+                    "contrato_codigo",
+                    "id_contrato",
+                    "contrato_id",
+                    "id",
+                ):
+                    raw_codigo = str(datos.get(llave) or "").strip()
+                    if raw_codigo:
+                        break
+                if raw_codigo:
                     break
 
-        if not raw_contrato_id:
+        if not raw_codigo:
             path = self._ruta_actual()
             partes = [segmento for segmento in path.strip("/").split("/") if segmento]
             if (
@@ -77,21 +135,330 @@ class ContratoPlazasState(MisEmpleadosState):
                 and partes[1] == "contratos"
                 and partes[3] == "plazas"
             ):
-                raw_contrato_id = str(partes[2] or "").strip()
+                raw_codigo = str(partes[2] or "").strip()
 
+        return normalizar_mayusculas(raw_codigo)
+
+    @staticmethod
+    def _formatear_moneda_operativa(monto: Decimal) -> str:
+        return formatear_moneda(
+            str(monto),
+            decimales_fijos=2,
+            espacio_simbolo=False,
+        )
+
+    def _costos_categoria_por_id(self) -> dict[int, Decimal]:
+        costos: dict[int, Decimal] = {}
+        for categoria in self.categorias_detalle_contrato:
+            categoria_id = int(categoria.get("categoria_puesto_id") or 0)
+            if categoria_id <= 0:
+                continue
+            costos[categoria_id] = self._parse_decimal_seguro(
+                categoria.get("costo_unitario"),
+            )
+        return costos
+
+    def _descripcion_servicio_actual(self) -> str:
+        contrato = dict(self.contrato_actual_portal or {})
+        descripcion = str(
+            contrato.get("descripcion_objeto")
+            or contrato.get("descripcion_objeto_display")
+            or contrato.get("nombre_servicio_fmt")
+            or ""
+        ).strip()
+        return capitalizar_con_preposiciones(descripcion)
+
+    def _vigencia_contrato_actual(self) -> str:
+        contrato = dict(self.contrato_actual_portal or {})
+        return formatear_vigencia_meses(
+            contrato.get("fecha_inicio"),
+            contrato.get("fecha_fin"),
+        )
+
+    @staticmethod
+    def _decimal_a_texto_input(valor: Decimal) -> str:
+        return f"{Tolerancias.redondear_moneda(valor):.2f}" if valor > Decimal("0") else ""
+
+    @staticmethod
+    def _coerce_tipo_sueldo(valor) -> TipoSueldo:
+        if isinstance(valor, TipoSueldo):
+            return valor
+        raw = getattr(valor, "value", valor)
         try:
-            return int(raw_contrato_id)
-        except (TypeError, ValueError):
-            return 0
+            return TipoSueldo(str(raw or TipoSueldo.BRUTO.value).upper())
+        except ValueError:
+            return TipoSueldo.BRUTO
 
-    async def _cargar_contrato_actual_portal(self, contrato_id: int) -> None:
-        contrato = await contrato_service.obtener_por_id(contrato_id)
+    def _tipo_sueldo_form_actual(self) -> TipoSueldo:
+        return self._coerce_tipo_sueldo(self.form_tipo_sueldo)
+
+    def _toggle_sueldo_actual(self) -> TipoSueldo:
+        try:
+            return TipoSueldo(str(self.toggle_vista_sueldo or TipoSueldo.BRUTO.value).upper())
+        except ValueError:
+            return TipoSueldo.BRUTO
+
+    def _fecha_calculo_fiscal(self) -> date:
+        return date.today()
+
+    def _contexto_fiscal_actual(self):
+        return PoliticaFiscalResolver.resolver(
+            self._fecha_calculo_fiscal(),
+            zona_frontera=False,
+        )
+
+    def _salario_minimo_diario_decimal(self) -> Decimal:
+        return Decimal(
+            str(self._contexto_fiscal_actual().salario_minimo_diario_aplicable or 0)
+        )
+
+    def _salario_minimo_mensual_decimal(self) -> Decimal:
+        return Tolerancias.redondear_moneda(
+            self._salario_minimo_diario_decimal() * DIAS_MES_FISCAL
+        )
+
+    def _prima_riesgo_decimal(self) -> Decimal:
+        prima = self._parse_decimal_seguro(self.empresa_prima_riesgo)
+        if prima > Decimal("0"):
+            return prima
+        return DEFAULT_PRIMA_RIESGO
+
+    def _factor_integracion_actual(self) -> Decimal:
+        try:
+            configuracion = ConfiguracionEmpresa(
+                nombre=self.empresa_nombre_fiscal or "Empresa portal",
+                estado="puebla",
+                prima_riesgo=float(self._prima_riesgo_decimal()),
+            )
+            return Decimal(str(configuracion.calcular_factor_integracion(1)))
+        except Exception:
+            return Decimal("1.0452")
+
+    def _calcular_snapshot_desde_bruto(self, sueldo_bruto: Decimal) -> dict:
+        bruto = Tolerancias.redondear_moneda(max(Decimal("0"), sueldo_bruto))
+        if bruto <= Decimal("0"):
+            return {
+                "sueldo_bruto": Decimal("0"),
+                "sueldo_neto": Decimal("0"),
+                "sueldo_diario": Decimal("0"),
+                "costo_empresa": Decimal("0"),
+                "carga_patronal_pct": Decimal("0"),
+                "imss_obrero": Decimal("0"),
+                "imss_patronal": Decimal("0"),
+                "isr_estimado": Decimal("0"),
+                "infonavit": Decimal("0"),
+                "retiro_cesantia": Decimal("0"),
+                "es_menor_salario_minimo": False,
+            }
+
+        contexto = self._contexto_fiscal_actual()
+        salario_diario = bruto / DIAS_MES_FISCAL
+        salario_minimo_diario = Decimal(str(contexto.salario_minimo_diario_aplicable or 0))
+        es_salario_minimo = (
+            salario_minimo_diario > Decimal("0")
+            and Tolerancias.es_salario_minimo(salario_diario, salario_minimo_diario)
+        )
+
+        factor_integracion = self._factor_integracion_actual()
+        sbc_diario = salario_diario * factor_integracion
+        tope_sbc = Decimal(str(contexto.tope_sbc or 0))
+        if tope_sbc > Decimal("0"):
+            sbc_diario = min(sbc_diario, tope_sbc)
+
+        calculadora_imss = CalculadoraIMSS()
+        calculadora_isr = CalculadoraISR()
+        dias_mes = int(DIAS_MES_FISCAL)
+        prima_riesgo = float(self._prima_riesgo_decimal())
+        uma_diaria = float(contexto.uma_diaria or 0)
+
+        cuotas_patronales = calculadora_imss.calcular_patronal(
+            float(sbc_diario),
+            dias_mes,
+            prima_riesgo,
+            uma_diaria,
+        )
+        cuotas_obreras, imss_obrero_absorbido = calculadora_imss.calcular_obrero(
+            float(sbc_diario),
+            dias_mes,
+            es_salario_minimo,
+            True,
+            uma_diaria,
+        )
+        isr = calculadora_isr.calcular(
+            float(bruto),
+            es_salario_minimo=es_salario_minimo,
+            fecha_referencia=contexto.fecha_referencia,
+        )
+
+        total_imss_patronal = Decimal(str(sum(cuotas_patronales.values())))
+        total_imss_obrero = Decimal(str(sum(cuotas_obreras.values())))
+        infonavit = Decimal(str(
+            float(sbc_diario) * float(CatalogoINFONAVIT.TASA_PATRONAL) * dias_mes
+        ))
+        isr_estimado = Decimal(str(isr.get("isr_a_retener", 0)))
+        neto_estimado = Tolerancias.redondear_moneda(
+            bruto - total_imss_obrero - isr_estimado
+        )
+        carga_patronal_total = Tolerancias.redondear_moneda(
+            total_imss_patronal
+            + infonavit
+            + Decimal(str(imss_obrero_absorbido))
+        )
+        costo_empresa = Tolerancias.redondear_moneda(bruto + carga_patronal_total)
+        retiro_cesantia = Tolerancias.redondear_moneda(
+            Decimal(str(cuotas_patronales.get("retiro", 0)))
+            + Decimal(str(cuotas_patronales.get("cesantia_vejez", 0)))
+        )
+        carga_patronal_pct = (
+            Tolerancias.redondear_moneda((carga_patronal_total / bruto) * Decimal("100"))
+            if bruto > Decimal("0")
+            else Decimal("0")
+        )
+
+        return {
+            "sueldo_bruto": bruto,
+            "sueldo_neto": neto_estimado,
+            "sueldo_diario": Tolerancias.redondear_moneda(salario_diario),
+            "costo_empresa": costo_empresa,
+            "carga_patronal_pct": carga_patronal_pct,
+            "imss_obrero": Tolerancias.redondear_moneda(total_imss_obrero),
+            "imss_patronal": Tolerancias.redondear_moneda(total_imss_patronal),
+            "isr_estimado": Tolerancias.redondear_moneda(isr_estimado),
+            "infonavit": Tolerancias.redondear_moneda(infonavit),
+            "retiro_cesantia": retiro_cesantia,
+            "es_menor_salario_minimo": bruto < self._salario_minimo_mensual_decimal(),
+        }
+
+    def _resolver_bruto_desde_neto(self, sueldo_neto: Decimal) -> Decimal:
+        neto_objetivo = Tolerancias.redondear_moneda(max(Decimal("0"), sueldo_neto))
+        if neto_objetivo <= Decimal("0"):
+            return Decimal("0")
+
+        minimo_mensual = self._salario_minimo_mensual_decimal()
+        inferior = min(neto_objetivo, minimo_mensual if minimo_mensual > Decimal("0") else neto_objetivo)
+        superior = max(neto_objetivo * Decimal("2"), minimo_mensual, Decimal("1000"))
+
+        snapshot_superior = self._calcular_snapshot_desde_bruto(superior)
+        while snapshot_superior["sueldo_neto"] < neto_objetivo:
+            superior *= Decimal("1.5")
+            snapshot_superior = self._calcular_snapshot_desde_bruto(superior)
+            if superior > Decimal("1000000"):
+                break
+
+        for _ in range(40):
+            punto_medio = (inferior + superior) / Decimal("2")
+            snapshot = self._calcular_snapshot_desde_bruto(punto_medio)
+            neto_medio = snapshot["sueldo_neto"]
+            if abs(neto_medio - neto_objetivo) <= Decimal("0.01"):
+                return Tolerancias.redondear_moneda(punto_medio)
+            if neto_medio < neto_objetivo:
+                inferior = punto_medio
+            else:
+                superior = punto_medio
+
+        return Tolerancias.redondear_moneda(superior)
+
+    def _calcular_snapshot_categoria(
+        self,
+        sueldo_base: Decimal,
+        tipo_sueldo: TipoSueldo | str,
+    ) -> dict:
+        tipo = self._coerce_tipo_sueldo(tipo_sueldo)
+        base = Tolerancias.redondear_moneda(max(Decimal("0"), sueldo_base))
+        if base <= Decimal("0"):
+            return self._calcular_snapshot_desde_bruto(Decimal("0")) | {
+                "tipo_sueldo": tipo.value,
+                "sueldo_base": Decimal("0"),
+            }
+
+        if tipo == TipoSueldo.NETO:
+            sueldo_bruto = self._resolver_bruto_desde_neto(base)
+        else:
+            sueldo_bruto = base
+
+        snapshot = self._calcular_snapshot_desde_bruto(sueldo_bruto)
+        snapshot["tipo_sueldo"] = tipo.value
+        snapshot["sueldo_base"] = base
+        return snapshot
+
+    def _buscar_categoria_detalle(self, categoria_id: int) -> dict:
+        for categoria in self.categorias_detalle_contrato:
+            if int(categoria.get("id") or 0) == int(categoria_id or 0):
+                return dict(categoria)
+        return {}
+
+    async def _cargar_contrato_actual_portal(self, codigo_contrato: str) -> None:
+        codigo_ruta = normalizar_mayusculas(codigo_contrato)
+        contrato = None
+        if codigo_ruta:
+            contrato = await contrato_service.obtener_por_codigo(codigo_ruta)
+        if contrato is None and codigo_ruta.isdigit():
+            try:
+                contrato = await contrato_service.obtener_por_id(int(codigo_ruta))
+            except NotFoundError:
+                contrato = None
+        if contrato is None:
+            raise NotFoundError(f"Contrato {codigo_ruta or codigo_contrato} no encontrado")
         contrato_empresa_id = int(getattr(contrato, "empresa_id", 0) or 0)
         if not self.id_empresa_actual or contrato_empresa_id != int(self.id_empresa_actual):
             raise BusinessRuleError("Solo puedes consultar plazas de contratos de la empresa activa")
         if not bool(getattr(contrato, "tiene_personal", False)):
             raise BusinessRuleError("Este contrato no tiene plazas configurables en portal")
         self.contrato_actual_portal = enriquecer_contrato_presentacion(contrato)
+
+    async def _cargar_categorias_detalle_contrato(self, contrato_id: int) -> None:
+        self.categorias_detalle_contrato = []
+        if contrato_id <= 0:
+            return
+
+        try:
+            resumen = await contrato_categoria_service.obtener_resumen_de_contrato(contrato_id)
+            categorias: list[dict] = []
+            for item in resumen:
+                categoria = serializar_categoria_contrato_detalle(item)
+                costo_unitario = getattr(item, "costo_unitario", None)
+                categoria["costo_unitario"] = str(costo_unitario) if costo_unitario is not None else ""
+                categorias.append(categoria)
+            self.categorias_detalle_contrato = categorias
+        except Exception:
+            self.categorias_detalle_contrato = []
+
+    async def _cargar_detalle_contrato(self) -> None:
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        if contrato_id <= 0:
+            self.categorias_detalle_contrato = []
+            return
+        await self._cargar_categorias_detalle_contrato(contrato_id)
+
+    async def _cargar_contexto_fiscal_empresa(self) -> None:
+        self.empresa_prima_riesgo = ""
+        self.empresa_tiene_nivel_riesgo_configurado = False
+        self.empresa_nombre_fiscal = ""
+        self.nombres_categoria_sugerencias = []
+        if not self.id_empresa_actual:
+            return
+
+        try:
+            empresa = await empresa_service.obtener_por_id(self.id_empresa_actual)
+            self.empresa_nombre_fiscal = str(
+                getattr(empresa, "nombre_comercial", "") or ""
+            ).strip()
+            prima = getattr(empresa, "prima_riesgo", None)
+            if prima is not None:
+                self.empresa_tiene_nivel_riesgo_configurado = True
+                self.empresa_prima_riesgo = str(prima)
+        except Exception:
+            self.empresa_prima_riesgo = ""
+            self.empresa_tiene_nivel_riesgo_configurado = False
+
+        try:
+            self.nombres_categoria_sugerencias = (
+                await contrato_categoria_service.obtener_sugerencias_nombres_empresa(
+                    int(self.id_empresa_actual),
+                )
+            )
+        except Exception:
+            self.nombres_categoria_sugerencias = []
 
     async def on_mount_contrato_plazas(self):
         resultado = await self.on_mount_portal()
@@ -104,13 +471,16 @@ class ContratoPlazasState(MisEmpleadosState):
             yield rx.redirect("/portal")
             return
 
-        contrato_id = self._obtener_contrato_id_ruta()
-        if contrato_id <= 0:
+        codigo_contrato = self._obtener_codigo_contrato_ruta()
+        if not codigo_contrato:
             yield rx.redirect("/portal/contratos")
             return
 
+        self.tab_activa = "plazas"
+        self.categorias_detalle_contrato = []
+
         try:
-            await self._cargar_contrato_actual_portal(contrato_id)
+            await self._cargar_contrato_actual_portal(codigo_contrato)
         except NotFoundError:
             yield rx.toast.error("Contrato no encontrado")
             yield rx.redirect("/portal/contratos")
@@ -120,8 +490,23 @@ class ContratoPlazasState(MisEmpleadosState):
             yield rx.redirect("/portal/contratos")
             return
         except Exception as e:
-            logger.error("Error cargando contrato portal %s: %s", contrato_id, e)
+            logger.error("Error cargando contrato portal %s: %s", codigo_contrato, e)
             yield rx.toast.error("No se pudo abrir la sección de plazas")
+            yield rx.redirect("/portal/contratos")
+            return
+
+        codigo_canonico = normalizar_mayusculas(
+            str(self.contrato_actual_portal.get("codigo") or "")
+        )
+        if codigo_canonico and codigo_canonico != codigo_contrato:
+            yield rx.redirect(
+                PortalState.construir_ruta_plazas_contrato(codigo_canonico),
+                replace=True,
+            )
+            return
+
+        contrato_id = int(self.contrato_actual_portal.get("id") or 0)
+        if contrato_id <= 0:
             yield rx.redirect("/portal/contratos")
             return
 
@@ -130,22 +515,322 @@ class ContratoPlazasState(MisEmpleadosState):
         self.contrato_expandido_plaza_id = contrato_id
         self._reset_filtros_internos_plaza()
 
-        async for _ in self._montar_pagina(self._fetch_empleados):
+        async for _ in self._montar_pagina(
+            self._fetch_empleados,
+            self._cargar_detalle_contrato,
+            self._cargar_contexto_fiscal_empresa,
+        ):
             yield
+
+    def set_tab_activa(self, value: str):
+        self.tab_activa = value or "plazas"
+
+    def set_toggle_vista_sueldo(self, value: str):
+        self.toggle_vista_sueldo = (
+            value if value in {TipoSueldo.BRUTO.value, TipoSueldo.NETO.value}
+            else TipoSueldo.BRUTO.value
+        )
+
+    def set_form_nombre_categoria(self, value: str):
+        self.form_nombre_categoria = " ".join(str(value or "").split())
+        self.error_form_nombre_categoria = ""
+
+    def set_form_tipo_sueldo(self, value: str):
+        self.form_tipo_sueldo = (
+            value if value in {TipoSueldo.BRUTO.value, TipoSueldo.NETO.value}
+            else TipoSueldo.BRUTO.value
+        )
+        self.error_form_sueldo_base = ""
+
+    def set_form_sueldo_base(self, value: str):
+        self.form_sueldo_base = str(value or "").strip()
+        self.error_form_sueldo_base = ""
+
+    def set_form_costo_contractual(self, value: str):
+        self.form_costo_contractual = str(value or "").strip()
+        self.error_form_costo_contractual = ""
+
+    def set_form_min_plazas(self, value: str):
+        self.form_min_plazas = "".join(ch for ch in str(value or "") if ch.isdigit()) or "0"
+        self.error_form_min_plazas = ""
+
+    def set_form_max_plazas(self, value: str):
+        self.form_max_plazas = "".join(ch for ch in str(value or "") if ch.isdigit())
+        self.error_form_max_plazas = ""
+
+    def abrir_combobox_nombre_categoria(self):
+        self.combobox_nombre_categoria_abierto = True
+
+    def cerrar_combobox_nombre_categoria(self):
+        self.combobox_nombre_categoria_abierto = False
+
+    def seleccionar_sugerencia_nombre_categoria(self, valor: str):
+        self.form_nombre_categoria = " ".join(str(valor or "").split())
+        self.error_form_nombre_categoria = ""
+        self.combobox_nombre_categoria_abierto = False
+
+    def toggle_desglose_categoria(self, categoria_id: int):
+        categoria_id_int = int(categoria_id or 0)
+        if categoria_id_int <= 0:
+            return
+        if self.categoria_desglose_abierto_id == categoria_id_int:
+            self.categoria_desglose_abierto_id = 0
+            return
+        self.categoria_desglose_abierto_id = categoria_id_int
+
+    def _resetear_form_categoria(self):
+        self.categoria_editando_id = 0
+        self.form_nombre_categoria = ""
+        self.form_tipo_sueldo = TipoSueldo.BRUTO.value
+        self.form_sueldo_base = ""
+        self.form_costo_contractual = ""
+        self.form_min_plazas = "0"
+        self.form_max_plazas = ""
+        self.error_form_nombre_categoria = ""
+        self.error_form_sueldo_base = ""
+        self.error_form_costo_contractual = ""
+        self.error_form_min_plazas = ""
+        self.error_form_max_plazas = ""
+        self.combobox_nombre_categoria_abierto = False
+
+    def abrir_modal_categoria(self):
+        if self.contrato_solo_consulta:
+            return rx.toast.error("Este contrato está en modo consulta.")
+        self._resetear_form_categoria()
+        self.modal_categoria_abierto = True
+
+    def editar_categoria(self, categoria_id: int):
+        if self.contrato_solo_consulta:
+            return rx.toast.error("Este contrato está en modo consulta.")
+        categoria = self._buscar_categoria_detalle(categoria_id)
+        if not categoria:
+            return rx.toast.error("No se pudo identificar la categoría")
+
+        self._resetear_form_categoria()
+        sueldo_base = self._parse_decimal_seguro(
+            categoria.get("sueldo_base") or categoria.get("costo_unitario")
+        )
+        costo_contractual = self._parse_decimal_seguro(
+            categoria.get("costo_contractual")
+        )
+        cantidad_minima = int(categoria.get("cantidad_minima") or 0)
+        cantidad_maxima = int(categoria.get("cantidad_maxima") or 0)
+
+        self.categoria_editando_id = int(categoria.get("id") or 0)
+        self.form_nombre_categoria = str(
+            categoria.get("nombre") or categoria.get("categoria_nombre") or ""
+        ).strip()
+        self.form_tipo_sueldo = self._coerce_tipo_sueldo(
+            categoria.get("tipo_sueldo")
+        ).value
+        self.form_sueldo_base = self._decimal_a_texto_input(sueldo_base)
+        self.form_costo_contractual = self._decimal_a_texto_input(costo_contractual)
+        self.form_min_plazas = str(cantidad_minima)
+        self.form_max_plazas = "" if cantidad_maxima <= 0 else str(cantidad_maxima)
+        self.modal_categoria_abierto = True
+
+    def cerrar_modal_categoria(self):
+        self.modal_categoria_abierto = False
+        self._resetear_form_categoria()
+
+    def _validar_formulario_categoria(self) -> bool:
+        self.error_form_nombre_categoria = ""
+        self.error_form_sueldo_base = ""
+        self.error_form_costo_contractual = ""
+        self.error_form_min_plazas = ""
+        self.error_form_max_plazas = ""
+
+        if not self.form_nombre_categoria.strip():
+            self.error_form_nombre_categoria = "Capture el nombre de la categoría"
+
+        sueldo_base = self._parse_decimal_seguro(self.form_sueldo_base)
+        if sueldo_base <= Decimal("0"):
+            self.error_form_sueldo_base = "Capture un sueldo mensual mayor a 0"
+
+        if self.form_costo_contractual.strip():
+            costo_contractual = self._parse_decimal_seguro(self.form_costo_contractual)
+            if costo_contractual < Decimal("0"):
+                self.error_form_costo_contractual = "El costo contractual no puede ser negativo"
+
+        try:
+            min_val = int(self.form_min_plazas or "0")
+            if min_val < 0:
+                raise ValueError
+        except ValueError:
+            self.error_form_min_plazas = "Captura un número válido"
+            min_val = -1
+
+        max_raw = self.form_max_plazas.strip()
+        if max_raw:
+            try:
+                max_val = int(max_raw)
+                if max_val < 0:
+                    raise ValueError
+            except ValueError:
+                self.error_form_max_plazas = "Captura un número válido"
+                max_val = -1
+            else:
+                if min_val >= 0 and max_val > 0 and max_val < min_val:
+                    self.error_form_max_plazas = "Debe ser mayor o igual al mínimo"
+
+        return not bool(
+            self.error_form_nombre_categoria
+            or self.error_form_sueldo_base
+            or self.error_form_costo_contractual
+            or self.error_form_min_plazas
+            or self.error_form_max_plazas
+        )
+
+    async def guardar_categoria(self):
+        if self.contrato_solo_consulta:
+            yield rx.toast.error("Este contrato está en modo consulta.")
+            return
+
+        contrato_id = int(self.contrato_actual_portal.get("id") or 0)
+        if contrato_id <= 0:
+            yield rx.toast.error("No se pudo identificar el contrato")
+            return
+
+        if not self._validar_formulario_categoria():
+            yield rx.toast.error("Revise los datos de la categoría")
+            return
+
+        sueldo_base = self._parse_decimal_seguro(self.form_sueldo_base)
+        tipo_sueldo = self._tipo_sueldo_form_actual()
+        snapshot = self._calcular_snapshot_categoria(sueldo_base, tipo_sueldo)
+        sueldo_bruto = snapshot["sueldo_bruto"]
+
+        costo_contractual_raw = self.form_costo_contractual.strip()
+        costo_contractual = (
+            self._parse_decimal_seguro(costo_contractual_raw)
+            if costo_contractual_raw
+            else None
+        )
+        min_plazas = int(self.form_min_plazas or "0")
+        max_raw = self.form_max_plazas.strip()
+        max_plazas = int(max_raw) if max_raw else None
+
+        self.saving = True
+        yield
+        try:
+            if self.categoria_editando_id > 0:
+                await contrato_categoria_service.actualizar_categoria_portal(
+                    self.categoria_editando_id,
+                    nombre=self.form_nombre_categoria,
+                    sueldo_base=sueldo_base,
+                    tipo_sueldo=tipo_sueldo,
+                    sueldo_bruto=sueldo_bruto,
+                    costo_contractual=costo_contractual,
+                    min_plazas=min_plazas,
+                    max_plazas=max_plazas,
+                )
+                mensaje = "Categoría actualizada"
+            else:
+                await contrato_categoria_service.crear_categoria_portal(
+                    contrato_id,
+                    nombre=self.form_nombre_categoria,
+                    sueldo_base=sueldo_base,
+                    tipo_sueldo=tipo_sueldo,
+                    sueldo_bruto=sueldo_bruto,
+                    costo_contractual=costo_contractual,
+                    min_plazas=min_plazas,
+                    max_plazas=max_plazas,
+                )
+                mensaje = "Categoría agregada"
+
+            self.cerrar_modal_categoria()
+            await self._cargar_detalle_contrato()
+            yield rx.toast.success(mensaje)
+        except BusinessRuleError as e:
+            yield rx.toast.error(str(e))
+        except Exception as e:
+            yield self.manejar_error_con_toast(e, "guardando categoría")
+        finally:
+            self.saving = False
+
+    def limpiar_filtros_plazas_contrato(self):
+        self._reset_filtros_internos_plaza()
+        self._sincronizar_seleccion_contrato_actual()
+
+    def volver_a_contratos(self):
+        return rx.redirect("/portal/contratos")
+
+    def toggle_plaza_contrato_actual(self, plaza_id: int, checked) -> None:
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        self.toggle_plaza_seleccionada(contrato_id, plaza_id, checked)
+
+    def seleccionar_todas_plazas_actuales(self, checked) -> None:
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        self.seleccionar_todas_plazas_visibles(contrato_id, checked)
+
+    def set_sede_masiva_actual(self, value: str) -> None:
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        self.set_sede_masiva_contrato(contrato_id, value)
+
+    def set_categoria_masiva_actual(self, value: str) -> None:
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        self.set_categoria_masiva_contrato(contrato_id, value)
+
+    async def asignar_sede_masiva_actual(self):
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        return await self.aplicar_sede_masiva_contrato(contrato_id)
+
+    async def cambiar_categoria_masiva_actual(self):
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        return await self.aplicar_categoria_masiva_contrato(contrato_id)
+
+    def deseleccionar_todas(self):
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        self.limpiar_seleccion_plazas(contrato_id)
+
+    def ir_a_pagina_actual(self, pagina: int):
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        self.ir_a_pagina_plaza_contrato(contrato_id, pagina)
+
+    def pagina_anterior_actual(self):
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        self.pagina_anterior_plaza_contrato(contrato_id)
+
+    def pagina_siguiente_actual(self):
+        contrato_id = int(self.contrato_actual_portal.get("id") or self.contrato_expandido_plaza_id or 0)
+        self.pagina_siguiente_plaza_contrato(contrato_id)
+
+    def accion_reasignar_plaza(self, plaza_id: int):
+        plaza = self._buscar_plaza_contrato_expandido(plaza_id)
+        if not plaza:
+            return rx.toast.error("No se pudo identificar la plaza")
+        return type(self).abrir_modal_reasignacion_plaza(plaza)
+
+    def accion_ver_empleado_plaza(self, plaza_id: int):
+        plaza = self._buscar_plaza_contrato_expandido(plaza_id)
+        if not plaza:
+            return rx.toast.error("No se pudo identificar la plaza")
+        return self.ver_perfil_plaza(plaza)
+
+    def ver_plaza(self, plaza_id: int):
+        plaza = self._buscar_plaza_contrato_expandido(plaza_id)
+        if not plaza:
+            return rx.toast.error("No se pudo identificar la plaza")
+        if int(plaza.get("empleado_id") or 0) > 0:
+            return self.ver_perfil_plaza(plaza)
+        return rx.toast.info("Este contrato solo permite consulta de las plazas.")
 
     def _resumen_plazas_actuales(self) -> dict[str, int]:
         plazas = list(self.plazas_contrato_expandido or [])
         total_plazas = len(plazas)
         plazas_ocupadas = sum(
-            1 for plaza in plazas
+            1
+            for plaza in plazas
             if str(plaza.get("estatus", "") or "") == EstatusPlaza.OCUPADA.value
         )
         plazas_vacantes = sum(
-            1 for plaza in plazas
+            1
+            for plaza in plazas
             if str(plaza.get("estatus", "") or "") == EstatusPlaza.VACANTE.value
         )
         plazas_sin_sede = sum(
-            1 for plaza in plazas
+            1
+            for plaza in plazas
             if int(plaza.get("sede_id") or 0) <= 0
         )
         total_sedes = len(
@@ -180,18 +865,48 @@ class ContratoPlazasState(MisEmpleadosState):
         plazas_sin_sede = int(activo.get("plazas_sin_sede") or resumen["plazas_sin_sede"])
         total_sedes = int(activo.get("total_sedes") or resumen["total_sedes"])
 
-        return {
-            "contrato_id": contrato_id,
-            "contrato_codigo": str(
+        costos_categoria = self._costos_categoria_por_id()
+        costo_presupuestado = Decimal("0")
+        costo_actual = Decimal("0")
+        for plaza in self.plazas_contrato_expandido:
+            categoria_id = int(plaza.get("categoria_puesto_id") or 0)
+            costo = costos_categoria.get(categoria_id, Decimal("0"))
+            if costo <= 0:
+                costo = self._parse_decimal_seguro(plaza.get("salario_mensual"))
+            costo_presupuestado += costo
+            if str(plaza.get("estatus", "") or "") == EstatusPlaza.OCUPADA.value:
+                costo_actual += costo
+
+        cobertura_pct = (
+            int(round((plazas_ocupadas / total_plazas) * 100))
+            if total_plazas > 0 else 0
+        )
+
+        descripcion = self._descripcion_servicio_actual()
+        vigencia = self._vigencia_contrato_actual()
+        subtitulo = descripcion or vigencia
+        if descripcion and vigencia:
+            subtitulo = f"{descripcion} · {vigencia}"
+
+        contrato_codigo = normalizar_mayusculas(
+            str(
                 activo.get("contrato_codigo")
                 or contrato.get("codigo")
                 or "Sin contrato"
             ),
+        )
+
+        return {
+            "contrato_id": contrato_id,
+            "contrato_codigo": contrato_codigo,
             "contrato_estatus": str(
                 contrato.get("estatus")
                 or activo.get("contrato_estatus")
                 or ""
             ),
+            "descripcion_servicio": descripcion,
+            "vigencia_texto": vigencia,
+            "subtitulo": subtitulo or "Configuración y operación de plazas por contrato",
             "tipo_servicio_nombre": str(
                 activo.get("tipo_servicio_nombre")
                 or contrato.get("nombre_servicio_fmt")
@@ -219,6 +934,13 @@ class ContratoPlazasState(MisEmpleadosState):
             ),
             "opciones_categorias_masivas": self._opciones_categoria_masiva_contrato(clave),
             "mostrar_badge_sin_sede": plazas_sin_sede > 0,
+            "cobertura_pct": cobertura_pct,
+            "costo_presupuestado": str(costo_presupuestado),
+            "costo_actual": str(costo_actual),
+            "costo_presupuestado_fmt": self._formatear_moneda_operativa(costo_presupuestado),
+            "costo_actual_fmt": self._formatear_moneda_operativa(costo_actual),
+            "total_categorias": len(self.categorias_detalle_contrato),
+            "ruta_contrato": PortalState.construir_ruta_plazas_contrato(contrato_codigo),
         }
 
     @rx.var
@@ -230,11 +952,26 @@ class ContratoPlazasState(MisEmpleadosState):
         return bool(self.contrato_plaza_contexto)
 
     @rx.var
+    def contrato_actual_id(self) -> int:
+        return int(
+            self.contrato_plaza_contexto.get("contrato_id")
+            or self.contrato_actual_portal.get("id")
+            or self.contrato_expandido_plaza_id
+            or 0
+        )
+
+    @rx.var
     def breadcrumb_items(self) -> list[dict]:
+        """Breadcrumb lógico para la vista de plazas de un contrato.
+
+        Mismo patrón que `/portal/empleados/[id]`: el primer nivel apunta al
+        listado (Plazas), el segundo nivel es la hoja (código del contrato)
+        sin navegación. La UI renderiza este breadcrumb inline dentro del
+        `page_header` — ver `_header_plazas`.
+        """
         return [
-            {"texto": "Portal", "href": "/portal"},
             {"texto": "Plazas", "href": "/portal/plazas"},
-            {"texto": "Contrato", "href": ""},
+            {"texto": self.codigo_contrato_actual or "Contrato", "href": ""},
         ]
 
     @rx.var
@@ -248,8 +985,23 @@ class ContratoPlazasState(MisEmpleadosState):
     @rx.var
     def descripcion_contrato_actual(self) -> str:
         return str(
-            self.contrato_actual_portal.get("descripcion_objeto_display")
-            or "Configuracion y operacion de plazas por contrato"
+            self.contrato_plaza_contexto.get("descripcion_servicio")
+            or self._descripcion_servicio_actual()
+            or "Configuración operativa de plazas"
+        )
+
+    @rx.var
+    def subtitulo_contrato_actual(self) -> str:
+        return str(
+            self.contrato_plaza_contexto.get("subtitulo")
+            or "Configuración y operación de plazas por contrato"
+        )
+
+    @rx.var
+    def vigencia_contrato_actual(self) -> str:
+        return str(
+            self.contrato_plaza_contexto.get("vigencia_texto")
+            or self._vigencia_contrato_actual()
         )
 
     @rx.var
@@ -269,6 +1021,10 @@ class ContratoPlazasState(MisEmpleadosState):
         )
 
     @rx.var
+    def contrato_solo_consulta(self) -> bool:
+        return self.estatus_contrato_actual in {"VENCIDO", "CANCELADO", "LIQUIDADO"}
+
+    @rx.var
     def total_plazas_contrato_actual(self) -> int:
         return int(self.contrato_plaza_contexto.get("total_plazas") or 0)
 
@@ -285,6 +1041,588 @@ class ContratoPlazasState(MisEmpleadosState):
         return int(self.contrato_plaza_contexto.get("plazas_sin_sede") or 0)
 
     @rx.var
+    def total_sedes_contrato_actual(self) -> int:
+        return int(self.contrato_plaza_contexto.get("total_sedes") or 0)
+
+    @rx.var
+    def cobertura_pct_contrato_actual(self) -> int:
+        return int(self.contrato_plaza_contexto.get("cobertura_pct") or 0)
+
+    @rx.var
+    def color_metrica_ocupadas(self) -> str:
+        if self.total_plazas_contrato_actual <= 0:
+            return Colors.TEXT_MUTED
+        if self.cobertura_pct_contrato_actual > 100:
+            return Colors.WARNING
+        if self.cobertura_pct_contrato_actual >= 60:
+            return Colors.SUCCESS
+        return Colors.WARNING
+
+    @rx.var
+    def color_metrica_vacantes(self) -> str:
+        if self.total_plazas_contrato_actual <= 0 or self.plazas_vacantes_contrato_actual <= 0:
+            return Colors.TEXT_MUTED
+        if self.cobertura_pct_contrato_actual >= 80:
+            return Colors.TEXT_MUTED
+        return Colors.WARNING
+
+    @rx.var
+    def descripcion_metrica_ocupadas(self) -> str:
+        if self.total_plazas_contrato_actual <= 0:
+            return ""
+        return f"{self.cobertura_pct_contrato_actual}% cobertura"
+
+    @rx.var
+    def descripcion_metrica_vacantes(self) -> str:
+        if self.total_plazas_contrato_actual <= 0:
+            return ""
+        if self.cobertura_pct_contrato_actual < 80 and self.plazas_vacantes_contrato_actual > 0:
+            return "Requiere atención"
+        return ""
+
+    @rx.var
+    def costo_presupuestado_contrato_actual(self) -> Decimal:
+        return self._parse_decimal_seguro(
+            self.contrato_plaza_contexto.get("costo_presupuestado"),
+        )
+
+    @rx.var
+    def costo_actual_contrato_actual(self) -> Decimal:
+        return self._parse_decimal_seguro(
+            self.contrato_plaza_contexto.get("costo_actual"),
+        )
+
+    @rx.var
+    def costo_presupuestado_contrato_actual_fmt(self) -> str:
+        return str(
+            self.contrato_plaza_contexto.get("costo_presupuestado_fmt")
+            or self._formatear_moneda_operativa(self.costo_presupuestado_contrato_actual)
+        )
+
+    @rx.var
+    def costo_actual_contrato_actual_fmt(self) -> str:
+        return str(
+            self.contrato_plaza_contexto.get("costo_actual_fmt")
+            or self._formatear_moneda_operativa(self.costo_actual_contrato_actual)
+        )
+
+    @rx.var
+    def mostrar_costo_actual_contrato(self) -> bool:
+        return self.costo_actual_contrato_actual > Decimal("0")
+
+    @rx.var
+    def descripcion_metrica_costo(self) -> str:
+        if not self.mostrar_costo_actual_contrato:
+            return ""
+        return f"{self.costo_actual_contrato_actual_fmt} actual"
+
+    @rx.var
+    def mostrar_callout_sin_sede(self) -> bool:
+        return self.plazas_sin_sede_contrato_actual > 0
+
+    @rx.var
+    def mensaje_callout_sin_sede(self) -> str:
+        cantidad = self.plazas_sin_sede_contrato_actual
+        return (
+            f"{cantidad} {self._pluralizar(cantidad, 'plaza', 'plazas')} "
+            f"sin sede {'asignada' if cantidad == 1 else 'asignadas'} — "
+            f"{'requiere' if cantidad == 1 else 'requieren'} configuración"
+        )
+
+    @rx.var
+    def hay_filtros_plazas_contrato_activos(self) -> bool:
+        return bool(
+            self.plaza_busqueda.strip()
+            or self.plaza_filtro_categoria != "all"
+            or self.plaza_filtro_estado != "all"
+        )
+
+    @rx.var
+    def titulo_empty_state_plazas_contrato(self) -> str:
+        if len(self.plazas_contrato_expandido or []) <= 0:
+            return "No hay plazas configuradas en este contrato"
+        if self.hay_filtros_plazas_contrato_activos:
+            return "No se encontraron plazas con los filtros seleccionados"
+        return "No se encontraron plazas"
+
+    @rx.var
+    def descripcion_empty_state_plazas_contrato(self) -> str:
+        if len(self.plazas_contrato_expandido or []) <= 0:
+            return "Este contrato todavía no tiene plazas visibles para operar en portal."
+        if self.hay_filtros_plazas_contrato_activos:
+            return "Prueba con otra búsqueda o limpia los filtros para ver todas las plazas."
+        return "No hay plazas disponibles para este contrato."
+
+    @rx.var
+    def caption_plazas_contrato_actual(self) -> str:
+        total = self.plaza_total_filtradas
+        if total <= 0:
+            return ""
+        visibles = len(self.plazas_pagina_actual or [])
+        return (
+            f"Mostrando {visibles} de {total} plazas · "
+            f"Página {self.pagina_plaza_actual} de {self.total_paginas_plaza_actual}"
+        )
+
+    @rx.var
+    def tiene_categorias_detalle_contrato(self) -> bool:
+        return len(self.categorias_detalle_contrato) > 0
+
+    @rx.var
+    def total_categorias_detalle_contrato(self) -> int:
+        return len(self.categorias_detalle_contrato)
+
+    @rx.var
+    def categoria_editando(self) -> bool:
+        return self.categoria_editando_id > 0
+
+    @rx.var
+    def titulo_modal_categoria(self) -> str:
+        return "Editar categoría" if self.categoria_editando else "Nueva categoría"
+
+    @rx.var
+    def descripcion_modal_categoria(self) -> str:
+        if self.categoria_editando:
+            return "Actualice el nombre y el sueldo ancla de la categoría contractual."
+        return "Agregue una categoría para este contrato y defina su sueldo mensual."
+
+    @rx.var
+    def puede_guardar_categoria(self) -> bool:
+        return bool(
+            self.form_nombre_categoria.strip()
+            and self._parse_decimal_seguro(self.form_sueldo_base) > Decimal("0")
+            and not self.saving
+            and not self.contrato_solo_consulta
+        )
+
+    @rx.var
+    def form_snapshot_categoria(self) -> dict:
+        sueldo_base = self._parse_decimal_seguro(self.form_sueldo_base)
+        return self._calcular_snapshot_categoria(
+            sueldo_base,
+            self._tipo_sueldo_form_actual(),
+        )
+
+    @rx.var
+    def form_bruto_preview(self) -> Decimal:
+        return Decimal(str(self.form_snapshot_categoria.get("sueldo_bruto") or 0))
+
+    @rx.var
+    def form_neto_preview(self) -> Decimal:
+        return Decimal(str(self.form_snapshot_categoria.get("sueldo_neto") or 0))
+
+    @rx.var
+    def form_bruto_preview_fmt(self) -> str:
+        if self.form_bruto_preview <= Decimal("0"):
+            return ""
+        return self._formatear_moneda_operativa(self.form_bruto_preview)
+
+    @rx.var
+    def form_neto_preview_fmt(self) -> str:
+        if self.form_neto_preview <= Decimal("0"):
+            return ""
+        return self._formatear_moneda_operativa(self.form_neto_preview)
+
+    @rx.var
+    def form_preview_sueldo_hint(self) -> str:
+        if self._tipo_sueldo_form_actual() == TipoSueldo.BRUTO:
+            if self.form_neto_preview <= Decimal("0"):
+                return ""
+            return f"Neto estimado: {self.form_neto_preview_fmt}"
+        if self.form_bruto_preview <= Decimal("0"):
+            return ""
+        return f"Bruto estimado: {self.form_bruto_preview_fmt}"
+
+    @rx.var
+    def form_es_menor_salario_minimo(self) -> bool:
+        return bool(self.form_snapshot_categoria.get("es_menor_salario_minimo", False))
+
+    @rx.var
+    def nombres_categoria_sugerencias_filtradas(self) -> list[str]:
+        consulta = " ".join(str(self.form_nombre_categoria or "").split()).lower()
+        nombres_actuales = {
+            str(categoria.get("nombre") or "").strip().upper()
+            for categoria in self.categorias_detalle_contrato
+        }
+        nombres_actuales.discard("")
+        resultado: list[str] = []
+        for nombre in self.nombres_categoria_sugerencias:
+            if nombre.strip().upper() in nombres_actuales:
+                continue
+            if consulta and consulta not in nombre.lower():
+                continue
+            resultado.append(nombre)
+            if len(resultado) >= 12:
+                break
+        return resultado
+
+    @rx.var
+    def mostrar_sugerencias_nombre_categoria(self) -> bool:
+        return bool(
+            self.combobox_nombre_categoria_abierto
+            and len(self.nombres_categoria_sugerencias_filtradas) > 0
+        )
+
+    @rx.var
+    def salario_minimo_diario_vigente(self) -> Decimal:
+        return self._salario_minimo_diario_decimal()
+
+    @rx.var
+    def salario_minimo_mensual_vigente(self) -> Decimal:
+        return self._salario_minimo_mensual_decimal()
+
+    @rx.var
+    def salario_minimo_diario_vigente_fmt(self) -> str:
+        return self._formatear_moneda_operativa(self.salario_minimo_diario_vigente)
+
+    @rx.var
+    def salario_minimo_mensual_vigente_fmt(self) -> str:
+        return self._formatear_moneda_operativa(self.salario_minimo_mensual_vigente)
+
+    @rx.var
+    def anio_actual(self) -> int:
+        return self._fecha_calculo_fiscal().year
+
+    @rx.var
+    def mostrar_callout_nivel_riesgo(self) -> bool:
+        return not self.empresa_tiene_nivel_riesgo_configurado
+
+    @rx.var
+    def empresa_tiene_nivel_riesgo(self) -> bool:
+        return self.empresa_tiene_nivel_riesgo_configurado
+
+    @rx.var
+    def prima_riesgo_activa_label(self) -> str:
+        if self.empresa_tiene_nivel_riesgo_configurado:
+            return f"{float(self._prima_riesgo_decimal() * Decimal('100')):.5f}%"
+        return DEFAULT_PRIMA_RIESGO_LABEL
+
+    @rx.var
+    def mensaje_callout_nivel_riesgo(self) -> str:
+        return (
+            "La empresa no tiene nivel de riesgo configurado. "
+            f"Se utiliza el valor por defecto (clase II — {self.prima_riesgo_activa_label})."
+        )
+
+    @rx.var
+    def referencia_salario_minimo_label(self) -> str:
+        return (
+            f"Salario mínimo vigente {self.anio_actual}: "
+            f"{self.salario_minimo_mensual_vigente_fmt}/mes "
+            f"({self.salario_minimo_diario_vigente_fmt}/día) para jornada completa"
+        )
+
+    @rx.var
+    def categorias_tabla_resumen(self) -> list[dict]:
+        conteos_totales: dict[int, int] = {}
+        conteos_ocupadas: dict[int, int] = {}
+        for plaza in self.plazas_contrato_expandido:
+            categoria_id = int(plaza.get("categoria_puesto_id") or 0)
+            if categoria_id <= 0:
+                continue
+            conteos_totales[categoria_id] = conteos_totales.get(categoria_id, 0) + 1
+            if str(plaza.get("estatus") or "") == EstatusPlaza.OCUPADA.value:
+                conteos_ocupadas[categoria_id] = conteos_ocupadas.get(categoria_id, 0) + 1
+
+        categorias: list[dict] = []
+        vista = self._toggle_sueldo_actual()
+        for categoria in self.categorias_detalle_contrato:
+            categoria_id = int(categoria.get("categoria_puesto_id") or 0)
+            categoria_row_id = int(categoria.get("id") or 0)
+            sueldo_base = self._parse_decimal_seguro(
+                categoria.get("sueldo_base") or categoria.get("costo_unitario")
+            )
+            tipo_sueldo_enum = self._coerce_tipo_sueldo(categoria.get("tipo_sueldo"))
+            tipo_sueldo = tipo_sueldo_enum.value
+            snapshot = self._calcular_snapshot_categoria(sueldo_base, tipo_sueldo_enum)
+            total_plazas = int(conteos_totales.get(categoria_id) or 0)
+            plazas_ocupadas = int(conteos_ocupadas.get(categoria_id) or 0)
+            cantidad_minima = int(categoria.get("cantidad_minima") or 0)
+            cantidad_maxima = int(categoria.get("cantidad_maxima") or 0)
+            costo_contractual_raw = self._parse_decimal_seguro(
+                categoria.get("costo_contractual")
+            )
+            tiene_costo_contractual = costo_contractual_raw > Decimal("0")
+            costo_empresa_decimal = Decimal(str(snapshot["costo_empresa"]))
+            margen = (
+                Tolerancias.redondear_moneda(
+                    costo_contractual_raw - costo_empresa_decimal
+                )
+                if tiene_costo_contractual
+                else Decimal("0")
+            )
+            margen_signo = (
+                "positivo" if margen > Decimal("0")
+                else "negativo" if margen < Decimal("0")
+                else "neutro"
+            )
+            plazas_min_max_label = (
+                f"Min {cantidad_minima} · Sin tope"
+                if cantidad_maxima <= 0
+                else f"Min {cantidad_minima} · Max {cantidad_maxima}"
+            )
+            sueldo_visible = (
+                snapshot["sueldo_bruto"]
+                if vista == TipoSueldo.BRUTO
+                else snapshot["sueldo_neto"]
+            )
+            sueldo_bruto = Decimal(str(snapshot["sueldo_bruto"]))
+            costo_total_presupuestado = Tolerancias.redondear_moneda(
+                sueldo_bruto * Decimal(str(total_plazas))
+            )
+            costo_total_actual = Tolerancias.redondear_moneda(
+                sueldo_bruto * Decimal(str(plazas_ocupadas))
+            )
+            es_ancla = vista.value == tipo_sueldo
+            carga_patronal_pct = Decimal(str(snapshot["carga_patronal_pct"]))
+            categorias.append(
+                {
+                    **categoria,
+                    "id": categoria_row_id,
+                    "categoria_nombre_ui": capitalizar_palabras(
+                        str(
+                            categoria.get("nombre")
+                            or categoria.get("categoria_nombre")
+                            or ""
+                        ),
+                    ),
+                    "plazas_configuradas": total_plazas,
+                    "plazas_ocupadas": plazas_ocupadas,
+                    "plazas_resumen_label": (
+                        f"{total_plazas} plazas · {plazas_ocupadas} ocupadas"
+                    ),
+                    "sueldo_visible_fmt": self._formatear_moneda_operativa(
+                        Decimal(str(sueldo_visible))
+                    ),
+                    "sueldo_diario_fmt": self._formatear_moneda_operativa(
+                        Decimal(str(snapshot["sueldo_diario"]))
+                    ),
+                    "sueldo_diario_label": (
+                        "Diario: "
+                        + self._formatear_moneda_operativa(
+                            Decimal(str(snapshot["sueldo_diario"]))
+                        )
+                    ),
+                    "es_ancla": es_ancla,
+                    "mostrar_calculado": not es_ancla,
+                    "mostrar_warning_salario_minimo": bool(
+                        snapshot["es_menor_salario_minimo"]
+                    ),
+                    "costo_empresa_fmt": self._formatear_moneda_operativa(
+                        costo_empresa_decimal
+                    ),
+                    "carga_patronal_pct_texto": f"+{carga_patronal_pct:.2f}% carga patronal",
+                    "costo_contractual": str(costo_contractual_raw) if tiene_costo_contractual else "",
+                    "costo_contractual_fmt": (
+                        self._formatear_moneda_operativa(costo_contractual_raw)
+                        if tiene_costo_contractual
+                        else "—"
+                    ),
+                    "tiene_costo_contractual": tiene_costo_contractual,
+                    "margen": str(margen) if tiene_costo_contractual else "",
+                    "margen_fmt": (
+                        self._formatear_moneda_operativa(margen)
+                        if tiene_costo_contractual
+                        else "—"
+                    ),
+                    "margen_signo": margen_signo,
+                    "margen_es_positivo": tiene_costo_contractual and margen > Decimal("0"),
+                    "margen_es_cero": tiene_costo_contractual and margen == Decimal("0"),
+                    "margen_es_negativo": tiene_costo_contractual and margen < Decimal("0"),
+                    "mostrar_warning_margen_negativo": (
+                        tiene_costo_contractual and margen < Decimal("0")
+                    ),
+                    "cantidad_minima": cantidad_minima,
+                    "cantidad_maxima": cantidad_maxima,
+                    "plazas_min_max_label": plazas_min_max_label,
+                    "plazas_total_texto": str(total_plazas),
+                    "costo_total_presupuestado_fmt": self._formatear_moneda_operativa(
+                        costo_total_presupuestado
+                    ),
+                    "costo_total_presupuestado": str(costo_total_presupuestado),
+                    "costo_total_actual_fmt": self._formatear_moneda_operativa(
+                        costo_total_actual
+                    ),
+                    "costo_total_actual_label": (
+                        f"{self._formatear_moneda_operativa(costo_total_actual)} actual"
+                    ),
+                    "costo_total_actual": str(costo_total_actual),
+                    "mostrar_costo_total_actual": plazas_ocupadas > 0,
+                    "desglose_visible": categoria_row_id == self.categoria_desglose_abierto_id,
+                    "toggle_desglose_texto": (
+                        "Ocultar desglose"
+                        if categoria_row_id == self.categoria_desglose_abierto_id
+                        else "Ver desglose"
+                    ),
+                    "imss_obrero_fmt": self._formatear_moneda_operativa(
+                        Decimal(str(snapshot["imss_obrero"]))
+                    ),
+                    "imss_patronal_fmt": self._formatear_moneda_operativa(
+                        Decimal(str(snapshot["imss_patronal"]))
+                    ),
+                    "isr_estimado_fmt": self._formatear_moneda_operativa(
+                        Decimal(str(snapshot["isr_estimado"]))
+                    ),
+                    "infonavit_fmt": self._formatear_moneda_operativa(
+                        Decimal(str(snapshot["infonavit"]))
+                    ),
+                    "retiro_cesantia_fmt": self._formatear_moneda_operativa(
+                        Decimal(str(snapshot["retiro_cesantia"]))
+                    ),
+                    "neto_estimado_fmt": self._formatear_moneda_operativa(
+                        Decimal(str(snapshot["sueldo_neto"]))
+                    ),
+                }
+            )
+        return categorias
+
+    @rx.var
+    def total_plazas_categorias_contrato(self) -> int:
+        return sum(
+            int(item.get("plazas_configuradas") or 0)
+            for item in self.categorias_tabla_resumen
+        )
+
+    @rx.var
+    def costo_presupuestado_categorias_total(self) -> Decimal:
+        total = Decimal("0")
+        for item in self.categorias_tabla_resumen:
+            total += self._parse_decimal_seguro(item.get("costo_total_presupuestado"))
+        return Tolerancias.redondear_moneda(total)
+
+    @rx.var
+    def costo_presupuestado_categorias_total_fmt(self) -> str:
+        return self._formatear_moneda_operativa(self.costo_presupuestado_categorias_total)
+
+    @rx.var
+    def caption_tabla_categorias(self) -> str:
+        if not self.tiene_categorias_detalle_contrato:
+            return ""
+        return (
+            f"{self.total_categorias_detalle_contrato} categorías · "
+            f"{self.total_plazas_categorias_contrato} plazas totales · "
+            f"Costo presupuestado: {self.costo_presupuestado_categorias_total_fmt}/mes"
+        )
+
+    @rx.var
+    def plazas_tabla_rows(self) -> list[dict]:
+        costos_categoria = self._costos_categoria_por_id()
+        solo_consulta = self.contrato_solo_consulta
+        filas: list[dict] = []
+        nombres_categoria: dict[int, str] = {
+            int(categoria.get("categoria_puesto_id") or 0): capitalizar_palabras(
+                str(categoria.get("nombre") or categoria.get("categoria_nombre") or "Sin categoría")
+            )
+            for categoria in self.categorias_detalle_contrato
+            if int(categoria.get("categoria_puesto_id") or 0) > 0
+        }
+
+        for plaza in self.plazas_pagina_actual:
+            categoria_id = int(plaza.get("categoria_puesto_id") or 0)
+            sueldo_categoria = costos_categoria.get(categoria_id, Decimal("0"))
+            if sueldo_categoria <= 0:
+                sueldo_categoria = self._parse_decimal_seguro(plaza.get("salario_mensual"))
+
+            tiene_sede = int(plaza.get("sede_id") or 0) > 0
+            tiene_empleado = int(plaza.get("empleado_id") or 0) > 0
+            sede_codigo = normalizar_mayusculas(str(plaza.get("sede_codigo") or ""))
+            sede_nombre = capitalizar_con_preposiciones(str(plaza.get("sede_nombre") or ""))
+            sede_display = ""
+            if tiene_sede:
+                if sede_codigo and sede_nombre:
+                    sede_display = f"{sede_codigo} – {sede_nombre}"
+                else:
+                    sede_display = sede_codigo or sede_nombre
+
+            empleado_uuid = str(plaza.get("empleado_uuid") or "").strip()
+            empleado_id = int(plaza.get("empleado_id") or 0)
+            empleado_href = ""
+            if empleado_uuid:
+                empleado_href = f"/portal/empleados/{empleado_uuid}"
+            elif empleado_id > 0:
+                empleado_href = f"/portal/empleados/{empleado_id}"
+
+            estado = str(plaza.get("estatus_plaza") or plaza.get("estatus") or "")
+            if solo_consulta:
+                cta_texto = "Consultar"
+                cta_scheme = Colors.NEUTRAL_SCHEME
+            elif estado == "SIN_SEDE":
+                cta_texto = "Asignar sede"
+                cta_scheme = Colors.WARNING_SCHEME
+            elif estado == EstatusPlaza.VACANTE.value:
+                cta_texto = "Asignar"
+                cta_scheme = Colors.PORTAL_ACCENT_SCHEME
+            else:
+                cta_texto = "Acciones"
+                cta_scheme = Colors.NEUTRAL_SCHEME
+
+            filas.append(
+                {
+                    **plaza,
+                    "numero_plaza_texto": str(plaza.get("numero_plaza") or "—"),
+                    "categoria_nombre_ui": nombres_categoria.get(
+                        categoria_id,
+                        capitalizar_palabras(
+                            str(plaza.get("categoria_nombre") or "Sin categoría"),
+                        ),
+                    ),
+                    "tiene_sueldo_categoria": sueldo_categoria > 0,
+                    "sueldo_categoria_fmt": (
+                        self._formatear_moneda_operativa(sueldo_categoria)
+                        if sueldo_categoria > 0 else ""
+                    ),
+                    "sueldo_categoria_label": (
+                        f"{self._formatear_moneda_operativa(sueldo_categoria)}/mes"
+                        if sueldo_categoria > 0 else ""
+                    ),
+                    "tiene_sede": tiene_sede,
+                    "sede_display_tabla": sede_display,
+                    "tiene_empleado": tiene_empleado,
+                    "empleado_nombre_ui": capitalizar_palabras(
+                        str(plaza.get("empleado_nombre") or ""),
+                    ),
+                    "empleado_href": empleado_href,
+                    "mostrar_menu_acciones": not solo_consulta and estado == EstatusPlaza.OCUPADA.value,
+                    "cta_texto": cta_texto,
+                    "cta_scheme": cta_scheme,
+                }
+            )
+
+        return filas
+
+    @rx.var
+    def mostrar_barra_acciones_masivas(self) -> bool:
+        return bool(
+            self.tab_activa == "plazas"
+            and self.contrato_plaza_contexto.get("tiene_seleccion", False)
+            and not self.contrato_solo_consulta
+        )
+
+    @rx.var
+    def plazas_seleccionadas_count(self) -> int:
+        return int(self.contrato_plaza_contexto.get("seleccion_count") or 0)
+
+    @rx.var
+    def sede_masiva_actual(self) -> str:
+        return str(self.contrato_plaza_contexto.get("sede_masiva_value") or "")
+
+    @rx.var
+    def categoria_masiva_actual(self) -> str:
+        return str(self.contrato_plaza_contexto.get("categoria_masiva_value") or "")
+
+    @rx.var
+    def opciones_categorias_masivas_actual(self) -> list[dict]:
+        return list(self.contrato_plaza_contexto.get("opciones_categorias_masivas") or [])
+
+    @rx.var
+    def puede_asignar_sede_masiva_actual(self) -> bool:
+        return bool(self.sede_masiva_actual) and not self.saving
+
+    @rx.var
+    def puede_cambiar_categoria_masiva_actual(self) -> bool:
+        return bool(self.categoria_masiva_actual) and not self.saving
+
+    @rx.var
     def mostrar_resumen_contrato_plaza(self) -> bool:
-        """Oculta el acordeón/resumen porque el header ya contiene el contexto."""
+        """Oculta el resumen duplicado; el contexto vive en header, métricas y tabs."""
         return False

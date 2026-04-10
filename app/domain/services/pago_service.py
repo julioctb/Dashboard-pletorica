@@ -245,12 +245,12 @@ class PagoService(BaseService):
         """
         contrato = await self.contrato_repository.obtener_por_id(contrato_id)
 
-        if contrato.estatus == EstatusContrato.CERRADO:
-            raise BusinessRuleError("El contrato ya esta cerrado")
+        if contrato.estatus == EstatusContrato.LIQUIDADO:
+            raise BusinessRuleError("El contrato ya esta liquidado")
 
         if contrato.estatus not in [EstatusContrato.ACTIVO, EstatusContrato.VENCIDO]:
             raise BusinessRuleError(
-                f"Solo se pueden cerrar contratos activos o vencidos (actual: {contrato.estatus})"
+                f"Solo se pueden liquidar contratos activos o vencidos (actual: {contrato.estatus})"
             )
 
         if not forzar:
@@ -259,10 +259,10 @@ class PagoService(BaseService):
                 resumen = await self.obtener_resumen_pagos_contrato(contrato_id)
                 raise BusinessRuleError(
                     f"El contrato tiene saldo pendiente de ${resumen.saldo_pendiente}. "
-                    "Use forzar=True para cerrar de todas formas."
+                    "Use forzar=True para liquidar de todas formas."
                 )
 
-        await self.contrato_repository.cambiar_estatus(contrato_id, EstatusContrato.CERRADO)
+        await self.contrato_repository.cambiar_estatus(contrato_id, EstatusContrato.LIQUIDADO)
         return True
 
     def _validar_contrato_permite_operar_pagos(self, contrato, *, accion: str) -> None:

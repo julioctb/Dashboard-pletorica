@@ -12,7 +12,7 @@ Metodos custom:
 from typing import List, Optional
 
 from app.domain.models import TipoServicio
-from app.domain.enums import Estatus
+from app.domain.enums import Estatus, OrigenTipoServicio
 from app.core.exceptions import DuplicateError
 from app.domain.repositories.base_repository import BaseRepository
 
@@ -59,6 +59,41 @@ class SupabaseTipoServicioRepository(BaseRepository[TipoServicio]):
         query = self.supabase.table(self.tabla).select('*')
         query = self._aplicar_filtro_estatus(query, incluir_inactivas)
         query = query.order('nombre', desc=False)
+        if limite is None:
+            limite = 100
+        query = query.range(offset, offset + limite - 1)
+        result = query.execute()
+        return [TipoServicio(**data) for data in result.data]
+
+    async def obtener_por_empresa(
+        self,
+        empresa_id: int,
+        *,
+        incluir_inactivas: bool = False,
+        origen: OrigenTipoServicio | str | None = OrigenTipoServicio.EMPRESA,
+        limite: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[TipoServicio]:
+        """Obtiene tipos de servicio acotados a una empresa del portal."""
+        return await self._ejecutar_query(
+            "obtener tipos de servicio por empresa",
+            lambda: self._query_obtener_por_empresa(
+                empresa_id,
+                incluir_inactivas,
+                origen,
+                limite,
+                offset,
+            ),
+            return_list=True,
+        )
+
+    def _query_obtener_por_empresa(self, empresa_id, incluir_inactivas, origen, limite, offset):
+        query = self.supabase.table(self.tabla).select("*").eq("empresa_id", empresa_id)
+        if origen is not None:
+            raw_origen = getattr(origen, "value", origen)
+            query = query.eq("origen", str(raw_origen))
+        query = self._aplicar_filtro_estatus(query, incluir_inactivas)
+        query = query.order("nombre", desc=False)
         if limite is None:
             limite = 100
         query = query.range(offset, offset + limite - 1)
@@ -124,3 +159,36 @@ class SupabaseTipoServicioRepository(BaseRepository[TipoServicio]):
     async def existe_clave(self, clave: str, excluir_id: Optional[int] = None) -> bool:
         """Verifica si una clave ya existe."""
         return await self.existe_campo('clave', clave.upper(), excluir_id)
+
+    async def existe_nombre_en_empresa(
+        self,
+        empresa_id: int,
+        nombre: str,
+        *,
+        origen: OrigenTipoServicio | str = OrigenTipoServicio.EMPRESA,
+        excluir_id: Optional[int] = None,
+    ) -> bool:
+        """Verifica si el nombre ya existe dentro del catálogo de una empresa."""
+        return await self._ejecutar_query(
+            "verificar nombre de tipo por empresa",
+            lambda: self._query_existe_nombre_en_empresa(
+                empresa_id,
+                nombre,
+                origen,
+                excluir_id,
+            ),
+        )
+
+    def _query_existe_nombre_en_empresa(self, empresa_id, nombre, origen, excluir_id):
+        raw_origen = getattr(origen, "value", origen)
+        query = (
+            self.supabase.table(self.tabla)
+            .select("id")
+            .eq("empresa_id", empresa_id)
+            .eq("origen", str(raw_origen))
+            .ilike("nombre", nombre.strip())
+        )
+        if excluir_id:
+            query = query.neq("id", excluir_id)
+        result = query.execute()
+        return bool(result.data)

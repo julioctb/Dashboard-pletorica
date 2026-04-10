@@ -117,7 +117,6 @@ class SupabaseContratoRepository:
                     EstatusContrato.BORRADOR.value,
                     EstatusContrato.ACTIVO.value,
                     EstatusContrato.SUSPENDIDO.value,
-                    EstatusContrato.CERRADO.value
                 ])
 
             # Ordenamiento por fecha de creación
@@ -162,7 +161,6 @@ class SupabaseContratoRepository:
                     EstatusContrato.BORRADOR.value,
                     EstatusContrato.ACTIVO.value,
                     EstatusContrato.SUSPENDIDO.value,
-                    EstatusContrato.CERRADO.value
                 ])
 
             query = query.order('fecha_creacion', desc=True)
@@ -200,7 +198,6 @@ class SupabaseContratoRepository:
                     EstatusContrato.BORRADOR.value,
                     EstatusContrato.ACTIVO.value,
                     EstatusContrato.SUSPENDIDO.value,
-                    EstatusContrato.CERRADO.value
                 ])
 
             query = query.order('fecha_creacion', desc=True)
@@ -208,6 +205,23 @@ class SupabaseContratoRepository:
             return [Contrato(**data) for data in result.data]
         except Exception as e:
             logger.error(f"Error obteniendo contratos de tipo servicio {tipo_servicio_id}: {e}")
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def obtener_hijos(self, contrato_padre_id: int) -> List[Contrato]:
+        """Devuelve las extensiones (hijos) de un contrato padre."""
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select('*')
+                .eq('contrato_padre_id', contrato_padre_id)
+                .order('fecha_creacion', desc=False)
+                .execute()
+            )
+            return [Contrato(**data) for data in result.data or []]
+        except Exception as e:
+            logger.error(
+                f"Error obteniendo extensiones del contrato {contrato_padre_id}: {e}"
+            )
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def crear(self, contrato: Contrato) -> Contrato:
@@ -460,7 +474,6 @@ class SupabaseContratoRepository:
                     EstatusContrato.BORRADOR.value,
                     EstatusContrato.ACTIVO.value,
                     EstatusContrato.SUSPENDIDO.value,
-                    EstatusContrato.CERRADO.value
                 ])
 
             # Filtros de fecha

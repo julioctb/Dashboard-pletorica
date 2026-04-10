@@ -449,6 +449,53 @@ class ContratoService:
         """
         return await self._mutation_service.eliminar(contrato_id)
 
+    async def liquidar(self, contrato_id: int) -> Contrato:
+        """Cierra definitivamente un contrato vencido (VENCIDO → LIQUIDADO)."""
+        return await self._mutation_service.liquidar(contrato_id)
+
+    async def crear_extension(
+        self,
+        contrato_padre_id: int,
+        *,
+        fecha_inicio,
+        fecha_fin=None,
+        monto_minimo=None,
+        monto_maximo=None,
+        overrides_categorias=None,
+    ) -> Contrato:
+        """Crea una extensión vinculada a `contrato_padre_id`.
+
+        `overrides_categorias`: dict keyed por id de ContratoCategoria del
+        padre. Permite modificar sueldos/plazas de cada categoría al clonar.
+        """
+        return await self._mutation_service.crear_extension(
+            contrato_padre_id,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin,
+            monto_minimo=monto_minimo,
+            monto_maximo=monto_maximo,
+            overrides_categorias=overrides_categorias,
+        )
+
+    async def obtener_hijos(self, contrato_padre_id: int) -> List[Contrato]:
+        """Devuelve las extensiones (hijos) de un contrato padre."""
+        return await self.repository.obtener_hijos(contrato_padre_id)
+
+    async def migrar_empleados_a_extension(
+        self,
+        padre_id: int,
+        extension_id: int,
+        empleado_ids: list[int],
+    ) -> dict:
+        """Migra empleados seleccionados del padre a la extensión.
+
+        Best-effort: devuelve dict con claves `migrados` (list[int]) y
+        `fallidos` (list[dict con empleado_id y razon]).
+        """
+        return await self._mutation_service.migrar_empleados_a_extension(
+            padre_id, extension_id, empleado_ids
+        )
+
     # ==========================================
     # CONSULTAS ESPECIALIZADAS
     # ==========================================

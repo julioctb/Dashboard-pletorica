@@ -4,13 +4,16 @@ State base del portal de cliente.
 Hereda de AuthState y agrega verificacion de rol client,
 acceso a la empresa activa, y carga de metricas del dashboard.
 """
-import reflex as rx
 import logging
 
-from app.presentation.components.shared.auth_state import AuthState
-from app.modules.application import empresa_service, contrato_service
-from app.modules.empleados.application import empleado_service
+import reflex as rx
+
 from app.core.exceptions import DatabaseError
+from app.core.text_utils import normalizar_mayusculas
+from app.domain.enums import EstatusContrato
+from app.modules.application import contrato_service, empresa_service, plaza_service
+from app.modules.empleados.application import empleado_service
+from app.presentation.components.shared.auth_state import AuthState
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +43,10 @@ class PortalState(AuthState):
     total_plazas_vacantes: int = 0
     plazas_minimas: int = 0
     plazas_maximas: int = 0
+    tiene_contratos_configurados: bool = False
     tiene_contratos_con_personal: bool = False
+    tiene_plazas_configuradas: bool = False
+    tiene_empleados_asignados: bool = False
     primer_contrato_con_personal_id: int = 0
     gestion_nomina_activa_empresa: bool = False
     metricas_cargadas: bool = False
@@ -69,6 +75,31 @@ class PortalState(AuthState):
             )
 
         await self._cargar_contexto_portal_empresa()
+        await self._sincronizar_contexto_portal_global()
+
+    def _copiar_contexto_portal_desde(self, origen: "PortalState") -> None:
+        """Replica al estado global solo las señales que consume la navegación."""
+        for campo in (
+            "total_contratos",
+            "tiene_contratos_configurados",
+            "tiene_contratos_con_personal",
+            "tiene_plazas_configuradas",
+            "tiene_empleados_asignados",
+            "primer_contrato_con_personal_id",
+            "gestion_nomina_activa_empresa",
+            "metricas_cargadas",
+        ):
+            setattr(self, campo, getattr(origen, campo))
+
+    async def _sincronizar_contexto_portal_global(self) -> None:
+        """Sincroniza el `PortalState` global sin disparar una recarga tardía del sidebar."""
+        try:
+            portal_state = await self.get_state(PortalState)
+        except Exception:
+            return
+        if portal_state is self:
+            return
+        portal_state._copiar_contexto_portal_desde(self)
 
     @staticmethod
     def _contrato_tiene_personal(contrato) -> bool:
@@ -76,6 +107,13 @@ class PortalState(AuthState):
         if isinstance(contrato, dict):
             return bool(contrato.get("tiene_personal"))
         return bool(getattr(contrato, "tiene_personal", False))
+
+    @staticmethod
+    def _contrato_estatus(contrato) -> str:
+        """Normaliza el estatus del contrato para modelos y dicts."""
+        if isinstance(contrato, dict):
+            return str(contrato.get("estatus") or "").strip().upper()
+        return str(getattr(contrato, "estatus", "") or "").strip().upper()
 
     async def _obtener_contratos_activos_empresa(self) -> list:
         """Obtiene contratos activos de la empresa actual."""
@@ -86,10 +124,22 @@ class PortalState(AuthState):
             incluir_inactivos=False,
         )
 
+    async def _obtener_contratos_contexto_empresa(self) -> list:
+        """Obtiene contratos del contexto portal para progressive disclosure."""
+        if not self.id_empresa_actual:
+            return []
+        return await contrato_service.obtener_por_empresa(
+            self.id_empresa_actual,
+            incluir_inactivos=True,
+        )
+
     async def _cargar_contexto_portal_empresa(self):
         """Carga señales mínimas que usa la navegación del portal."""
         self.total_contratos = 0
+        self.tiene_contratos_configurados = False
         self.tiene_contratos_con_personal = False
+        self.tiene_plazas_configuradas = False
+        self.tiene_empleados_asignados = False
         self.primer_contrato_con_personal_id = 0
         self.gestion_nomina_activa_empresa = False
 
@@ -101,14 +151,26 @@ class PortalState(AuthState):
             self.gestion_nomina_activa_empresa = bool(
                 getattr(empresa, "gestion_nomina_activa", False)
             )
-            contratos = await self._obtener_contratos_activos_empresa()
-            self.total_contratos = len(contratos)
-            contratos_con_personal = [
+            contratos = await self._obtener_contratos_contexto_empresa()
+            contratos_configurados = [
                 contrato
                 for contrato in contratos
+                if self._contrato_estatus(contrato) != EstatusContrato.BORRADOR.value
+            ]
+            self.total_contratos = len(contratos_configurados)
+            self.tiene_contratos_configurados = bool(contratos_configurados)
+            contratos_con_personal = [
+                contrato
+                for contrato in contratos_configurados
                 if self._contrato_tiene_personal(contrato)
             ]
             self.tiene_contratos_con_personal = bool(contratos_con_personal)
+            self.tiene_plazas_configuradas = await plaza_service.tiene_plazas_configuradas(
+                self.id_empresa_actual
+            )
+            self.tiene_empleados_asignados = bool(
+                await plaza_service.obtener_empleados_asignados(self.id_empresa_actual)
+            )
             if contratos_con_personal:
                 primer_contrato = contratos_con_personal[0]
                 if isinstance(primer_contrato, dict):
@@ -122,18 +184,40 @@ class PortalState(AuthState):
         except Exception as e:
             logger.error("Error cargando contexto del portal: %s", e)
             self.total_contratos = 0
+            self.tiene_contratos_configurados = False
             self.tiene_contratos_con_personal = False
+            self.tiene_plazas_configuradas = False
+            self.tiene_empleados_asignados = False
             self.primer_contrato_con_personal_id = 0
             self.gestion_nomina_activa_empresa = False
+
+    async def refrescar_sidebar(self):
+        """
+        Recalcula los triggers del sidebar.
+
+        Cuando se invoca desde un estado hijo del portal, sincroniza el
+        `PortalState` global que consume el layout.
+        """
+        await self._cargar_contexto_portal_empresa()
+        portal_state = self
+        try:
+            portal_state = await self.get_state(PortalState)
+        except Exception:
+            portal_state = self
+        if portal_state is self:
+            return
+        portal_state._copiar_contexto_portal_desde(self)
 
     async def cambiar_empresa_portal(self, empresa_id_str: str):
         """
         Cambia la empresa activa desde el selector del sidebar.
 
         El select entrega string; se convierte a int y luego delega al
-        metodo heredado de AuthState. El shell del portal se remonta cuando
-        cambia `id_empresa_actual`, por lo que la página visible vuelve a
-        ejecutar su `on_mount` sin tener que redirigir a la misma ruta.
+        metodo heredado de AuthState. Al terminar, se dispara un
+        `rx.redirect(ruta_actual, replace=True)` para que la página visible
+        vuelva a ejecutar su `on_mount` con el nuevo contexto. Antes esto se
+        lograba remontando el shell vía `key=id_empresa_actual`, pero eso
+        causaba doble mount en la hidratación inicial.
         """
         if not empresa_id_str:
             return
@@ -163,7 +247,27 @@ class PortalState(AuthState):
         except Exception as e:
             logger.warning(f"No se pudo persistir cambio de empresa: {e}")
 
-        return resultado
+        ruta_actual = self._ruta_actual_portal()
+        eventos: list = [resultado] if resultado is not None else []
+        if ruta_actual:
+            eventos.append(rx.redirect(ruta_actual, replace=True))
+        return eventos or None
+
+    def _ruta_actual_portal(self) -> str:
+        """Devuelve la ruta actual del portal (sin querystring)."""
+        try:
+            path = str(getattr(getattr(self.router, "url", None), "path", "") or "").strip()
+        except Exception:
+            path = ""
+        if not path:
+            router_data = self.router_data or {}
+            path = str(
+                router_data.get("asPath")
+                or router_data.get("pathname")
+                or "",
+            ).strip()
+        path = path.split("?", maxsplit=1)[0]
+        return path or "/portal"
 
     async def _montar_pagina_portal(self, *operaciones):
         """
@@ -214,7 +318,10 @@ class PortalState(AuthState):
             self.total_plazas_vacantes = 0
             self.plazas_minimas = 0
             self.plazas_maximas = 0
+            self.tiene_contratos_configurados = False
             self.tiene_contratos_con_personal = False
+            self.tiene_plazas_configuradas = False
+            self.tiene_empleados_asignados = False
             self.primer_contrato_con_personal_id = 0
             return
 
@@ -278,34 +385,68 @@ class PortalState(AuthState):
         return bool(self.id_empresa_actual) and not self.es_empleado_portal
 
     @rx.var
-    def mostrar_seccion_contrato(self) -> bool:
-        return self.es_usuario_empresa_portal
+    def mostrar_herramientas(self) -> bool:
+        """Trigger 0.1: solo admin_empresa."""
+        return self.es_usuario_empresa_portal and self.es_admin_empresa
 
     @rx.var
-    def mostrar_seccion_entregables(self) -> bool:
-        return self.es_usuario_empresa_portal and (
+    def mostrar_entregables(self) -> bool:
+        """Trigger 1: existe al menos un contrato configurado."""
+        return self.es_usuario_empresa_portal and self.tiene_contratos_configurados and (
             self.es_operaciones or self.es_contabilidad or self.es_admin_empresa
         )
 
     @rx.var
-    def mostrar_seccion_rrhh(self) -> bool:
+    def mostrar_plazas(self) -> bool:
+        """Trigger 2: existe al menos un contrato configurado con personal."""
         return self.es_usuario_empresa_portal and self.tiene_contratos_con_personal and (
+            self.puede_gestionar_personal
+            or self.puede_registrar_personal
+        )
+
+    @rx.var
+    def mostrar_personal(self) -> bool:
+        """Trigger 3: existe al menos una plaza con sueldo y sede."""
+        return self.es_usuario_empresa_portal and self.tiene_plazas_configuradas and (
             self.puede_gestionar_personal
             or self.puede_registrar_personal
             or self.es_operaciones
         )
 
     @rx.var
-    def mostrar_seccion_plazas_portal(self) -> bool:
-        return self.es_usuario_empresa_portal and self.tiene_contratos_con_personal and (
-            self.puede_gestionar_personal
-            or self.puede_registrar_personal
+    def mostrar_nomina(self) -> bool:
+        """Trigger 4: existe al menos un empleado asignado a una plaza."""
+        return (
+            self.es_usuario_empresa_portal
+            and self.tiene_empleados_asignados
+            and self.gestion_nomina_activa_empresa
+            and (
+                self.puede_acceder_rrhh
+                or self.puede_acceder_nomina_contabilidad
+            )
         )
+
+    @rx.var
+    def mostrar_seccion_contrato(self) -> bool:
+        return self.es_usuario_empresa_portal
+
+    @rx.var
+    def mostrar_seccion_entregables(self) -> bool:
+        return self.mostrar_entregables
+
+    @rx.var
+    def mostrar_seccion_rrhh(self) -> bool:
+        return self.mostrar_personal
+
+    @rx.var
+    def mostrar_seccion_plazas_portal(self) -> bool:
+        return self.mostrar_plazas
 
     @rx.var
     def mostrar_seccion_nominas(self) -> bool:
         return (
             self.es_usuario_empresa_portal
+            and self.tiene_empleados_asignados
             and self.puede_acceder_rrhh
             and self.gestion_nomina_activa_empresa
         )
@@ -314,6 +455,7 @@ class PortalState(AuthState):
     def mostrar_seccion_contabilidad(self) -> bool:
         return (
             self.es_usuario_empresa_portal
+            and self.tiene_empleados_asignados
             and self.puede_acceder_nomina_contabilidad
             and self.gestion_nomina_activa_empresa
         )
@@ -329,6 +471,11 @@ class PortalState(AuthState):
     @rx.var
     def ruta_contrato_principal(self) -> str:
         return "/portal/contratos"
+
+    @staticmethod
+    def construir_ruta_plazas_contrato(codigo_contrato: str | int) -> str:
+        codigo = normalizar_mayusculas(str(codigo_contrato or ""))
+        return f"/portal/contratos/{codigo}/plazas" if codigo else "/portal/contratos"
 
     @rx.var
     def ruta_plazas_principal(self) -> str:

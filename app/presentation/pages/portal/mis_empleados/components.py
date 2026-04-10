@@ -8,6 +8,7 @@ from app.presentation.components.ui import (
     filter_pill,
     input_busqueda,
     metric_card,
+    metric_card_grid,
     select_items_from_options,
     tabla_cta_button,
     table_pagination,
@@ -23,7 +24,7 @@ from .state import MisEmpleadosState
 
 
 def metricas_empleados() -> rx.Component:
-    return rx.grid(
+    return metric_card_grid(
         metric_card(
             titulo="Plazas totales",
             valor=MisEmpleadosState.total_plazas,
@@ -71,9 +72,7 @@ def metricas_empleados() -> rx.Component:
             value_color=Colors.ERROR,
             descripcion="Expedientes incompletos",
         ),
-        columns=rx.breakpoints(initial="2", md="5"),
-        spacing="3",
-        width="100%",
+        md_columns="5",
     )
 
 

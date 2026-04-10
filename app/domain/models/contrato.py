@@ -62,11 +62,18 @@ class Contrato(BaseModel):
         None,
         description="ID de la requisicion origen. NULL solo para contratos legacy."
     )
+    contrato_padre_id: Optional[int] = Field(
+        None,
+        description=(
+            "FK al contrato del cual este es una extensión. NULL si el "
+            "contrato es el original; NOT NULL si es una extensión."
+        )
+    )
 
     # Código único autogenerado
     codigo: str = Field(
         max_length=CODIGO_CONTRATO_MAX,
-        description="Código único: MAN-JAR-25001"
+        description="Código único: MAN-JAR-25001 (o MAN-JAR-25001-E1 si es extensión)"
     )
 
     # Folio oficial de BUAP
@@ -316,6 +323,25 @@ class Contrato(BaseModel):
             EstatusContrato.SUSPENDIDO
         ]
 
+    def puede_extenderse(self) -> bool:
+        """Un contrato solo puede extenderse si ya está VENCIDO.
+
+        Regla de negocio: las extensiones representan la continuación de un
+        contrato cuya vigencia original terminó. Un contrato ACTIVO debe
+        modificarse in-place (fecha_fin, categorías, etc.), no extenderse.
+        Los contratos LIQUIDADOS están cerrados definitivamente y tampoco
+        admiten extensión.
+        """
+        return self.estatus == EstatusContrato.VENCIDO
+
+    def puede_liquidarse(self) -> bool:
+        """Solo contratos VENCIDOS pueden liquidarse definitivamente."""
+        return self.estatus == EstatusContrato.VENCIDO
+
+    def es_extension(self) -> bool:
+        """Indica si este contrato es una extensión de otro."""
+        return self.contrato_padre_id is not None
+
     def activar(self) -> None:
         """Activa el contrato"""
         if not self.puede_activarse():
@@ -340,6 +366,14 @@ class Contrato(BaseModel):
             raise ValueError(MSG_SOLO_VENCER_ACTIVOS)
         self.estatus = EstatusContrato.VENCIDO
 
+    def liquidar(self) -> None:
+        """Cierra definitivamente el contrato (transición VENCIDO → LIQUIDADO)."""
+        if not self.puede_liquidarse():
+            raise ValueError(
+                f"Solo se pueden liquidar contratos vencidos (estado actual: {self.estatus})"
+            )
+        self.estatus = EstatusContrato.LIQUIDADO
+
     def get_monto_con_iva(self, monto: Decimal, tasa_iva: Decimal = Decimal('0.16')) -> Decimal:
         """Calcula el monto con IVA si no lo incluye"""
         if self.incluye_iva:
@@ -362,6 +396,7 @@ class ContratoCreate(BaseModel):
     empresa_id: int
     tipo_servicio_id: Optional[int] = None  # Opcional para ADQUISICION
     requisicion_id: Optional[int] = None
+    contrato_padre_id: Optional[int] = None
     codigo: str = Field(max_length=CODIGO_CONTRATO_MAX)
     numero_folio_buap: Optional[str] = Field(None, max_length=FOLIO_BUAP_MAX)
     tipo_contrato: TipoContrato
@@ -401,6 +436,7 @@ class ContratoUpdate(BaseModel):
     empresa_id: Optional[int] = None
     tipo_servicio_id: Optional[int] = None
     requisicion_id: Optional[int] = None
+    contrato_padre_id: Optional[int] = None
     numero_folio_buap: Optional[str] = Field(None, max_length=FOLIO_BUAP_MAX)
     tipo_contrato: Optional[TipoContrato] = None
     modalidad_adjudicacion: Optional[ModalidadAdjudicacion] = None
@@ -435,6 +471,7 @@ class ContratoResumen(BaseModel):
     codigo: str
     numero_folio_buap: Optional[str]
     empresa_id: int
+    contrato_padre_id: Optional[int] = None
     tipo_servicio_id: Optional[int]  # Opcional para ADQUISICION
     tipo_contrato: TipoContrato
     modalidad_adjudicacion: Optional[ModalidadAdjudicacion]
@@ -466,6 +503,7 @@ class ContratoResumen(BaseModel):
             codigo=contrato.codigo,
             numero_folio_buap=contrato.numero_folio_buap,
             empresa_id=contrato.empresa_id,
+            contrato_padre_id=contrato.contrato_padre_id,
             tipo_servicio_id=contrato.tipo_servicio_id,
             tipo_contrato=contrato.tipo_contrato,
             modalidad_adjudicacion=contrato.modalidad_adjudicacion,

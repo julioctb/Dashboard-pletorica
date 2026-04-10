@@ -12,7 +12,7 @@ Uso:
 from typing import Any
 
 import reflex as rx
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, StatusColors
 
 
 def identifier_badge(
@@ -38,14 +38,17 @@ def estatus_badge(estatus: str) -> rx.Component:
     """Badge de estatus con color según el estado."""
     return rx.match(
         estatus,
-        ("ACTIVO", rx.badge("Activo", color_scheme="green", size="1")),
-        ("BORRADOR", rx.badge("Borrador", color_scheme="gray", size="1")),
-        ("SUSPENDIDO", rx.badge("Suspendido", color_scheme="orange", size="1")),
-        ("VENCIDO", rx.badge("Vencido", color_scheme="yellow", size="1")),
-        ("CANCELADO", rx.badge("Cancelado", color_scheme="red", size="1")),
-        ("CERRADO", rx.badge("Cerrado", color_scheme="blue", size="1")),
-        ("INACTIVO", rx.badge("Inactivo", color_scheme="gray", size="1")),
-        rx.badge(estatus, color_scheme="gray", size="1"),  # default
+        ("ACTIVO", rx.badge("Activo", color_scheme=StatusColors.ACTIVO_SCHEME, variant="soft", size="1")),
+        ("BORRADOR", rx.badge("Borrador", color_scheme=StatusColors.BORRADOR_SCHEME, variant="soft", size="1")),
+        ("SUSPENDIDO", rx.badge("Suspendido", color_scheme=StatusColors.SUSPENDIDO_SCHEME, variant="soft", size="1")),
+        ("VENCIDO", rx.badge("Vencido", color_scheme=StatusColors.VENCIDO_SCHEME, variant="soft", size="1")),
+        ("CANCELADO", rx.badge("Cancelado", color_scheme=StatusColors.CANCELADO_SCHEME, variant="soft", size="1")),
+        ("CERRADO", rx.badge("Cerrado", color_scheme=StatusColors.CERRADO_SCHEME, variant="soft", size="1")),
+        ("INACTIVO", rx.badge("Inactivo", color_scheme=StatusColors.INACTIVO_SCHEME, variant="soft", size="1")),
+        ("OCUPADA", rx.badge("Ocupada", color_scheme=StatusColors.OCUPADA_SCHEME, variant="soft", size="1")),
+        ("VACANTE", rx.badge("Vacante", color_scheme=StatusColors.VACANTE_SCHEME, variant="soft", size="1")),
+        ("SIN_SEDE", rx.badge("Sin sede", color_scheme=Colors.WARNING_SCHEME, variant="soft", size="1")),
+        rx.badge(estatus, color_scheme=Colors.NEUTRAL_SCHEME, variant="soft", size="1"),  # default
     )
 
 

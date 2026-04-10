@@ -8,10 +8,13 @@ y opciones para cambiar empresa (si tiene multiples asignadas).
 import reflex as rx
 
 from app.core.config import Config
+from app.presentation.components.ui.notification_bell import (
+    NotificationBellState,
+    notification_bell_portal,
+)
 from app.presentation.components.shared.auth_state import AuthState
+from app.presentation.layouts.backoffice.primitives import nav_item, route_is_active
 from app.presentation.pages.portal.state.portal_state import PortalState
-from app.presentation.components.ui.notification_bell import notification_bell_portal, NotificationBellState
-from app.presentation.layouts.backoffice.primitives import nav_group, nav_item, route_is_active
 from app.presentation.theme import (
     Colors,
     Layout,
@@ -23,46 +26,86 @@ from app.presentation.theme import (
 
 
 # =============================================================================
-# HELPERS DE VISIBILIDAD
+# HELPERS
 # =============================================================================
 
 
-def _cond_item(
-    condition,
+def _sidebar_section_label(label: str) -> rx.Component:
+    """Etiqueta de sección consistente con el sistema del portal."""
+    return rx.text(
+        label,
+        font_size=Typography.SIZE_XS,
+        font_weight=Typography.WEIGHT_SEMIBOLD,
+        color=Colors.TEXT_MUTED,
+        text_transform="uppercase",
+        letter_spacing=Typography.LETTER_SPACING_SECTION_LABEL,
+        padding_x=Spacing.BASE,
+        padding_top=Spacing.LG,
+        padding_bottom=Spacing.XS,
+    )
+
+
+def _sidebar_divider() -> rx.Component:
+    """Separador visual entre herramientas y flujo operativo."""
+    return rx.box(
+        height="1px",
+        background=Colors.BORDER,
+        margin_x=Spacing.BASE,
+        margin_y=Spacing.XS,
+        width="auto",
+    )
+
+
+def _sidebar_item(
+    text: str,
+    icon: str,
+    href: str,
+    *,
+    active_paths: tuple[str, ...] | None = None,
+    padding_left: str | None = None,
+) -> rx.Component:
+    """Item base del sidebar portal."""
+    rutas_activas = active_paths or (href,)
+    return nav_item(
+        text=text,
+        icon=icon,
+        href=href,
+        is_active=route_is_active(
+            PortalState.router.route_id,
+            rutas_activas[0],
+            *rutas_activas[1:],
+        ),
+        icon_color=Colors.TEXT_SECONDARY,
+        text_color=Colors.TEXT_SECONDARY,
+        hover_bg=Colors.PORTAL_PRIMARY_LIGHTER,
+        active_bg=Colors.PORTAL_PRIMARY_LIGHT,
+        active_text=Colors.PORTAL_PRIMARY_TEXT,
+        padding_x=Spacing.BASE,
+        padding_left=padding_left,
+        padding_right=Spacing.BASE if padding_left is not None else None,
+    )
+
+
+def _sidebar_item_indent(
     text: str,
     icon: str,
     href: str,
     *,
     active_paths: tuple[str, ...] | None = None,
 ) -> rx.Component:
-    """Renderiza un item de navegacion solo si la condicion es verdadera."""
-    rutas_activas = active_paths or (href,)
-    return rx.cond(
-        condition,
-        nav_item(
-            text=text,
-            icon=icon,
-            href=href,
-            is_active=route_is_active(
-                PortalState.router.route_id,
-                rutas_activas[0],
-                *rutas_activas[1:],
-            ),
-            hover_bg=Colors.PORTAL_SIDEBAR_ITEM_HOVER,
-            active_bg=Colors.PORTAL_SIDEBAR_ITEM_ACTIVE,
-            active_text=Colors.PORTAL_SIDEBAR_ITEM_ACTIVE_TEXT,
-        ),
-        rx.fragment(),
+    """Item hijo de Contratos con indentación visual."""
+    return _sidebar_item(
+        text,
+        icon,
+        href,
+        active_paths=active_paths,
+        padding_left=f"calc({Spacing.BASE} + {Spacing.LG})",
     )
 
 
-def _cond_group(condition, label: str, *items) -> rx.Component:
-    """Renderiza un grupo completo solo si la condicion es verdadera."""
-    return rx.cond(
-        condition,
-        nav_group(*items, label=label),
-        rx.fragment(),
-    )
+def _cond_item(condition, component: rx.Component) -> rx.Component:
+    """Renderiza un item solo si la condición es verdadera."""
+    return rx.cond(condition, component, rx.fragment())
 
 
 # =============================================================================
@@ -74,7 +117,7 @@ def _portal_header() -> rx.Component:
     return rx.vstack(
         rx.hstack(
             rx.center(
-                rx.icon("building-2", size=20, color=Colors.PORTAL_PRIMARY),
+                rx.icon("building-2", size=20, color=Colors.PORTAL_PRIMARY_TEXT),
                 width="36px",
                 height="36px",
                 border_radius=Radius.LG,
@@ -148,124 +191,164 @@ def _portal_header() -> rx.Component:
 def _portal_navigation() -> rx.Component:
     """Navegación del portal alineada con las secciones funcionales."""
     return rx.vstack(
-        # Dashboard (siempre visible)
-        nav_group(
-            nav_item(
-                text="Dashboard",
-                icon="layout-dashboard",
-                href="/portal",
-                is_active=route_is_active(PortalState.router.route_id, "/portal"),
-                hover_bg=Colors.PORTAL_SIDEBAR_ITEM_HOVER,
-                active_bg=Colors.PORTAL_SIDEBAR_ITEM_ACTIVE,
-                active_text=Colors.PORTAL_SIDEBAR_ITEM_ACTIVE_TEXT,
+        _sidebar_item("Dashboard", "layout-dashboard", "/portal"),
+        rx.cond(
+            PortalState.mostrar_herramientas,
+            rx.fragment(
+                _sidebar_section_label("Herramientas"),
+                _sidebar_item("Simulador", "calculator", "/portal/simulador"),
+                _sidebar_item("Cotizador", "file-spreadsheet", "/portal/cotizador"),
+                _sidebar_divider(),
             ),
+            rx.fragment(),
         ),
-        # Comercial: cotizador, contratos, entregables, reportes
-        _cond_group(
+        rx.cond(
             PortalState.mostrar_seccion_contrato,
-            "Comercial",
-            _cond_item(
-                AuthState.es_admin_empresa,
-                "Simulador",
-                "calculator",
-                "/portal/simulador",
-            ),
-            _cond_item(
-                AuthState.es_admin_empresa,
-                "Cotizador",
-                "file-spreadsheet",
-                "/portal/cotizador",
-            ),
-            _cond_item(
-                PortalState.mostrar_seccion_contrato,
-                "Contratos",
-                "file-text",
-                "/portal/contratos",
-            ),
-            _cond_item(
-                PortalState.mostrar_seccion_plazas_portal,
-                "Plazas",
-                "briefcase",
-                "/portal/plazas",
-                active_paths=(
-                    "/portal/plazas",
-                    "/portal/contratos/[id]/plazas",
+            rx.fragment(
+                _sidebar_section_label("Contratos"),
+                _sidebar_item("Contratos", "file-text", "/portal/contratos"),
+                _cond_item(
+                    PortalState.mostrar_plazas,
+                    _sidebar_item_indent(
+                        "Plazas",
+                        "briefcase",
+                        "/portal/plazas",
+                        active_paths=(
+                            "/portal/plazas",
+                            "/portal/contratos/[codigo_contrato]/plazas",
+                        ),
+                    ),
+                ),
+                _cond_item(
+                    PortalState.mostrar_entregables,
+                    _sidebar_item_indent(
+                        "Entregables",
+                        "package-check",
+                        "/portal/entregables",
+                    ),
                 ),
             ),
-            _cond_item(
-                PortalState.mostrar_seccion_entregables,
-                "Entregables",
-                "package-check",
-                "/portal/entregables",
-            ),
+            rx.fragment(),
         ),
-        # RRHH: empleados, asistencias
-        _cond_group(
-            PortalState.mostrar_seccion_rrhh,
-            "RRHH",
-            _cond_item(
-                AuthState.puede_gestionar_personal | AuthState.puede_registrar_personal,
-                "Empleados",
-                "users",
-                "/portal/empleados",
-                active_paths=(
-                    "/portal/empleados",
-                    "/portal/empleados/[id]",
-                    "/portal/onboarding",
+        rx.cond(
+            PortalState.mostrar_personal,
+            rx.fragment(
+                _sidebar_section_label("Personal"),
+                _cond_item(
+                    AuthState.puede_gestionar_personal | AuthState.puede_registrar_personal,
+                    _sidebar_item(
+                        "Empleados",
+                        "users",
+                        "/portal/empleados",
+                        active_paths=(
+                            "/portal/empleados",
+                            "/portal/empleados/[id]",
+                            "/portal/onboarding",
+                        ),
+                    ),
+                ),
+                _cond_item(
+                    AuthState.puede_acceder_rrhh,
+                    _sidebar_item(
+                        "Incapacidades",
+                        "heart-pulse",
+                        "/portal/incapacidades",
+                    ),
+                ),
+                _cond_item(
+                    AuthState.puede_acceder_rrhh,
+                    _sidebar_item("Bajas", "user-minus", "/portal/bajas"),
+                ),
+                _cond_item(
+                    AuthState.es_operaciones | AuthState.puede_acceder_rrhh,
+                    _sidebar_item(
+                        "Asistencias",
+                        "clipboard-check",
+                        "/portal/asistencias",
+                    ),
                 ),
             ),
-            _cond_item(
-                AuthState.puede_acceder_rrhh,
-                "Incapacidades",
-                "heart-pulse",
-                "/portal/incapacidades",
-            ),
-            _cond_item(AuthState.puede_acceder_rrhh, "Bajas", "user-minus", "/portal/bajas"),
-            _cond_item(
-                AuthState.es_operaciones | AuthState.puede_acceder_rrhh,
-                "Asistencias",
-                "clipboard-check",
-                "/portal/asistencias",
-            ),
+            rx.fragment(),
         ),
-        # Nómina (unifica RRHH + Contabilidad — cada rol ve solo sus items)
-        _cond_group(
-            PortalState.mostrar_seccion_nominas | PortalState.mostrar_seccion_contabilidad,
-            "Nómina",
-            _cond_item(PortalState.mostrar_seccion_nominas, "Períodos", "calculator", "/portal/nominas"),
-            _cond_item(PortalState.mostrar_seccion_nominas, "Preparación", "folder-open", "/portal/nominas/preparacion"),
-            _cond_item(PortalState.mostrar_seccion_contabilidad, "Cálculo", "calculator", "/portal/nominas/calculo"),
-            _cond_item(PortalState.mostrar_seccion_contabilidad, "Conciliación", "file-check", "/portal/nominas/conciliacion"),
+        rx.cond(
+            PortalState.mostrar_nomina,
+            rx.fragment(
+                _sidebar_section_label("Nómina"),
+                _sidebar_item("Períodos", "calendar", "/portal/nominas"),
+                _cond_item(
+                    PortalState.mostrar_seccion_nominas,
+                    _sidebar_item(
+                        "Preparación",
+                        "folder-open",
+                        "/portal/nominas/preparacion",
+                    ),
+                ),
+                _cond_item(
+                    PortalState.mostrar_seccion_contabilidad,
+                    _sidebar_item(
+                        "Cálculo",
+                        "calculator",
+                        "/portal/nominas/calculo",
+                    ),
+                ),
+                _cond_item(
+                    PortalState.mostrar_seccion_contabilidad,
+                    _sidebar_item(
+                        "Conciliación",
+                        "file-check",
+                        "/portal/nominas/conciliacion",
+                    ),
+                ),
+            ),
+            rx.fragment(),
         ),
-        # Empresa: datos, usuarios, configuracion
-        _cond_group(
+        rx.cond(
             PortalState.mostrar_seccion_empresa,
-            "Empresa",
-            _cond_item(
-                PortalState.mostrar_seccion_empresa,
-                "Datos empresa",
-                "building-2",
-                "/portal/mi-empresa",
+            rx.fragment(
+                _sidebar_section_label("Empresa"),
+                _sidebar_item("Datos empresa", "building-2", "/portal/mi-empresa"),
+                _cond_item(
+                    AuthState.es_admin_empresa | AuthState.puede_acceder_rrhh,
+                    _sidebar_item(
+                        "Catálogo de puestos",
+                        "briefcase",
+                        "/portal/empresa/categorias",
+                    ),
+                ),
+                _cond_item(
+                    AuthState.es_admin_empresa,
+                    _sidebar_item(
+                        "Documentación",
+                        "folder-lock",
+                        "/portal/documentacion-empresa",
+                    ),
+                ),
+                _cond_item(
+                    AuthState.es_admin_empresa,
+                    _sidebar_item("Usuarios", "users-round", "/portal/usuarios"),
+                ),
+                _cond_item(
+                    AuthState.puede_configurar_empresa,
+                    _sidebar_item(
+                        "Configuración",
+                        "settings",
+                        "/portal/configuracion-empresa",
+                    ),
+                ),
             ),
-            _cond_item(
-                AuthState.es_admin_empresa,
-                "Documentación",
-                "folder-lock",
-                "/portal/documentacion-empresa",
-            ),
-            _cond_item(AuthState.es_admin_empresa, "Usuarios", "users-round", "/portal/usuarios"),
-            _cond_item(AuthState.puede_configurar_empresa, "Configuración", "settings", "/portal/configuracion-empresa"),
+            rx.fragment(),
         ),
-        # Auto servicio (empleados)
-        _cond_group(
+        rx.cond(
             PortalState.mostrar_seccion_autoservicio,
-            "Auto servicio",
-            _cond_item(
-                PortalState.mostrar_seccion_autoservicio,
-                "Mis datos",
-                "user-check",
-                "/portal/mis-datos",
+            rx.fragment(
+                _sidebar_section_label("Auto servicio"),
+                _sidebar_item(
+                    "Mis datos",
+                    "user-check",
+                    "/portal/mis-datos",
+                ),
             ),
+            rx.fragment(),
         ),
         spacing="0",
         width="100%",
@@ -287,7 +370,7 @@ def _portal_user_section() -> rx.Component:
             rx.menu.trigger(
                 rx.hstack(
                     rx.center(
-                        rx.icon("user", size=18, color=Colors.PORTAL_PRIMARY),
+                        rx.icon("user", size=18, color=Colors.PORTAL_PRIMARY_TEXT),
                         width="32px",
                         height="32px",
                         border_radius="50%",
@@ -329,7 +412,7 @@ def _portal_user_section() -> rx.Component:
                     transition=Transitions.FAST,
                     style={
                         "_hover": {
-                            "background": Colors.PORTAL_SIDEBAR_ITEM_HOVER,
+                            "background": Colors.PORTAL_PRIMARY_LIGHTER,
                         },
                     },
                 ),
@@ -452,5 +535,7 @@ def portal_sidebar() -> rx.Component:
         background=Colors.SURFACE,
         border_right=f"1px solid {Colors.BORDER}",
         flex_shrink="0",
-        on_mount=NotificationBellState.cargar_notificaciones_portal,
+        on_mount=[
+            NotificationBellState.cargar_notificaciones_portal,
+        ],
     )

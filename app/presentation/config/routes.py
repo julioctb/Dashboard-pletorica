@@ -78,6 +78,7 @@ from app.presentation.pages.portal.contrato_plazas import contrato_plazas_page
 from app.presentation.pages.portal.documentacion_empresa import (
     documentacion_empresa_portal_page,
 )
+from app.presentation.pages.portal.empresa_categorias import empresa_categorias_page
 from app.presentation.pages.portal.mi_empresa import mi_empresa_page
 from app.presentation.pages.portal.mis_contratos import mis_contratos_page
 from app.presentation.pages.portal.mis_datos import mis_datos_page
@@ -131,6 +132,7 @@ PORTAL_PAGE_ROUTES: tuple[PageRoute, ...] = (
     ("/portal/mis-datos", mis_datos_page),
     ("/portal/mi-perfil", mi_perfil_page),
     ("/portal/mi-empresa", mi_empresa_page),
+    ("/portal/empresa/categorias", empresa_categorias_page),
     ("/portal/documentacion-empresa", documentacion_empresa_portal_page),
     ("/portal/configuracion-empresa", configuracion_empresa_page),
     ("/portal/usuarios", usuarios_empresa_page),
@@ -148,7 +150,7 @@ PORTAL_PAGE_ROUTES: tuple[PageRoute, ...] = (
     ("/portal/nominas/dashboard", portal_dashboard_nomina_page),
     ("/portal/nominas/conciliacion", portal_conciliacion_nomina_page),
     ("/portal/contratos", mis_contratos_page),
-    ("/portal/contratos/[id]/plazas", contrato_plazas_page),
+    ("/portal/contratos/[codigo_contrato]/plazas", contrato_plazas_page),
     ("/portal/simulador", simulador_page),
     ("/portal/cotizador", cotizador_page),
     ("/portal/cotizador/[cotizacion_id]", cotizador_detalle_page),

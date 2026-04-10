@@ -45,6 +45,12 @@ class TipoEmpresa(str, Enum):
     NOMINA = 'NOMINA'
     MANTENIMIENTO = 'MANTENIMIENTO'
 
+
+class OrigenTipoServicio(str, Enum):
+    """Origen de un tipo de servicio dentro del catálogo."""
+    EMPRESA = 'EMPRESA'
+    INSTITUCION = 'INSTITUCION'
+
 # =============================================================================
 # ENUMS DE CONTRATO
 # =============================================================================
@@ -99,13 +105,23 @@ class TipoDuracion(str, Enum):
 
 
 class EstatusContrato(str, Enum):
-    """Estados posibles de un contrato"""
+    """Estados posibles de un contrato.
+
+    Ciclo de vida:
+        BORRADOR -> ACTIVO -> SUSPENDIDO -> ACTIVO (reactivado)
+                           -> VENCIDO (por fecha_fin) -> LIQUIDADO (cierre definitivo)
+                           -> CANCELADO (baja administrativa)
+
+    Diferencia VENCIDO vs LIQUIDADO:
+        VENCIDO: vigencia terminada pero admite entregables y nomina histórica.
+        LIQUIDADO: cierre definitivo; no admite nuevos movimientos ni extensiones.
+    """
     BORRADOR = 'BORRADOR'
     ACTIVO = 'ACTIVO'
     SUSPENDIDO = 'SUSPENDIDO'
     VENCIDO = 'VENCIDO'
+    LIQUIDADO = 'LIQUIDADO'
     CANCELADO = 'CANCELADO'
-    CERRADO = 'CERRADO'  # Contrato pagado y finalizado
 
 
 # =============================================================================

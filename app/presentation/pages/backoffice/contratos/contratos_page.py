@@ -61,7 +61,7 @@ def acciones_contrato(contrato: dict) -> rx.Component:
     es_activo = contrato["estatus"] == "ACTIVO"
     es_suspendido = contrato["estatus"] == "SUSPENDIDO"
     es_cancelado = contrato["estatus"] == "CANCELADO"
-    puede_ver_pagos = es_activo | (contrato["estatus"] == "VENCIDO") | (contrato["estatus"] == "CERRADO")
+    puede_ver_pagos = es_activo | (contrato["estatus"] == "VENCIDO") | (contrato["estatus"] == "LIQUIDADO")
 
     return tabla_action_buttons([
         # Ver detalle

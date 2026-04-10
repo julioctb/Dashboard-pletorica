@@ -16,6 +16,7 @@ from app.presentation.components.ui import (
     form_textarea,
     input_busqueda,
     metric_card,
+    metric_card_grid,
     modal_formulario,
     tabla_cta_button,
     table_cell_actions,
@@ -287,7 +288,7 @@ def seccion_incapacidades_empleado(
 
 
 def metricas_incapacidades_empresa() -> rx.Component:
-    return rx.grid(
+    return metric_card_grid(
         metric_card(
             titulo="Activas",
             valor=IncapacidadState.conteo_activas_empresa.to(str),
@@ -309,9 +310,11 @@ def metricas_incapacidades_empresa() -> rx.Component:
             color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             descripcion="Historial completo de la empresa",
         ),
-        columns=rx.breakpoints(initial="1", sm="2", lg="3"),
+        initial_columns="1",
+        sm_columns="2",
+        md_columns=None,
+        lg_columns="3",
         spacing="4",
-        width="100%",
     )
 
 

@@ -1,15 +1,14 @@
-"""Pagina portal de plazas por contrato."""
+"""Página portal de plazas por contrato."""
 
 import reflex as rx
 
-from app.presentation.components.ui import status_badge_reactive
-from app.presentation.layouts.backoffice import page_header, page_layout
-from app.presentation.theme import Colors, Typography
+from app.presentation.layouts.backoffice import page_layout
 
-from .components import metricas_contrato_plazas, tabla_plazas_contrato_actual
+from .components import contenido_contrato_plazas, _header_plazas
 from .modals import (
     modal_asignacion_plaza,
     modal_asignacion_sede_plaza,
+    modal_categoria_contrato,
     modal_categoria_plaza,
     modal_reasignacion_plaza,
     modal_salario_plaza,
@@ -17,50 +16,13 @@ from .modals import (
 from .state import ContratoPlazasState
 
 
-def _header_plazas() -> rx.Component:
-    return page_header(
-        titulo="Plazas",
-        icono="box",
-        titulo_compuesto=rx.hstack(
-            rx.link(
-                "Plazas",
-                href="/portal/plazas",
-                size="6",
-                weight="bold",
-                color=Colors.PORTAL_PRIMARY_TEXT,
-                _hover={"text_decoration": "underline"},
-            ),
-            rx.text("›", color=Colors.TEXT_MUTED, size="5"),
-            rx.text(
-                ContratoPlazasState.codigo_contrato_actual,
-                size="6",
-                weight="bold",
-            ),
-            rx.cond(
-                ContratoPlazasState.estatus_contrato_actual != "",
-                status_badge_reactive(ContratoPlazasState.estatus_contrato_actual),
-                rx.fragment(),
-            ),
-            align="center",
-            spacing="2",
-            wrap="wrap",
-        ),
-        subtitulo_compuesto=rx.text(
-            ContratoPlazasState.descripcion_contrato_actual,
-            font_size=Typography.SIZE_SM,
-            color=Colors.TEXT_SECONDARY,
-        ),
-        color_icono=Colors.PORTAL_ACCENT_SCHEME,
-    )
-
-
 def contrato_plazas_page() -> rx.Component:
     return rx.box(
         page_layout(
             header=_header_plazas(),
             content=rx.vstack(
-                metricas_contrato_plazas(),
-                tabla_plazas_contrato_actual(),
+                contenido_contrato_plazas(),
+                modal_categoria_contrato(),
                 modal_asignacion_plaza(),
                 modal_categoria_plaza(),
                 modal_salario_plaza(),
@@ -68,6 +30,8 @@ def contrato_plazas_page() -> rx.Component:
                 modal_reasignacion_plaza(),
                 width="100%",
                 spacing="4",
+                max_width="900px",
+                margin_x="auto",
             ),
         ),
         width="100%",

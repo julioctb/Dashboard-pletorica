@@ -501,6 +501,7 @@ class Typography:
     LETTER_SPACING_TIGHT = "-0.025em"  # Títulos grandes
     LETTER_SPACING_NORMAL = "0"
     LETTER_SPACING_WIDE = "0.025em"    # Labels, caps
+    LETTER_SPACING_SECTION_LABEL = "0.04em"  # Labels de sección en sidebars
 
 
 class Breakpoints:

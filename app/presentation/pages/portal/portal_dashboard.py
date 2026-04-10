@@ -7,7 +7,7 @@ Metricas enriquecidas + 6 widgets de seguimiento.
 
 import reflex as rx
 
-from app.presentation.components.ui import metric_card
+from app.presentation.components.ui import metric_card, metric_card_grid
 from app.presentation.components.ui.badges_domain import payroll_period_status_badge
 from app.presentation.components.ui.cards import empty_state_card
 from app.presentation.pages.portal.state.portal_dashboard_state import PortalDashboardState
@@ -125,13 +125,11 @@ def _metricas_grid() -> rx.Component:
     """Grid de 4 metricas principales con footers enriquecidos."""
     return rx.cond(
         PortalDashboardState.loading,
-        rx.grid(
+        metric_card_grid(
             *[_metric_skeleton() for _ in range(4)],
-            columns=rx.breakpoints(initial="2", md="4"),
             spacing="4",
-            width="100%",
         ),
-        rx.grid(
+        metric_card_grid(
             metric_card(
                 titulo="Empleados Activos",
                 valor=PortalDashboardState.total_empleados_dashboard,
@@ -203,9 +201,7 @@ def _metricas_grid() -> rx.Component:
                     color=Colors.TEXT_SECONDARY,
                 ),
             ),
-            columns=rx.breakpoints(initial="2", md="4"),
             spacing="4",
-            width="100%",
         ),
     )
 

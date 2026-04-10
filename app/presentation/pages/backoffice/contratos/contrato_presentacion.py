@@ -175,22 +175,53 @@ def enriquecer_contrato_presentacion(
         _get(contrato, "numero_folio_buap"),
     )
 
+    # Flag para badge "Extensión" en la UI.
+    contrato_padre_id = _get(contrato, "contrato_padre_id")
+    data["contrato_padre_id"] = contrato_padre_id
+    data["es_extension"] = contrato_padre_id is not None and int(contrato_padre_id or 0) > 0
+
     return data
 
 
 def serializar_categoria_contrato_detalle(item: Any) -> dict:
     """Normaliza una categoria de contrato para mostrarla en tablas/cards."""
     costo_unitario = _get(item, "costo_unitario")
+    costo_contractual = _get(item, "costo_contractual")
+    sueldo_base = _get(item, "sueldo_base")
     costo_minimo = _get(item, "costo_minimo")
     costo_maximo = _get(item, "costo_maximo")
+    nombre_visible = (
+        _get(item, "nombre")
+        or _get(item, "categoria_nombre", "")
+    )
 
     return {
         "id": _get(item, "id"),
         "categoria_puesto_id": _get(item, "categoria_puesto_id"),
         "categoria_clave": (_get(item, "categoria_clave", "") or "").upper(),
-        "categoria_nombre": capitalizar_palabras(_get(item, "categoria_nombre", "")),
-        "cantidad_minima": _get(item, "cantidad_minima", 0),
-        "cantidad_maxima": _get(item, "cantidad_maxima", 0),
+        "categoria_nombre": capitalizar_palabras(nombre_visible),
+        "categoria_nombre_catalogo": capitalizar_palabras(
+            _get(item, "categoria_nombre_catalogo", _get(item, "categoria_nombre", "")),
+        ),
+        "nombre": capitalizar_palabras(_get(item, "nombre", "")),
+        "cantidad_minima": _get(item, "cantidad_minima", 0) or 0,
+        "cantidad_maxima": _get(item, "cantidad_maxima", 0) or 0,
+        "costo_contractual": (
+            str(costo_contractual) if costo_contractual is not None else ""
+        ),
+        "tipo_sueldo": str(_get(item, "tipo_sueldo", "BRUTO") or "BRUTO").upper(),
+        "sueldo_base": str(
+            sueldo_base if sueldo_base is not None else costo_unitario if costo_unitario is not None else ""
+        ),
+        "sueldo_base_fmt": (
+            formatear_moneda(str(sueldo_base))
+            if sueldo_base is not None
+            else (
+                formatear_moneda(str(costo_unitario))
+                if costo_unitario is not None
+                else "-"
+            )
+        ),
         "costo_unitario_fmt": (
             formatear_moneda(str(costo_unitario))
             if costo_unitario is not None else "-"

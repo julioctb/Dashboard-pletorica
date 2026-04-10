@@ -222,6 +222,9 @@ class PlazaService:
         resumen_data = await self.repository.obtener_resumen_ocupadas_por_empresa(empresa_id)
         return [self._map_resumen(item) for item in resumen_data]
 
+    async def tiene_plazas_configuradas(self, empresa_id: int) -> bool:
+        return await self.repository.tiene_plazas_configuradas(empresa_id)
+
     async def obtener_cantidad_esperada_por_categoria(
         self,
         contrato_id: int,

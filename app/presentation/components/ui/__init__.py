@@ -90,7 +90,7 @@ from .entity_card import (
     entity_grid,
 )
 
-from .metric_card import metric_card
+from .metric_card import metric_card, metric_card_grid
 from .cards import empty_state_card
 from .detail_fields import (
     detail_label,
@@ -115,9 +115,11 @@ from .buttons import (
     boton_eliminar,
     botones_modal,
 )
+from .wizard import wizard_stepper
 
 
 __all__ = [
+    'wizard_stepper',
     'page_header',
     # formularios
     'form_field',
@@ -189,6 +191,7 @@ __all__ = [
     "entity_grid",
     # Metric card
     "metric_card",
+    "metric_card_grid",
     # Empty state card
     "empty_state_card",
     # Detail / metadata fields

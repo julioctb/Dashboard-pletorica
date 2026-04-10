@@ -12,6 +12,11 @@ import re
 from typing import Optional, Union
 
 
+_STOPWORDS_CODIGO = {
+    "DE", "DEL", "LA", "LAS", "LOS", "EL", "Y", "E", "EN", "PARA", "POR",
+}
+
+
 def normalizar_mayusculas(texto: Optional[str]) -> str:
     """
     Normaliza texto: strip + uppercase.
@@ -29,6 +34,61 @@ def normalizar_mayusculas(texto: Optional[str]) -> str:
     if not texto:
         return ""
     return texto.strip().upper()
+
+
+def _normalizar_fragmentos_codigo(texto: Optional[str]) -> list[str]:
+    """Extrae palabras alfanuméricas normalizadas para generar claves."""
+    texto_normalizado = normalizar_mayusculas(texto)
+    if not texto_normalizado:
+        return []
+
+    fragmentos = re.findall(r"[A-Z0-9]+", texto_normalizado)
+    return [fragmento for fragmento in fragmentos if fragmento and fragmento not in _STOPWORDS_CODIGO]
+
+
+def generar_candidatos_clave_categoria_puesto(
+    tipo_servicio: Optional[str],
+    nombre_categoria: Optional[str],
+) -> list[str]:
+    """
+    Genera candidatos de clave corta para categorías de puesto.
+
+    Respeta el contrato actual del sistema: claves de 2 a 5 caracteres
+    alfanuméricos en mayúsculas, sin depender de un formato inline en UI.
+    """
+    tipo_tokens = _normalizar_fragmentos_codigo(tipo_servicio)
+    categoria_tokens = _normalizar_fragmentos_codigo(nombre_categoria)
+
+    prefijo = (tipo_tokens[0] if tipo_tokens else "CAT")[:3]
+    ultimo = categoria_tokens[-1] if categoria_tokens else ""
+    principal = categoria_tokens[0] if categoria_tokens else ""
+    candidatos: list[str] = []
+
+    def agregar(valor: str) -> None:
+        candidato = re.sub(r"[^A-Z0-9]", "", valor.upper())[:5]
+        if 2 <= len(candidato) <= 5 and candidato not in candidatos:
+            candidatos.append(candidato)
+
+    if ultimo:
+        agregar(prefijo + ultimo[:2])
+        agregar(prefijo + ultimo[:1])
+    if principal:
+        agregar(prefijo + principal[:2])
+        agregar(prefijo + principal[:1])
+    if len(categoria_tokens) >= 2:
+        iniciales = "".join(token[0] for token in categoria_tokens[:2])
+        agregar(prefijo[:2] + iniciales)
+        agregar(prefijo + categoria_tokens[1][:1])
+    if principal:
+        for longitud in range(2, min(len(principal), 5) + 1):
+            agregar(principal[:longitud])
+    for token in categoria_tokens[1:]:
+        for longitud in range(2, min(len(token), 5) + 1):
+            agregar(token[:longitud])
+    if not candidatos:
+        agregar("CAT")
+
+    return candidatos
 
 
 def capitalizar_palabras(texto: Optional[str]) -> str:
@@ -251,13 +311,21 @@ def normalizar_por_sufijo(clave: str, valor: str) -> str:
     return limpiar_espacios(valor)
 
 
-def formatear_moneda(valor: Optional[str], con_simbolo: bool = True) -> str:
+def formatear_moneda(
+    valor: Optional[str],
+    con_simbolo: bool = True,
+    *,
+    decimales_fijos: int | None = None,
+    espacio_simbolo: bool = True,
+) -> str:
     """
     Formatea un valor como moneda con separadores de miles.
 
     Args:
         valor: Valor a formatear (puede contener $, comas, espacios)
-        con_simbolo: Si incluir "$ " al inicio
+        con_simbolo: Si incluir "$" al inicio
+        decimales_fijos: Si se define, fuerza ese numero de decimales
+        espacio_simbolo: Si True deja un espacio despues del simbolo "$"
 
     Returns:
         Valor formateado con comas como separadores de miles
@@ -280,22 +348,30 @@ def formatear_moneda(valor: Optional[str], con_simbolo: bool = True) -> str:
         return ""
 
     # Validar que sea número
-    if not limpio.replace(".", "").isdigit():
+    if not re.fullmatch(r"-?\d+(\.\d+)?", limpio):
         return limpio
 
-    # Separar parte entera y decimal
-    partes = limpio.split(".")
-    entero = int(partes[0])
-    decimal = partes[1] if len(partes) > 1 else ""
+    if decimales_fijos is not None:
+        try:
+            numero = Decimal(limpio)
+        except (InvalidOperation, ValueError):
+            return limpio
+        formateado = f"{numero:,.{max(decimales_fijos, 0)}f}"
+    else:
+        # Separar parte entera y decimal preservando el valor recibido.
+        partes = limpio.split(".")
+        entero = int(partes[0])
+        decimal = partes[1] if len(partes) > 1 else ""
 
-    # Formatear con comas
-    formateado = f"{entero:,}"
-    if decimal:
-        formateado += f".{decimal}"
+        # Formatear con comas
+        formateado = f"{entero:,}"
+        if decimal:
+            formateado += f".{decimal}"
 
     # Agregar símbolo si se requiere
     if con_simbolo:
-        return f"$ {formateado}"
+        prefijo = "$ " if espacio_simbolo else "$"
+        return f"{prefijo}{formateado}"
     return formateado
 
 
@@ -422,6 +498,11 @@ _MESES_ES = [
     "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ]
 
+_MESES_CORTOS_ES = [
+    "", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+]
+
 
 def formatear_fecha_es(fecha: Optional[Union[date, datetime, str]]) -> str:
     """
@@ -446,3 +527,36 @@ def formatear_fecha_es(fecha: Optional[Union[date, datetime, str]]) -> str:
         )
     except (AttributeError, IndexError):
         return ""
+
+
+def formatear_vigencia_meses(
+    fecha_inicio: Optional[Union[date, datetime, str]],
+    fecha_fin: Optional[Union[date, datetime, str]],
+    *,
+    valor_vacio: str = "Sin vigencia",
+) -> str:
+    """
+    Formatea una vigencia corta por meses para tablas operativas.
+
+    Ejemplos:
+        Mar - Dic 2026
+        Nov 2025 - Mar 2026
+        Desde Mar 2026
+    """
+    inicio = _parse_fecha_ui(fecha_inicio)
+    fin = _parse_fecha_ui(fecha_fin)
+
+    if inicio and fin:
+        inicio_mes = _MESES_CORTOS_ES[inicio.month]
+        fin_mes = _MESES_CORTOS_ES[fin.month]
+        if inicio.year == fin.year:
+            return f"{inicio_mes} - {fin_mes} {fin.year}"
+        return f"{inicio_mes} {inicio.year} - {fin_mes} {fin.year}"
+
+    if inicio:
+        return f"Desde {_MESES_CORTOS_ES[inicio.month]} {inicio.year}"
+
+    if fin:
+        return f"Hasta {_MESES_CORTOS_ES[fin.month]} {fin.year}"
+
+    return valor_vacio

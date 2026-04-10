@@ -1,19 +1,15 @@
 """
 Entidades de dominio para Tipos de Servicio.
 
-Los tipos de servicio son un catálogo global que define los tipos
-de servicio que se pueden ofrecer: Jardinería, Limpieza, Mantenimiento, etc.
-
-No dependen de empresa - todas las empresas usan el mismo catálogo.
-
-Usa FieldConfig y helpers para mantener consistencia entre validación
-frontend y backend con mínimo código duplicado.
+Los tipos de servicio pueden pertenecer al catálogo propio de una empresa
+o venir de una institución. El modelo conserva compatibilidad con el
+catálogo legacy y agrega los campos necesarios para el portal de empresa.
 """
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
 
-from app.domain.enums import Estatus
+from app.domain.enums import Estatus, OrigenTipoServicio
 from app.core.validation import (
     CAMPO_CLAVE_CATALOGO,
     CAMPO_NOMBRE_CATALOGO,
@@ -29,7 +25,6 @@ class TipoServicio(BaseModel):
     Entidad principal de Tipo de Servicio.
 
     Representa un tipo de servicio que las empresas pueden ofrecer.
-    Es un catálogo global compartido por todas las empresas.
 
     Ejemplos:
         - JAR: Jardinería
@@ -49,10 +44,13 @@ class TipoServicio(BaseModel):
     # Identificación
     id: Optional[int] = None
 
+    empresa_id: Optional[int] = Field(default=None, description="Empresa dueña del catálogo")
+
     # Información básica - usando pydantic_field()
     clave: str = pydantic_field(CAMPO_CLAVE_CATALOGO)
     nombre: str = pydantic_field(CAMPO_NOMBRE_CATALOGO)
     descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_CATALOGO)
+    origen: OrigenTipoServicio = Field(default=OrigenTipoServicio.EMPRESA)
 
     # Control de estado
     estatus: Estatus = Field(default=Estatus.ACTIVO)
@@ -105,9 +103,11 @@ class TipoServicioCreate(BaseModel):
         validate_assignment=True
     )
 
+    empresa_id: Optional[int] = None
     clave: str = pydantic_field(CAMPO_CLAVE_CATALOGO)
     nombre: str = pydantic_field(CAMPO_NOMBRE_CATALOGO)
     descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_CATALOGO)
+    origen: OrigenTipoServicio = Field(default=OrigenTipoServicio.EMPRESA)
     estatus: Estatus = Field(default=Estatus.ACTIVO)
 
     # Validadores
@@ -124,9 +124,11 @@ class TipoServicioUpdate(BaseModel):
         validate_assignment=True
     )
 
+    empresa_id: Optional[int] = None
     clave: Optional[str] = pydantic_field(CAMPO_CLAVE_CATALOGO, default=None)
     nombre: Optional[str] = pydantic_field(CAMPO_NOMBRE_CATALOGO, default=None)
     descripcion: Optional[str] = pydantic_field(CAMPO_DESCRIPCION_CATALOGO)
+    origen: Optional[OrigenTipoServicio] = None
     estatus: Optional[Estatus] = None
 
     # Validadores

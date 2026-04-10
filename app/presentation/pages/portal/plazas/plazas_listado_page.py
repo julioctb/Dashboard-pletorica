@@ -1,4 +1,4 @@
-"""Página principal de plazas con listado de contratos y cobertura."""
+"""Página principal de plazas en portal."""
 
 from __future__ import annotations
 
@@ -6,202 +6,400 @@ import reflex as rx
 
 from app.presentation.components.ui import (
     empty_state_card,
+    feedback_callout,
     metric_card,
-    status_badge_reactive,
+    metric_card_grid,
+    page_header,
     table_shell,
-    table_text_sm,
 )
-from app.presentation.layouts.backoffice import page_header, page_layout
-from app.presentation.theme import Colors, Radius, Typography
+from app.presentation.layouts.backoffice import page_layout
+from app.presentation.theme import Colors, Radius, Spacing, Transitions, Typography
 
 from .state import PlazasListadoState
 
 
-PLAZAS_LISTADO_HEADERS = [
-    {"nombre": "Contrato", "ancho": "28%", "header_align": "left"},
-    {"nombre": "Vigencia", "ancho": "14%", "header_align": "center"},
-    {"nombre": "Categorías", "ancho": "10%", "header_align": "center"},
-    {"nombre": "Sedes", "ancho": "10%", "header_align": "center"},
-    {"nombre": "Cobertura", "ancho": "16%", "header_align": "center"},
-    {"nombre": "Costo/mes", "ancho": "12%", "header_align": "center"},
-    {"nombre": "Estatus", "ancho": "10%", "header_align": "center"},
+PLAZAS_HEADERS = [
+    {"nombre": "Contrato", "ancho": "200px", "header_align": "left"},
+    {"nombre": "Sueldo", "ancho": "140px", "header_align": "right"},
+    {"nombre": "Mínimo", "ancho": "80px", "header_align": "center"},
+    {"nombre": "Máximo", "ancho": "80px", "header_align": "center"},
+    {"nombre": "Ocupadas", "ancho": "100px", "header_align": "center"},
 ]
 
 
-def _color_cobertura(cobertura_nivel: rx.Var | str) -> rx.Var | str:
-    return rx.match(
-        cobertura_nivel,
-        ("ALTA", Colors.SUCCESS),
-        ("MEDIA", Colors.WARNING),
-        Colors.ERROR,
+def _metricas() -> rx.Component:
+    card_props = {
+        "icono": None,
+        "show_icon": False,
+        "align": "center",
+        "background": Colors.SECONDARY_LIGHT,
+        "border": "none",
+        "hoverable": False,
+    }
+
+    return metric_card_grid(
+        metric_card(
+            titulo="Plazas configuradas",
+            valor=PlazasListadoState.plazas_configuradas,
+            value_color=Colors.TEXT_PRIMARY,
+            descripcion=PlazasListadoState.descripcion_metrica_plazas,
+            **card_props,
+        ),
+        metric_card(
+            titulo="Cobertura",
+            valor=PlazasListadoState.cobertura_pct_texto,
+            value_color=PlazasListadoState.cobertura_color_metrica,
+            descripcion=PlazasListadoState.descripcion_metrica_cobertura,
+            **card_props,
+        ),
+        metric_card(
+            titulo="Presupuesto/mes",
+            valor=PlazasListadoState.presupuesto_mensual_fmt,
+            value_color=Colors.TEXT_PRIMARY,
+            descripcion=PlazasListadoState.descripcion_metrica_presupuesto,
+            **card_props,
+        ),
+        metric_card(
+            titulo="Costo real/mes",
+            valor=PlazasListadoState.costo_real_mensual_fmt,
+            value_color=Colors.TEXT_PRIMARY,
+            descripcion=PlazasListadoState.descripcion_metrica_costo_real,
+            **card_props,
+        ),
     )
 
 
-def _contrato_row(contrato: rx.Var) -> rx.Component:
-    cobertura_color = _color_cobertura(contrato["cobertura_nivel"])
+def _contrato_chip(chip: dict) -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.text(
+                    chip["codigo_display"],
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_SEMIBOLD,
+                ),
+                rx.spacer(),
+                rx.text(
+                    chip["cobertura_texto"],
+                    font_size=Typography.SIZE_XS,
+                    color=chip["cobertura_color"],
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    font_variant_numeric="tabular-nums",
+                ),
+                width="100%",
+                align="center",
+                spacing="2",
+            ),
+            rx.text(
+                chip["descripcion"],
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_MUTED,
+                width="100%",
+            ),
+            spacing="1",
+            align_items="start",
+            width="100%",
+        ),
+        min_width="220px",
+        padding=Spacing.MD,
+        border=f"1px solid {Colors.BORDER}",
+        border_color=rx.cond(chip["activo"], Colors.PORTAL_PRIMARY_TEXT, Colors.BORDER),
+        border_radius=Radius.LG,
+        background=rx.cond(chip["activo"], Colors.PORTAL_PRIMARY_LIGHTER, Colors.SURFACE),
+        cursor="pointer",
+        on_click=PlazasListadoState.seleccionar_contrato(chip["selector_value"]),
+        transition=Transitions.NORMAL,
+        _hover={
+            "background": Colors.SECONDARY_LIGHT,
+            "border_color": Colors.BORDER_STRONG,
+        },
+    )
 
+
+def _selector_contrato() -> rx.Component:
+    return rx.flex(
+        rx.foreach(
+            PlazasListadoState.chips_contrato,
+            _contrato_chip,
+        ),
+        width="100%",
+        gap=Spacing.SM,
+        overflow_x="auto",
+        padding_bottom=Spacing.XS,
+    )
+
+
+def _encabezado_tabla() -> rx.Component:
+    return rx.flex(
+        rx.vstack(
+            rx.text(
+                "Categorías por contrato",
+                font_size=Typography.SIZE_LG,
+                font_weight=Typography.WEIGHT_SEMIBOLD,
+                color=Colors.TEXT_PRIMARY,
+            ),
+            rx.text(
+                "Sueldos, plazas y cobertura sobre contratos activos.",
+                font_size=Typography.SIZE_SM,
+                color=Colors.TEXT_SECONDARY,
+            ),
+            spacing="1",
+            align_items="start",
+        ),
+        rx.cond(
+            PlazasListadoState.puede_editar_configuracion,
+            rx.button(
+                "Editar configuración",
+                variant="ghost",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                on_click=PlazasListadoState.ir_a_editar_configuracion,
+            ),
+            rx.fragment(),
+        ),
+        width="100%",
+        align="center",
+        justify="between",
+        gap=Spacing.SM,
+        wrap="wrap",
+    )
+
+
+def _empty_state() -> rx.Component:
+    return empty_state_card(
+        title=PlazasListadoState.titulo_empty_state,
+        description=PlazasListadoState.descripcion_empty_state,
+        icon="layout-grid",
+        action_button=rx.button(
+            "Ir a contratos",
+            on_click=PlazasListadoState.ir_a_contratos,
+            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+            size="2",
+        ),
+    )
+
+
+def _fila_separador(item: dict) -> rx.Component:
     return rx.table.row(
         rx.table.cell(
-            rx.flex(
-                rx.link(
-                    contrato["codigo"],
-                    href="/portal/contratos/" + contrato["id"].to(str) + "/plazas",
+            rx.vstack(
+                rx.text(
+                    item["nombre_categoria"],
                     font_weight=Typography.WEIGHT_MEDIUM,
                     color=Colors.TEXT_PRIMARY,
-                    text_decoration="none",
-                    _hover={
-                        "color": Colors.PORTAL_PRIMARY_TEXT,
-                        "text_decoration": "underline",
-                    },
+                    font_size=Typography.SIZE_SM,
                 ),
                 rx.text(
-                    contrato["descripcion"],
+                    item["meta_texto"],
                     font_size=Typography.SIZE_XS,
                     color=Colors.TEXT_MUTED,
                 ),
-                direction="column",
-                gap="1px",
-                width="100%",
-                min_width="0",
+                spacing="1",
+                align_items="start",
             ),
+            text_align="left",
         ),
         rx.table.cell(
-            table_text_sm(contrato["vigencia"], tone="secondary"),
-            text_align="center",
+            rx.text(
+                item["sueldo_separador_texto"],
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_MUTED,
+                font_variant_numeric="tabular-nums",
+            ),
+            text_align="right",
         ),
         rx.table.cell(
-            table_text_sm(contrato["categorias"].to(str), weight=Typography.WEIGHT_MEDIUM),
-            text_align="center",
-        ),
-        rx.table.cell(
-            table_text_sm(contrato["sedes"].to(str), weight=Typography.WEIGHT_MEDIUM),
-            text_align="center",
-        ),
-        rx.table.cell(
-            rx.flex(
-                rx.text(
-                    contrato["ocupadas"].to(str) + "/" + contrato["total_plazas"].to(str),
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                    color=cobertura_color,
-                ),
-                rx.box(
-                    rx.box(
-                        width=contrato["cobertura_pct"].to(str) + "%",
-                        height="100%",
-                        border_radius=Radius.SM,
-                        background=cobertura_color,
-                    ),
-                    width="72px",
-                    height="6px",
-                    border_radius=Radius.SM,
-                    background=Colors.SECONDARY_LIGHT,
-                    overflow="hidden",
-                ),
-                direction="column",
-                align="center",
-                justify="center",
-                gap="3px",
-                width="100%",
+            rx.text(
+                item["sum_min_texto"],
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_PRIMARY,
+                font_variant_numeric="tabular-nums",
+                text_align="center",
             ),
             text_align="center",
         ),
         rx.table.cell(
             rx.text(
-                contrato["costo_mensual_fmt"],
-                font_size=Typography.SIZE_SM,
-                color=Colors.TEXT_PRIMARY,
+                item["sum_max_texto"],
                 font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_PRIMARY,
+                font_variant_numeric="tabular-nums",
+                text_align="center",
             ),
             text_align="center",
         ),
         rx.table.cell(
-            status_badge_reactive(contrato["estatus"]),
+            rx.text(
+                item["cobertura_texto"],
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=item["cobertura_color"],
+                font_variant_numeric="tabular-nums",
+                text_align="center",
+            ),
             text_align="center",
         ),
-        cursor="pointer",
-        _hover={"background": Colors.SURFACE_HOVER},
-        on_click=PlazasListadoState.ir_a_plazas_contrato(contrato["id"]),
+        background=Colors.SECONDARY_LIGHT,
+    )
+
+
+def _fila_detalle(item: dict) -> rx.Component:
+    return rx.table.row(
+        rx.table.cell(
+            rx.vstack(
+                rx.badge(
+                    item["codigo_contrato"],
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                    size="1",
+                    variant="soft",
+                ),
+                rx.text(
+                    item["descripcion_contrato"],
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.TEXT_MUTED,
+                ),
+                spacing="1",
+                align_items="start",
+            ),
+            text_align="left",
+        ),
+        rx.table.cell(
+            rx.vstack(
+                rx.text(
+                    item["sueldo_bruto_fmt"],
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_PRIMARY,
+                    font_size=Typography.SIZE_SM,
+                    font_variant_numeric="tabular-nums",
+                ),
+                rx.text(
+                    item["sueldo_diario_label"],
+                    font_size=Typography.SIZE_XS,
+                    color=Colors.TEXT_MUTED,
+                    font_variant_numeric="tabular-nums",
+                ),
+                rx.cond(
+                    item["mostrar_warning_salario_minimo"],
+                    rx.flex(
+                        rx.icon("triangle-alert", size=11, color=Colors.WARNING),
+                        rx.text(
+                            "Bajo salario mínimo",
+                            font_size=Typography.SIZE_XS,
+                            color=Colors.WARNING,
+                        ),
+                        align="center",
+                        gap=Spacing.XS,
+                    ),
+                    rx.fragment(),
+                ),
+                spacing="1",
+                align_items="end",
+                width="100%",
+            ),
+            text_align="right",
+        ),
+        rx.table.cell(
+            rx.text(
+                item["min_plazas_texto"],
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=Colors.TEXT_PRIMARY,
+                font_variant_numeric="tabular-nums",
+                text_align="center",
+            ),
+            text_align="center",
+        ),
+        rx.table.cell(
+            rx.cond(
+                item["max_plazas_es_null"],
+                rx.text("—", color=Colors.TEXT_MUTED, text_align="center"),
+                rx.text(
+                    item["max_plazas_texto"],
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_PRIMARY,
+                    font_variant_numeric="tabular-nums",
+                    text_align="center",
+                ),
+            ),
+            text_align="center",
+        ),
+        rx.table.cell(
+            rx.center(
+                rx.badge(
+                    item["cobertura_texto"],
+                    color_scheme=item["cobertura_color_scheme"],
+                    size="1",
+                    variant="soft",
+                    font_variant_numeric="tabular-nums",
+                ),
+                width="100%",
+            ),
+            text_align="center",
+        ),
+    )
+
+
+def _fila_tabla(item: dict) -> rx.Component:
+    return rx.cond(
+        item["es_separador"],
+        _fila_separador(item),
+        _fila_detalle(item),
+    )
+
+
+def _tabla_categorias() -> rx.Component:
+    return rx.box(
+        table_shell(
+            loading=PlazasListadoState.is_loading,
+            headers=PLAZAS_HEADERS,
+            rows=PlazasListadoState.filas_tabla,
+            row_renderer=_fila_tabla,
+            has_rows=PlazasListadoState.tiene_filas_tabla,
+            empty_component=_empty_state(),
+            total_caption=PlazasListadoState.caption_tabla,
+            table_size="1",
+            loading_rows=6,
+        ),
+        width="100%",
+        overflow_x="auto",
     )
 
 
 def plazas_listado_page() -> rx.Component:
-    """Vista principal de plazas en portal (nivel 1)."""
+    """Vista principal de plazas del portal."""
     return rx.box(
         page_layout(
             header=page_header(
                 titulo="Plazas",
-                subtitulo="Configuración y cobertura contractual",
-                icono="box",
+                subtitulo="Estructura organizacional y presupuesto",
+                icono="layout-grid",
                 color_icono=Colors.PORTAL_ACCENT_SCHEME,
+                accion_principal=rx.button(
+                    rx.icon("briefcase", size=16),
+                    "Catálogo de puestos",
+                    on_click=PlazasListadoState.ir_a_catalogo_puestos,
+                    variant="outline",
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                ),
             ),
             content=rx.vstack(
-                rx.grid(
-                    metric_card(
-                        titulo="Contratos",
-                        valor=PlazasListadoState.total_contratos,
-                        icono=None,
-                        color_scheme=Colors.NEUTRAL_SCHEME,
-                        show_icon=False,
-                        align="center",
-                    ),
-                    metric_card(
-                        titulo="Plazas totales",
-                        valor=PlazasListadoState.total_plazas,
-                        icono=None,
-                        color_scheme=Colors.NEUTRAL_SCHEME,
-                        show_icon=False,
-                        align="center",
-                    ),
-                    metric_card(
-                        titulo="Ocupadas",
-                        valor=PlazasListadoState.total_ocupadas,
-                        icono=None,
-                        color_scheme="green",
-                        show_icon=False,
-                        align="center",
-                        value_color=Colors.SUCCESS,
-                        descripcion=PlazasListadoState.cobertura_global + " cobertura",
-                    ),
-                    metric_card(
-                        titulo="Vacantes",
-                        valor=PlazasListadoState.total_vacantes,
-                        icono=None,
-                        color_scheme=Colors.WARNING_SCHEME,
-                        show_icon=False,
-                        align="center",
-                        value_color=Colors.WARNING,
-                    ),
-                    columns=rx.breakpoints(initial="2", md="4"),
-                    spacing="3",
-                    width="100%",
-                ),
-                rx.box(
-                    table_shell(
-                        loading=PlazasListadoState.is_loading,
-                        headers=PLAZAS_LISTADO_HEADERS,
-                        rows=PlazasListadoState.contratos,
-                        row_renderer=_contrato_row,
-                        has_rows=PlazasListadoState.tiene_contratos,
-                        empty_component=empty_state_card(
-                            title="Sin contratos",
-                            description="No hay contratos con plazas configuradas.",
-                            icon="file-text",
+                _metricas(),
+                _selector_contrato(),
+                rx.cond(
+                    PlazasListadoState.mostrar_callout_sin_sede,
+                    feedback_callout(
+                        rx.text(
+                            PlazasListadoState.mensaje_callout_sin_sede,
+                            font_size=Typography.SIZE_SM,
                         ),
-                        table_size="1",
+                        "warning",
                     ),
-                    border=f"1px solid {Colors.BORDER}",
-                    border_radius=Radius.LG,
-                    overflow="hidden",
-                    width="100%",
+                    rx.fragment(),
                 ),
+                _encabezado_tabla(),
+                _tabla_categorias(),
                 spacing="4",
                 width="100%",
             ),
         ),
         width="100%",
-        max_width="1120px",
-        margin_x="auto",
         min_height="100vh",
         on_mount=PlazasListadoState.cargar_contratos,
     )

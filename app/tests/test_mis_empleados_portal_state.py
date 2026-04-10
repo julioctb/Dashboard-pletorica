@@ -99,6 +99,7 @@ class _DummyContratoPlazaState:
 
 class _DummySalarioPlazaState:
     _parse_decimal_seguro = staticmethod(MisEmpleadosState._parse_decimal_seguro)
+    _recargar_empleados_y_sidebar = MisEmpleadosState._recargar_empleados_y_sidebar
 
     def __init__(self):
         self.plaza_salario_seleccionada = {}
@@ -112,6 +113,9 @@ class _DummySalarioPlazaState:
 
     async def _fetch_empleados(self):
         self.recargas += 1
+
+    async def refrescar_sidebar(self):
+        return None
 
     def validar_salario_plaza_campo(self):
         return MisEmpleadosState.validar_salario_plaza_campo.fn(self)

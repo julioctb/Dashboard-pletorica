@@ -162,3 +162,28 @@ def metric_card(
         )
 
     return card
+
+
+def metric_card_grid(
+    *children: rx.Component,
+    initial_columns: str = "2",
+    sm_columns: str | None = None,
+    md_columns: str | None = "4",
+    lg_columns: str | None = None,
+    spacing: str = "3",
+) -> rx.Component:
+    """Grid responsivo centralizado para tarjetas de métricas."""
+    breakpoints = {"initial": initial_columns}
+    if sm_columns is not None:
+        breakpoints["sm"] = sm_columns
+    if md_columns is not None:
+        breakpoints["md"] = md_columns
+    if lg_columns is not None:
+        breakpoints["lg"] = lg_columns
+
+    return rx.grid(
+        *children,
+        columns=rx.breakpoints(**breakpoints),
+        spacing=spacing,
+        width="100%",
+    )

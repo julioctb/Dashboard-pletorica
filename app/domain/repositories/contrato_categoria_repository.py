@@ -133,12 +133,14 @@ class SupabaseContratoCategoriaRepository:
                 )
 
             datos = contrato_categoria.model_dump(
+                mode="json",
                 exclude={'id', 'fecha_creacion', 'fecha_actualizacion'}
             )
 
-            # Convertir Decimal a float para JSON
-            if datos.get('costo_unitario') is not None:
-                datos['costo_unitario'] = float(datos['costo_unitario'])
+            # Convertir Decimal serializado a float para persistencia numérica
+            for campo in ('costo_unitario', 'costo_contractual', 'sueldo_base'):
+                if datos.get(campo) is not None:
+                    datos[campo] = float(datos[campo])
 
             result = self.supabase.table(self.tabla).insert(datos).execute()
 
@@ -167,12 +169,14 @@ class SupabaseContratoCategoriaRepository:
             await self.obtener_por_id(contrato_categoria.id)
 
             datos = contrato_categoria.model_dump(
+                mode="json",
                 exclude={'id', 'contrato_id', 'categoria_puesto_id', 'fecha_creacion', 'fecha_actualizacion'}
             )
 
-            # Convertir Decimal a float para JSON
-            if datos.get('costo_unitario') is not None:
-                datos['costo_unitario'] = float(datos['costo_unitario'])
+            # Convertir Decimal serializado a float para persistencia numérica
+            for campo in ('costo_unitario', 'costo_contractual', 'sueldo_base'):
+                if datos.get(campo) is not None:
+                    datos[campo] = float(datos[campo])
 
             result = self.supabase.table(self.tabla)\
                 .update(datos)\
@@ -293,6 +297,32 @@ class SupabaseContratoCategoriaRepository:
                 raise self._database_error_tabla_faltante()
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
+    async def contar_por_categorias(self, categorias_puesto_ids: list[int]) -> dict[int, int]:
+        """Cuenta en lote cuántos contratos usan cada categoría."""
+        ids = [int(categoria_id or 0) for categoria_id in categorias_puesto_ids if int(categoria_id or 0) > 0]
+        if not ids:
+            return {}
+
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select("categoria_puesto_id")
+                .in_("categoria_puesto_id", ids)
+                .execute()
+            )
+            conteos = {categoria_id: 0 for categoria_id in ids}
+            for fila in result.data or []:
+                categoria_id = int(fila.get("categoria_puesto_id") or 0)
+                if categoria_id <= 0:
+                    continue
+                conteos[categoria_id] = conteos.get(categoria_id, 0) + 1
+            return conteos
+        except Exception as e:
+            logger.error("Error contando contratos por categorías %s: %s", ids, e)
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
+            raise DatabaseError(f"Error de base de datos: {str(e)}")
+
     async def obtener_resumen_por_contrato(self, contrato_id: int) -> List[dict]:
         """
         Obtiene resumen con datos de categoria incluidos (JOIN).
@@ -315,7 +345,8 @@ class SupabaseContratoCategoriaRepository:
                 item = {
                     **data,
                     'categoria_clave': categoria_data.get('clave', ''),
-                    'categoria_nombre': categoria_data.get('nombre', ''),
+                    'categoria_nombre': data.get('nombre') or categoria_data.get('nombre', ''),
+                    'categoria_nombre_catalogo': categoria_data.get('nombre', ''),
                     'categoria_orden': categoria_data.get('orden', 0),
                 }
                 resumen.append(item)
@@ -327,6 +358,40 @@ class SupabaseContratoCategoriaRepository:
         except Exception as e:
             logger.error(f"Error obteniendo resumen del contrato {contrato_id}: {e}")
             raise DatabaseError(f"Error de base de datos: {str(e)}")
+
+    async def obtener_nombres_por_empresa(self, empresa_id: int) -> List[str]:
+        """
+        Obtiene los nombres distintos de categorias ya usados por los contratos
+        de una empresa. Sirve para sugerencias de autocompletado al crear una
+        categoria nueva.
+        """
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select('nombre, contratos!inner(empresa_id)')
+                .eq('contratos.empresa_id', empresa_id)
+                .execute()
+            )
+            vistos: set[str] = set()
+            nombres: List[str] = []
+            for fila in result.data or []:
+                raw = str(fila.get('nombre') or '').strip()
+                if not raw:
+                    continue
+                clave = raw.upper()
+                if clave in vistos:
+                    continue
+                vistos.add(clave)
+                nombres.append(raw)
+            nombres.sort(key=lambda n: n.lower())
+            return nombres
+        except Exception as e:
+            logger.error(
+                f"Error obteniendo nombres de categorias de empresa {empresa_id}: {e}"
+            )
+            if self._es_error_tabla_faltante(e):
+                raise self._database_error_tabla_faltante()
+            return []
 
     async def obtener_totales_por_contrato(self, contrato_id: int) -> dict:
         """

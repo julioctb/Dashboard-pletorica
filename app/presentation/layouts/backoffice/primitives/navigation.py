@@ -24,6 +24,9 @@ def nav_item(
     hover_bg=Colors.SIDEBAR_ITEM_HOVER,
     active_bg=Colors.SIDEBAR_ITEM_ACTIVE,
     active_text=Colors.SIDEBAR_ITEM_ACTIVE_TEXT,
+    padding_x=Spacing.MD,
+    padding_left: str | None = None,
+    padding_right: str | None = None,
 ) -> rx.Component:
     """Item de navegación estándar para sidebars/listas de links."""
     return rx.link(
@@ -42,7 +45,9 @@ def nav_item(
                 white_space="nowrap",
             ),
             width="100%",
-            padding_x=Spacing.MD,
+            padding_x=padding_x,
+            padding_left=padding_left,
+            padding_right=padding_right,
             padding_y=Spacing.SM,
             align="center",
             gap=Spacing.SM,
