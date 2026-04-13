@@ -86,23 +86,6 @@ def _sidebar_item(
     )
 
 
-def _sidebar_item_indent(
-    text: str,
-    icon: str,
-    href: str,
-    *,
-    active_paths: tuple[str, ...] | None = None,
-) -> rx.Component:
-    """Item hijo de Contratos con indentación visual."""
-    return _sidebar_item(
-        text,
-        icon,
-        href,
-        active_paths=active_paths,
-        padding_left=f"calc({Spacing.BASE} + {Spacing.LG})",
-    )
-
-
 def _cond_item(condition, component: rx.Component) -> rx.Component:
     """Renderiza un item solo si la condición es verdadera."""
     return rx.cond(condition, component, rx.fragment())
@@ -206,22 +189,18 @@ def _portal_navigation() -> rx.Component:
             PortalState.mostrar_seccion_contrato,
             rx.fragment(
                 _sidebar_section_label("Contratos"),
-                _sidebar_item("Contratos", "file-text", "/portal/contratos"),
-                _cond_item(
-                    PortalState.mostrar_plazas,
-                    _sidebar_item_indent(
-                        "Plazas",
-                        "briefcase",
-                        "/portal/plazas",
-                        active_paths=(
-                            "/portal/plazas",
-                            "/portal/contratos/[codigo_contrato]/plazas",
-                        ),
+                _sidebar_item(
+                    "Contratos",
+                    "file-text",
+                    "/portal/contratos",
+                    active_paths=(
+                        "/portal/contratos",
+                        "/portal/contratos/[codigo_contrato]/plazas",
                     ),
                 ),
                 _cond_item(
                     PortalState.mostrar_entregables,
-                    _sidebar_item_indent(
+                    _sidebar_item(
                         "Entregables",
                         "package-check",
                         "/portal/entregables",
@@ -310,7 +289,7 @@ def _portal_navigation() -> rx.Component:
                 _cond_item(
                     AuthState.es_admin_empresa | AuthState.puede_acceder_rrhh,
                     _sidebar_item(
-                        "Catálogo de puestos",
+                        "Catálogo de servicios",
                         "briefcase",
                         "/portal/empresa/categorias",
                     ),

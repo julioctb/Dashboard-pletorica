@@ -3,6 +3,7 @@
 import reflex as rx
 
 from app.presentation.layouts.backoffice import page_layout
+from app.presentation.theme import Layout
 
 from .components import contenido_contrato_plazas, _header_plazas
 from .modals import (
@@ -30,7 +31,7 @@ def contrato_plazas_page() -> rx.Component:
                 modal_reasignacion_plaza(),
                 width="100%",
                 spacing="4",
-                max_width="900px",
+                max_width=Layout.CONTENT_MAX_WIDTH_COMPACT,
                 margin_x="auto",
             ),
         ),

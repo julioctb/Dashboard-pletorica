@@ -54,11 +54,11 @@ def root_dispatcher_page() -> rx.Component:
 
 
 def portal_plazas_redirect_page() -> rx.Component:
-    """Portal entry for plazas that resolves the initial contract."""
+    """Legacy portal plazas entry that redirects to contracts."""
     return rx.center(
         rx.vstack(
             rx.spinner(size="3"),
-            rx.text("Redirigiendo a plazas...", color="gray"),
+            rx.text("Redirigiendo a contratos...", color="gray"),
             spacing="3",
             align="center",
         ),

@@ -47,7 +47,9 @@ class Colors:
     PORTAL_PRIMARY_LIGHTER = "var(--teal-2)"  # Fondos muy sutiles
     PORTAL_ACCENT_SCHEME = "teal"             # Nombre del color scheme Radix — usar en color_scheme= de botones, badges, etc.
     NEUTRAL_SCHEME = "gray"                   # Color scheme Radix neutral — badges informativos, iconos, elementos sin énfasis
+    SUCCESS_SCHEME = "green"                  # Color scheme Radix para éxito/completado
     WARNING_SCHEME = "amber"                  # Color scheme Radix para acciones de atención (no error)
+    ERROR_SCHEME = "red"                      # Color scheme Radix para errores e incidencias
 
     # === FONDOS ===
     BG_APP = "#F8FAFC"            # Fondo general de la aplicación

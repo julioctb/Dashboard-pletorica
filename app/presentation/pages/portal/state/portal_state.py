@@ -479,7 +479,7 @@ class PortalState(AuthState):
 
     @rx.var
     def ruta_plazas_principal(self) -> str:
-        return "/portal/plazas"
+        return self.ruta_contrato_principal
 
     @rx.var
     def ruta_entregables_principal(self) -> str:
@@ -512,7 +512,7 @@ class PortalState(AuthState):
         return self.total_plazas_ocupadas + self.total_plazas_vacantes
 
     async def redirigir_a_portal_plazas(self):
-        """Envía la entrada global de plazas al nivel 1 del módulo."""
+        """Redirige la ruta legacy de plazas al módulo de contratos."""
         resultado = await self.on_mount_portal()
         if resultado:
             return resultado

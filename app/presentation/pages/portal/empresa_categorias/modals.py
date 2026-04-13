@@ -80,21 +80,30 @@ def modal_categoria_catalogo() -> rx.Component:
                     style_variant="portal",
                 ),
                 form_input(
-                    label="Salario base sugerido",
-                    type="number",
-                    min="0",
-                    step="0.01",
+                    label="Salario base mensual sugerido",
                     placeholder="0.00",
                     value=EmpresaCategoriasState.form_salario_base_categoria,
                     on_change=EmpresaCategoriasState.set_form_salario_base_categoria,
                     error=EmpresaCategoriasState.error_form_salario_base_categoria,
-                    hint="Default al asignar a un contrato nuevo",
+                    hint="Monto mensual default al asignar a un contrato nuevo",
                     label_variant="portal",
                     style_variant="portal",
+                    input_mode="decimal",
                 ),
                 columns=rx.breakpoints(initial="1", sm="2"),
                 spacing="3",
                 width="100%",
+            ),
+            rx.cond(
+                EmpresaCategoriasState.mostrar_warning_salario_minimo_categoria,
+                feedback_callout(
+                    content=rx.text(
+                        EmpresaCategoriasState.mensaje_warning_salario_minimo_categoria,
+                        font_size=Typography.SIZE_XS,
+                    ),
+                    kind="warning",
+                ),
+                rx.fragment(),
             ),
             rx.cond(
                 EmpresaCategoriasState.categoria_editando

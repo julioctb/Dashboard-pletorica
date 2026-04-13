@@ -4,7 +4,7 @@ Pagina de Bajas de Personal del portal RRHH.
 import reflex as rx
 
 from app.presentation.layouts.backoffice import page_layout, page_header, page_toolbar
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Layout
 
 from .state import BajasState
 from .components import alertas_liquidacion, filtros_bajas, tabla_bajas, modal_cancelacion
@@ -43,7 +43,7 @@ def bajas_page() -> rx.Component:
                 ),
             ),
             width="100%",
-            max_width="900px",
+            max_width=Layout.CONTENT_MAX_WIDTH_COMPACT,
             margin_x="auto",
         ),
         width="100%",

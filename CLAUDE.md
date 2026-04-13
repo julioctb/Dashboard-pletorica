@@ -138,6 +138,7 @@ API v1 actualmente registrada:
 - `empresas`
 - `curp`
 - `onboarding`
+- `common` (helpers compartidos entre routers)
 
 ## Mapa de carpetas
 
@@ -145,7 +146,7 @@ API v1 actualmente registrada:
 app/
 ├── api/                    # FastAPI, middleware y routers versionados
 ├── bootstrap/              # Factory de app Reflex + registro de rutas
-├── core/                   # Config, enums, exceptions, validation, catalogs, calculations, constants, utils
+├── core/                   # config, enums, exceptions, error_messages, validation, catalogs, calculations, constants, compresores, utils, text_utils, ui_helpers, ui_options, ui_option_sets
 ├── database/               # DatabaseManager y clientes Supabase
 ├── domain/                 # Capa legacy monolitica
 │   ├── models/             # Modelos de dominio y DTOs Pydantic
@@ -229,9 +230,13 @@ No asumir que todos los modulos siguen exactamente el mismo patron. Primero revi
 
 Hoy existen repositories concretos para:
 
+- base (`base_repository.py`, clase abstracta compartida)
 - empresa
 - empleado
 - contrato
+- contrato_categoria
+- categoria_puesto
+- tipo_servicio
 - plaza
 - requisicion
 - archivo

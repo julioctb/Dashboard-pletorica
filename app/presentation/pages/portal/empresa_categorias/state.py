@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 import reflex as rx
 
+from app.core.catalogs import PoliticaFiscalResolver, Tolerancias
 from app.core.text_utils import (
     capitalizar_con_preposiciones,
-    capitalizar_palabras,
     formatear_moneda,
     normalizar_mayusculas,
 )
@@ -19,6 +20,7 @@ from app.modules.application import categoria_puesto_service, tipo_servicio_serv
 from app.presentation.pages.portal.state.portal_state import PortalState
 
 FILTRO_TODOS = "all"
+DIAS_MES_FISCAL = Decimal("30")
 
 
 class EmpresaCategoriasState(PortalState):
@@ -74,6 +76,31 @@ class EmpresaCategoriasState(PortalState):
         except (InvalidOperation, ValueError) as exc:
             raise ValueError("Capture un salario base válido") from exc
 
+    def _fecha_calculo_fiscal(self) -> date:
+        return date.today()
+
+    def _contexto_fiscal_actual(self):
+        return PoliticaFiscalResolver.resolver(
+            self._fecha_calculo_fiscal(),
+            zona_frontera=False,
+        )
+
+    def _salario_minimo_diario_decimal(self) -> Decimal:
+        return Decimal(
+            str(self._contexto_fiscal_actual().salario_minimo_diario_aplicable or 0)
+        )
+
+    def _salario_minimo_mensual_decimal(self) -> Decimal:
+        return Tolerancias.redondear_moneda(
+            self._salario_minimo_diario_decimal() * DIAS_MES_FISCAL
+        )
+
+    def _salario_base_es_menor_salario_minimo(self, salario: Decimal) -> bool:
+        return (
+            salario > Decimal("0")
+            and salario < self._salario_minimo_mensual_decimal()
+        )
+
     @staticmethod
     def _serializar_tipo(tipo: TipoServicio) -> dict:
         tipo_id = int(getattr(tipo, "id", 0) or 0)
@@ -109,7 +136,7 @@ class EmpresaCategoriasState(PortalState):
             "clave": str(getattr(categoria, "clave", "") or ""),
             "clave_display": normalizar_mayusculas(getattr(categoria, "clave", "")),
             "nombre": str(getattr(categoria, "nombre", "") or ""),
-            "nombre_display": capitalizar_palabras(getattr(categoria, "nombre", "")),
+            "nombre_display": normalizar_mayusculas(getattr(categoria, "nombre", "")),
             "salario_base_mensual": str(salario),
             "salario_base_fmt": self._formatear_moneda_catalogo(salario),
             "contratos_count": int(contratos_count or 0),
@@ -287,11 +314,11 @@ class EmpresaCategoriasState(PortalState):
         self._limpiar_form_categoria()
         self.categoria_editando_id = int(categoria.get("id") or 0)
         self.form_tipo_servicio_id = str(categoria.get("tipo_servicio_id_str") or "")
-        self.form_nombre_categoria = str(categoria.get("nombre_display") or "")
-        self.form_clave_categoria = str(categoria.get("clave_display") or "")
+        self.form_nombre_categoria = normalizar_mayusculas(str(categoria.get("nombre") or ""))
+        self.form_clave_categoria = normalizar_mayusculas(str(categoria.get("clave") or ""))
         salario_raw = str(categoria.get("salario_base_mensual") or "0")
         self.form_salario_base_categoria = (
-            f"{Decimal(salario_raw):.2f}" if Decimal(salario_raw) > Decimal("0") else ""
+            formatear_moneda(salario_raw) if Decimal(salario_raw) > Decimal("0") else ""
         )
         self.categoria_editando_contratos_count = await categoria_puesto_service.contar_contratos_por_categoria(
             self.categoria_editando_id
@@ -311,7 +338,7 @@ class EmpresaCategoriasState(PortalState):
         self.error_form_tipo_servicio_id = ""
 
     def set_form_nombre_categoria(self, value: str):
-        self.form_nombre_categoria = value
+        self.form_nombre_categoria = normalizar_mayusculas(value)
         self.error_form_nombre_categoria = ""
 
     def set_form_clave_categoria(self, value: str):
@@ -319,7 +346,7 @@ class EmpresaCategoriasState(PortalState):
         self.error_form_clave_categoria = ""
 
     def set_form_salario_base_categoria(self, value: str):
-        self.form_salario_base_categoria = value
+        self.form_salario_base_categoria = formatear_moneda(value) if value else ""
         self.error_form_salario_base_categoria = ""
 
     def _validar_form_categoria(self) -> bool:
@@ -437,6 +464,36 @@ class EmpresaCategoriasState(PortalState):
     @rx.var
     def total_inactivas(self) -> int:
         return sum(1 for categoria in self.categorias_catalogo if categoria.get("estatus") == "INACTIVO")
+
+    @rx.var
+    def anio_actual(self) -> int:
+        return self._fecha_calculo_fiscal().year
+
+    @rx.var
+    def salario_minimo_mensual_vigente(self) -> Decimal:
+        return self._salario_minimo_mensual_decimal()
+
+    @rx.var
+    def salario_minimo_mensual_vigente_fmt(self) -> str:
+        return self._formatear_moneda_catalogo(self.salario_minimo_mensual_vigente)
+
+    @rx.var
+    def mostrar_warning_salario_minimo_categoria(self) -> bool:
+        if not str(self.form_salario_base_categoria or "").strip():
+            return False
+        try:
+            salario = self._parse_salario(self.form_salario_base_categoria)
+        except ValueError:
+            return False
+        return self._salario_base_es_menor_salario_minimo(salario)
+
+    @rx.var
+    def mensaje_warning_salario_minimo_categoria(self) -> str:
+        return (
+            f"El salario capturado es menor al salario mínimo vigente {self.anio_actual} "
+            f"({self.salario_minimo_mensual_vigente_fmt}/mes). "
+            "Revíselo si no corresponde a jornada parcial o por horas."
+        )
 
     @rx.var
     def tipos_servicio_select_options(self) -> list[dict]:

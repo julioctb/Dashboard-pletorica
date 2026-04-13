@@ -236,7 +236,7 @@ class ContratoMutationService:
             # La extensión nace ACTIVA: hereda toda la configuración del padre
             # más los overrides del wizard, no requiere un paso adicional de
             # "configurar como borrador". Consecuencia: aparece inmediatamente
-            # en /portal/plazas y en la sección Activos de /portal/contratos.
+            # en la sección Activos de /portal/contratos y en su detalle de plazas.
             estatus=EstatusContrato.ACTIVO,
             notas=f"Extensión automática de {padre.codigo}",
         )

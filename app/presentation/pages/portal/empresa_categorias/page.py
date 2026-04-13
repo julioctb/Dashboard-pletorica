@@ -3,15 +3,17 @@
 import reflex as rx
 
 from app.presentation.components.ui import (
+    boton_cancelar,
+    boton_guardar,
     empty_state_card,
-    input_busqueda,
+    filtros_inline,
+    form_input,
     metric_card,
     metric_card_grid,
-    page_header,
     tabla_cta_button,
     table_shell,
 )
-from app.presentation.layouts.backoffice import page_layout
+from app.presentation.layouts.backoffice import page_header, page_layout, page_toolbar
 from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 from .modals import modal_categoria_catalogo
@@ -50,7 +52,7 @@ def _metricas() -> rx.Component:
         metric_card(
             titulo="Inactivas",
             valor=EmpresaCategoriasState.total_inactivas,
-            value_color=Colors.TEXT_MUTED,
+            value_color=Colors.TEXT_SECONDARY,
             **props,
         ),
         initial_columns="1",
@@ -60,34 +62,28 @@ def _metricas() -> rx.Component:
 
 
 def _toolbar() -> rx.Component:
-    return rx.flex(
-        rx.box(
-            input_busqueda(
-                value=EmpresaCategoriasState.busqueda_categoria,
-                on_change=EmpresaCategoriasState.set_busqueda_categoria,
-                on_clear=EmpresaCategoriasState.limpiar_busqueda_categoria,
-                placeholder="Buscar por nombre o clave...",
-                width="100%",
-                toolbar_style=True,
+    return page_toolbar(
+        search_value=EmpresaCategoriasState.busqueda_categoria,
+        search_placeholder="Buscar por nombre o clave...",
+        on_search_change=EmpresaCategoriasState.set_busqueda_categoria,
+        on_search_clear=EmpresaCategoriasState.limpiar_busqueda_categoria,
+        show_view_toggle=False,
+        filters=filtros_inline(
+            rx.select.root(
+                rx.select.trigger(placeholder="Estatus: Todos"),
+                rx.select.content(
+                    rx.select.item("Todos", value=FILTRO_TODOS),
+                    rx.select.item("Activas", value="ACTIVO"),
+                    rx.select.item("Inactivas", value="INACTIVO"),
+                ),
+                value=EmpresaCategoriasState.filtro_estatus_categoria,
+                on_change=EmpresaCategoriasState.set_filtro_estatus_categoria,
+                size="2",
             ),
-            flex="1 1 0px",
-            min_width="180px",
         ),
-        rx.select.root(
-            rx.select.trigger(placeholder="Estatus: Todos"),
-            rx.select.content(
-                rx.select.item("Todos", value=FILTRO_TODOS),
-                rx.select.item("Activas", value="ACTIVO"),
-                rx.select.item("Inactivas", value="INACTIVO"),
-            ),
-            value=EmpresaCategoriasState.filtro_estatus_categoria,
-            on_change=EmpresaCategoriasState.set_filtro_estatus_categoria,
-            size="2",
-        ),
-        width="100%",
-        align="center",
-        gap=Spacing.SM,
-        wrap="wrap",
+        search_min_width="180px",
+        search_max_width=None,
+        search_flex="1 1 260px",
     )
 
 
@@ -211,33 +207,39 @@ def _tipo_servicio_group(tipo: dict) -> rx.Component:
                 align="center",
                 gap=Spacing.SM,
             ),
-            rx.link(
-                rx.flex(
-                    rx.icon("plus", size=12),
-                    rx.text("Agregar"),
-                    align="center",
-                    gap=Spacing.XS,
-                ),
+            rx.button(
+                rx.icon("plus", size=14),
+                "Agregar categoría",
                 on_click=EmpresaCategoriasState.abrir_modal_categoria_en_tipo(tipo["id"]),
-                font_size=Typography.SIZE_XS,
-                color=Colors.PORTAL_PRIMARY_TEXT,
-                text_decoration="underline",
-                cursor="pointer",
+                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                variant="soft",
+                size="2",
+                white_space="nowrap",
+                flex_shrink="0",
             ),
             width="100%",
             justify="between",
             align="center",
+            wrap="wrap",
+            gap=Spacing.SM,
             padding_y=Spacing.SM,
         ),
-        table_shell(
-            loading=EmpresaCategoriasState.loading,
-            headers=GRUPO_HEADERS,
-            rows=tipo["categorias"].to(list[dict]),
-            row_renderer=_fila_categoria,
-            has_rows=tipo["tiene_categorias"],
-            empty_component=_empty_group(tipo),
-            table_size="1",
-            loading_rows=3,
+        rx.box(
+            table_shell(
+                loading=EmpresaCategoriasState.loading,
+                headers=GRUPO_HEADERS,
+                rows=tipo["categorias"].to(list[dict]),
+                row_renderer=_fila_categoria,
+                has_rows=tipo["tiene_categorias"],
+                empty_component=_empty_group(tipo),
+                table_size="1",
+                loading_rows=3,
+            ),
+            width="100%",
+            overflow_x="auto",
+            background=Colors.SURFACE,
+            border=f"1px solid {Colors.BORDER}",
+            border_radius=Radius.LG,
         ),
         width="100%",
         spacing="2",
@@ -263,65 +265,73 @@ def _empty_state_filtros() -> rx.Component:
 def _crear_tipo_inline() -> rx.Component:
     return rx.cond(
         EmpresaCategoriasState.creando_tipo_servicio,
-        rx.flex(
-            rx.input(
-                value=EmpresaCategoriasState.form_nombre_tipo,
-                on_change=EmpresaCategoriasState.set_form_nombre_tipo,
-                on_key_down=EmpresaCategoriasState.handle_key_down_crear_tipo,
-                placeholder="Ej: Seguridad",
-                auto_focus=True,
-                width="100%",
-                flex="1 1 240px",
-            ),
-            rx.button(
-                "Crear",
-                on_click=EmpresaCategoriasState.crear_tipo_servicio,
-                size="2",
-                variant="solid",
-                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-                disabled=EmpresaCategoriasState.saving
-                | (EmpresaCategoriasState.form_nombre_tipo == ""),
-            ),
-            rx.icon_button(
-                rx.icon("x", size=14),
-                on_click=EmpresaCategoriasState.cancelar_crear_tipo,
-                size="2",
-                variant="ghost",
-            ),
-            rx.cond(
-                EmpresaCategoriasState.error_form_nombre_tipo != "",
-                rx.text(
-                    EmpresaCategoriasState.error_form_nombre_tipo,
-                    font_size=Typography.SIZE_XS,
-                    color=Colors.ERROR,
-                    width="100%",
+        rx.box(
+            rx.flex(
+                rx.box(
+                    form_input(
+                        label="Nuevo tipo de servicio",
+                        placeholder="Ej: Seguridad",
+                        value=EmpresaCategoriasState.form_nombre_tipo,
+                        on_change=EmpresaCategoriasState.set_form_nombre_tipo,
+                        on_key_down=EmpresaCategoriasState.handle_key_down_crear_tipo,
+                        error=EmpresaCategoriasState.error_form_nombre_tipo,
+                        hint="Presione Enter para crear más rápido",
+                        label_variant="portal",
+                        style_variant="portal",
+                        auto_focus=True,
+                    ),
+                    flex="1 1 280px",
+                    min_width="220px",
                 ),
-                rx.fragment(),
+                rx.flex(
+                    boton_guardar(
+                        texto="Crear",
+                        texto_guardando="Creando...",
+                        on_click=EmpresaCategoriasState.crear_tipo_servicio,
+                        saving=EmpresaCategoriasState.saving,
+                        disabled=EmpresaCategoriasState.form_nombre_tipo == "",
+                        size="2",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                    ),
+                    boton_cancelar(
+                        texto="Cancelar",
+                        on_click=EmpresaCategoriasState.cancelar_crear_tipo,
+                        disabled=EmpresaCategoriasState.saving,
+                        size="2",
+                    ),
+                    align="center",
+                    gap=Spacing.SM,
+                    wrap="wrap",
+                    justify="end",
+                    flex_shrink="0",
+                ),
+                width="100%",
+                align="end",
+                gap=Spacing.SM,
+                wrap="wrap",
             ),
-            wrap="wrap",
-            align="center",
-            gap=Spacing.SM,
             padding=Spacing.MD,
-            border=f"0.5px dashed {Colors.BORDER_STRONG}",
+            border=f"1px dashed {Colors.BORDER_STRONG}",
             border_radius=Radius.LG,
+            background=Colors.SURFACE,
             width="100%",
         ),
-        rx.flex(
-            rx.icon("plus", size=14, color=Colors.PORTAL_PRIMARY_TEXT),
-            rx.text(
-                "Agregar tipo de servicio",
-                color=Colors.PORTAL_PRIMARY_TEXT,
-                font_size=Typography.SIZE_SM,
-            ),
-            align="center",
+        rx.button(
+            rx.icon("plus", size=16),
+            "Agregar tipo de servicio",
+            on_click=EmpresaCategoriasState.iniciar_crear_tipo,
+            color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+            variant="surface",
+            size="3",
+            width="100%",
             justify="center",
             gap=Spacing.SM,
-            padding=Spacing.MD,
-            cursor="pointer",
-            border=f"0.5px dashed {Colors.BORDER_STRONG}",
-            border_radius=Radius.LG,
-            width="100%",
-            on_click=EmpresaCategoriasState.iniciar_crear_tipo,
+            border=f"1px dashed {Colors.BORDER_STRONG}",
+            background=Colors.PORTAL_PRIMARY_LIGHTER,
+            _hover={
+                "background": Colors.PORTAL_PRIMARY_LIGHT,
+                "border_color": Colors.PORTAL_PRIMARY,
+            },
         ),
     )
 
@@ -330,16 +340,10 @@ def empresa_categorias_page() -> rx.Component:
     return rx.box(
         page_layout(
             header=page_header(
-                titulo="Catálogo de puestos",
+                titulo="Catálogo de servicios",
                 subtitulo="Categorías de personal por tipo de servicio",
                 icono="briefcase",
                 color_icono=Colors.PORTAL_ACCENT_SCHEME,
-                accion_principal=rx.button(
-                    rx.icon("plus", size=16),
-                    "Nueva categoría",
-                    on_click=EmpresaCategoriasState.abrir_modal_crear_categoria,
-                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-                ),
             ),
             toolbar=_toolbar(),
             content=rx.vstack(

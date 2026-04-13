@@ -15,7 +15,7 @@ from app.presentation.pages.portal.plaza_shared_modals import (
     modal_salario_plaza as shared_modal_salario_plaza,
 )
 from app.presentation.components.ui.modals import modal_formulario
-from app.presentation.theme import Colors, Radius, Spacing, Typography
+from app.presentation.theme import Colors, Radius, Shadows, Spacing, Typography
 
 from .state import ContratoPlazasState
 
@@ -69,10 +69,10 @@ def _combobox_nombre_categoria() -> rx.Component:
                     left="0",
                     right="0",
                     margin_top=Spacing.XS,
-                    background="white",
+                    background=Colors.SURFACE,
                     border=f"1px solid {Colors.BORDER}",
                     border_radius=Radius.MD,
-                    box_shadow="0 4px 12px rgba(15, 23, 42, 0.08)",
+                    box_shadow=Shadows.MD,
                     max_height="220px",
                     overflow_y="auto",
                     z_index="10",

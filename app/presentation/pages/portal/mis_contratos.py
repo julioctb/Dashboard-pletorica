@@ -37,21 +37,20 @@ from app.presentation.components.ui import (
     empty_state_card,
     estatus_badge,
     feedback_callout,
+    filtros_inline,
     form_date,
     form_input,
-    input_busqueda,
     metric_card,
     metric_card_grid,
     modal_confirmar_accion,
     modal_formulario,
-    page_header,
     skeleton_tabla,
     status_badge_reactive,
     tabla_cta_button,
     table_shell,
     wizard_stepper,
 )
-from app.presentation.layouts.backoffice import page_layout
+from app.presentation.layouts.backoffice import page_header, page_layout, page_toolbar
 from app.presentation.pages.backoffice.contratos.contrato_detail_sections import (
     contrato_detail_info_sections,
     contrato_detail_text,
@@ -63,7 +62,7 @@ from app.presentation.pages.backoffice.contratos.contrato_presentacion import (
 from app.presentation.pages.backoffice.contratos.contratos_modals import modal_contrato
 from app.presentation.pages.backoffice.contratos.contratos_state import ContratosState
 from app.presentation.pages.portal.state.portal_state import PortalState
-from app.presentation.theme import Colors, Radius, Spacing, Typography
+from app.presentation.theme import Colors, Layout, Radius, Spacing, Typography
 
 
 logger = logging.getLogger(__name__)
@@ -78,7 +77,9 @@ CONTRATOS_HEADERS = [
     {"nombre": "Contrato", "ancho": "240px", "header_align": "left"},
     {"nombre": "Tipo", "ancho": "180px", "header_align": "center"},
     {"nombre": "Vigencia", "ancho": "150px", "header_align": "center"},
-    {"nombre": "Plazas", "ancho": "90px", "header_align": "center"},
+    {"nombre": "Min", "ancho": "72px", "header_align": "center"},
+    {"nombre": "Max", "ancho": "72px", "header_align": "center"},
+    {"nombre": "OCUP", "ancho": "90px", "header_align": "center"},
     {"nombre": "Estatus", "ancho": "120px", "header_align": "center"},
     {"nombre": "", "ancho": "140px", "header_align": "right"},
 ]
@@ -1371,6 +1372,8 @@ class MisContratosState(PortalState):
     def _enriquecer_contrato(self, contrato: dict) -> dict:
         """Agrega campos derivados para la UI del portal."""
         data = enriquecer_contrato_presentacion(contrato)
+        data.setdefault("cantidad_plazas_minima", 0)
+        data.setdefault("cantidad_plazas_maxima", 0)
         data.setdefault("total_plazas", 0)
         data.setdefault("plazas_ocupadas", 0)
         data.setdefault("tipo_servicio_nombre", "")
@@ -1508,45 +1511,27 @@ def _celda_vigencia(item: rx.Var) -> rx.Component:
     )
 
 
-def _celda_plazas(item: rx.Var) -> rx.Component:
-    pct = item["pct_cobertura"].to(int)
-    color_cobertura = rx.cond(
-        pct >= 80,
-        Colors.SUCCESS,
-        rx.cond(
-            pct >= 40,
-            Colors.WARNING,
-            Colors.ERROR,
-        ),
-    )
+def _celda_plazas_rango(item: rx.Var, key: str) -> rx.Component:
     return rx.table.cell(
-        rx.cond(
-            item["tiene_personal"] & (item["total_plazas"].to(int) > 0),
-            rx.box(
-                rx.text(
-                    item["plazas_ocupadas"].to(str) + "/" + item["total_plazas"].to(str),
-                    font_size=Typography.SIZE_SM,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                    font_variant_numeric="tabular-nums",
-                    color=color_cobertura,
-                ),
-                rx.box(
-                    rx.box(
-                        width=pct.to(str) + "%",
-                        height="100%",
-                        border_radius="2px",
-                        background=color_cobertura,
-                    ),
-                    width="50px",
-                    height="4px",
-                    border_radius="2px",
-                    background=Colors.BORDER,
-                    overflow="hidden",
-                    margin_x="auto",
-                    margin_top=Spacing.XS,
-                ),
-            ),
-            rx.text("—", color=Colors.TEXT_MUTED, font_size=Typography.SIZE_SM),
+        rx.text(
+            item[key].to(str),
+            font_size=Typography.SIZE_SM,
+            font_weight=Typography.WEIGHT_MEDIUM,
+            color=Colors.TEXT_PRIMARY,
+            font_variant_numeric="tabular-nums",
+        ),
+        text_align="center",
+    )
+
+
+def _celda_ocupadas(item: rx.Var) -> rx.Component:
+    return rx.table.cell(
+        rx.text(
+            item["plazas_ocupadas"].to(str),
+            font_size=Typography.SIZE_SM,
+            font_weight=Typography.WEIGHT_MEDIUM,
+            font_variant_numeric="tabular-nums",
+            color=Colors.TEXT_PRIMARY,
         ),
         text_align="center",
     )
@@ -1617,7 +1602,9 @@ def _fila_contrato(item: rx.Var) -> rx.Component:
         _celda_contrato(item),
         _celda_tipo(item),
         _celda_vigencia(item),
-        _celda_plazas(item),
+        _celda_plazas_rango(item, "cantidad_plazas_minima"),
+        _celda_plazas_rango(item, "cantidad_plazas_maxima"),
+        _celda_ocupadas(item),
         _celda_estatus(item),
         _celda_cta(item),
         _hover={"background": Colors.SURFACE_HOVER, "cursor": "pointer"},
@@ -1744,57 +1731,53 @@ def _toolbar() -> rx.Component:
         "Todos",
         "Filtrado",
     )
-    return rx.flex(
-        rx.box(
-            input_busqueda(
-                value=MisContratosState.filtro_busqueda_cto,
-                on_change=MisContratosState.set_filtro_busqueda_cto,
-                on_clear=MisContratosState.limpiar_busqueda_contratos,
-                placeholder="Buscar por código, folio u objeto...",
-                toolbar_style=True,
-                width="100%",
-            ),
-            flex="1 1 0px",
-            min_width="200px",
-        ),
-        rx.select.root(
-            rx.select.trigger(
-                _label_select("Estatus:", estatus_label),
-                width="190px",
-            ),
-            rx.select.content(
-                rx.select.item("Todos", value=FILTRO_TODOS),
-                rx.select.item("Borrador", value="BORRADOR"),
-                rx.select.item("Activo", value="ACTIVO"),
-                rx.select.item("Suspendido", value="SUSPENDIDO"),
-                rx.select.item("Vencido", value="VENCIDO"),
-                rx.select.item("Liquidado", value="LIQUIDADO"),
-                rx.select.item("Cancelado", value="CANCELADO"),
-            ),
-            value=MisContratosState.filtro_estatus_cto,
-            on_change=MisContratosState.set_filtro_estatus_cto,
-            size="2",
-        ),
-        rx.select.root(
-            rx.select.trigger(
-                _label_select("Tipo:", tipo_label),
-                width="190px",
-            ),
-            rx.select.content(
-                rx.select.item("Todos", value=FILTRO_TODOS),
-                rx.foreach(
-                    MisContratosState.tipos_servicio_opciones,
-                    _tipo_select_option,
+    return page_toolbar(
+        search_value=MisContratosState.filtro_busqueda_cto,
+        search_placeholder="Buscar por código, folio u objeto...",
+        on_search_change=MisContratosState.set_filtro_busqueda_cto,
+        on_search_clear=MisContratosState.limpiar_busqueda_contratos,
+        show_view_toggle=False,
+        wrapped=False,
+        compact=True,
+        search_min_width="0px",
+        search_max_width=None,
+        search_flex="1 1 0px",
+        filters=filtros_inline(
+            rx.select.root(
+                rx.select.trigger(
+                    _label_select("Estatus:", estatus_label),
+                    width="190px",
                 ),
+                rx.select.content(
+                    rx.select.item("Todos", value=FILTRO_TODOS),
+                    rx.select.item("Borrador", value="BORRADOR"),
+                    rx.select.item("Activo", value="ACTIVO"),
+                    rx.select.item("Suspendido", value="SUSPENDIDO"),
+                    rx.select.item("Vencido", value="VENCIDO"),
+                    rx.select.item("Liquidado", value="LIQUIDADO"),
+                    rx.select.item("Cancelado", value="CANCELADO"),
+                ),
+                value=MisContratosState.filtro_estatus_cto,
+                on_change=MisContratosState.set_filtro_estatus_cto,
+                size="2",
             ),
-            value=MisContratosState.filtro_tipo_cto,
-            on_change=MisContratosState.set_filtro_tipo_cto,
-            size="2",
+            rx.select.root(
+                rx.select.trigger(
+                    _label_select("Tipo:", tipo_label),
+                    width="190px",
+                ),
+                rx.select.content(
+                    rx.select.item("Todos", value=FILTRO_TODOS),
+                    rx.foreach(
+                        MisContratosState.tipos_servicio_opciones,
+                        _tipo_select_option,
+                    ),
+                ),
+                value=MisContratosState.filtro_tipo_cto,
+                on_change=MisContratosState.set_filtro_tipo_cto,
+                size="2",
+            ),
         ),
-        width="100%",
-        align="center",
-        wrap="wrap",
-        gap=Spacing.SM,
     )
 
 
@@ -2851,9 +2834,9 @@ def mis_contratos_page() -> rx.Component:
                 ),
                 color_icono=Colors.PORTAL_ACCENT_SCHEME,
             ),
+            toolbar=_toolbar(),
             content=rx.vstack(
                 _metricas_contratos(),
-                _toolbar(),
                 _contratos_contenido(),
                 _modal_detalle_contrato(),
                 _modal_confirmar_cancelar(),
@@ -2864,7 +2847,7 @@ def mis_contratos_page() -> rx.Component:
             ),
         ),
         width="100%",
-        max_width="1200px",
+        max_width=Layout.CONTENT_MAX_WIDTH_OPERATIONS,
         margin_x="auto",
         min_height="100vh",
         on_mount=MisContratosState.on_mount_contratos,

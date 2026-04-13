@@ -48,6 +48,18 @@ def estatus_badge(estatus: str) -> rx.Component:
         ("OCUPADA", rx.badge("Ocupada", color_scheme=StatusColors.OCUPADA_SCHEME, variant="soft", size="1")),
         ("VACANTE", rx.badge("Vacante", color_scheme=StatusColors.VACANTE_SCHEME, variant="soft", size="1")),
         ("SIN_SEDE", rx.badge("Sin sede", color_scheme=Colors.WARNING_SCHEME, variant="soft", size="1")),
+        ("SIN_CATEGORIA", rx.badge("Sin categoría", color_scheme=Colors.WARNING_SCHEME, variant="soft", size="1")),
+        ("CONFIGURACION_INCOMPLETA", rx.badge("Configuración incompleta", color_scheme=Colors.WARNING_SCHEME, variant="soft", size="1")),
+        ("NO_DISPONIBLE", rx.badge("No disponible", color_scheme=Colors.WARNING_SCHEME, variant="soft", size="1")),
+        ("COMPLETA", rx.badge("Completa", color_scheme=StatusColors.ACTIVO_SCHEME, variant="soft", size="1")),
+        ("INCOMPLETA", rx.badge("Incompleta", color_scheme=Colors.WARNING_SCHEME, variant="soft", size="1")),
+        ("DEBAJO_MINIMO", rx.badge("Debajo del mínimo", color_scheme=Colors.WARNING_SCHEME, variant="soft", size="1")),
+        ("ENCIMA_MAXIMO", rx.badge("Encima del máximo", color_scheme=StatusColors.VENCIDO_SCHEME, variant="soft", size="1")),
+        ("SIN_CONFIGURAR", rx.badge("Sin configurar", color_scheme=Colors.NEUTRAL_SCHEME, variant="soft", size="1")),
+        ("PARCIAL", rx.badge("Parcial", color_scheme=Colors.WARNING_SCHEME, variant="soft", size="1")),
+        ("PARCIALMENTE_CONFIGURADO", rx.badge("Parcialmente configurado", color_scheme=StatusColors.CERRADO_SCHEME, variant="soft", size="1")),
+        ("CONFIGURADO", rx.badge("Configurado", color_scheme=StatusColors.ACTIVO_SCHEME, variant="soft", size="1")),
+        ("CON_INCIDENCIAS", rx.badge("Con incidencias", color_scheme=StatusColors.VENCIDO_SCHEME, variant="soft", size="1")),
         rx.badge(estatus, color_scheme=Colors.NEUTRAL_SCHEME, variant="soft", size="1"),  # default
     )
 

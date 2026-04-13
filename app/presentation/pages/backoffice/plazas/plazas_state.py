@@ -22,7 +22,7 @@ from app.modules.application import (
     tipo_servicio_service,
 )
 
-PORTAL_PLAZAS_ROUTE = "/portal/plazas"
+PORTAL_PLAZAS_ROUTE = "/portal/contratos"
 SIN_CATEGORIA_VALUE = "__SIN_CATEGORIA__"
 MODO_ASIGNACION_SEDE_CATEGORIA = "sede_categoria"
 MODO_ASIGNACION_SOLO_SEDE = "solo_sede"

@@ -4,7 +4,7 @@ Pagina de asistencias del portal de operaciones.
 import reflex as rx
 
 from app.presentation.layouts.backoffice import page_header, page_layout
-from app.presentation.theme import Colors
+from app.presentation.theme import Colors, Layout
 
 from .components import (
     configuracion_asistencias,
@@ -16,9 +16,6 @@ from .components import (
     toolbar_asistencias,
 )
 from .state import AsistenciasState
-
-ASISTENCIAS_PAGE_MAX_WIDTH = "900px"
-
 
 def asistencias_page() -> rx.Component:
     """Pagina principal del modulo de asistencias."""
@@ -51,7 +48,7 @@ def asistencias_page() -> rx.Component:
                 ),
             ),
             width="100%",
-            max_width=ASISTENCIAS_PAGE_MAX_WIDTH,
+            max_width=Layout.CONTENT_MAX_WIDTH_COMPACT,
             margin_x="auto",
         ),
         width="100%",

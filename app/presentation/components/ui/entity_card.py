@@ -30,7 +30,9 @@ def entity_card(
     subtitulo: Optional[Any] = None,
     badge_superior: Optional[rx.Component] = None,
     status: Optional[Any] = None,
+    status_component: Optional[rx.Component] = None,
     campos: Optional[List[Tuple[str, Any]]] = None,
+    contenido_extra: Optional[rx.Component] = None,
     acciones: Optional[rx.Component] = None,
     on_click: Optional[Any] = None,
     icono: Optional[str] = None,
@@ -44,7 +46,9 @@ def entity_card(
         subtitulo: Texto secundario debajo del título
         badge_superior: Badge opcional en la esquina superior izquierda
         status: Valor del estatus para mostrar badge de estado
+        status_component: Componente de estado opcional para casos fuera del contrato base
         campos: Lista de tuplas (label, valor) para mostrar información adicional
+        contenido_extra: Componente opcional adicional entre campos y acciones
         acciones: Componente de botones de acción
         on_click: Handler para click en la tarjeta (opcional)
         icono: Nombre del icono opcional
@@ -58,7 +62,9 @@ def entity_card(
     if badge_superior:
         header_items.append(badge_superior)
     header_items.append(rx.spacer())
-    if status is not None:
+    if status_component is not None:
+        header_items.append(status_component)
+    elif status is not None:
         header_items.append(status_badge_reactive(status))
 
     header = rx.hstack(
@@ -103,18 +109,21 @@ def entity_card(
             campos_items.append(
                 rx.hstack(
                     rx.text(
-                        f"{label}:",
+                        label,
                         font_size=Typography.SIZE_XS,
                         color=Colors.TEXT_MUTED,
                     ),
                     rx.text(
                         valor,
-                        font_size=Typography.SIZE_XS,
-                        color=Colors.TEXT_SECONDARY,
+                        font_size=Typography.SIZE_SM,
+                        font_weight=Typography.WEIGHT_MEDIUM,
+                        color=Colors.TEXT_PRIMARY,
                         no_of_lines=1,
                     ),
-                    spacing="1",
+                    width="100%",
                     align="center",
+                    justify="between",
+                    gap=Spacing.SM,
                 )
             )
         campos_component = rx.vstack(
@@ -141,6 +150,8 @@ def entity_card(
         contenido.append(subtitulo_component)
     if campos_component:
         contenido.append(campos_component)
+    if contenido_extra is not None:
+        contenido.append(contenido_extra)
     if footer:
         contenido.append(footer)
 
