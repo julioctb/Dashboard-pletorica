@@ -7,7 +7,7 @@ import reflex as rx
 from typing import List, Optional
 
 from app.presentation.components.shared.base_state import BaseState
-from app.modules.application import entregable_service
+from app.modules.application import entregable_service, presentation_bridge_service
 from app.domain.enums import TipoEntregable, PeriodicidadEntregable
 from app.domain.models.entregable import ContratoTipoEntregableCreate
 
@@ -224,9 +224,7 @@ class EntregablesConfigState(BaseState):
     # =========================================================================
     async def eliminar_tipo(self, tipo_id: int):
         try:
-            from app.database import db_manager
-            supabase = db_manager.get_client()
-            supabase.table("contrato_tipo_entregable").delete().eq("id", tipo_id).execute()
+            await presentation_bridge_service.delete_contrato_tipo_entregable(tipo_id)
             self.mostrar_mensaje("Tipo eliminado", "success")
             await self.cargar_configuracion(self.contrato_id)
         except Exception as e:

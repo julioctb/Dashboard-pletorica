@@ -9,7 +9,7 @@ Este módulo organiza todos los datos de referencia del sistema:
 Uso:
     from app.core.catalogs import CatalogoUMA, CatalogoIMSS, CatalogoPrestaciones
 
-    uma = CatalogoUMA.DIARIO  # $113.14
+    uma = CatalogoUMA.DIARIO  # $117.31
     tasa = CatalogoIMSS.CUOTA_FIJA  # 0.204
     dias = CatalogoPrestaciones.AGUINALDO_DIAS  # 15
 """

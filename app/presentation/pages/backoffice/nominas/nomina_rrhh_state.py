@@ -26,7 +26,7 @@ from app.domain.models.empleado_descuento_recurrente import DESCUENTOS_RECURRENT
 from app.presentation.pages.backoffice.nominas.base_state import NominaBaseState
 from app.modules.nomina.application import configuracion_operativa_service
 from app.modules.nomina.application import nomina_periodo_service
-from app.database import db_manager
+from app.modules.application import presentation_bridge_service
 
 logger = logging.getLogger(__name__)
 
@@ -1352,19 +1352,9 @@ class NominaRRHHState(NominaBaseState):
 
     async def _cargar_descuentos_empleado(self, nomina_empleado_id: int):
         try:
-            supabase = db_manager.get_client()
-            result = (
-                supabase.table('nomina_movimientos')
-                .select(
-                    'id, monto, notas, concepto_id, es_automatico, '
-                    'conceptos_nomina(nombre, clave)'
-                )
-                .eq('nomina_empleado_id', nomina_empleado_id)
-                .eq('origen', 'RRHH')
-                .execute()
-            )
+            rows = await presentation_bridge_service.fetch_descuentos_rrhh(nomina_empleado_id)
             items = []
-            for r in (result.data or []):
+            for r in rows:
                 concepto = r.pop('conceptos_nomina', {}) or {}
                 clave = str(concepto.get('clave') or '').strip().upper()
                 meta = DESCUENTOS_RECURRENTES_POR_CLAVE.get(clave, {})
@@ -1428,36 +1418,12 @@ class NominaRRHHState(NominaBaseState):
                 yield self.mostrar_mensaje("Concepto no encontrado en el catálogo", "error")
                 return
 
-            supabase = db_manager.get_client()
-            movimiento_existente = (
-                supabase.table('nomina_movimientos')
-                .select('id')
-                .eq('nomina_empleado_id', nomina_empleado_id)
-                .eq('concepto_id', concepto_id)
-                .eq('origen', 'RRHH')
-                .limit(1)
-                .execute()
+            await presentation_bridge_service.upsert_descuento_rrhh(
+                nomina_empleado_id=nomina_empleado_id,
+                concepto_id=concepto_id,
+                monto=float(monto),
+                notas=self.form_notas_descuento.strip() or None,
             )
-            payload = {
-                'monto': float(monto),
-                'notas': self.form_notas_descuento.strip() or None,
-                'es_automatico': False,
-            }
-            if movimiento_existente.data:
-                supabase.table('nomina_movimientos').update(payload).eq(
-                    'id',
-                    movimiento_existente.data[0]['id'],
-                ).execute()
-            else:
-                supabase.table('nomina_movimientos').insert({
-                    'nomina_empleado_id': nomina_empleado_id,
-                    'concepto_id': concepto_id,
-                    'tipo': 'DEDUCCION',
-                    'origen': 'RRHH',
-                    'monto_gravable': 0.0,
-                    'monto_exento': 0.0,
-                    **payload,
-                }).execute()
 
             self.form_concepto_clave = ""
             self.form_monto_descuento = ""
@@ -1475,10 +1441,7 @@ class NominaRRHHState(NominaBaseState):
 
     async def eliminar_descuento(self, movimiento_id: int):
         try:
-            supabase = db_manager.get_client()
-            supabase.table('nomina_movimientos').delete().eq(
-                'id', movimiento_id
-            ).eq('origen', 'RRHH').execute()
+            await presentation_bridge_service.delete_descuento_rrhh(movimiento_id)
             nomina_empleado_id = self.empleado_seleccionado.get('id')
             if nomina_empleado_id:
                 await self._cargar_descuentos_empleado(nomina_empleado_id)
@@ -1491,14 +1454,7 @@ class NominaRRHHState(NominaBaseState):
 
     async def _obtener_concepto_id(self, clave: str) -> Optional[int]:
         try:
-            supabase = db_manager.get_client()
-            result = (
-                supabase.table('conceptos_nomina')
-                .select('id')
-                .eq('clave', clave)
-                .execute()
-            )
-            return result.data[0]['id'] if result.data else None
+            return await presentation_bridge_service.find_concepto_nomina_id_by_clave(clave)
         except Exception:
             return None
 

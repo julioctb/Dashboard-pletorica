@@ -290,17 +290,19 @@ class ContratoPlazasState(MisEmpleadosState):
         uma_diaria = float(contexto.uma_diaria or 0)
 
         cuotas_patronales = calculadora_imss.calcular_patronal(
-            float(sbc_diario),
-            dias_mes,
-            prima_riesgo,
-            uma_diaria,
+            sbc_diario=float(sbc_diario),
+            dias=dias_mes,
+            prima_riesgo=prima_riesgo,
+            uma_diaria=uma_diaria,
+            salario_minimo_diario=float(salario_minimo_diario),
+            ano=contexto.fecha_referencia.year,
         )
         cuotas_obreras, imss_obrero_absorbido = calculadora_imss.calcular_obrero(
-            float(sbc_diario),
-            dias_mes,
-            es_salario_minimo,
-            True,
-            uma_diaria,
+            sbc_diario=float(sbc_diario),
+            dias=dias_mes,
+            es_salario_minimo=es_salario_minimo,
+            aplicar_art_36=True,
+            uma_diaria=uma_diaria,
         )
         isr = calculadora_isr.calcular(
             float(bruto),

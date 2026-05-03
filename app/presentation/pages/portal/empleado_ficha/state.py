@@ -15,7 +15,6 @@ from app.core.text_utils import (
     normalizar_mayusculas,
     obtener_iniciales,
 )
-from app.database import db_manager
 from app.modules.empleados.application import empleado_service, historial_laboral_service
 from app.presentation.components.shared import EmployeeExpedienteStateMixin
 from app.presentation.pages.portal.state.portal_state import PortalState
@@ -23,6 +22,7 @@ from app.modules.application import (
     asistencia_service,
     categoria_puesto_service,
     contrato_service,
+    presentation_bridge_service,
     plaza_service,
     sede_service,
 )
@@ -480,15 +480,7 @@ class EmpleadoFichaState(PortalState, EmployeeExpedienteStateMixin):
 
     async def _cargar_historial(self, empleado_id: int):
         """Carga historial completo del empleado y resumen reciente."""
-        supabase = db_manager.get_client()
-        result = (
-            supabase.table("historial_laboral")
-            .select("id,empleado_id,plaza_id,tipo_movimiento,fecha_inicio,fecha_fin,notas")
-            .eq("empleado_id", empleado_id)
-            .order("fecha_inicio", desc=True)
-            .execute()
-        )
-        rows = result.data or []
+        rows = await presentation_bridge_service.fetch_historial_laboral_rows(empleado_id)
 
         plaza_ids = sorted(
             {
@@ -499,18 +491,7 @@ class EmpleadoFichaState(PortalState, EmployeeExpedienteStateMixin):
         )
         plazas_map: dict[int, dict] = {}
         if plaza_ids:
-            plazas_resp = (
-                supabase.table("plazas")
-                .select(
-                    "id,numero_plaza,"
-                    "categorias_puesto:categoria_puesto_id(nombre),"
-                    "sedes:sede_id(nombre,codigo)"
-                )
-                .in_("id", plaza_ids)
-                .execute()
-            )
-            for plaza in plazas_resp.data or []:
-                plazas_map[int(plaza.get("id") or 0)] = plaza
+            plazas_map = await presentation_bridge_service.fetch_plazas_lookup(plaza_ids)
 
         historial_normalizado: list[dict] = []
         for row in rows:
@@ -566,16 +547,10 @@ class EmpleadoFichaState(PortalState, EmployeeExpedienteStateMixin):
         self.horario = "—"
         self.tipo_pago = "—"
 
-        supabase = db_manager.get_client()
-        result = (
-            supabase.table("incidencias_asistencia")
-            .select("tipo_incidencia,fecha")
-            .eq("empleado_id", empleado_id)
-            .order("fecha", desc=True)
-            .limit(2000)
-            .execute()
+        incidencias = await presentation_bridge_service.fetch_incidencias_asistencia(
+            empleado_id,
+            limit=2000,
         )
-        incidencias = result.data or []
 
         hoy = date.today()
         inicio_mes = hoy.replace(day=1)

@@ -258,6 +258,10 @@ from app.domain.services.incapacidad_service import (
     IncapacidadService,
     incapacidad_service,
 )
+from app.domain.services.presentation_bridge_service import (
+    PresentationBridgeService,
+    presentation_bridge_service,
+)
 
 
 __all__ = [
@@ -386,4 +390,7 @@ __all__ = [
     # Incapacidad
     "IncapacidadService",
     "incapacidad_service",
+    # Presentation Bridge
+    "PresentationBridgeService",
+    "presentation_bridge_service",
 ]

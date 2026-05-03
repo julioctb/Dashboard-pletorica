@@ -81,6 +81,15 @@ class CalculadoraCostoPatronal:
         # VALIDACIÓN: Salario mínimo legal (Art. 123 Constitucional)
         # ═════════════════════════════════════════════════════════════════════
         salario_minimo_aplicable = self.config.salario_minimo_aplicable
+        fecha_referencia = self.config.fecha_calculo
+        uma_diaria = CatalogoUMA.diario_vigente(
+            fecha_referencia,
+            permitir_fallback=True,
+        ) or CatalogoUMA.DIARIO
+        tope_sbc = CatalogoUMA.tope_sbc_vigente(
+            fecha_referencia,
+            permitir_fallback=True,
+        ) or CatalogoUMA.TOPE_SBC
 
         if trabajador.salario_diario < salario_minimo_aplicable:
             # Calcular diferencia
@@ -106,24 +115,28 @@ class CalculadoraCostoPatronal:
         # ═════════════════════════════════════════════════════════════════════
         factor_int = self.config.calcular_factor_integracion(trabajador.antiguedad_anos)
         sbc_diario = trabajador.salario_diario * factor_int
-        sbc_diario = min(sbc_diario, float(CatalogoUMA.TOPE_SBC))  # Aplicar tope
+        sbc_diario = min(sbc_diario, float(tope_sbc))  # Aplicar tope
         salario_mensual = trabajador.salario_diario * dias
 
         # ═════════════════════════════════════════════════════════════════════
         # IMSS (delegar a calculadora especializada)
         # ═════════════════════════════════════════════════════════════════════
         imss_pat = self.calc_imss.calcular_patronal(
-            sbc_diario,
-            dias,
-            self.config.prima_riesgo
+            sbc_diario=sbc_diario,
+            dias=dias,
+            prima_riesgo=self.config.prima_riesgo,
+            uma_diaria=float(uma_diaria),
+            salario_minimo_diario=salario_minimo_aplicable,
+            ano=fecha_referencia.year,
         )
 
         es_sm = trabajador.es_salario_minimo(self.config.salario_minimo_aplicable)
         imss_obr, imss_absorbido = self.calc_imss.calcular_obrero(
-            sbc_diario,
-            dias,
-            es_sm,
-            self.config.aplicar_art_36_lss
+            sbc_diario=sbc_diario,
+            dias=dias,
+            es_salario_minimo=es_sm,
+            aplicar_art_36=self.config.aplicar_art_36_lss,
+            uma_diaria=float(uma_diaria),
         )
 
         # ═════════════════════════════════════════════════════════════════════
@@ -150,7 +163,11 @@ class CalculadoraCostoPatronal:
         # ═════════════════════════════════════════════════════════════════════
         # ISR (delegar a calculadora especializada)
         # ═════════════════════════════════════════════════════════════════════
-        isr = self.calc_isr.calcular(salario_mensual, es_sm)
+        isr = self.calc_isr.calcular(
+            salario_mensual,
+            es_sm,
+            fecha_referencia=fecha_referencia,
+        )
         
         # ═════════════════════════════════════════════════════════════════════
         # RESULTADO (ensamblar desde dicts de calculadores especializados)

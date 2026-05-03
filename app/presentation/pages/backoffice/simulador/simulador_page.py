@@ -212,31 +212,60 @@ def formulario_trabajador() -> rx.Component:
                     flex="1 1 180px",
                     min_width="180px",
                 ),
-                _field_input(
-                    label="Salario mensual ($)",
-                    placeholder="0.00",
-                    value=SimuladorState.salario_mensual,
-                    on_change=SimuladorState.set_salario_mensual,
-                    disabled=(
-                        (SimuladorState.tipo_salario_calculo == "Salario Mínimo")
-                        | (SimuladorState.tipo_salario_calculo == "")
+                rx.cond(
+                    SimuladorState.es_calculo_inverso,
+                    _field_input(
+                        label="Neto objetivo ($)",
+                        placeholder="0.00",
+                        value=SimuladorState.salario_mensual,
+                        on_change=SimuladorState.set_salario_mensual,
+                        hint="El simulador calculara el sueldo bruto necesario",
+                        type="number",
+                        step="0.01",
+                        flex="1 1 180px",
+                        min_width="180px",
                     ),
-                    type="number",
-                    step="0.01",
-                    flex="1 1 180px",
-                    min_width="180px",
+                    _field_input(
+                        label="Salario mensual ($)",
+                        placeholder="0.00",
+                        value=SimuladorState.salario_mensual,
+                        on_change=SimuladorState.set_salario_mensual,
+                        disabled=(
+                            (SimuladorState.tipo_salario_calculo == "Salario Mínimo")
+                            | (SimuladorState.tipo_salario_calculo == "")
+                        ),
+                        type="number",
+                        step="0.01",
+                        flex="1 1 180px",
+                        min_width="180px",
+                    ),
                 ),
-                _field_input(
-                    label="Salario diario ($)",
-                    placeholder="0.00",
-                    value=SimuladorState.calc_salario_diario,
-                    on_change=SimuladorState.noop,
-                    hint="Calculado automaticamente",
-                    disabled=True,
-                    type="number",
-                    step="0.01",
-                    flex="1 1 180px",
-                    min_width="180px",
+                rx.cond(
+                    SimuladorState.es_calculo_inverso,
+                    _field_input(
+                        label="Referencia diaria ($)",
+                        placeholder="0.00",
+                        value=SimuladorState.calc_salario_diario,
+                        on_change=SimuladorState.noop,
+                        hint="Referencia del neto objetivo",
+                        disabled=True,
+                        type="number",
+                        step="0.01",
+                        flex="1 1 180px",
+                        min_width="180px",
+                    ),
+                    _field_input(
+                        label="Salario diario ($)",
+                        placeholder="0.00",
+                        value=SimuladorState.calc_salario_diario,
+                        on_change=SimuladorState.noop,
+                        hint="Calculado automaticamente",
+                        disabled=True,
+                        type="number",
+                        step="0.01",
+                        flex="1 1 180px",
+                        min_width="180px",
+                    ),
                 ),
                 width="100%",
                 wrap="wrap",
@@ -348,6 +377,14 @@ def resumen_destacado() -> rx.Component:
     return rx.cond(
         SimuladorState.calculado,
         rx.flex(
+            rx.cond(
+                SimuladorState.resultado.get("calculo_inverso", False),
+                metric_card_resumen(
+                    "Sueldo bruto calculado",
+                    SimuladorState.resultado["sueldo_bruto_calculado"],
+                ),
+                rx.fragment(),
+            ),
             metric_card_resumen("Costo patronal", SimuladorState.resultado["total_carga_patronal"]),
             metric_card_resumen("Neto trabajador", SimuladorState.resultado["salario_neto"]),
             metric_card_resumen("Costo total empresa", SimuladorState.resultado["costo_total"]),
@@ -441,10 +478,27 @@ def desglose_detallado() -> rx.Component:
                 rx.vstack(
                     desglose_grupo(
                         "Salarios",
+                        rx.cond(
+                            SimuladorState.resultado.get("calculo_inverso", False),
+                            desglose_row("Neto objetivo", SimuladorState.resultado["neto_objetivo"]),
+                            rx.fragment(),
+                        ),
                         desglose_row("Factor de integracion", SimuladorState.resultado["factor_integracion"]),
                         desglose_row("SBC diario", SimuladorState.resultado["sbc_diario"]),
                         desglose_row("Salario diario", SimuladorState.resultado["salario_diario"]),
-                        desglose_row("Salario mensual", SimuladorState.resultado["salario_mensual"], is_total=True),
+                        rx.cond(
+                            SimuladorState.resultado.get("calculo_inverso", False),
+                            desglose_row(
+                                "Sueldo bruto calculado",
+                                SimuladorState.resultado["salario_mensual"],
+                                is_total=True,
+                            ),
+                            desglose_row(
+                                "Salario mensual",
+                                SimuladorState.resultado["salario_mensual"],
+                                is_total=True,
+                            ),
+                        ),
                     ),
                     desglose_grupo(
                         "IMSS patronal",
@@ -480,6 +534,8 @@ def desglose_detallado() -> rx.Component:
                     desglose_grupo(
                         "Descuentos al trabajador",
                         desglose_row("IMSS obrero", SimuladorState.resultado["total_imss_obrero"]),
+                        desglose_row("ISR causado", SimuladorState.resultado["isr_antes_subsidio"]),
+                        desglose_row("Subsidio al empleo", SimuladorState.resultado["subsidio_empleo"]),
                         desglose_row("ISR a retener", SimuladorState.resultado["isr_a_retener"]),
                         desglose_row(
                             "Total descuentos",

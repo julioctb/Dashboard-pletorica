@@ -142,6 +142,10 @@ class SimuladorState(AuthState):
         return round(self.salario_mensual / 30,2) if self.salario_mensual else 0.0
 
     @rx.var
+    def es_calculo_inverso(self) -> bool:
+        return self.tipo_salario_calculo == "Salario Neto (inverso)"
+
+    @rx.var
     def estado_display(self) -> str:
         """Valor visible del select de estado."""
         return ESTADOS_DISPLAY.get(self.estado, "Puebla")
@@ -173,7 +177,9 @@ class SimuladorState(AuthState):
             # 3. Crear calculadora y ejecutar
             calc = CalculadoraCostoPatronal(config)
 
-            if self.tipo_salario_calculo == 'Salario Neto (inverso)':
+            calculo_inverso = self.tipo_salario_calculo == 'Salario Neto (inverso)'
+
+            if calculo_inverso:
                 salario_neto_deseado = float(self.salario_mensual)
 
                 try:
@@ -201,6 +207,9 @@ class SimuladorState(AuthState):
             # 4. Guardar resultado como dict (valores ya formateados)
             self.resultado = {
                 # Salarios
+                "calculo_inverso": calculo_inverso,
+                "neto_objetivo": f"$ {self.salario_mensual:,.2f}",
+                "sueldo_bruto_calculado": f"$ {resultado.salario_mensual:,.2f}",
                 "salario_diario": f"$ {resultado.salario_diario:,.2f}",
                 "salario_mensual": f"$ {resultado.salario_mensual:,.2f}",
                 "factor_integracion": f"{resultado.factor_integracion:.4f}",
@@ -234,6 +243,8 @@ class SimuladorState(AuthState):
                 "provision_vacaciones": f"$ {resultado.provision_vacaciones:,.2f}",
                 "provision_prima_vac": f"$ {resultado.provision_prima_vac:,.2f}",
                 # ISR
+                "isr_antes_subsidio": f"$ {resultado.isr_antes_subsidio:,.2f}",
+                "subsidio_empleo": f"$ {resultado.subsidio_empleo:,.2f}",
                 "isr_a_retener": f"$ {resultado.isr_a_retener:,.2f}",
                 # Totales (propiedades calculadas)
                 "total_imss_patronal": f"$ {resultado.total_imss_patronal:,.2f}",

@@ -13,13 +13,13 @@ from typing import Optional
 
 import reflex as rx
 
-from app.database import db_manager
 from app.modules.nomina.domain.enums import TipoPeriodoNomina
 from app.core.text_utils import formatear_moneda
 from app.presentation.pages.backoffice.nominas.base_state import NominaBaseState
 from app.modules.nomina.application import contrato_categoria_service
 from app.modules.nomina.application import configuracion_operativa_service
 from app.modules.nomina.application import nomina_periodo_service
+from app.modules.application import presentation_bridge_service
 
 logger = logging.getLogger(__name__)
 
@@ -681,29 +681,16 @@ class NominaDashboardState(NominaBaseState):
     async def _cargar_desglose_conceptos(self, periodo_id: int) -> None:
         """Suma ISR e IMSS filtrando movimientos por clave de concepto."""
         try:
-            supabase = db_manager.get_client()
-            res_ids = (
-                supabase.table("nominas_empleado")
-                .select("id")
-                .eq("periodo_id", periodo_id)
-                .execute()
-            )
-            ids = [r["id"] for r in (res_ids.data or [])]
+            ids = await presentation_bridge_service.fetch_nomina_empleado_ids(periodo_id)
             if not ids:
                 self.desglose_isr = 0.0
                 self.desglose_imss = 0.0
                 return
 
-            res_mov = (
-                supabase.table("nomina_movimientos")
-                .select("monto, conceptos_nomina(clave)")
-                .in_("nomina_empleado_id", ids)
-                .eq("tipo", "DEDUCCION")
-                .execute()
-            )
             isr = 0.0
             imss = 0.0
-            for mov in (res_mov.data or []):
+            movimientos = await presentation_bridge_service.fetch_deducciones_movimientos(ids)
+            for mov in movimientos:
                 clave = ""
                 concepto = mov.get("conceptos_nomina")
                 if isinstance(concepto, dict):

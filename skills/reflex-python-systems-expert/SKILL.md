@@ -19,8 +19,8 @@ Activar referencias según el tipo de cambio:
 ## Workflow
 
 1. Construir mapa de impacto antes de editar.
-   Leer `pyproject.toml`, `app/app.py` y los archivos concretos de la feature.
-   Ubicar si el cambio cae en `entities/`, `services/`, `presentation/` o `api/`.
+   Leer `pyproject.toml`, `app/app.py`, `app/bootstrap/app_factory.py`, `app/presentation/config/routes.py` y los archivos concretos de la feature.
+   Ubicar si el cambio cae en `app/domain/`, `app/modules/`, `app/presentation/` o `app/api/`.
 2. Elegir la capa correcta para cada cambio.
    Poner composición visual en componentes/páginas.
    Poner mutación de estado, loading, modales y toasts en `rx.State`.
@@ -31,10 +31,10 @@ Activar referencias según el tipo de cambio:
    Mantener `@rx.var` puro y derivado.
    Mantener handlers y helpers separados.
 4. Verificar integridad del flujo completo.
-   Revisar imports, `app.add_page(...)`, guards de autenticación, defaults de formulario, estados de loading y manejo de errores.
+   Revisar imports, mapas de rutas en `app/presentation/config/routes.py`, registro en `app/bootstrap/routes_*.py`, guards de autenticación, defaults de formulario, estados de loading y manejo de errores.
 5. Validar con el método más barato posible.
    Empezar con lectura estática y tests puntuales.
-   Ejecutar `pytest` o `poetry run reflex run` solo si hace falta confirmar comportamiento.
+   Ejecutar `poetry run pytest -q` o `poetry run reflex run` solo si hace falta confirmar comportamiento.
 
 ## Reflex Rules
 
@@ -49,9 +49,9 @@ Activar referencias según el tipo de cambio:
 
 ## Architecture Rules
 
-- Preservar la separación `entities -> services -> presentation -> api`.
+- Preservar la separación `domain -> services -> presentation -> api`.
 - Preservar también `repositories` cuando el módulo ya usa ese nivel para encapsular acceso a Supabase o storage.
-- Evitar que un componente consulte directamente Supabase, HTTP o reglas fiscales; eso pertenece a `services/`.
+- Evitar que un componente consulte directamente Supabase, HTTP o reglas fiscales; eso pertenece a `app/domain/services/` (o a `app/modules/*/application` cuando ya existe esa fachada).
 - Evitar duplicar validaciones si ya existe mixin, helper o servicio reusable.
 - Preferir extensión de patrones existentes sobre introducir una abstracción nueva para un solo caso.
 - Si un módulo ya usa `BaseState`, `CRUDStateMixin` o `AuthState`, integrarse con esas bases antes de inventar otro ciclo de vida.
@@ -78,7 +78,7 @@ Activar referencias según el tipo de cambio:
 ### Crear o extender una página
 
 1. Ubicar la página y su state actual.
-2. Revisar la ruta en `app/app.py`.
+2. Revisar la ruta en `app/presentation/config/routes.py` y su registro en `app/bootstrap/routes_*.py`.
 3. Añadir solo el estado necesario para la UI.
 4. Delegar fetch o persistencia a servicios.
 5. Conectar `on_mount`, handlers y feedback visual de forma consistente.
@@ -99,7 +99,8 @@ Activar referencias según el tipo de cambio:
 
 ## Repo-Specific Heuristics
 
-- Tomar `app/app.py` como la fuente de verdad para rutas y wrappers de layout.
+- Tomar `app/presentation/config/routes.py` y `app/bootstrap/routes_*.py` como fuente de verdad para rutas.
+- Tomar `app/app.py` y `app/bootstrap/app_factory.py` como fuente de verdad para composición de la app.
 - En backoffice, validar si la página entra por `index(...)`; en portal, validar si entra por `portal_index(...)`.
 - Reusar patrones del repo para skeletons, toasts, paginación, filtros y modales antes de crear componentes nuevos.
 - Si aparece una tensión entre `README.md` y `pyproject.toml`, usar `pyproject.toml` y el código real como referencia operativa.
@@ -113,12 +114,13 @@ Activar referencias según el tipo de cambio:
 
 - `rg -n "class .*State\\(" app/presentation`
 - `rg -n "@rx.var|@rx.event" app`
-- `rg -n "app.add_page\\(" app/app.py`
+- `rg -n "CORE_ROUTES|BACKOFFICE_PAGE_ROUTES|PORTAL_PAGE_ROUTES" app/presentation/config/routes.py`
+- `rg -n "register_core_routes|register_backoffice_routes|register_portal_routes" app/bootstrap`
 - `rg -n "BaseState|CRUDStateMixin|AuthState" app`
 - `rg -n "model_dump\\(" app`
 - `rg -n "get_client|get_anon_client|service_role|RLS|storage.from_" app`
 - `rg -n "rol|permisos|puede_gestionar_usuarios|empresa_actual" app`
-- `rg -n "IMSS|ISR|ISN|INFONAVIT|UMA|prestaciones|vacaciones" app/core app/entities app/services`
+- `rg -n "IMSS|ISR|ISN|INFONAVIT|UMA|prestaciones|vacaciones" app/core app/domain app/modules`
 
 ## References
 

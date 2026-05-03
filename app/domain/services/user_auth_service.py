@@ -7,11 +7,9 @@ import logging
 from typing import Optional, TYPE_CHECKING
 from uuid import UUID
 
-from supabase import create_client
-
-from app.core.config import Config
 from app.core.exceptions import BusinessRuleError, DatabaseError, DuplicateError, ValidationError
 from app.core.validation import validar_password_usuario
+from app.database import db_manager
 from app.domain.models.user_company import UserCompanyAsignacionInicial
 from app.domain.models.user_profile import UserProfile, UserProfileCreate
 
@@ -101,6 +99,11 @@ class UserAuthService:
             await asyncio.sleep(0.5)
 
             profile = await self.root.obtener_por_id(user_id)
+
+            rol_creado = datos.rol if isinstance(datos.rol, str) else datos.rol.value
+            if rol_creado != "client":
+                self.root._actualizar_profile_data(user_id, {"rol": rol_creado})
+                profile = await self.root.obtener_por_id(user_id)
 
             if datos.permisos or datos.puede_gestionar_usuarios:
                 permisos_update = {}
@@ -259,7 +262,7 @@ class UserAuthService:
             )
 
         try:
-            cliente_auth = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
+            cliente_auth = db_manager.create_scoped_anon_client()
             try:
                 cliente_auth.auth.set_session(access_token, refresh_token)
             except TypeError:

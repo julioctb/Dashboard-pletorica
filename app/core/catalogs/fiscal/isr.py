@@ -6,10 +6,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import ClassVar, Optional
 
 from ._shared import VigenciaPorFechaMixin, resolver_vigencia
+
+
+def _moneda(valor: Decimal) -> Decimal:
+    return valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 @dataclass(frozen=True)
@@ -92,7 +96,7 @@ class CatalogoISR:
             desde=date(2026, 2, 1),
             hasta=date(2026, 12, 31),
             porcentaje_uma_mensual=Decimal("0.1502"),
-            subsidio_mensual=Decimal("541.40"),
+            subsidio_mensual=Decimal("535.65"),
             limite_ingreso_mensual=Decimal("11492.66"),
         ),
     )
@@ -133,7 +137,7 @@ class CatalogoISR:
         rango = cls.obtener_rango(base_gravable)
         if rango is None:
             return Decimal("0")
-        return rango.calcular(base_gravable)
+        return _moneda(rango.calcular(base_gravable))
 
     @classmethod
     def calcular_subsidio(
@@ -149,6 +153,22 @@ class CatalogoISR:
         return politica.subsidio_mensual
 
     @classmethod
+    def calcular_subsidio_periodo(
+        cls,
+        base_gravable_mensual: Decimal,
+        dias_periodo: Decimal,
+        fecha_referencia: date | str | None = None,
+    ) -> Decimal:
+        subsidio_mensual = cls.calcular_subsidio(
+            base_gravable_mensual,
+            fecha_referencia,
+        )
+        if subsidio_mensual <= 0 or dias_periodo <= 0:
+            return Decimal("0")
+        subsidio_periodo = subsidio_mensual / Decimal("30.4") * dias_periodo
+        return _moneda(min(subsidio_periodo, subsidio_mensual))
+
+    @classmethod
     def calcular_subsidio_aplicable(
         cls,
         base_gravable: Decimal,
@@ -159,7 +179,7 @@ class CatalogoISR:
         subsidio = cls.calcular_subsidio(base_gravable, fecha_referencia)
         if subsidio <= 0 or isr_causado <= 0:
             return Decimal("0")
-        return min(subsidio, isr_causado)
+        return _moneda(min(subsidio, isr_causado))
 
     @classmethod
     def calcular_isr_neto(
@@ -173,4 +193,4 @@ class CatalogoISR:
             isr_causado=isr,
             fecha_referencia=fecha_referencia,
         )
-        return isr - subsidio
+        return _moneda(isr - subsidio)

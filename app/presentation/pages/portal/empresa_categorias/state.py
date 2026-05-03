@@ -136,7 +136,9 @@ class EmpresaCategoriasState(PortalState):
             "clave": str(getattr(categoria, "clave", "") or ""),
             "clave_display": normalizar_mayusculas(getattr(categoria, "clave", "")),
             "nombre": str(getattr(categoria, "nombre", "") or ""),
-            "nombre_display": normalizar_mayusculas(getattr(categoria, "nombre", "")),
+            "nombre_display": capitalizar_con_preposiciones(
+                str(getattr(categoria, "nombre", "") or "")
+            ),
             "salario_base_mensual": str(salario),
             "salario_base_fmt": self._formatear_moneda_catalogo(salario),
             "contratos_count": int(contratos_count or 0),

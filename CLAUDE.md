@@ -34,9 +34,9 @@ poetry run reflex run
 poetry run reflex init
 
 # Tests
-pytest
-pytest app/tests/test_validation.py
-pytest -v
+poetry run pytest -q
+poetry run pytest app/tests/test_validation.py -q
+poetry run pytest -v
 
 # Calidad de codigo
 poetry run black app/
@@ -59,7 +59,7 @@ El repo combina tres superficies:
 
 - `app/bootstrap/app_factory.py` — crea `rx.App` con theme, API y rutas
 - `app/bootstrap/routes_core.py` — rutas base (`/`, `/login`, share)
-- `app/bootstrap/routes_backoffice.py` — rutas admin (29)
+- `app/bootstrap/routes_backoffice.py` — rutas admin
 - `app/bootstrap/routes_portal.py` — rutas portal (24+)
 - `app/bootstrap/reflex_patch.py` — patches para defaults de Reflex
 
@@ -110,6 +110,7 @@ Portal:
 - `/portal/mis-datos`
 - `/portal/mi-perfil`
 - `/portal/mi-empresa`
+- `/portal/empresa/categorias`
 - `/portal/documentacion-empresa`
 - `/portal/configuracion-empresa`
 - `/portal/usuarios`
@@ -127,7 +128,7 @@ Portal:
 - `/portal/nominas/dashboard`
 - `/portal/nominas/conciliacion`
 - `/portal/contratos`
-- `/portal/contratos/[id]/plazas`
+- `/portal/contratos/[codigo_contrato]/plazas`
 - `/portal/simulador`
 - `/portal/cotizador`
 - `/portal/cotizador/[cotizacion_id]`
@@ -138,7 +139,7 @@ API v1 actualmente registrada:
 - `empresas`
 - `curp`
 - `onboarding`
-- `common` (helpers compartidos entre routers)
+- `common` existe como helpers compartidos entre routers, no como router registrado.
 
 ## Mapa de carpetas
 
@@ -402,7 +403,7 @@ Reglas:
 
 - Las migraciones SQL viven en `migrations/`.
 - Se aplican manualmente en Supabase.
-- La numeracion historica no debe asumirse perfecta; el arbol actual llega a `061`.
+- La numeracion historica no debe asumirse perfecta; el arbol actual llega a `064` y tiene duplicados.
 - Antes de crear una nueva migracion, revisar el directorio real y seguir la convencion existente.
 
 ## Guia para cambios nuevos

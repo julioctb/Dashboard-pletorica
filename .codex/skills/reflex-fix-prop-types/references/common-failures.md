@@ -57,8 +57,8 @@ rg -n "\\bif\\b|\\band\\b|\\bor\\b|\\bnot\\b" app/presentation -g '*components.p
 
 Cuando haya duda, inspeccionar la instalacion local de Reflex:
 
-```bash
-sed -n '1,120p' .venv/lib/python3.13/site-packages/reflex/components/radix/themes/layout/stack.py
-sed -n '1,120p' .venv/lib/python3.13/site-packages/reflex/components/radix/themes/layout/flex.py
-rg -n "LiteralSpacing" .venv/lib/python3.13/site-packages/reflex/components/radix/themes/base.py
-```
+Leer la fuente instalada correspondiente, por ejemplo:
+
+- `.venv/lib/python*/site-packages/reflex/components/radix/themes/layout/stack.py`
+- `.venv/lib/python*/site-packages/reflex/components/radix/themes/layout/flex.py`
+- Buscar `LiteralSpacing` en `.venv/lib/python*/site-packages/reflex/components/radix/themes/base.py`.

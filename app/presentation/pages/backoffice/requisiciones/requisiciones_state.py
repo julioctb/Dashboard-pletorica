@@ -13,6 +13,7 @@ from app.modules.application import requisicion_service
 from app.modules.application import requisicion_pdf_service
 from app.modules.application import empresa_service
 from app.modules.application import archivo_service, ArchivoValidationError
+from app.modules.application import presentation_bridge_service
 from app.domain.models.archivo import EntidadArchivo, TipoArchivo
 
 from app.domain.models.requisicion import (
@@ -1302,23 +1303,8 @@ class RequisicionesState(AuthState):
             requisicion = await requisicion_service.obtener_por_id(requisicion_id)
             filename = f"{requisicion.numero_requisicion or f'REQ-BORRADOR-{requisicion_id}'}.pdf"
 
-            # Subir a Supabase Storage
-            from app.database import db_manager
-            supabase = db_manager.get_client()
             storage_path = f"requisiciones/pdf/{filename}"
-
-            try:
-                supabase.storage.from_('archivos').remove([storage_path])
-            except Exception:
-                pass  # Ignorar si no existe
-
-            supabase.storage.from_('archivos').upload(
-                storage_path,
-                pdf_bytes,
-                file_options={'content-type': 'application/pdf'}
-            )
-
-            url = supabase.storage.from_('archivos').get_public_url(storage_path)
+            url = await presentation_bridge_service.replace_storage_pdf(storage_path, pdf_bytes)
 
             self.mostrar_mensaje("PDF generado correctamente", "success")
             return rx.redirect(url, is_external=True)

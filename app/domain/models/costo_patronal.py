@@ -13,11 +13,13 @@ Actualizado: 2026-01-17 (Migración a catálogos)
 
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 from app.core.catalogs import (
     CatalogoISN,
     CatalogoPrestaciones,
     CatalogoSalarioMinimo,
+    CatalogoUMA,
     CatalogoVacaciones,
 )
 
@@ -73,6 +75,7 @@ class ConfiguracionEmpresa:
     # ZONA GEOGRÁFICA
     # ─────────────────────────────────────────────────────────────────────────
     zona_frontera: bool = False  # True para zona fronteriza norte
+    fecha_referencia: Optional[date] = None
 
     # ─────────────────────────────────────────────────────────────────────────
     # PRESTACIONES ADICIONALES (opcionales)
@@ -101,10 +104,20 @@ class ConfiguracionEmpresa:
         return float(CatalogoISN.TASAS[self.estado])
 
     @property
+    def fecha_calculo(self) -> date:
+        """Fecha fiscal estable para resolver UMA y salario mínimo."""
+        if self.fecha_referencia is not None:
+            return self.fecha_referencia
+        return max(
+            CatalogoSalarioMinimo.VIGENCIAS[-1].desde,
+            CatalogoUMA.VIGENCIAS[-1].desde,
+        )
+
+    @property
     def salario_minimo_aplicable(self) -> float:
         """Retorna el salario mínimo según zona geográfica"""
         salario = CatalogoSalarioMinimo.diario_vigente(
-            date.today(),
+            self.fecha_calculo,
             zona_frontera=self.zona_frontera,
             permitir_fallback=True,
         )
@@ -154,20 +167,28 @@ class Trabajador:
     def es_salario_minimo(
         self,
         salario_minimo_aplicable: float,
-        tolerancia: float = 0.01
+        tolerancia: float = 0.0
     ) -> bool:
         """
-        Verifica si gana el salario mínimo (con tolerancia de 1%).
+        Verifica si gana exactamente el salario mínimo a centavos.
 
         Args:
             salario_minimo_aplicable: Salario mínimo a comparar
-            tolerancia: Margen de tolerancia (default 1% = 0.01)
+            tolerancia: Margen absoluto en pesos para casos explícitos
 
         Returns:
-            True si está dentro del rango de salario mínimo
+            True si coincide con el salario mínimo
         """
-        diferencia = abs(self.salario_diario - salario_minimo_aplicable)
-        return diferencia / salario_minimo_aplicable <= tolerancia
+        salario = Decimal(str(self.salario_diario)).quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
+        )
+        salario_minimo = Decimal(str(salario_minimo_aplicable)).quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
+        )
+        margen = Decimal(str(tolerancia or 0)).copy_abs()
+        return abs(salario - salario_minimo) <= margen
 
 
 # =============================================================================

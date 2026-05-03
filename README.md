@@ -66,7 +66,7 @@ Notes:
 
 ## Dependencies
 
-- Reflex (0.8.9)
+- Reflex (>=0.8.21,<0.9.0)
 - Supabase (>=2.18.1,<3.0.0)
 - Pydantic (>=2.11.9,<3.0.0)
 - Python-dotenv (>=1.1.1,<2.0.0)

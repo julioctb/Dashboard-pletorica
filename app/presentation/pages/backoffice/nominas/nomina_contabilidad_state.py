@@ -17,6 +17,7 @@ from app.modules.nomina.domain.enums import TipoPeriodoNomina
 from app.core.text_utils import formatear_moneda
 from app.core.validation import limpiar_moneda
 from app.presentation.pages.backoffice.nominas.base_state import NominaBaseState
+from app.modules.application import presentation_bridge_service
 from app.modules.nomina.application import nomina_periodo_service
 from app.modules.nomina.application import nomina_calculo_service
 from app.modules.nomina.application import dispersion_service
@@ -666,18 +667,12 @@ class NominaContabilidadState(NominaBaseState):
                 yield self.mostrar_mensaje("Concepto no encontrado en catálogo", "error")
                 return
 
-            supabase = db_manager.get_client()
-            supabase.table('nomina_movimientos').insert({
-                'nomina_empleado_id': nomina_empleado_id,
-                'concepto_id': concepto_id,
-                'tipo': 'PERCEPCION',
-                'origen': 'CONTABILIDAD',
-                'monto': float(monto),
-                'monto_gravable': float(monto),
-                'monto_exento': 0.0,
-                'es_automatico': False,
-                'notas': self.form_notas_bono.strip() or None,
-            }).execute()
+            await presentation_bridge_service.insert_bono_contabilidad(
+                nomina_empleado_id=nomina_empleado_id,
+                concepto_id=concepto_id,
+                monto=float(monto),
+                notas=self.form_notas_bono.strip() or None,
+            )
 
             self.form_concepto_bono_clave = ""
             self.form_monto_bono = ""
@@ -853,13 +848,6 @@ class NominaContabilidadState(NominaBaseState):
 
     async def _obtener_concepto_id(self, clave: str) -> Optional[int]:
         try:
-            supabase = db_manager.get_client()
-            result = (
-                supabase.table('conceptos_nomina')
-                .select('id')
-                .eq('clave', clave)
-                .execute()
-            )
-            return result.data[0]['id'] if result.data else None
+            return await presentation_bridge_service.find_concepto_nomina_id_by_clave(clave)
         except Exception:
             return None

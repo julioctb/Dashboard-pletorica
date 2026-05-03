@@ -15,7 +15,7 @@ from typing import Optional
 import reflex as rx
 
 from app.presentation.pages.backoffice.nominas.base_state import NominaBaseState
-from app.database import db_manager
+from app.modules.application import presentation_bridge_service
 from app.modules.nomina.application import nomina_periodo_service
 
 logger = logging.getLogger(__name__)
@@ -407,28 +407,10 @@ class NominaConciliacionState(NominaBaseState):
 
     async def _subir_excel(self, storage_path: str, contenido: bytes) -> str:
         """Sube el Excel a Supabase Storage y retorna URL firmada (24h)."""
-        supabase = db_manager.get_client()
-        ct = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         try:
-            supabase.storage.from_('archivos').upload(
-                storage_path, contenido, {'content-type': ct, 'upsert': 'true'}
-            )
-        except Exception:
-            try:
-                supabase.storage.from_('archivos').update(
-                    storage_path, contenido, {'content-type': ct}
-                )
-            except Exception as e2:
-                logger.error(f"Error subiendo Excel a Storage: {e2}")
-                return ''
-        try:
-            result = supabase.storage.from_('archivos').create_signed_url(
-                storage_path, 86400
-            )
-            if isinstance(result, dict):
-                return result.get('signedURL') or result.get('signedUrl', '')
+            return await presentation_bridge_service.upload_xlsx_signed_url(storage_path, contenido)
         except Exception as e:
-            logger.warning(f"No se pudo generar URL firmada para Excel: {e}")
+            logger.warning(f"No se pudo subir/generar URL firmada para Excel: {e}")
         return ''
 
     # =========================================================================
@@ -438,16 +420,11 @@ class NominaConciliacionState(NominaBaseState):
     async def _cargar_periodos_disponibles(self):
         self.loading = True
         try:
-            supabase = db_manager.get_client()
-            result = (
-                supabase.table('periodos_nomina')
-                .select('id, nombre, estatus, fecha_inicio')
-                .eq('empresa_id', self.id_empresa_actual)
-                .order('fecha_inicio', desc=True)
-                .execute()
+            result_data = await presentation_bridge_service.fetch_periodos_nomina_empresa(
+                int(self.id_empresa_actual),
             )
             self.periodos_disponibles = [
-                {**p, 'id': str(p['id'])} for p in (result.data or [])
+                {**p, 'id': str(p['id'])} for p in result_data
             ]
             # Auto-seleccionar el más reciente si hay períodos cerrados/calculados
             if self.periodos_disponibles and not self.periodo_id:

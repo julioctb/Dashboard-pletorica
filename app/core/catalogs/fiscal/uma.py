@@ -51,7 +51,7 @@ class CatalogoUMA(CatalogoVigenciasMixin[VigenciaUMA]):
         VigenciaUMA(
             desde=date(2026, 2, 1),
             hasta=date(2027, 1, 31),
-            diario=Decimal("118.57"),
+            diario=Decimal("117.31"),
         ),
     )
 
@@ -66,7 +66,7 @@ class CatalogoUMA(CatalogoVigenciasMixin[VigenciaUMA]):
     HISTORICO: ClassVar[dict[int, Decimal]] = {
         2024: Decimal("108.57"),
         2025: Decimal("113.14"),
-        2026: Decimal("118.57"),
+        2026: Decimal("117.31"),
     }
     TRES_UMA: ClassVar[Decimal] = DIARIO * 3
     TOPE_SBC: ClassVar[Decimal] = DIARIO * 25

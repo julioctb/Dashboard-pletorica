@@ -47,9 +47,9 @@ Corregir solo el punto roto y evitar limpiezas masivas. Este skill esta optimiza
   `spacing=Spacing.SM` rompe.
 - Usar `rx.cond` o `rx.match` para elegir componentes, textos, handlers o colores cuando la condicion sea reactiva.
 - Usar `&`, `|`, `~` en lugar de `and`, `or`, `not` cuando combines expresiones reactivas.
-- Si el error no es obvio, inspeccionar la fuente instalada de Reflex antes de improvisar:
-  `sed -n '1,120p' .venv/lib/python3.13/site-packages/reflex/components/radix/themes/layout/stack.py`
-  `rg -n "LiteralSpacing" .venv/lib/python3.13/site-packages/reflex/components/radix/themes/base.py`
+- Si el error no es obvio, inspeccionar la fuente instalada de Reflex antes de improvisar.
+  Leer `.venv/lib/python*/site-packages/reflex/components/radix/themes/layout/stack.py` o el archivo del componente indicado en el traceback.
+  Buscar `LiteralSpacing` en `.venv/lib/python*/site-packages/reflex/components/radix/themes/base.py`.
 
 ## Fast Fixes
 

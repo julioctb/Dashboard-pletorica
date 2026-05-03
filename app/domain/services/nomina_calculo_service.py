@@ -426,16 +426,62 @@ class NominaCalculoService:
             return CatalogoISR.calcular_isr_mensual(base_mensual)
 
     @staticmethod
-    def _calcular_subsidio_mensual_aplicable(
+    def _calcular_subsidio_periodo_aplicable(
         base_mensual: Decimal,
-        isr_mensual: Decimal,
+        isr_periodo: Decimal,
         fecha_referencia,
+        *,
+        dias_periodo: int,
+        periodicidad: str,
     ) -> Decimal:
+        if isr_periodo <= 0:
+            return Decimal("0")
         try:
-            subsidio = CatalogoISR.calcular_subsidio(base_mensual, fecha_referencia)
+            subsidio_mensual = CatalogoISR.calcular_subsidio(
+                base_mensual,
+                fecha_referencia,
+            )
         except TypeError:
-            subsidio = CatalogoISR.calcular_subsidio(base_mensual)
-        return min(Decimal(str(subsidio or 0)), Decimal(str(isr_mensual or 0)))
+            subsidio_mensual = CatalogoISR.calcular_subsidio(base_mensual)
+
+        subsidio_mensual = Decimal(str(subsidio_mensual or 0))
+        if subsidio_mensual <= 0:
+            return Decimal("0")
+
+        if periodicidad == PeriodicidadNomina.MENSUAL.value:
+            subsidio_periodo = subsidio_mensual
+        else:
+            subsidio_periodo = (
+                subsidio_mensual / Decimal("30.4") * Decimal(str(dias_periodo or 0))
+            )
+
+        return _round2(min(subsidio_periodo, subsidio_mensual, isr_periodo))
+
+    @staticmethod
+    def _decimal_movimiento(movimiento: dict, campo: str) -> Decimal:
+        return Decimal(str(movimiento.get(campo) or 0))
+
+    @classmethod
+    def _sumar_base_gravable_isr(cls, *grupos_movimientos: list[dict]) -> Decimal:
+        return _round2(
+            sum(
+                (
+                    cls._decimal_movimiento(mov, "monto_gravable")
+                    for movimientos in grupos_movimientos
+                    for mov in movimientos
+                    if mov.get("tipo") == "PERCEPCION"
+                ),
+                Decimal("0"),
+            )
+        )
+
+    @classmethod
+    def _tiene_percepciones_manuales(cls, movimientos: list[dict]) -> bool:
+        return any(
+            mov.get("tipo") == "PERCEPCION"
+            and cls._decimal_movimiento(mov, "monto") > 0
+            for mov in movimientos
+        )
 
     @staticmethod
     def _obtener_periodo_hoy_iso() -> str:
@@ -634,7 +680,7 @@ class NominaCalculoService:
     async def _leer_movimientos_manuales(self, nomina_id: int) -> list[dict]:
         res_manual = (
             self.supabase.table('nomina_movimientos')
-            .select('tipo, monto, origen')
+            .select('tipo, monto, monto_gravable, monto_exento, origen')
             .eq('nomina_empleado_id', nomina_id)
             .neq('origen', 'SISTEMA')
             .execute()
@@ -693,11 +739,7 @@ class NominaCalculoService:
             base_mensual,
             contexto_fiscal.fecha_referencia,
         )
-        subsidio_mensual_aplicable = self._calcular_subsidio_mensual_aplicable(
-            base_mensual,
-            isr_mensual,
-            contexto_fiscal.fecha_referencia,
-        )
+        subsidio_mensual_aplicable = Decimal("0")
         isr_periodo = _round2(isr_mensual / factor) if factor else Decimal('0')
         subsidio_periodo = _round2(subsidio_mensual_aplicable / factor) if factor else Decimal('0')
 
@@ -882,30 +924,35 @@ class NominaCalculoService:
                 monto_incap, Decimal('0'), Decimal('0')
             ))
 
-        # ── 3. Base gravable ISR (suma de monto_gravable de percepciones) ────
-        base_gravable_periodo = sum(
-            (
-                m['monto_gravable'] for m in movimientos_sistema
-                if m['tipo'] == 'PERCEPCION'
-            ),
-            Decimal('0'),
+        # ── 3. Base gravable ISR ─────────────────────────────────────────────
+        # Los movimientos manuales gravables ya existen antes del cálculo; deben
+        # participar en ISR aunque sus totales se consoliden al final.
+        manuales = await self._leer_movimientos_manuales(nomina_id)
+        base_gravable_periodo = self._sumar_base_gravable_isr(
+            movimientos_sistema,
+            manuales,
         )
 
         # ── 4. ISR proporcional al período ────────────────────────────────────
         factor = _FACTOR_MENSUAL.get(periodicidad, Decimal('2'))
         base_mensual = _round2(base_gravable_periodo * factor)
 
-        if snapshot_fiscal["es_salario_minimo_art36"]:
+        tiene_percepciones_adicionales = (
+            horas_dobles > 0
+            or horas_triples > 0
+            or domingos > 0
+            or self._tiene_percepciones_manuales(manuales)
+        )
+        solo_salario_minimo_art96 = (
+            bool(snapshot_fiscal["es_salario_minimo_art36"])
+            and not tiene_percepciones_adicionales
+        )
+
+        if solo_salario_minimo_art96:
             isr_mensual = Decimal("0")
-            subsidio_mensual_aplicable = Decimal("0")
         else:
             isr_mensual = self._calcular_isr_mensual_con_fecha(
                 base_mensual,
-                contexto_fiscal.fecha_referencia,
-            )
-            subsidio_mensual_aplicable = self._calcular_subsidio_mensual_aplicable(
-                base_mensual,
-                isr_mensual,
                 contexto_fiscal.fecha_referencia,
             )
         isr_periodo = _round2(isr_mensual / factor)
@@ -917,7 +964,17 @@ class NominaCalculoService:
             ))
 
         # ── 5. Subsidio al empleo ─────────────────────────────────────────────
-        subsidio_periodo = _round2(subsidio_mensual_aplicable / factor)
+        subsidio_periodo = (
+            Decimal("0")
+            if solo_salario_minimo_art96
+            else self._calcular_subsidio_periodo_aplicable(
+                base_mensual,
+                isr_periodo,
+                contexto_fiscal.fecha_referencia,
+                dias_periodo=dias_periodo,
+                periodicidad=periodicidad,
+            )
+        )
 
         if subsidio_periodo > 0:
             movimientos_sistema.append(self._mov(
@@ -952,9 +1009,6 @@ class NominaCalculoService:
                 for m in movimientos_sistema
             ]
             self.supabase.table('nomina_movimientos').insert(registros_bd).execute()
-
-        # ── 8. Leer movimientos manuales existentes (RRHH y Contabilidad) ────
-        manuales = await self._leer_movimientos_manuales(nomina_id)
 
         # ── 9. Calcular totales consolidados ──────────────────────────────────
         percepciones, deducciones, otros_pagos, neto = self._sumar_totales_con_movimientos(

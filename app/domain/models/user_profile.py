@@ -289,11 +289,15 @@ class UserProfileCreate(BaseModel):
         Convierte a formato de metadata para Supabase Auth.
 
         Returns:
-            dict con los campos que el trigger leerá para crear el profile
+            dict con los campos de perfil no sensibles.
+
+        Nota de seguridad:
+            Los campos de autorización (rol/permisos) no deben viajar en
+            `user_metadata`, porque el trigger en la base no debe confiar en
+            metadata editable por el usuario para decisiones de privilegios.
         """
         metadata = {
             'nombre_completo': self.nombre_completo,
-            'rol': self.rol if isinstance(self.rol, str) else self.rol.value,
         }
         if self.telefono:
             metadata['telefono'] = self.telefono

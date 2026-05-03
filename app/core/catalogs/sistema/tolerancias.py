@@ -5,7 +5,7 @@ Define los márgenes de error aceptables para cálculos
 y comparaciones numéricas en el sistema.
 """
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import ClassVar
 
 
@@ -48,8 +48,9 @@ class Tolerancias:
     # COMPARACIÓN DE SALARIOS
     # ═══════════════════════════════════════════════════════════════
 
-    # Tolerancia para determinar si es salario mínimo (1%)
-    TRABAJADOR_SALARIO_MINIMO: ClassVar[Decimal] = Decimal("0.01")
+    # Tolerancia absoluta para determinar si es salario mínimo.
+    # Art. 36 LSS requiere salario mínimo exacto; se compara a centavos.
+    TRABAJADOR_SALARIO_MINIMO: ClassVar[Decimal] = Decimal("0.00")
 
     # ═══════════════════════════════════════════════════════════════
     # REDONDEO DE MONTOS
@@ -77,17 +78,25 @@ class Tolerancias:
         """
         Determina si un salario es efectivamente el mínimo.
 
-        Usa tolerancia del 1% para manejar redondeos.
+        Compara importes redondeados a centavos para evitar que sueldos por
+        arriba del mínimo absorban indebidamente cuotas obreras por Art. 36.
 
         Args:
             salario: Salario a comparar
             salario_minimo: Salario mínimo de referencia
 
         Returns:
-            True si está dentro de la tolerancia del mínimo
+            True si coincide con el salario mínimo a centavos
         """
-        tolerancia = salario_minimo * cls.TRABAJADOR_SALARIO_MINIMO
-        return abs(salario - salario_minimo) <= tolerancia
+        salario_redondeado = Decimal(str(salario)).quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
+        )
+        minimo_redondeado = Decimal(str(salario_minimo)).quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
+        )
+        return abs(salario_redondeado - minimo_redondeado) <= cls.TRABAJADOR_SALARIO_MINIMO
 
     @classmethod
     def redondear_moneda(cls, valor: Decimal) -> Decimal:
