@@ -22,7 +22,7 @@ from typing import Callable, List
 
 import reflex as rx
 
-from app.entities.notificacion import Notificacion
+from app.domain.models.notificacion import Notificacion
 from app.presentation.theme import Colors, Radius, Spacing, Transitions, Typography
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ class NotificationBellState(rx.State):
         """Carga notificaciones admin + personales del usuario actual."""
         self.cargando = True
         try:
-            from app.services import notificacion_service
+            from app.modules.application import notificacion_service
             from app.presentation.components.shared.auth_state import AuthState
 
             # Obtener ID del usuario actual
@@ -110,7 +110,7 @@ class NotificationBellState(rx.State):
     async def cargar_notificaciones_portal(self):
         """Carga notificaciones de la empresa activa del portal."""
         try:
-            from app.presentation.portal.state.portal_state import PortalState
+            from app.presentation.pages.portal.state.portal_state import PortalState
             portal = await self.get_state(PortalState)
             empresa_id = portal.id_empresa_actual
             if empresa_id:
@@ -124,7 +124,7 @@ class NotificationBellState(rx.State):
         """Carga notificaciones de una empresa."""
         self.cargando = True
         try:
-            from app.services import notificacion_service
+            from app.modules.application import notificacion_service
             self.total_no_leidas = await notificacion_service.contar_no_leidas_empresa(empresa_id)
             notificaciones = await notificacion_service.obtener_por_empresa(
                 empresa_id=empresa_id,
@@ -152,7 +152,7 @@ class NotificationBellState(rx.State):
     async def marcar_leida(self, notificacion_id: int):
         """Marca una notificacion como leida."""
         try:
-            from app.services import notificacion_service
+            from app.modules.application import notificacion_service
             from app.presentation.components.shared.auth_state import AuthState
 
             auth = await self.get_state(AuthState)
@@ -160,7 +160,7 @@ class NotificationBellState(rx.State):
 
             empresa_id = 0
             try:
-                from app.presentation.portal.state.portal_state import PortalState
+                from app.presentation.pages.portal.state.portal_state import PortalState
                 portal = await self.get_state(PortalState)
                 empresa_id = portal.id_empresa_actual
             except Exception:
@@ -201,7 +201,7 @@ class NotificationBellState(rx.State):
     async def marcar_todas_leidas(self):
         """Marca todas las notificaciones como leidas (admin + personales)."""
         try:
-            from app.services import notificacion_service
+            from app.modules.application import notificacion_service
             from app.presentation.components.shared.auth_state import AuthState
 
             auth = await self.get_state(AuthState)
@@ -219,12 +219,12 @@ class NotificationBellState(rx.State):
     async def marcar_todas_leidas_empresa(self):
         """Marca todas las notificaciones como leidas (portal cliente)."""
         try:
-            from app.presentation.portal.state.portal_state import PortalState
+            from app.presentation.pages.portal.state.portal_state import PortalState
             portal = await self.get_state(PortalState)
             empresa_id = portal.id_empresa_actual
             if not empresa_id:
                 return
-            from app.services import notificacion_service
+            from app.modules.application import notificacion_service
             await notificacion_service.marcar_todas_leidas_empresa(empresa_id)
             self._marcar_todas_localmente()
         except Exception as e:

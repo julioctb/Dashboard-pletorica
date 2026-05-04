@@ -4,27 +4,27 @@ from pathlib import Path
 
 
 FORBIDDEN_IMPORT_FRAGMENTS = (
-    "app.presentation.pages.categorias_puesto.categorias_puesto_validators",
-    "app.presentation.pages.contratos.contrato_categorias_validators",
-    "app.presentation.pages.contratos.contratos_validators",
-    "app.presentation.pages.contratos.pagos_validators",
-    "app.presentation.pages.empleados.empleados_validators",
-    "app.presentation.pages.empresas.empresas_validators",
-    "app.presentation.pages.sedes.sedes_validators",
-    "app.presentation.pages.tipo_servicio.tipo_servicio_validators",
-    "app.presentation.pages.admin.usuarios.usuarios_validators",
+    "app.presentation.pages.backoffice.categorias_puesto.categorias_puesto_validators",
+    "app.presentation.pages.backoffice.contratos.contrato_categorias_validators",
+    "app.presentation.pages.backoffice.contratos.contratos_validators",
+    "app.presentation.pages.backoffice.contratos.pagos_validators",
+    "app.presentation.pages.backoffice.empleados.empleados_validators",
+    "app.presentation.pages.backoffice.empresas.empresas_validators",
+    "app.presentation.pages.backoffice.sedes.sedes_validators",
+    "app.presentation.pages.backoffice.tipo_servicio.tipo_servicio_validators",
+    "app.presentation.pages.backoffice.admin.usuarios.usuarios_validators",
 )
 
 LEGACY_WRAPPER_PATHS = (
-    "app/presentation/pages/admin/usuarios/usuarios_validators.py",
-    "app/presentation/pages/categorias_puesto/categorias_puesto_validators.py",
-    "app/presentation/pages/contratos/contrato_categorias_validators.py",
-    "app/presentation/pages/contratos/contratos_validators.py",
-    "app/presentation/pages/contratos/pagos_validators.py",
-    "app/presentation/pages/empleados/empleados_validators.py",
-    "app/presentation/pages/empresas/empresas_validators.py",
-    "app/presentation/pages/sedes/sedes_validators.py",
-    "app/presentation/pages/tipo_servicio/tipo_servicio_validators.py",
+    "app/presentation/pages/backoffice/admin/usuarios/usuarios_validators.py",
+    "app/presentation/pages/backoffice/categorias_puesto/categorias_puesto_validators.py",
+    "app/presentation/pages/backoffice/contratos/contrato_categorias_validators.py",
+    "app/presentation/pages/backoffice/contratos/contratos_validators.py",
+    "app/presentation/pages/backoffice/contratos/pagos_validators.py",
+    "app/presentation/pages/backoffice/empleados/empleados_validators.py",
+    "app/presentation/pages/backoffice/empresas/empresas_validators.py",
+    "app/presentation/pages/backoffice/sedes/sedes_validators.py",
+    "app/presentation/pages/backoffice/tipo_servicio/tipo_servicio_validators.py",
 )
 
 

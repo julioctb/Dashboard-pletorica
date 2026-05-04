@@ -2,7 +2,7 @@
 
 import asyncio
 
-from app.services.contratos.queries import ContratoQueryService
+from app.domain.services.contratos.queries import ContratoQueryService
 
 
 class FakeContratoRepository:

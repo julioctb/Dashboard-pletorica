@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 import re
 
-from app.core.enums import PeriodicidadNomina
+from app.domain.enums import PeriodicidadNomina
 
 
 _MESES_ES = (

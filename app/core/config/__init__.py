@@ -41,7 +41,7 @@ class Config:
         """
         Configura el nivel de logging segun DEBUG.
 
-        - DEBUG=true → level=DEBUG solo para app.* (codigo propio)
+        - DEBUG=true → level=DEBUG solo para core.* (codigo propio)
         - DEBUG=false → level=WARNING para todo
         - Librerias externas siempre en WARNING (evita ruido de Reflex, websockets, etc.)
         """

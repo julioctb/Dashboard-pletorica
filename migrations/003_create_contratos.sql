@@ -51,8 +51,8 @@ BEGIN
             'ACTIVO',
             'SUSPENDIDO',
             'VENCIDO',
-            'CANCELADO',
-            'CERRADO'
+            'LIQUIDADO',
+            'CANCELADO'
         );
     END IF;
 END $$;
@@ -185,7 +185,7 @@ COMMENT ON COLUMN public.contratos.tiene_personal IS
 'TRUE si el contrato incluye asignación de personal (plazas)';
 
 COMMENT ON COLUMN public.contratos.estatus IS
-'Estado del contrato: BORRADOR, ACTIVO, SUSPENDIDO, VENCIDO, CANCELADO, CERRADO';
+'Estado del contrato: BORRADOR, ACTIVO, SUSPENDIDO, VENCIDO, LIQUIDADO, CANCELADO';
 
 -- ============================================================================
 -- 4. Índices de rendimiento

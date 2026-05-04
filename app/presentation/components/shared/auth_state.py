@@ -502,7 +502,7 @@ class AuthState(BaseState):
         self.loading = True
 
         try:
-            from app.services import user_service
+            from app.modules.application import user_service
 
             # Autenticar con el servicio
             profile, session_data = await user_service.login(email, password)
@@ -570,7 +570,7 @@ class AuthState(BaseState):
         Redirige a la página de login después de cerrar sesión.
         """
         try:
-            from app.services import user_service
+            from app.modules.application import user_service
             await user_service.logout()
         except Exception as e:
             logger.warning(f"Error en logout del servidor (no crítico): {e}")
@@ -605,7 +605,7 @@ class AuthState(BaseState):
             return
 
         try:
-            from app.services import user_service
+            from app.modules.application import user_service
 
             # Validar token con el servicio
             profile = await user_service.validar_token(self._access_token)
@@ -642,7 +642,7 @@ class AuthState(BaseState):
             return
 
         try:
-            from app.services import user_service
+            from app.modules.application import user_service
 
             email = await user_service.obtener_email_desde_token(self._access_token)
             if not email:
@@ -662,7 +662,7 @@ class AuthState(BaseState):
             return
 
         try:
-            from app.services import user_service
+            from app.modules.application import user_service
 
             nuevos_tokens = await user_service.refrescar_token(self._refresh_token)
 
@@ -720,7 +720,7 @@ class AuthState(BaseState):
         if not Config.DEBUG:
             return
         try:
-            from app.services import empresa_service
+            from app.modules.application import empresa_service
             empresas = await empresa_service.obtener_todas(incluir_inactivas=False)
             self._empresas_simulacion = [
                 {
@@ -836,7 +836,7 @@ class AuthState(BaseState):
             return
 
         try:
-            from app.services import user_service
+            from app.modules.application import user_service
 
             user_id = self.obtener_uuid_usuario_actual()
             if not user_id:
@@ -884,7 +884,7 @@ class AuthState(BaseState):
             return
 
         try:
-            from app.services import institucion_service
+            from app.modules.application import institucion_service
 
             # Cargar datos de la institución
             inst = await institucion_service.obtener_por_id(institucion_id)

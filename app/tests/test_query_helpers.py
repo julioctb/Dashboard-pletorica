@@ -4,7 +4,13 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 
-_MODULE_PATH = Path(__file__).resolve().parents[1] / "repositories" / "shared" / "query_helpers.py"
+_MODULE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "domain"
+    / "repositories"
+    / "shared"
+    / "query_helpers.py"
+)
 _SPEC = spec_from_file_location("test_query_helpers_module", _MODULE_PATH)
 _MOD = module_from_spec(_SPEC)
 assert _SPEC and _SPEC.loader

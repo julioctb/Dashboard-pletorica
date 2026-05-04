@@ -100,7 +100,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
 
         try:
-            from app.services import user_service
+            from app.domain.services import user_service
 
             profile = await user_service.validar_token(token)
             if not profile:

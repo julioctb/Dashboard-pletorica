@@ -5,13 +5,13 @@ from typing import List
 
 import reflex as rx
 
-from app.entities.alta_masiva import (
+from app.domain.models.alta_masiva import (
     DetalleResultado,
     RegistroValidado,
     ResultadoProcesamiento,
     ResultadoValidacion,
 )
-from app.services import (
+from app.modules.empleados.application import (
     alta_masiva_service,
     plantilla_service,
     reporte_alta_masiva_service,

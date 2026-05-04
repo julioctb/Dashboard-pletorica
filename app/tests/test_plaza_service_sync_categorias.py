@@ -4,11 +4,11 @@ import asyncio
 from datetime import date
 from decimal import Decimal
 
-import app.services as services_module
-from app.entities.contrato_categoria import ContratoCategoria
-from app.entities.plaza import Plaza
-from app.services.plaza_service import PlazaService
-from app.core.enums import EstatusPlaza
+import app.domain.services as services_module
+from app.domain.models.contrato_categoria import ContratoCategoria
+from app.domain.models.plaza import Plaza
+from app.domain.services.plaza_service import PlazaService
+from app.domain.enums import EstatusPlaza
 
 
 def _build_plaza(plaza_id: int, numero: int, salario: str) -> Plaza:

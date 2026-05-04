@@ -37,7 +37,8 @@ class CalculadoraISR:
 
         Aplica la tabla progresiva del ISR y resta el subsidio al empleo
         cuando aplica. Los trabajadores con salario mínimo están exentos
-        según Art. 96 LISR.
+        según Art. 96 LISR solo cuando el ingreso corresponde únicamente
+        al salario mínimo.
 
         Args:
             base_gravable: Ingreso mensual gravable (salario mensual)
@@ -113,30 +114,14 @@ class CalculadoraISR:
         Raises:
             ValueError: Si la tabla ISR está vacía o mal formada
         """
-        _ = fecha_referencia
         if not CatalogoISR.TABLA_MENSUAL:
             raise ValueError("Tabla ISR mensual no configurada")
-
-        # Buscar rango en tabla
-        for rango in CatalogoISR.TABLA_MENSUAL:
-            lim_inf = float(rango.limite_inferior)
-            lim_sup = float(rango.limite_superior)
-            cuota_fija = float(rango.cuota_fija)
-            tasa = float(rango.tasa_excedente)
-            if lim_inf <= base_gravable <= lim_sup:
-                excedente = base_gravable - lim_inf
-                isr = cuota_fija + (excedente * tasa)
-                return round(isr, 2)
-
-        # Si no encontró rango, usar el último (ingresos muy altos)
-        # El último rango tiene límite superior = infinity
-        ultimo = CatalogoISR.TABLA_MENSUAL[-1]
-        lim_inf = float(ultimo.limite_inferior)
-        cuota_fija = float(ultimo.cuota_fija)
-        tasa = float(ultimo.tasa_excedente)
-        excedente = base_gravable - lim_inf
-        isr = cuota_fija + (excedente * tasa)
-        return round(isr, 2)
+        return float(
+            CatalogoISR.calcular_isr_mensual(
+                Decimal(str(base_gravable)),
+                fecha_referencia,
+            )
+        )
 
     def _calcular_subsidio_empleo(
         self,

@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 
-from app.services.curp_service import curp_service
+from app.domain.services.curp_service import curp_service
 from app.api.v1.common import ok, raise_http_from_exc
 from app.api.v1.schemas import APIResponse
 from app.api.v1.curp.schemas import CurpValidacionSchema

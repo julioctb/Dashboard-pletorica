@@ -17,10 +17,10 @@ from app.api.v1.onboarding.schemas import (
     DocumentoResponse,
     RechazoDocumentoRequest,
 )
-from app.services.onboarding_service import onboarding_service
-from app.services.empleado_documento_service import empleado_documento_service
-from app.entities.onboarding import AltaEmpleadoBuap
-from app.entities.empleado_documento import EmpleadoDocumentoCreate
+from app.domain.services.onboarding_service import onboarding_service
+from app.domain.services.empleado_documento_service import empleado_documento_service
+from app.domain.models.onboarding import AltaEmpleadoBuap
+from app.domain.models.empleado_documento import EmpleadoDocumentoCreate
 
 logger = logging.getLogger(__name__)
 

@@ -26,9 +26,47 @@ poetry install
 poetry run reflex run
 ```
 
+## Testing Offline
+
+You can run the test suite without internet access. The test configuration:
+- uses local fallback env vars for Supabase (`localhost`, test keys),
+- blocks outbound network calls automatically (localhost remains allowed).
+
+Run:
+```bash
+poetry run pytest -q
+```
+
+## Switch Offline/Online (1 command)
+
+This repo now supports environment switching with:
+
+```bash
+./scripts/use-local.sh
+./scripts/use-cloud.sh
+```
+
+It can also be done with a single script:
+
+```bash
+./scripts/switch_env.sh local
+./scripts/switch_env.sh cloud
+```
+
+Useful option:
+
+```bash
+./scripts/switch_env.sh local --dry-run
+```
+
+Notes:
+- `.env.local` and `.env.cloud` are used as sources.
+- Current `.env` is backed up automatically as `.env.backup.YYYYMMDD-HHMMSS`.
+- Fill your real cloud keys in `.env.cloud`.
+
 ## Dependencies
 
-- Reflex (0.8.9)
+- Reflex (>=0.8.21,<0.9.0)
 - Supabase (>=2.18.1,<3.0.0)
 - Pydantic (>=2.11.9,<3.0.0)
 - Python-dotenv (>=1.1.1,<2.0.0)

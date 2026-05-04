@@ -213,6 +213,7 @@ class FakeSupabase:
 
 _MODULE_PATH = (
     Path(__file__).resolve().parents[1]
+    / "domain"
     / "services"
     / "empresa_documento_service.py"
 )
@@ -221,41 +222,41 @@ _MOD = module_from_spec(_SPEC)
 assert _SPEC and _SPEC.loader
 
 _original_app_database = sys.modules.get("app.database")
-_original_app_entities = sys.modules.get("app.entities")
-_original_archivo = sys.modules.get("app.entities.archivo")
-_original_empresa_doc = sys.modules.get("app.entities.empresa_documento")
-_original_app_services = sys.modules.get("app.services")
-_original_archivo_service = sys.modules.get("app.services.archivo_service")
-_original_empresa_service = sys.modules.get("app.services.empresa_service")
+_original_app_entities = sys.modules.get("app.domain.models")
+_original_archivo = sys.modules.get("app.domain.models.archivo")
+_original_empresa_doc = sys.modules.get("app.domain.models.empresa_documento")
+_original_app_services = sys.modules.get("app.domain.services")
+_original_archivo_service = sys.modules.get("app.domain.services.archivo_service")
+_original_empresa_service = sys.modules.get("app.domain.services.empresa_service")
 
 _app_database_stub = types.ModuleType("app.database")
 _app_database_stub.db_manager = _BootstrapDBManager()
-_app_entities_stub = types.ModuleType("app.entities")
+_app_entities_stub = types.ModuleType("app.domain.models")
 _app_entities_stub.__path__ = []
-_app_services_stub = types.ModuleType("app.services")
+_app_services_stub = types.ModuleType("app.domain.services")
 _app_services_stub.__path__ = []
-_archivo_stub = types.ModuleType("app.entities.archivo")
+_archivo_stub = types.ModuleType("app.domain.models.archivo")
 _archivo_stub.EntidadArchivo = _EntidadArchivo
 _archivo_stub.TipoArchivo = _TipoArchivo
-_empresa_doc_stub = types.ModuleType("app.entities.empresa_documento")
+_empresa_doc_stub = types.ModuleType("app.domain.models.empresa_documento")
 _empresa_doc_stub.EmpresaDocumento = _EmpresaDocumento
 _empresa_doc_stub.EmpresaDocumentoCreate = _EmpresaDocumentoCreate
 _empresa_doc_stub.EmpresaDocumentoResumen = _EmpresaDocumentoResumen
 _empresa_doc_stub.EmpresaDocumentoRequisito = _EmpresaDocumentoRequisito
 _empresa_doc_stub.EmpresaDocumentoRequisitoCreate = _EmpresaDocumentoRequisitoCreate
 _empresa_doc_stub.EmpresaDocumentoShareLink = _EmpresaDocumentoShareLink
-_archivo_service_stub = types.ModuleType("app.services.archivo_service")
+_archivo_service_stub = types.ModuleType("app.domain.services.archivo_service")
 _archivo_service_stub.archivo_service = _ArchivoServiceStub()
-_empresa_service_stub = types.ModuleType("app.services.empresa_service")
+_empresa_service_stub = types.ModuleType("app.domain.services.empresa_service")
 _empresa_service_stub.empresa_service = _EmpresaServiceStub()
 
 sys.modules["app.database"] = _app_database_stub
-sys.modules["app.entities"] = _app_entities_stub
-sys.modules["app.services"] = _app_services_stub
-sys.modules["app.entities.archivo"] = _archivo_stub
-sys.modules["app.entities.empresa_documento"] = _empresa_doc_stub
-sys.modules["app.services.archivo_service"] = _archivo_service_stub
-sys.modules["app.services.empresa_service"] = _empresa_service_stub
+sys.modules["app.domain.models"] = _app_entities_stub
+sys.modules["app.domain.services"] = _app_services_stub
+sys.modules["app.domain.models.archivo"] = _archivo_stub
+sys.modules["app.domain.models.empresa_documento"] = _empresa_doc_stub
+sys.modules["app.domain.services.archivo_service"] = _archivo_service_stub
+sys.modules["app.domain.services.empresa_service"] = _empresa_service_stub
 
 try:
     _SPEC.loader.exec_module(_MOD)
@@ -265,29 +266,29 @@ finally:
     else:
         sys.modules.pop("app.database", None)
     if _original_app_entities is not None:
-        sys.modules["app.entities"] = _original_app_entities
+        sys.modules["app.domain.models"] = _original_app_entities
     else:
-        sys.modules.pop("app.entities", None)
+        sys.modules.pop("app.domain.models", None)
     if _original_app_services is not None:
-        sys.modules["app.services"] = _original_app_services
+        sys.modules["app.domain.services"] = _original_app_services
     else:
-        sys.modules.pop("app.services", None)
+        sys.modules.pop("app.domain.services", None)
     if _original_archivo is not None:
-        sys.modules["app.entities.archivo"] = _original_archivo
+        sys.modules["app.domain.models.archivo"] = _original_archivo
     else:
-        sys.modules.pop("app.entities.archivo", None)
+        sys.modules.pop("app.domain.models.archivo", None)
     if _original_empresa_doc is not None:
-        sys.modules["app.entities.empresa_documento"] = _original_empresa_doc
+        sys.modules["app.domain.models.empresa_documento"] = _original_empresa_doc
     else:
-        sys.modules.pop("app.entities.empresa_documento", None)
+        sys.modules.pop("app.domain.models.empresa_documento", None)
     if _original_archivo_service is not None:
-        sys.modules["app.services.archivo_service"] = _original_archivo_service
+        sys.modules["app.domain.services.archivo_service"] = _original_archivo_service
     else:
-        sys.modules.pop("app.services.archivo_service", None)
+        sys.modules.pop("app.domain.services.archivo_service", None)
     if _original_empresa_service is not None:
-        sys.modules["app.services.empresa_service"] = _original_empresa_service
+        sys.modules["app.domain.services.empresa_service"] = _original_empresa_service
     else:
-        sys.modules.pop("app.services.empresa_service", None)
+        sys.modules.pop("app.domain.services.empresa_service", None)
 
 EmpresaDocumentoService = _MOD.EmpresaDocumentoService
 

@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from app.entities.empleado_descuento_recurrente import (
+from app.domain.models.empleado_descuento_recurrente import (
     EmpleadoDescuentoRecurrenteCreate,
     es_descuento_recurrente_activo_en_rango,
 )

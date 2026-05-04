@@ -2,8 +2,8 @@
 
 import asyncio
 
-from app.repositories.empleado_repository import SupabaseEmpleadoRepository
-from app.services.nomina_periodo_service import NominaPeriodoService
+from app.domain.repositories.empleado_repository import SupabaseEmpleadoRepository
+from app.domain.services.nomina_periodo_service import NominaPeriodoService
 
 
 class FakeResult:

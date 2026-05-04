@@ -45,6 +45,12 @@ class TipoEmpresa(str, Enum):
     NOMINA = 'NOMINA'
     MANTENIMIENTO = 'MANTENIMIENTO'
 
+
+class OrigenTipoServicio(str, Enum):
+    """Origen de un tipo de servicio dentro del catálogo."""
+    EMPRESA = 'EMPRESA'
+    INSTITUCION = 'INSTITUCION'
+
 # =============================================================================
 # ENUMS DE CONTRATO
 # =============================================================================
@@ -99,13 +105,23 @@ class TipoDuracion(str, Enum):
 
 
 class EstatusContrato(str, Enum):
-    """Estados posibles de un contrato"""
+    """Estados posibles de un contrato.
+
+    Ciclo de vida:
+        BORRADOR -> ACTIVO -> SUSPENDIDO -> ACTIVO (reactivado)
+                           -> VENCIDO (por fecha_fin) -> LIQUIDADO (cierre definitivo)
+                           -> CANCELADO (baja administrativa)
+
+    Diferencia VENCIDO vs LIQUIDADO:
+        VENCIDO: vigencia terminada pero admite entregables y nomina histórica.
+        LIQUIDADO: cierre definitivo; no admite nuevos movimientos ni extensiones.
+    """
     BORRADOR = 'BORRADOR'
     ACTIVO = 'ACTIVO'
     SUSPENDIDO = 'SUSPENDIDO'
     VENCIDO = 'VENCIDO'
+    LIQUIDADO = 'LIQUIDADO'
     CANCELADO = 'CANCELADO'
-    CERRADO = 'CERRADO'  # Contrato pagado y finalizado
 
 
 # =============================================================================
@@ -234,6 +250,7 @@ class TipoMovimiento(str, Enum):
     ALTA = 'ALTA'
     ASIGNACION = 'ASIGNACION'
     CAMBIO_PLAZA = 'CAMBIO_PLAZA'
+    CAMBIO_SALARIO = 'CAMBIO_SALARIO'
     SUSPENSION = 'SUSPENSION'
     REACTIVACION = 'REACTIVACION'
     BAJA = 'BAJA'
@@ -246,6 +263,7 @@ class TipoMovimiento(str, Enum):
             'ALTA': 'Alta en sistema',
             'ASIGNACION': 'Asignación a plaza',
             'CAMBIO_PLAZA': 'Cambio de plaza',
+            'CAMBIO_SALARIO': 'Cambio de sueldo',
             'SUSPENSION': 'Suspensión',
             'REACTIVACION': 'Reactivación',
             'BAJA': 'Baja del sistema',
@@ -260,11 +278,14 @@ class TipoMovimientoHistorial(str, Enum):
     ALTA = "ALTA"
     ASIGNACION = "ASIGNACION"
     CAMBIO_PLAZA = "CAMBIO_PLAZA"
+    CAMBIO_SALARIO = "CAMBIO_SALARIO"
     CAMBIO_SEDE = "CAMBIO_SEDE"
     CAMBIO_CATEGORIA = "CAMBIO_CATEGORIA"
     SUSPENSION = "SUSPENSION"
     REACTIVACION = "REACTIVACION"
     REINGRESO = "REINGRESO"
+    BAJA_TEMPORAL = "BAJA_TEMPORAL"
+    BAJA_DEFINITIVA = "BAJA_DEFINITIVA"
     BAJA = "BAJA"
 
     @classmethod
@@ -274,11 +295,14 @@ class TipoMovimientoHistorial(str, Enum):
             cls.ALTA: "Alta",
             cls.ASIGNACION: "Asignación de plaza",
             cls.CAMBIO_PLAZA: "Cambio de plaza",
+            cls.CAMBIO_SALARIO: "Cambio de sueldo",
             cls.CAMBIO_SEDE: "Cambio de sede",
             cls.CAMBIO_CATEGORIA: "Cambio de categoría",
             cls.SUSPENSION: "Suspensión",
             cls.REACTIVACION: "Reactivación",
             cls.REINGRESO: "Reingreso",
+            cls.BAJA_TEMPORAL: "Baja temporal",
+            cls.BAJA_DEFINITIVA: "Baja definitiva",
             cls.BAJA: "Baja",
         }
         return labels.get(value, value)
@@ -1470,3 +1494,131 @@ class TipoValorConcepto(str, Enum):
             'PORCENTAJE': 'Porcentaje (%)',
         }
         return descripciones.get(self.value, self.value)
+
+
+# =============================================================================
+# ENUMS DE INCAPACIDADES
+# =============================================================================
+
+class OrigenIncapacidad(str, Enum):
+    """Origen operativo de la incapacidad."""
+
+    FORMAL = "FORMAL"
+    POR_ACUERDO = "POR_ACUERDO"
+
+    @property
+    def descripcion(self) -> str:
+        return _descripcion_desde_mapa(
+            self.value,
+            {
+                "FORMAL": "Formal (IMSS)",
+                "POR_ACUERDO": "Por acuerdo",
+            },
+        )
+
+
+class TipoIncapacidad(str, Enum):
+    """Tipos de incapacidad registrados en RH."""
+
+    ENF_GENERAL = "ENF_GENERAL"
+    RIESGO_TRABAJO = "RIESGO_TRABAJO"
+    MATERNIDAD = "MATERNIDAD"
+    ACUERDO = "ACUERDO"
+
+    @property
+    def descripcion(self) -> str:
+        return _descripcion_desde_mapa(
+            self.value,
+            {
+                "ENF_GENERAL": "Enfermedad general",
+                "RIESGO_TRABAJO": "Riesgo de trabajo",
+                "MATERNIDAD": "Maternidad",
+                "ACUERDO": "Por acuerdo",
+            },
+        )
+
+    @classmethod
+    def requiere_folio(cls, value: "TipoIncapacidad | str") -> bool:
+        try:
+            tipo = value if isinstance(value, cls) else cls(str(value or "").upper())
+        except ValueError:
+            return False
+        return tipo in {
+            cls.ENF_GENERAL,
+            cls.RIESGO_TRABAJO,
+            cls.MATERNIDAD,
+        }
+
+    @property
+    def subsidio_imss(self) -> int | None:
+        subsidios = {
+            self.ENF_GENERAL: 60,
+            self.RIESGO_TRABAJO: 100,
+            self.MATERNIDAD: 100,
+        }
+        return subsidios.get(self)
+
+    @property
+    def dias_espera_subsidio(self) -> int | None:
+        dias = {
+            self.ENF_GENERAL: 3,
+            self.RIESGO_TRABAJO: 0,
+            self.MATERNIDAD: 0,
+        }
+        return dias.get(self)
+
+    @property
+    def tipo_incidencia_asistencia(self) -> TipoIncidencia:
+        mapping = {
+            self.ENF_GENERAL: TipoIncidencia.INCAPACIDAD_ENFERMEDAD,
+            self.RIESGO_TRABAJO: TipoIncidencia.INCAPACIDAD_RIESGO_TRABAJO,
+            self.MATERNIDAD: TipoIncidencia.INCAPACIDAD_MATERNIDAD,
+            self.ACUERDO: TipoIncidencia.FALTA_JUSTIFICADA,
+        }
+        return mapping[self]
+
+    @property
+    def tipo_registro_asistencia(self) -> TipoRegistroAsistencia:
+        mapping = {
+            self.ENF_GENERAL: TipoRegistroAsistencia.INCAPACIDAD_ENFERMEDAD,
+            self.RIESGO_TRABAJO: TipoRegistroAsistencia.INCAPACIDAD_RIESGO_TRABAJO,
+            self.MATERNIDAD: TipoRegistroAsistencia.INCAPACIDAD_MATERNIDAD,
+            self.ACUERDO: TipoRegistroAsistencia.FALTA_JUSTIFICADA,
+        }
+        return mapping[self]
+
+
+class EstatusIncapacidad(str, Enum):
+    """Estados de una incapacidad."""
+
+    ACTIVA = "ACTIVA"
+    VENCIDA = "VENCIDA"
+    CERRADA = "CERRADA"
+
+    @property
+    def descripcion(self) -> str:
+        return _descripcion_desde_mapa(
+            self.value,
+            {
+                "ACTIVA": "Activa",
+                "VENCIDA": "Vencida",
+                "CERRADA": "Cerrada",
+            },
+        )
+
+
+class TipoCertificado(str, Enum):
+    """Clasificación del certificado registrado."""
+
+    INICIAL = "INICIAL"
+    SUBSECUENTE = "SUBSECUENTE"
+
+    @property
+    def descripcion(self) -> str:
+        return _descripcion_desde_mapa(
+            self.value,
+            {
+                "INICIAL": "Inicial",
+                "SUBSECUENTE": "Subsecuente",
+            },
+        )

@@ -1,6 +1,6 @@
 """Protege descripciones compartidas de enums de nomina."""
 
-from app.core.enums import OrigenCaptura, OrigenMovimiento
+from app.domain.enums import OrigenCaptura, OrigenMovimiento
 
 
 def test_origenes_nomina_comparten_descripcion_consistente():

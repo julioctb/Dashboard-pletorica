@@ -112,24 +112,29 @@ class FakeSupabase:
         return FakeQuery(self, table_name)
 
 
-_MODULE_PATH = Path(__file__).resolve().parents[1] / "services" / "notificacion_service.py"
+_MODULE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "domain"
+    / "services"
+    / "notificacion_service.py"
+)
 _SPEC = spec_from_file_location("test_notificacion_service_module", _MODULE_PATH)
 _MOD = module_from_spec(_SPEC)
 assert _SPEC and _SPEC.loader
 
 _original_app_database = sys.modules.get("app.database")
-_original_app_entities = sys.modules.get("app.entities")
-_original_app_entities_notificacion = sys.modules.get("app.entities.notificacion")
+_original_app_entities = sys.modules.get("app.domain.models")
+_original_app_entities_notificacion = sys.modules.get("app.domain.models.notificacion")
 _app_database_stub = types.ModuleType("app.database")
 _app_database_stub.db_manager = _BootstrapDBManager()
-_app_entities_stub = types.ModuleType("app.entities")
+_app_entities_stub = types.ModuleType("app.domain.models")
 _app_entities_stub.__path__ = []
-_app_entities_notif_stub = types.ModuleType("app.entities.notificacion")
+_app_entities_notif_stub = types.ModuleType("app.domain.models.notificacion")
 _app_entities_notif_stub.Notificacion = _SimpleNotificacion
 _app_entities_notif_stub.NotificacionCreate = _SimpleNotificacionCreate
 sys.modules["app.database"] = _app_database_stub
-sys.modules["app.entities"] = _app_entities_stub
-sys.modules["app.entities.notificacion"] = _app_entities_notif_stub
+sys.modules["app.domain.models"] = _app_entities_stub
+sys.modules["app.domain.models.notificacion"] = _app_entities_notif_stub
 try:
     _SPEC.loader.exec_module(_MOD)
 finally:
@@ -138,13 +143,13 @@ finally:
     else:
         sys.modules.pop("app.database", None)
     if _original_app_entities is not None:
-        sys.modules["app.entities"] = _original_app_entities
+        sys.modules["app.domain.models"] = _original_app_entities
     else:
-        sys.modules.pop("app.entities", None)
+        sys.modules.pop("app.domain.models", None)
     if _original_app_entities_notificacion is not None:
-        sys.modules["app.entities.notificacion"] = _original_app_entities_notificacion
+        sys.modules["app.domain.models.notificacion"] = _original_app_entities_notificacion
     else:
-        sys.modules.pop("app.entities.notificacion", None)
+        sys.modules.pop("app.domain.models.notificacion", None)
 
 NotificacionService = _MOD.NotificacionService
 

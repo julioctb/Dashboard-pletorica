@@ -12,9 +12,9 @@ from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel, ValidationError
 
-from app.entities.empresa import Empresa, EmpresaCreate
-from app.entities.tipo_servicio import TipoServicio, TipoServicioCreate, TipoServicioUpdate
-from app.core.enums import TipoEmpresa, EstatusEmpresa, Estatus
+from app.domain.models.empresa import Empresa, EmpresaCreate
+from app.domain.models.tipo_servicio import TipoServicio, TipoServicioCreate, TipoServicioUpdate
+from app.domain.enums import TipoEmpresa, EstatusEmpresa, Estatus
 from app.core.validation import (
     CAMPO_RFC,
     CAMPO_EMAIL,

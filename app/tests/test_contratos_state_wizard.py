@@ -1,6 +1,6 @@
 """Tests del wizard de contratos en creación y edición."""
 
-from app.presentation.pages.contratos import contratos_state as contratos_state_module
+from app.presentation.pages.backoffice.contratos import contratos_state as contratos_state_module
 
 
 class _DummyWizardContratosState:

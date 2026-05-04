@@ -5,7 +5,7 @@ Estilos Globales - Sistema de Diseño BUAP
 Estilos CSS globales que se aplican a toda la aplicación.
 Incluye configuración de tipografía, scrollbars, y resets.
 
-Uso en app.py:
+Uso en core.py:
     from app.presentation.theme.styles import GLOBAL_STYLES
 
     app = rx.App(

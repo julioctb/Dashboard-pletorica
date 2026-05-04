@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 _MODULE_PATH = (
     Path(__file__).resolve().parents[1]
+    / "domain"
     / "services"
     / "shared"
     / "model_updates.py"

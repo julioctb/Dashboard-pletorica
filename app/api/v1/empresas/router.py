@@ -8,7 +8,7 @@ import logging
 
 from fastapi import APIRouter, Query
 
-from app.services import empresa_service
+from app.domain.services import empresa_service
 from app.api.v1.common import ok, ok_list, raise_http_from_exc
 from app.api.v1.schemas import APIListResponse, APIResponse
 from app.api.v1.empresas.schemas import EmpresaResponse

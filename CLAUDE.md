@@ -6,10 +6,11 @@ Guia operativa para asistentes de codigo que trabajen en este repositorio.
 
 Cuando exista conflicto entre este archivo y el codigo, usar en este orden:
 
-1. `app/app.py` para rutas, layouts y composicion entre backoffice y portal.
-2. `pyproject.toml` para versiones, dependencias y runtime.
-3. `rxconfig.py` para configuracion de Reflex y plugins.
-4. La estructura real de `app/` para decidir capas, naming y colocacion.
+1. `app/bootstrap/app_factory.py` para composicion de la app Reflex.
+2. `app/presentation/config/routes.py` para rutas registradas.
+3. `pyproject.toml` para versiones, dependencias y runtime.
+4. `rxconfig.py` para configuracion de Reflex y plugins.
+5. La estructura real de `app/` para decidir capas, naming y colocacion.
 
 ## Snapshot del proyecto
 
@@ -33,9 +34,9 @@ poetry run reflex run
 poetry run reflex init
 
 # Tests
-pytest
-pytest app/tests/test_validation.py
-pytest -v
+poetry run pytest -q
+poetry run pytest app/tests/test_validation.py -q
+poetry run pytest -v
 
 # Calidad de codigo
 poetry run black app/
@@ -52,6 +53,18 @@ El repo combina tres superficies:
 2. Portal cliente Reflex
 3. API REST FastAPI limitada
 
+### Entry point y bootstrap
+
+`app/app.py` llama a `create_app()` desde `app/bootstrap/`. La composicion se separa en:
+
+- `app/bootstrap/app_factory.py` — crea `rx.App` con theme, API y rutas
+- `app/bootstrap/routes_core.py` — rutas base (`/`, `/login`, share)
+- `app/bootstrap/routes_backoffice.py` — rutas admin
+- `app/bootstrap/routes_portal.py` — rutas portal (24+)
+- `app/bootstrap/reflex_patch.py` — patches para defaults de Reflex
+
+Las rutas estan definidas en `app/presentation/config/routes.py` como tuplas (`CORE_ROUTES`, `BACKOFFICE_PAGE_ROUTES`, `PORTAL_PAGE_ROUTES`).
+
 ### Rutas de alto nivel
 
 - `/` es un dispatcher por rol/contexto, no el dashboard principal.
@@ -62,8 +75,10 @@ El repo combina tres superficies:
 ### Familias de rutas activas
 
 Backoffice:
+
 - `/admin`
 - `/empresas`
+- `/empresas/[empresa_documentacion_empresa_id]/documentacion`
 - `/contratos`
 - `/pagos`
 - `/entregables`
@@ -90,16 +105,21 @@ Backoffice:
 - `/login`
 
 Portal:
+
 - `/portal`
 - `/portal/mis-datos`
 - `/portal/mi-perfil`
 - `/portal/mi-empresa`
+- `/portal/empresa/categorias`
+- `/portal/documentacion-empresa`
 - `/portal/configuracion-empresa`
 - `/portal/usuarios`
 - `/portal/empleados`
+- `/portal/empleados/[id]`
 - `/portal/alta-masiva`
+- `/portal/plazas`
 - `/portal/onboarding`
-- `/portal/expedientes`
+- `/portal/incapacidades`
 - `/portal/bajas`
 - `/portal/nominas`
 - `/portal/nominas/preparacion`
@@ -107,9 +127,11 @@ Portal:
 - `/portal/nominas/empleado-detalle`
 - `/portal/nominas/dashboard`
 - `/portal/nominas/conciliacion`
-- `/cotizador`
-- `/cotizador/[cotizacion_id]`
 - `/portal/contratos`
+- `/portal/contratos/[codigo_contrato]/plazas`
+- `/portal/simulador`
+- `/portal/cotizador`
+- `/portal/cotizador/[cotizacion_id]`
 - `/portal/asistencias`
 - `/portal/entregables`
 
@@ -117,40 +139,87 @@ API v1 actualmente registrada:
 - `empresas`
 - `curp`
 - `onboarding`
+- `common` existe como helpers compartidos entre routers, no como router registrado.
 
 ## Mapa de carpetas
 
 ```text
 app/
 ├── api/                    # FastAPI, middleware y routers versionados
-├── core/                   # Config, enums, exceptions, validation, catalogs, calculations, constants, utils
+├── bootstrap/              # Factory de app Reflex + registro de rutas
+├── core/                   # config, enums, exceptions, error_messages, validation, catalogs, calculations, constants, compresores, utils, text_utils, ui_helpers, ui_options, ui_option_sets
 ├── database/               # DatabaseManager y clientes Supabase
-├── entities/               # Modelos de dominio y DTOs Pydantic
-├── presentation/           # Backoffice Reflex: pages, components, layout, theme
-├── repositories/           # Repositories Supabase para modulos que ya usan esa capa
-├── services/               # Logica de aplicacion, orquestacion y acceso a datos
+├── domain/                 # Capa legacy monolitica
+│   ├── models/             # Modelos de dominio y DTOs Pydantic
+│   ├── enums/              # Enums del dominio
+│   ├── services/           # Logica de aplicacion, orquestacion y acceso a datos
+│   └── repositories/       # Repositories Supabase
+│       └── shared/         # query_helpers.py
+├── infrastructure/         # Auth, database adapters, external, storage
+├── modules/                # Modulos DDD (fachadas sobre domain/)
+│   ├── application/        # Bridge: re-exporta servicios legacy
+│   ├── cotizaciones/       # domain/ application/ infrastructure/ ui/
+│   ├── empleados/          # domain/ application/ infrastructure/ ui/
+│   └── nomina/             # domain/ application/ infrastructure/ ui/
+├── presentation/           # Reflex UI: pages, components, layout, theme
+│   ├── components/         # Compartidos: ui/, shared/, common/, backoffice/
+│   ├── config/             # routes.py, app_config.py
+│   ├── layouts/            # backoffice/, portal/
+│   ├── pages/
+│   │   ├── backoffice/     # Paginas admin (20+ features)
+│   │   └── portal/         # Paginas portal cliente (15+ features)
+│   └── theme/              # Tema global
+├── shared/                 # Exceptions, formatting, pagination, validation utils
 └── tests/                  # Tests del paquete app
 ```
 
-### Entidades relevantes del dominio actual
+### Dos patrones de dominio coexisten
 
-`app/entities/` ya no solo cubre empresas y contratos. Tambien contiene modelos de:
+#### Legacy (`app/domain/`)
 
+Estructura plana: `models/`, `services/`, `repositories/` — todo junto, sin separacion por feature. Esta es la capa donde vive la logica real hoy.
+
+#### Modular DDD (`app/modules/`)
+
+Cada modulo sigue la estructura:
+
+```text
+modules/{feature}/
+├── domain/          # Re-exporta models, enums, validators desde app.domain
+├── application/     # Re-exporta y organiza servicios (queries, mutations)
+├── infrastructure/  # Repositories propios (solo empleados tiene implementacion real)
+└── ui/
+    ├── backoffice/  # Exports de paginas y estados para admin
+    └── portal/      # Exports de paginas y estados para portal
+```
+
+Los modulos son **fachadas** sobre `app/domain/`. La logica real sigue en el monolito; los modulos proveen una API publica organizada por feature y separacion de superficies UI.
+
+Modulos activos: `cotizaciones`, `empleados`, `nomina`.
+
+`modules/application/` es un bridge temporal que re-exporta servicios legacy de `app.domain.services`.
+
+### Modelos del dominio
+
+`app/domain/models/` contiene modelos Pydantic para:
+
+- empresas, contratos, empleados, plazas
 - usuarios y asignaciones empresa
 - onboarding y documentos
-- bajas
+- bajas, incapacidades
 - asistencias
-- nominas
-- cotizador
+- nominas (periodos, movimientos, conceptos)
+- cotizador (cotizaciones, partidas, items)
 - configuracion fiscal y dispersion
 - dashboards y metricas
+- historial laboral
 
 ### Servicios
 
-`app/services/` es la capa principal de logica de aplicacion. El repo usa una mezcla de:
+`app/domain/services/` es la capa principal de logica de aplicacion. El repo usa una mezcla de:
 
-- servicios singleton exportados desde `app/services/__init__.py`
-- subpaquetes especializados como `app/services/users`, `app/services/asistencias` y `app/services/dispersion`
+- servicios singleton exportados desde `app/domain/services/__init__.py`
+- subpaquetes especializados como `app/domain/services/users`, `app/domain/services/asistencias` y `app/domain/services/dispersion`
 - servicios que consumen repositories
 - servicios que hablan directo con `db_manager` cuando el modulo todavia no tiene repository propio
 
@@ -158,40 +227,46 @@ No asumir que todos los modulos siguen exactamente el mismo patron. Primero revi
 
 ### Repositories
 
-`app/repositories/` existe para modulos con consultas mas complejas o acceso encapsulado a Supabase. Tambien hay helpers compartidos en `app/repositories/shared/query_helpers.py`.
+`app/domain/repositories/` existe para modulos con consultas mas complejas o acceso encapsulado a Supabase. Tambien hay helpers compartidos en `app/domain/repositories/shared/query_helpers.py`.
 
 Hoy existen repositories concretos para:
 
+- base (`base_repository.py`, clase abstracta compartida)
 - empresa
 - empleado
 - contrato
+- contrato_categoria
+- categoria_puesto
+- tipo_servicio
 - plaza
 - requisicion
 - archivo
-- categoria_puesto
-- contrato_categoria
-- tipo_servicio
 - pago
 - historial_laboral
 - entregable
+- incapacidad
 
 ## Flujo de dependencias
 
 El flujo dominante es:
 
-`presentation/state -> services -> repositories -> database`
+`presentation/state -> domain/services -> domain/repositories -> database`
 
 Pero el repo tambien permite:
 
-`presentation/state -> services -> database`
+`presentation/state -> domain/services -> database`
+
+Y con los modulos DDD:
+
+`presentation/state -> modules/*/application -> domain/services -> domain/repositories -> database`
 
 Reglas practicas:
 
 - UI y componentes no deben consultar Supabase directamente.
 - `State` debe concentrar loading, toasts, modales y coordinacion de UI.
-- Reglas de negocio y orquestacion deben vivir en `services/`.
-- `repositories/` solo deben encapsular acceso a datos.
-- `entities/` deben mantenerse libres de dependencias de Reflex.
+- Reglas de negocio y orquestacion deben vivir en `domain/services/`.
+- `domain/repositories/` solo deben encapsular acceso a datos.
+- Modelos en `domain/models/` deben mantenerse libres de dependencias de Reflex.
 - `core/` es compartido entre capas.
 
 ## Jerarquia real de estados
@@ -230,7 +305,7 @@ SUPABASE_URL=...
 SUPABASE_KEY=...
 SUPABASE_SERVICE_KEY=...
 APP_NAME="Sistema de Administración de Personal"
-APP_VERSION="0.7.0"
+APP_VERSION="0.8.1"
 DEBUG=FALSE
 SKIP_AUTH=FALSE
 API_AUTH_ENABLED=FALSE
@@ -290,7 +365,7 @@ Criterio:
 La validacion esta duplicada a proposito en dos capas:
 
 1. validadores de formulario para UX en `presentation/pages/.../*validators.py`
-2. validadores de modelos en `entities/` y helpers en `app/core/validation/`
+2. validadores de dominio en `app/domain/` y helpers en `app/core/validation/`
 
 Reusar `FieldConfig`, `pydantic_field`, catalogos y helpers existentes antes de crear validadores ad hoc.
 
@@ -302,7 +377,7 @@ Los componentes compartidos viven principalmente en:
 - `app/presentation/components/shared`
 - `app/presentation/components/common`
 
-Ademas existen componentes por dominio en carpetas como:
+Ademas existen componentes por dominio en `app/presentation/components/backoffice/`:
 
 - `empresas`
 - `contratos`
@@ -328,30 +403,31 @@ Reglas:
 
 - Las migraciones SQL viven en `migrations/`.
 - Se aplican manualmente en Supabase.
-- La numeracion historica no debe asumirse perfecta; el arbol actual llega a `046`.
+- La numeracion historica no debe asumirse perfecta; el arbol actual llega a `064` y tiene duplicados.
 - Antes de crear una nueva migracion, revisar el directorio real y seguir la convencion existente.
 
 ## Guia para cambios nuevos
 
 Si agregas o extiendes una feature:
 
-1. ubica la ruta y el wrapper en `app/app.py`
+1. ubica la ruta en `app/presentation/config/routes.py` y el registro en `app/bootstrap/`
 2. identifica si el modulo pertenece a backoffice, portal o API
 3. reusa la base de estado correcta (`BaseState`, `AuthState`, `PortalState`, `NominaBaseState`)
-4. coloca logica de negocio en `services/`
+4. coloca logica de negocio en `domain/services/`
 5. crea repository solo si el modulo ya usa esa capa o realmente necesita encapsular queries complejas
-6. reusa validadores, helpers y componentes compartidos antes de duplicar
-7. registra exports solo donde el repo ya centraliza imports (`entities/__init__.py`, `services/__init__.py`, etc.)
+6. si el modulo tiene fachada en `modules/`, registra exports ahi tambien
+7. reusa validadores, helpers y componentes compartidos antes de duplicar
+8. registra exports solo donde el repo ya centraliza imports (`domain/models/__init__.py`, `domain/services/__init__.py`, etc.)
 
 ## Imports utiles
 
 ```python
-from app.entities import Empresa, Empleado, Contrato
-from app.services import empresa_service, empleado_service, contrato_service
+from app.domain.models import Empresa, Empleado, Contrato
+from app.domain.services import empresa_service, empleado_service, contrato_service
 from app.presentation.components.shared.base_state import BaseState
 from app.presentation.components.shared.auth_state import AuthState
-from app.presentation.portal.state.portal_state import PortalState
-from app.presentation.pages.nominas.base_state import NominaBaseState
+from app.presentation.pages.portal.state.portal_state import PortalState
+from app.presentation.pages.backoffice.nominas.base_state import NominaBaseState
 from app.presentation.components.shared.crud_state_mixin import CRUDStateMixin
 from app.database.connection import db_manager
 ```

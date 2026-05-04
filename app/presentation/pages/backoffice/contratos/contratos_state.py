@@ -1,0 +1,2777 @@
+"""
+Estado de Reflex para el módulo de Contratos.
+Maneja el estado de la UI y las operaciones del módulo.
+
+Refactorizado para usar:
+- CRUDStateMixin para operaciones CRUD genéricas
+- ui_helpers para opciones de enums
+"""
+import reflex as rx
+from typing import List, Optional, Callable
+from decimal import Decimal, InvalidOperation
+from datetime import date
+
+from app.presentation.components.shared.auth_state import AuthState
+from app.presentation.components.shared.crud_state_mixin import CRUDStateMixin
+from app.core.ui_helpers import (
+    FILTRO_TODOS,
+    FILTRO_SIN_SELECCION,
+    opciones_desde_enum,
+)
+from app.modules.application import (
+    contrato_service,
+    contrato_categoria_service,
+    empresa_service,
+    tipo_servicio_service,
+    categoria_puesto_service,
+    entregable_service,
+    requisicion_service,
+    plaza_service,
+)
+from app.core.text_utils import normalizar_mayusculas, formatear_moneda, formatear_fecha
+from app.core.utils import (
+    generar_candidatos_codigo,
+    normalize_date_input,
+    parse_date_input,
+)
+
+from app.domain.models import (
+    ContratoCreate,
+    ContratoUpdate,
+    CategoriaPuestoCreate,
+    EstatusContrato,
+    ModalidadAdjudicacion,
+    TipoDuracion,
+    TipoContrato,
+)
+from app.domain.enums import TipoContratacion, EstadoRequisicion
+from app.domain.models.contrato_item import ContratoItemCreate
+from app.domain.enums import TipoEntregable, PeriodicidadEntregable
+from app.domain.models.entregable import ContratoTipoEntregableCreate
+
+from app.core.exceptions import (
+    DuplicateError,
+    DatabaseError,
+    BusinessRuleError,
+)
+from app.core.validation.catalogo_form_validators import (
+    validar_clave_catalogo_form,
+    validar_nombre_catalogo_form,
+)
+from app.core.validation.contrato_categoria_form_validators import (
+    validar_categoria_puesto_id_contrato_categoria,
+    validar_cantidad_minima_contrato_categoria,
+    validar_cantidad_maxima_contrato_categoria,
+)
+from app.core.validation import validar_monto_requerido
+from app.core.validation.contrato_form_validators import (
+    validar_folio_buap_contrato as validar_folio_buap,
+    validar_descripcion_objeto_contrato as validar_descripcion_objeto,
+    validar_origen_recurso_contrato as validar_origen_recurso,
+    validar_segmento_asignacion_contrato as validar_segmento_asignacion,
+    validar_sede_campus_contrato as validar_sede_campus,
+    validar_poliza_detalle_contrato as validar_poliza_detalle,
+    validar_empresa_id_contrato as validar_empresa_id,
+    validar_tipo_servicio_id_contrato as validar_tipo_servicio_id,
+    validar_modalidad_adjudicacion_contrato as validar_modalidad_adjudicacion,
+    validar_tipo_duracion_contrato as validar_tipo_duracion,
+    validar_tipo_contrato_contrato as validar_tipo_contrato,
+    validar_fecha_inicio_contrato as validar_fecha_inicio,
+    validar_fecha_fin_contrato as validar_fecha_fin,
+    validar_monto_minimo_contrato as validar_monto_minimo,
+    validar_monto_maximo_contrato as validar_monto_maximo,
+    validar_montos_coherentes_contrato as validar_montos_coherentes,
+)
+from .contrato_presentacion import (
+    enriquecer_contrato_presentacion,
+    serializar_categoria_contrato_detalle,
+)
+
+
+# ============================================================================
+# CONFIGURACIÓN DE CAMPOS VALIDABLES
+# ============================================================================
+CAMPOS_VALIDACION: dict[str, Callable[[str], str]] = {
+    # "codigo" se excluye porque es autogenerado
+    "folio_buap": validar_folio_buap,
+    "descripcion_objeto": validar_descripcion_objeto,
+    "origen_recurso": validar_origen_recurso,
+    "segmento_asignacion": validar_segmento_asignacion,
+    "sede_campus": validar_sede_campus,
+    "poliza_detalle": validar_poliza_detalle,
+    "monto_minimo": validar_monto_minimo,
+    "monto_maximo": validar_monto_maximo,
+}
+
+# Campos con sus valores por defecto para limpiar formulario
+FORM_DEFAULTS = {
+    "empresa_id": "",
+    "tipo_servicio_id": "",
+    "categoria_puesto_id": "",
+    "codigo": "",
+    "folio_buap": "",
+    "tipo_contrato": "",
+    "modalidad_adjudicacion": ModalidadAdjudicacion.ADJUDICACION_DIRECTA.value,
+    "tipo_duracion": "",
+    "fecha_inicio": "",
+    "fecha_fin": "",
+    "descripcion_objeto": "",
+    "monto_minimo": "",
+    "monto_maximo": "",
+    "incluye_iva": True,
+    "origen_recurso": "",
+    "segmento_asignacion": "",
+    "sede_campus": "",
+    "requiere_poliza": False,
+    "poliza_detalle": "",
+    "tiene_personal": False,
+    "cantidad_plazas_minima": "0",
+    "cantidad_plazas_maxima": "0",
+    "estatus": EstatusContrato.BORRADOR.value,
+    "notas": "",
+    "requisicion_id": "",
+    "numero_requisicion": "",
+}
+
+CLAVE_SERVICIO_ADQUISICION = "ADQ"
+
+
+class ContratosState(AuthState, CRUDStateMixin):
+    """Estado para el módulo de Contratos"""
+
+    # ========================
+    # CONFIGURACIÓN DEL MIXIN
+    # ========================
+    _entidad_nombre: str = "Contrato"
+    _modal_principal: str = "mostrar_modal_contrato"
+    _campos_error: List[str] = [
+        "empresa_id", "tipo_servicio_id", "codigo", "folio_buap",
+        "tipo_contrato", "modalidad_adjudicacion", "tipo_duracion",
+        "fecha_inicio", "fecha_fin", "descripcion_objeto",
+        "monto_minimo", "monto_maximo", "origen_recurso",
+        "segmento_asignacion", "sede_campus", "poliza_detalle",
+        "cantidad_plazas_minima", "cantidad_plazas_maxima",
+    ]
+    _campos_error_basicos: List[str] = [
+        "empresa_id",
+        "tipo_contrato",
+        "modalidad_adjudicacion",
+        "fecha_inicio",
+        "descripcion_objeto",
+    ]
+    _campos_error_servicios: List[str] = [
+        "tipo_servicio_id",
+        "tipo_duracion",
+        "fecha_fin",
+    ]
+
+    # ========================
+    # ESTADO DE DATOS
+    # ========================
+    contratos: List[dict] = []
+    contrato_seleccionado: Optional[dict] = None
+    total_contratos: int = 0
+
+    # Listas para dropdowns
+    empresas: List[dict] = []
+    tipos_servicio: List[dict] = []
+    categorias_puesto: List[dict] = []
+    cargando_categorias_puesto: bool = False
+
+    # ========================
+    # ESTADO DE UI
+    # ========================
+    mostrar_modal_contrato: bool = False
+    mostrar_modal_detalle: bool = False
+    mostrar_modal_confirmar_cancelar: bool = False
+    es_edicion: bool = False
+    form_paso_actual: int = 1
+
+    # Entregables del contrato seleccionado (para modal detalle)
+    entregables_contrato: List[dict] = []
+    cargando_entregables: bool = False
+    categorias_detalle_contrato: List[dict] = []
+    cargando_categorias_detalle: bool = False
+
+    # ========================
+    # ESTADO DE VISTA (tabla/cards)
+    # ========================
+    view_mode: str = "table"
+
+    # ========================
+    # FILTROS
+    # ========================
+    filtro_empresa_id: str = FILTRO_SIN_SELECCION
+    filtro_tipo_servicio_id: str = FILTRO_SIN_SELECCION
+    filtro_estatus: str = FILTRO_TODOS
+    filtro_modalidad: str = ""
+    filtro_fecha_desde: str = ""
+    filtro_fecha_hasta: str = ""
+    incluir_inactivos: bool = False
+
+    # ========================
+    # ESTADO DEL FORMULARIO
+    # ========================
+    form_empresa_id: str = ""
+    form_tipo_servicio_id: str = ""
+    form_categoria_puesto_id: str = ""
+    form_categoria_puesto_ids: List[str] = []
+    form_codigo: str = ""
+    form_folio_buap: str = ""
+    form_tipo_contrato: str = ""
+    form_modalidad_adjudicacion: str = ""
+    form_tipo_duracion: str = ""
+    form_fecha_inicio: str = ""
+    form_fecha_fin: str = ""
+    form_descripcion_objeto: str = ""
+    form_monto_minimo: str = ""
+    form_monto_maximo: str = ""
+    form_incluye_iva: bool = True
+    form_origen_recurso: str = ""
+    form_segmento_asignacion: str = ""
+    form_sede_campus: str = ""
+    form_requiere_poliza: bool = False
+    form_poliza_detalle: str = ""
+    form_tiene_personal: bool = False
+    form_cantidad_plazas_minima: str = "0"
+    form_cantidad_plazas_maxima: str = "0"
+    form_estatus: str = EstatusContrato.BORRADOR.value
+    form_notas: str = ""
+
+    # Requisicion origen (pre-llenado desde flujo Req -> Contrato)
+    form_requisicion_id: str = ""
+    form_numero_requisicion: str = ""  # Solo display, no editable
+    form_contrato_items: List[dict] = []  # Items para ADQUISICION
+
+    # Desglose opcional de plazas por categoría
+    form_categorias_contrato: List[dict] = []
+    categorias_contrato_cargadas: bool = True
+    guardando_categoria_contrato: bool = False
+    mostrar_form_nueva_categoria: bool = False
+    form_categoria_contrato_minima: str = ""
+    form_categoria_contrato_maxima: str = ""
+    form_categoria_contrato_costo: str = ""
+    form_nueva_categoria_clave: str = ""
+    form_nueva_categoria_nombre: str = ""
+
+    # ========================
+    # CONFIGURACIÓN DE ENTREGABLES
+    # ========================
+    config_entregables: List[dict] = []  # Lista de tipos de entregable configurados
+    form_tipo_entregable: str = ""
+    form_periodicidad_entregable: str = PeriodicidadEntregable.MENSUAL.value
+    form_entregable_requerido: bool = True
+    form_entregable_descripcion: str = ""
+    form_entregable_instrucciones: str = ""
+    mostrar_form_agregar_entregable: bool = False
+
+    # ========================
+    # ERRORES DE VALIDACIÓN
+    # ========================
+    error_empresa_id: str = ""
+    error_tipo_servicio_id: str = ""
+    error_codigo: str = ""
+    error_folio_buap: str = ""
+    error_tipo_contrato: str = ""
+    error_modalidad_adjudicacion: str = ""
+    error_tipo_duracion: str = ""
+    error_fecha_inicio: str = ""
+    error_fecha_fin: str = ""
+    error_descripcion_objeto: str = ""
+    error_monto_minimo: str = ""
+    error_monto_maximo: str = ""
+    error_origen_recurso: str = ""
+    error_segmento_asignacion: str = ""
+    error_sede_campus: str = ""
+    error_poliza_detalle: str = ""
+    error_cantidad_plazas_minima: str = ""
+    error_cantidad_plazas_maxima: str = ""
+    error_categoria_contrato_id: str = ""
+    error_categoria_contrato_minima: str = ""
+    error_categoria_contrato_maxima: str = ""
+    error_categoria_contrato_costo: str = ""
+    error_nueva_categoria_clave: str = ""
+    error_nueva_categoria_nombre: str = ""
+
+    # ========================
+    # SETTERS (Reflex 0.8.9+)
+    # Usa helpers para reducir código repetitivo donde sea posible
+    # ========================
+
+    # --- Filtros ---
+    def set_filtro_empresa_id(self, value: str):
+        self.filtro_empresa_id = value if value else FILTRO_SIN_SELECCION
+
+    def set_filtro_tipo_servicio_id(self, value: str):
+        self.filtro_tipo_servicio_id = value if value else FILTRO_SIN_SELECCION
+
+    def set_filtro_estatus(self, value: str):
+        self.filtro_estatus = value if value else FILTRO_TODOS
+
+    def set_filtro_modalidad(self, value: str):
+        self.filtro_modalidad = value if value else ""
+
+    def set_incluir_inactivos(self, value: bool):
+        self.incluir_inactivos = value
+
+    def set_filtro_fecha_desde(self, value: str):
+        self.filtro_fecha_desde = normalize_date_input(value)
+
+    def set_filtro_fecha_hasta(self, value: str):
+        self.filtro_fecha_hasta = normalize_date_input(value)
+
+    # View toggle heredado de BaseState
+
+    # --- Formulario: setters simples ---
+    def set_form_empresa_id(self, value):
+        if self.empresa_fijada_en_contexto:
+            self.form_empresa_id = str(self.id_empresa_actual) if self.id_empresa_actual else ""
+            return
+        self.form_empresa_id = value if value else ""
+
+    def set_form_tipo_servicio_id(self, value):
+        self.form_tipo_servicio_id = value if value else ""
+        # Limpiar categoría seleccionada al cambiar tipo de servicio
+        self.form_categoria_puesto_id = ""
+        self.form_categoria_puesto_ids = []
+        self.categorias_puesto = []
+        self.form_categorias_contrato = []
+        self.categorias_contrato_cargadas = True
+        self._limpiar_form_categoria_contrato()
+        # Cargar categorías del nuevo tipo de servicio
+        if value:
+            return ContratosState.cargar_categorias_puesto
+
+    def set_form_categoria_puesto_id(self, value):
+        self.form_categoria_puesto_id = value if value else ""
+        self.error_categoria_contrato_id = ""
+
+    def agregar_categoria_puesto_seleccionada(self):
+        """Agrega la categoría actualmente seleccionada a la lista acumulada."""
+        categoria_id = str(self.form_categoria_puesto_id or "").strip()
+        if not categoria_id or categoria_id in self.form_categoria_puesto_ids:
+            return
+
+        self.form_categoria_puesto_ids = self.form_categoria_puesto_ids + [categoria_id]
+        self.form_categoria_puesto_id = ""
+
+    def quitar_categoria_puesto_seleccionada(self, categoria_id: str):
+        """Elimina una categoría de la lista acumulada."""
+        categoria_id = str(categoria_id or "").strip()
+        self.form_categoria_puesto_ids = [
+            item for item in self.form_categoria_puesto_ids
+            if item != categoria_id
+        ]
+
+    def set_form_categoria_contrato_minima(self, value):
+        self.form_categoria_contrato_minima = ''.join(c for c in str(value) if c.isdigit()) if value else ""
+        self.error_categoria_contrato_minima = ""
+
+    def set_form_categoria_contrato_maxima(self, value):
+        self.form_categoria_contrato_maxima = ''.join(c for c in str(value) if c.isdigit()) if value else ""
+        self.error_categoria_contrato_maxima = ""
+
+    def set_form_categoria_contrato_costo(self, value):
+        self.form_categoria_contrato_costo = formatear_moneda(value) if value else ""
+        self.error_categoria_contrato_costo = ""
+
+    def set_form_nueva_categoria_clave(self, value):
+        self.form_nueva_categoria_clave = normalizar_mayusculas(value)[:5] if value else ""
+        self.error_nueva_categoria_clave = ""
+
+    def set_form_nueva_categoria_nombre(self, value):
+        self.form_nueva_categoria_nombre = normalizar_mayusculas(value) if value else ""
+        self.error_nueva_categoria_nombre = ""
+        if self.form_nueva_categoria_nombre and not self.form_nueva_categoria_clave:
+            self.form_nueva_categoria_clave = self._sugerir_clave_nueva_categoria(
+                self.form_nueva_categoria_nombre,
+            )
+
+    def mostrar_form_crear_categoria_contrato(self):
+        self.mostrar_form_nueva_categoria = True
+        self.form_categoria_puesto_id = ""
+        self.error_categoria_contrato_id = ""
+        self.form_nueva_categoria_clave = self._sugerir_clave_nueva_categoria(
+            self.form_nueva_categoria_nombre,
+        )
+
+    def ocultar_form_crear_categoria_contrato(self):
+        self.mostrar_form_nueva_categoria = False
+        self.form_nueva_categoria_clave = ""
+        self.form_nueva_categoria_nombre = ""
+        self.error_nueva_categoria_clave = ""
+        self.error_nueva_categoria_nombre = ""
+
+    def set_form_codigo(self, value):
+        self.form_codigo = normalizar_mayusculas(value) if value else ""
+
+    def set_form_folio_buap(self, value):
+        self.form_folio_buap = value if value else ""
+
+    def set_form_modalidad_adjudicacion(self, value):
+        self.form_modalidad_adjudicacion = value if value else ""
+
+    def set_form_fecha_inicio(self, value):
+        self.form_fecha_inicio = normalize_date_input(value)
+
+    def set_form_fecha_fin(self, value):
+        self.form_fecha_fin = normalize_date_input(value)
+        self._sincronizar_tipo_duracion()
+
+    def set_form_descripcion_objeto(self, value):
+        self.form_descripcion_objeto = str(value or "")
+        self.error_descripcion_objeto = ""
+
+    def sync_form_descripcion_objeto_blur(self, value):
+        """Sincroniza el textarea al perder foco antes de validar o cambiar de paso."""
+        self.set_form_descripcion_objeto(value)
+        self.validar_descripcion_objeto_campo()
+
+    def set_form_incluye_iva(self, value):
+        self.form_incluye_iva = bool(value)
+
+    def set_form_origen_recurso(self, value):
+        self.form_origen_recurso = value if value else ""
+
+    def set_form_segmento_asignacion(self, value):
+        self.form_segmento_asignacion = value if value else ""
+
+    def set_form_sede_campus(self, value):
+        self.form_sede_campus = value if value else ""
+
+    def set_form_requiere_poliza(self, value):
+        self.form_requiere_poliza = bool(value)
+
+    def set_form_poliza_detalle(self, value):
+        self.form_poliza_detalle = value if value else ""
+
+    def set_form_tiene_personal(self, value):
+        self.form_tiene_personal = bool(value)
+        if not self.form_tiene_personal:
+            self.form_categoria_puesto_id = ""
+            self.form_categoria_puesto_ids = []
+            self.form_categorias_contrato = []
+            self.categorias_contrato_cargadas = True
+            self._limpiar_form_categoria_contrato()
+            self.form_cantidad_plazas_minima = "0"
+            self.form_cantidad_plazas_maxima = "0"
+            self.error_cantidad_plazas_minima = ""
+            self.error_cantidad_plazas_maxima = ""
+        self._ajustar_paso_actual_wizard()
+
+    def set_form_cantidad_plazas_minima(self, value):
+        self.form_cantidad_plazas_minima = ''.join(c for c in str(value) if c.isdigit()) if value else ""
+
+    def set_form_cantidad_plazas_maxima(self, value):
+        self.form_cantidad_plazas_maxima = ''.join(c for c in str(value) if c.isdigit()) if value else ""
+
+    def set_form_estatus(self, value):
+        self.form_estatus = value if value else ""
+
+    def set_form_notas(self, value):
+        self.form_notas = value if value else ""
+
+    async def agregar_categoria_contrato(self):
+        """Agrega una categoría al desglose de plazas del contrato."""
+        self._limpiar_errores_categoria_contrato()
+        self.limpiar_mensajes()
+
+        if self.form_tipo_contrato != TipoContrato.SERVICIOS.value or not self.form_tiene_personal:
+            return rx.toast.error("Solo los contratos de servicios con personal pueden desglosarse por categoría")
+
+        if not self.form_tipo_servicio_id:
+            self.error_tipo_servicio_id = "Seleccione un tipo de servicio antes de agregar categorías"
+            return rx.toast.error("Seleccione un tipo de servicio antes de agregar categorías")
+
+        categoria = self._resolver_categoria_para_desglose()
+        self._validar_cantidades_categoria_contrato()
+
+        if self._tiene_errores_categoria_contrato():
+            return rx.toast.error("Corrija los errores del desglose por categoría")
+
+        if not categoria:
+            return rx.toast.error("Seleccione o cree una categoría válida")
+
+        self.guardando_categoria_contrato = True
+        try:
+            if self.mostrar_form_nueva_categoria:
+                categoria_creada = await categoria_puesto_service.crear(
+                    CategoriaPuestoCreate(
+                        tipo_servicio_id=self.parse_id(self.form_tipo_servicio_id),
+                        clave=self.form_nueva_categoria_clave,
+                        nombre=self.form_nueva_categoria_nombre,
+                        descripcion=None,
+                        orden=0,
+                    )
+                )
+                categoria = self.serializar_item_state(categoria_creada)
+                await self.cargar_categorias_puesto()
+
+            categoria_id = int(categoria["id"])
+            if self._categoria_contrato_ya_agregada(categoria_id):
+                self.error_categoria_contrato_id = "La categoría ya fue agregada al contrato"
+                return rx.toast.error("La categoría ya fue agregada al contrato")
+
+            fila = {
+                "uid": str(categoria["id"]),
+                "categoria_puesto_id": int(categoria["id"]),
+                "categoria_clave": categoria.get("clave", ""),
+                "categoria_nombre": categoria.get("nombre", ""),
+                "cantidad_minima": int(self.form_categoria_contrato_minima or "0"),
+                "cantidad_maxima": int(self.form_categoria_contrato_maxima or "0"),
+                "costo_unitario": self.form_categoria_contrato_costo.strip(),
+            }
+            self.form_categorias_contrato = self.form_categorias_contrato + [fila]
+            self.categorias_contrato_cargadas = True
+            self._sincronizar_totales_plazas_desde_categorias()
+            self._limpiar_form_categoria_contrato()
+            return rx.toast.success("Categoría agregada al contrato")
+        except DuplicateError:
+            self.error_nueva_categoria_clave = (
+                f"La clave '{self.form_nueva_categoria_clave}' ya existe en este tipo de servicio"
+            )
+            return rx.toast.error("La categoría ya existe. Selecciónela desde el catálogo")
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "al agregar categoría al contrato")
+        finally:
+            self.guardando_categoria_contrato = False
+
+    def quitar_categoria_contrato(self, uid: str):
+        """Quita una categoría del desglose de plazas."""
+        uid_normalizado = str(uid or "")
+        self.form_categorias_contrato = [
+            fila
+            for fila in self.form_categorias_contrato
+            if str(fila.get("uid") or fila.get("categoria_puesto_id")) != uid_normalizado
+        ]
+        self.categorias_contrato_cargadas = True
+        if self.form_categorias_contrato:
+            self._sincronizar_totales_plazas_desde_categorias()
+        else:
+            self.form_monto_minimo = ""
+            self.form_monto_maximo = ""
+            self.error_monto_minimo = ""
+            self.error_monto_maximo = ""
+        self.limpiar_mensajes()
+
+    # --- Configuración de entregables ---
+    def set_form_tipo_entregable(self, value):
+        self.form_tipo_entregable = value if value else ""
+
+    def set_form_periodicidad_entregable(self, value):
+        self.form_periodicidad_entregable = value if value else PeriodicidadEntregable.MENSUAL.value
+
+    def set_form_entregable_requerido(self, value):
+        self.form_entregable_requerido = bool(value)
+
+    def set_form_entregable_descripcion(self, value):
+        self.form_entregable_descripcion = value if value else ""
+
+    def set_form_entregable_instrucciones(self, value):
+        self.form_entregable_instrucciones = value if value else ""
+
+    def mostrar_form_entregable(self):
+        self.mostrar_form_agregar_entregable = True
+
+    def ocultar_form_entregable(self):
+        self._limpiar_form_entregable()
+
+    # --- Formulario: setters con lógica de negocio (mantener explícitos) ---
+    def set_form_tipo_contrato(self, value):
+        self.form_tipo_contrato = value if value else ""
+        # Auto-configurar campos según tipo de contrato
+        if value == TipoContrato.ADQUISICION.value:
+            # ADQUISICION: no lleva tipo servicio ni personal
+            self.form_tipo_servicio_id = ""
+            self.form_tiene_personal = False
+            self.form_categorias_contrato = []
+            self.categorias_contrato_cargadas = True
+            self._limpiar_form_categoria_contrato()
+            self.form_cantidad_plazas_minima = "0"
+            self.form_cantidad_plazas_maxima = "0"
+            self.form_monto_minimo = ""  # Solo monto máximo
+            # Limpiar errores relacionados
+            self.error_tipo_servicio_id = ""
+            self.error_monto_minimo = ""
+            self.error_cantidad_plazas_minima = ""
+            self.error_cantidad_plazas_maxima = ""
+        elif value == TipoContrato.SERVICIOS.value:
+            # SERVICIOS: el usuario decide explícitamente si materializa plazas
+            self.form_tiene_personal = False
+        self._sincronizar_tipo_duracion()
+        self._ajustar_paso_actual_wizard()
+
+    def _sincronizar_tipo_duracion(self):
+        """Deriva el tipo de duración a partir de la fecha fin visible del wizard."""
+        if self.form_tipo_contrato != TipoContrato.SERVICIOS.value:
+            self.form_tipo_duracion = ""
+            self.error_tipo_duracion = ""
+            return
+
+        self.form_tipo_duracion = (
+            TipoDuracion.TIEMPO_DETERMINADO.value
+            if self.form_fecha_fin
+            else TipoDuracion.TIEMPO_INDEFINIDO.value
+        )
+        self.error_tipo_duracion = ""
+
+    def validar_cantidad_plazas_minima_campo(self):
+        if not self.form_tiene_personal:
+            self.error_cantidad_plazas_minima = ""
+            return
+        if self._usa_desglose_categorias_plazas():
+            self._sincronizar_totales_plazas_desde_categorias()
+            self.error_cantidad_plazas_minima = ""
+            return
+        if self.form_cantidad_plazas_minima == "":
+            self.error_cantidad_plazas_minima = "La cantidad mínima de plazas es obligatoria"
+            return
+        self.error_cantidad_plazas_minima = ""
+
+    def validar_cantidad_plazas_maxima_campo(self):
+        if not self.form_tiene_personal:
+            self.error_cantidad_plazas_maxima = ""
+            return
+        if self._usa_desglose_categorias_plazas():
+            self._sincronizar_totales_plazas_desde_categorias()
+            self.error_cantidad_plazas_maxima = ""
+            return
+        if self.form_cantidad_plazas_maxima == "":
+            self.error_cantidad_plazas_maxima = "La cantidad máxima de plazas es obligatoria"
+            return
+        minimo = int(self.form_cantidad_plazas_minima or "0")
+        maximo = int(self.form_cantidad_plazas_maxima or "0")
+        if maximo < minimo:
+            self.error_cantidad_plazas_maxima = "La cantidad máxima debe ser mayor o igual a la mínima"
+            return
+        self.error_cantidad_plazas_maxima = ""
+
+    def set_form_tipo_duracion(self, value):
+        self.form_tipo_duracion = value if value else ""
+        # Si es tiempo indefinido u obra determinada, limpiar fecha fin
+        if value in [TipoDuracion.TIEMPO_INDEFINIDO.value, TipoDuracion.OBRA_DETERMINADA.value]:
+            self.form_fecha_fin = ""
+            self.error_fecha_fin = ""
+
+    def set_form_monto_minimo(self, value: str):
+        self.form_monto_minimo = formatear_moneda(value)
+        self._auto_set_poliza()
+
+    def set_form_monto_maximo(self, value: str):
+        self.form_monto_maximo = formatear_moneda(value)
+        self._auto_set_poliza()
+
+    def _auto_set_poliza(self):
+        """Auto-activa póliza si es SERVICIOS y tiene ambos montos"""
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
+            tiene_min = bool(self.form_monto_minimo and self.form_monto_minimo.strip())
+            tiene_max = bool(self.form_monto_maximo and self.form_monto_maximo.strip())
+            if tiene_min and tiene_max:
+                self.form_requiere_poliza = True
+
+    def _usa_desglose_categorias_plazas(self) -> bool:
+        return bool(self.form_categorias_contrato)
+
+    def _obtener_totales_plazas_desde_categorias(self) -> tuple[int, int]:
+        minimo = sum(int(item.get("cantidad_minima") or 0) for item in self.form_categorias_contrato)
+        maximo = sum(int(item.get("cantidad_maxima") or 0) for item in self.form_categorias_contrato)
+        return minimo, maximo
+
+    def _obtener_totales_plazas_formulario(self) -> tuple[int, int]:
+        if not self.form_tiene_personal:
+            return 0, 0
+        if self._usa_desglose_categorias_plazas():
+            return self._obtener_totales_plazas_desde_categorias()
+        return (
+            int(self.form_cantidad_plazas_minima or "0"),
+            int(self.form_cantidad_plazas_maxima or "0"),
+        )
+
+    def _obtener_totales_montos_desde_categorias(self) -> tuple[Optional[Decimal], Optional[Decimal]]:
+        if not self._usa_desglose_categorias_plazas():
+            return None, None
+
+        monto_minimo = Decimal("0")
+        monto_maximo = Decimal("0")
+        for item in self.form_categorias_contrato:
+            costo_unitario = self._parse_decimal(str(item.get("costo_unitario") or ""))
+            if costo_unitario is None:
+                continue
+
+            cantidad_minima = int(item.get("cantidad_minima") or 0)
+            cantidad_maxima = int(item.get("cantidad_maxima") or 0)
+            monto_minimo += costo_unitario * cantidad_minima
+            monto_maximo += costo_unitario * cantidad_maxima
+
+        return monto_minimo, monto_maximo
+
+    def _obtener_totales_montos_formulario(self) -> tuple[Optional[Decimal], Optional[Decimal]]:
+        if self.form_tipo_contrato != TipoContrato.SERVICIOS.value:
+            return None, self._parse_decimal(self.form_monto_maximo)
+
+        if self.form_tiene_personal and self._usa_desglose_categorias_plazas():
+            return self._obtener_totales_montos_desde_categorias()
+
+        return (
+            self._parse_decimal(self.form_monto_minimo),
+            self._parse_decimal(self.form_monto_maximo),
+        )
+
+    def _sincronizar_montos_desde_categorias(self):
+        if not self._usa_desglose_categorias_plazas():
+            return
+
+        monto_minimo, monto_maximo = self._obtener_totales_montos_desde_categorias()
+        self.form_monto_minimo = (
+            formatear_moneda(str(monto_minimo))
+            if monto_minimo is not None
+            else ""
+        )
+        self.form_monto_maximo = (
+            formatear_moneda(str(monto_maximo))
+            if monto_maximo is not None
+            else ""
+        )
+        self.error_monto_minimo = ""
+        self.error_monto_maximo = ""
+        self._auto_set_poliza()
+
+    def _sincronizar_totales_plazas_desde_categorias(self):
+        if not self._usa_desglose_categorias_plazas():
+            return
+        minimo, maximo = self._obtener_totales_plazas_desde_categorias()
+        self.form_cantidad_plazas_minima = str(minimo)
+        self.form_cantidad_plazas_maxima = str(maximo)
+        self._sincronizar_montos_desde_categorias()
+        self.error_cantidad_plazas_minima = ""
+        self.error_cantidad_plazas_maxima = ""
+
+    def _obtener_categoria_catalogo_por_id(self, categoria_id: str) -> Optional[dict]:
+        categoria_id_str = str(categoria_id or "")
+        for categoria in self.categorias_puesto:
+            if str(categoria.get("id")) == categoria_id_str:
+                return categoria
+        return None
+
+    def _categoria_contrato_ya_agregada(self, categoria_id: int) -> bool:
+        categoria_id_str = str(categoria_id)
+        return any(
+            str(item.get("categoria_puesto_id")) == categoria_id_str
+            for item in self.form_categorias_contrato
+        )
+
+    def _clave_nueva_categoria_ya_usada(self, clave: str) -> bool:
+        clave_normalizada = normalizar_mayusculas(clave)
+        if not clave_normalizada:
+            return False
+        if any(
+            normalizar_mayusculas(str(categoria.get("clave") or "")) == clave_normalizada
+            for categoria in self.categorias_puesto
+        ):
+            return True
+        return any(
+            normalizar_mayusculas(str(categoria.get("categoria_clave") or "")) == clave_normalizada
+            for categoria in self.form_categorias_contrato
+        )
+
+    def _nombre_nueva_categoria_ya_usado(self, nombre: str) -> bool:
+        nombre_normalizado = normalizar_mayusculas(nombre)
+        if not nombre_normalizado:
+            return False
+        if any(
+            normalizar_mayusculas(str(categoria.get("nombre") or "")) == nombre_normalizado
+            for categoria in self.categorias_puesto
+        ):
+            return True
+        return any(
+            normalizar_mayusculas(str(categoria.get("categoria_nombre") or "")) == nombre_normalizado
+            for categoria in self.form_categorias_contrato
+        )
+
+    def _sugerir_clave_nueva_categoria(self, nombre: str) -> str:
+        if not nombre:
+            return ""
+        for candidata in generar_candidatos_codigo(nombre)[:10]:
+            clave = normalizar_mayusculas(candidata)[:5]
+            if clave and not self._clave_nueva_categoria_ya_usada(clave):
+                return clave
+        return ""
+
+    def _limpiar_errores_categoria_contrato(self):
+        self.error_categoria_contrato_id = ""
+        self.error_categoria_contrato_minima = ""
+        self.error_categoria_contrato_maxima = ""
+        self.error_categoria_contrato_costo = ""
+        self.error_nueva_categoria_clave = ""
+        self.error_nueva_categoria_nombre = ""
+
+    def _limpiar_form_categoria_contrato(self):
+        self.form_categoria_puesto_id = ""
+        self.form_categoria_contrato_minima = ""
+        self.form_categoria_contrato_maxima = ""
+        self.form_categoria_contrato_costo = ""
+        self.form_nueva_categoria_clave = ""
+        self.form_nueva_categoria_nombre = ""
+        self.mostrar_form_nueva_categoria = False
+        self._limpiar_errores_categoria_contrato()
+
+    def _tiene_errores_categoria_contrato(self) -> bool:
+        return any(
+            (
+                self.error_categoria_contrato_id,
+                self.error_categoria_contrato_minima,
+                self.error_categoria_contrato_maxima,
+                self.error_categoria_contrato_costo,
+                self.error_nueva_categoria_clave,
+                self.error_nueva_categoria_nombre,
+            )
+        )
+
+    def _validar_cantidades_categoria_contrato(self):
+        self.error_categoria_contrato_minima = validar_cantidad_minima_contrato_categoria(
+            self.form_categoria_contrato_minima,
+        )
+        self.error_categoria_contrato_maxima = validar_cantidad_maxima_contrato_categoria(
+            self.form_categoria_contrato_maxima,
+            self.form_categoria_contrato_minima,
+        )
+        self.error_categoria_contrato_costo = validar_monto_requerido(
+            self.form_categoria_contrato_costo,
+            "costo",
+        )
+
+    def _resolver_categoria_para_desglose(self) -> Optional[dict]:
+        if self.mostrar_form_nueva_categoria:
+            self.error_nueva_categoria_nombre = validar_nombre_catalogo_form(
+                self.form_nueva_categoria_nombre,
+            )
+            self.error_nueva_categoria_clave = validar_clave_catalogo_form(
+                self.form_nueva_categoria_clave,
+            )
+            if (
+                not self.error_nueva_categoria_nombre
+                and self._nombre_nueva_categoria_ya_usado(self.form_nueva_categoria_nombre)
+            ):
+                self.error_nueva_categoria_nombre = (
+                    "La categoría ya existe. Selecciónela desde el catálogo"
+                )
+            if (
+                not self.error_nueva_categoria_clave
+                and self._clave_nueva_categoria_ya_usada(self.form_nueva_categoria_clave)
+            ):
+                self.error_nueva_categoria_clave = (
+                    "La clave ya existe en este tipo de servicio"
+                )
+            if self.error_nueva_categoria_nombre or self.error_nueva_categoria_clave:
+                return None
+
+            return {
+                "id": f"nuevo-{self.form_nueva_categoria_clave}",
+                "clave": self.form_nueva_categoria_clave,
+                "nombre": self.form_nueva_categoria_nombre,
+            }
+
+        self.error_categoria_contrato_id = validar_categoria_puesto_id_contrato_categoria(
+            self.form_categoria_puesto_id,
+        )
+        if self.error_categoria_contrato_id:
+            return None
+        categoria = self._obtener_categoria_catalogo_por_id(self.form_categoria_puesto_id)
+        if not categoria:
+            self.error_categoria_contrato_id = "La categoría seleccionada ya no está disponible"
+        return categoria
+
+    # --- Contrato Items ---
+    def actualizar_contrato_item_campo(self, index: int, campo: str, valor):
+        """Actualiza un campo de un item de contrato."""
+        items = list(self.form_contrato_items)
+        if 0 <= index < len(items):
+            item = dict(items[index])
+            item[campo] = valor
+            items[index] = item
+            self.form_contrato_items = items
+
+    # --- Modales ---
+    def set_mostrar_modal_contrato(self, value: bool):
+        self.mostrar_modal_contrato = value
+
+    def set_mostrar_modal_detalle(self, value: bool):
+        self.mostrar_modal_detalle = value
+
+    def set_mostrar_modal_confirmar_cancelar(self, value: bool):
+        self.mostrar_modal_confirmar_cancelar = value
+
+    def _mostrar_paso_plazas_wizard(self) -> bool:
+        return (
+            self.form_tipo_contrato == TipoContrato.SERVICIOS.value
+            and self.form_tiene_personal
+        )
+
+    def _ajustar_paso_actual_wizard(self):
+        total_pasos = self._obtener_total_pasos_wizard()
+        if self.form_paso_actual > total_pasos:
+            self.form_paso_actual = total_pasos
+
+    def _obtener_total_pasos_wizard(self) -> int:
+        total = 1
+        if self._mostrar_paso_plazas_wizard():
+            total += 1
+        if not self.es_edicion:
+            total += 1
+        return total
+
+    def set_form_paso_actual(self, paso: int):
+        """Permite navegación controlada entre pasos del wizard."""
+        total_pasos = self._obtener_total_pasos_wizard()
+        if not (1 <= paso <= total_pasos):
+            return
+
+        if paso > self.form_paso_actual:
+            for paso_actual in range(self.form_paso_actual, paso):
+                error = self._validar_paso(paso_actual)
+                if error:
+                    self.form_paso_actual = paso_actual
+                    self.mostrar_mensaje(error, "error")
+                    return
+
+        self.limpiar_mensajes()
+        self.form_paso_actual = paso
+
+    def ir_paso_siguiente(self):
+        """Avanza al siguiente paso solo si el actual es válido."""
+        if self.form_paso_actual >= self._obtener_total_pasos_wizard():
+            return
+
+        error = self._validar_paso(self.form_paso_actual)
+        if error:
+            self.mostrar_mensaje(error, "error")
+            return
+
+        self.limpiar_mensajes()
+        self.form_paso_actual += 1
+
+    def ir_paso_anterior(self):
+        """Retrocede un paso en el wizard."""
+        if self.form_paso_actual <= 1:
+            return
+
+        self.limpiar_mensajes()
+        self.form_paso_actual -= 1
+
+    def _errores_paso_datos_formulario(self) -> list[str]:
+        """Calcula pendientes del paso Datos sin mutar el state."""
+        errores = []
+
+        if error := validar_empresa_id(self.form_empresa_id):
+            errores.append(f"Empresa: {error}")
+        if error := validar_tipo_contrato(self.form_tipo_contrato):
+            errores.append(f"Tipo de contrato: {error}")
+
+        if self._usa_folio_en_formulario():
+            if error := validar_folio_buap(self.form_folio_buap):
+                errores.append(f"Folio institución: {error}")
+
+        if error := validar_fecha_inicio(self.form_fecha_inicio):
+            errores.append(f"Fecha de inicio: {error}")
+
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
+            if error := validar_tipo_servicio_id(self.form_tipo_servicio_id):
+                errores.append(f"Tipo de servicio: {error}")
+
+        if self.form_fecha_fin:
+            error_fecha_fin = validar_fecha_fin(
+                self.form_fecha_fin,
+                self.form_fecha_inicio,
+                self.form_tipo_duracion,
+            )
+            if error_fecha_fin:
+                errores.append(f"Fecha de fin: {error_fecha_fin}")
+
+        descripcion_objeto = str(self.form_descripcion_objeto or "").strip()
+        if descripcion_objeto:
+            if error := validar_descripcion_objeto(descripcion_objeto):
+                errores.append(f"Objeto del contrato: {error}")
+
+        return errores
+
+    def _errores_paso_plazas_formulario(self) -> list[str]:
+        """Calcula pendientes del paso Plazas sin mutar el state."""
+        if not (self.form_tipo_contrato == TipoContrato.SERVICIOS.value and self.form_tiene_personal):
+            return []
+
+        if self._usa_desglose_categorias_plazas():
+            return []
+
+        errores = []
+        if self.form_cantidad_plazas_minima == "":
+            errores.append("Plazas mínimas: La cantidad mínima de plazas es obligatoria")
+        if self.form_cantidad_plazas_maxima == "":
+            errores.append("Plazas máximas: La cantidad máxima de plazas es obligatoria")
+        elif self.form_cantidad_plazas_minima != "":
+            minimo = int(self.form_cantidad_plazas_minima or "0")
+            maximo = int(self.form_cantidad_plazas_maxima or "0")
+            if maximo < minimo:
+                errores.append(
+                    "Plazas máximas: La cantidad máxima debe ser mayor o igual a la mínima"
+                )
+
+        return errores
+
+    def _errores_guardado_borrador_formulario(self) -> list[str]:
+        """
+        Calcula el mínimo de errores que impiden guardar un contrato en borrador.
+
+        El borrador permite omitir pasos posteriores, pero debe conservar datos
+        suficientes para generar código y persistir un contrato consistente.
+        """
+        errores = list(self._errores_paso_datos_formulario())
+        errores.extend(self._errores_paso_plazas_formulario())
+        return errores
+
+    def _validar_guardado_borrador_contrato(self) -> str:
+        """Valida solo el mínimo requerido para persistir un borrador."""
+        self._limpiar_errores()
+        self.validar_empresa_id_campo()
+        self.validar_tipo_contrato_campo()
+        self.validar_fecha_inicio_campo()
+        self.validar_descripcion_objeto_campo()
+
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
+            self.validar_tipo_servicio_id_campo()
+            if self.form_fecha_fin:
+                self.validar_fecha_fin_campo()
+            else:
+                self.error_fecha_fin = ""
+        else:
+            self.error_tipo_servicio_id = ""
+            if self.form_fecha_fin:
+                self.validar_fecha_fin_campo()
+            else:
+                self.error_fecha_fin = ""
+
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value and self.form_tiene_personal:
+            self.validar_cantidad_plazas_minima_campo()
+            self.validar_cantidad_plazas_maxima_campo()
+        else:
+            self.error_cantidad_plazas_minima = ""
+            self.error_cantidad_plazas_maxima = ""
+
+        return "; ".join(self._errores_guardado_borrador_formulario())
+
+    # ========================
+    # VALIDACIÓN EN TIEMPO REAL
+    # ========================
+    def validar_empresa_id_campo(self):
+        self.validar_y_asignar_error(
+            valor=self.form_empresa_id,
+            validador=validar_empresa_id,
+            error_attr="error_empresa_id",
+        )
+
+    def validar_tipo_servicio_id_campo(self):
+        self.validar_y_asignar_error(
+            valor=self.form_tipo_servicio_id,
+            validador=validar_tipo_servicio_id,
+            error_attr="error_tipo_servicio_id",
+        )
+
+    def validar_modalidad_campo(self):
+        self.validar_y_asignar_error(
+            valor=self.form_modalidad_adjudicacion,
+            validador=validar_modalidad_adjudicacion,
+            error_attr="error_modalidad_adjudicacion",
+        )
+
+    def validar_tipo_duracion_campo(self):
+        self.validar_y_asignar_error(
+            valor=self.form_tipo_duracion,
+            validador=validar_tipo_duracion,
+            error_attr="error_tipo_duracion",
+        )
+
+    def validar_tipo_contrato_campo(self):
+        self.validar_y_asignar_error(
+            valor=self.form_tipo_contrato,
+            validador=validar_tipo_contrato,
+            error_attr="error_tipo_contrato",
+        )
+
+    def validar_fecha_inicio_campo(self):
+        self.validar_y_asignar_error(
+            valor=self.form_fecha_inicio,
+            validador=validar_fecha_inicio,
+            error_attr="error_fecha_inicio",
+        )
+
+    def validar_fecha_fin_campo(self):
+        self.validar_y_asignar_error(
+            valor=self.form_fecha_fin,
+            validador=lambda v: validar_fecha_fin(
+                v,
+                self.form_fecha_inicio,
+                self.form_tipo_duracion
+            ),
+            error_attr="error_fecha_fin",
+        )
+
+    def validar_monto_minimo_campo(self):
+        self.validar_y_asignar_error(
+            valor=self.form_monto_minimo,
+            validador=validar_monto_minimo,
+            error_attr="error_monto_minimo",
+        )
+
+    def validar_monto_maximo_campo(self):
+        self.validar_y_asignar_error(
+            valor=self.form_monto_maximo,
+            validador=validar_monto_maximo,
+            error_attr="error_monto_maximo",
+        )
+        # También validar coherencia
+        if not self.error_monto_maximo:
+            self.validar_y_asignar_error(
+                valor=self.form_monto_maximo,
+                validador=lambda _v: validar_montos_coherentes(
+                    self.form_monto_minimo,
+                    self.form_monto_maximo
+                ),
+                error_attr="error_monto_maximo",
+            )
+
+    def validar_descripcion_objeto_campo(self):
+        """Valida el objeto del contrato solo cuando el usuario captura un valor."""
+        if not self.form_descripcion_objeto or not self.form_descripcion_objeto.strip():
+            self.error_descripcion_objeto = ""
+            return
+        self.validar_y_asignar_error(
+            valor=self.form_descripcion_objeto,
+            validador=validar_descripcion_objeto,
+            error_attr="error_descripcion_objeto",
+        )
+
+    def _usa_folio_en_formulario(self) -> bool:
+        """El folio solo se captura manualmente durante la edición."""
+        return bool(self.es_edicion)
+
+    def validar_folio_buap_campo(self):
+        if not self._usa_folio_en_formulario():
+            self.error_folio_buap = ""
+            return
+        self._validar_campo("folio_buap")
+
+    def _validar_campo(self, campo: str):
+        """Valida un campo usando el diccionario de validadores"""
+        if campo in CAMPOS_VALIDACION:
+            valor = getattr(self, f"form_{campo}")
+            self.validar_y_asignar_error(
+                valor=valor,
+                validador=CAMPOS_VALIDACION[campo],
+                error_attr=f"error_{campo}",
+            )
+
+    def _validar_todos_los_campos(self):
+        """Valida todos los campos del formulario con lógica condicional"""
+        # Limpiar todos los errores primero
+        self._limpiar_errores()
+
+        # Validar base del formulario
+        self.validar_empresa_id_campo()
+        self.validar_tipo_contrato_campo()
+        self.validar_modalidad_campo()
+        self.validar_fecha_inicio_campo()
+        self.validar_descripcion_objeto_campo()
+
+        # Validaciones condicionales según tipo de contrato
+        es_servicios = self.form_tipo_contrato == TipoContrato.SERVICIOS.value
+        es_adquisicion = self.form_tipo_contrato == TipoContrato.ADQUISICION.value
+
+        if es_servicios:
+            # SERVICIOS: requiere tipo_servicio y tipo_duracion
+            self.validar_tipo_servicio_id_campo()
+            self.validar_tipo_duracion_campo()
+
+            # Si es tiempo determinado, requiere fecha_fin
+            if self.form_tipo_duracion == TipoDuracion.TIEMPO_DETERMINADO.value:
+                self.validar_fecha_fin_campo()
+
+            # Validar monto mínimo solo para servicios
+            self._validar_campo("monto_minimo")
+
+        # Validar monto máximo siempre (aplica a ambos tipos)
+        self._validar_campo("monto_maximo")
+
+        # Validar coherencia de montos solo si es servicios y tiene ambos
+        if es_servicios and self.form_monto_minimo and self.form_monto_maximo:
+            error_coherencia = validar_montos_coherentes(
+                self.form_monto_minimo,
+                self.form_monto_maximo
+            )
+            if error_coherencia and not self.error_monto_maximo:
+                self.error_monto_maximo = error_coherencia
+
+        # Validar campos opcionales del diccionario
+        campos_opcionales = ["origen_recurso", "segmento_asignacion", "sede_campus", "poliza_detalle"]
+        if self._usa_folio_en_formulario():
+            campos_opcionales.insert(0, "folio_buap")
+        else:
+            self.error_folio_buap = ""
+
+        for campo in campos_opcionales:
+            self._validar_campo(campo)
+
+        if es_servicios and self.form_tiene_personal:
+            self.validar_cantidad_plazas_minima_campo()
+            self.validar_cantidad_plazas_maxima_campo()
+
+    @rx.var
+    def tiene_errores_formulario(self) -> bool:
+        """Verifica si hay errores de validación (considera condicionales)"""
+        # Errores de campos del diccionario
+        campos_validacion = ["codigo"] + list(CAMPOS_VALIDACION.keys())
+        if not self._usa_folio_en_formulario():
+            campos_validacion = [
+                campo
+                for campo in campos_validacion
+                if campo != "folio_buap"
+            ]
+
+        errores_campos = self.tiene_errores_en_campos(campos_validacion)
+
+        # Errores de selects y campos requeridos
+        errores_basicos = self.tiene_errores_en_campos(self._campos_error_basicos)
+
+        # Errores condicionales según tipo de contrato
+        es_servicios = self.form_tipo_contrato == TipoContrato.SERVICIOS.value
+        errores_servicios = es_servicios and self.tiene_errores_en_campos(
+            self._campos_error_servicios
+        )
+
+        errores_plazas = (
+            es_servicios and
+            self.form_tiene_personal and
+            self.tiene_errores_en_campos([
+                "cantidad_plazas_minima",
+                "cantidad_plazas_maxima",
+            ])
+        )
+
+        return errores_campos or errores_basicos or errores_servicios or errores_plazas
+
+    @rx.var
+    def puede_guardar(self) -> bool:
+        """Verifica si se puede guardar el formulario"""
+        # Campos siempre requeridos
+        tiene_basicos = bool(
+            self.form_empresa_id and
+            self.form_tipo_contrato and
+            self.form_modalidad_adjudicacion and
+            self.form_fecha_inicio
+        )
+
+        # Campos condicionales según tipo de contrato
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
+            tiene_servicios = bool(
+                self.form_tipo_servicio_id and
+                self.form_tipo_duracion
+            )
+            # Si es tiempo determinado, requiere fecha fin
+            if self.form_tipo_duracion == TipoDuracion.TIEMPO_DETERMINADO.value:
+                tiene_servicios = tiene_servicios and bool(self.form_fecha_fin)
+        else:
+            # ADQUISICION no requiere tipo_servicio ni tipo_duracion
+            tiene_servicios = True
+
+        tiene_plazas = True
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value and self.form_tiene_personal:
+            if self._usa_desglose_categorias_plazas():
+                tiene_plazas = True
+            else:
+                tiene_plazas = bool(
+                    self.form_cantidad_plazas_minima != "" and
+                    self.form_cantidad_plazas_maxima != ""
+                )
+
+        return (
+            tiene_basicos and
+            tiene_servicios and
+            tiene_plazas and
+            not self.tiene_errores_formulario and
+            not self.saving
+        )
+
+    @rx.var
+    def mostrar_paso_entregables(self) -> bool:
+        """El paso de entregables solo se edita durante la creación."""
+        return not self.es_edicion
+
+    @rx.var
+    def mostrar_paso_plazas(self) -> bool:
+        return self._mostrar_paso_plazas_wizard()
+
+    @rx.var
+    def total_pasos_wizard(self) -> int:
+        return self._obtener_total_pasos_wizard()
+
+    @rx.var
+    def es_primer_paso_wizard(self) -> bool:
+        return self.form_paso_actual == 1
+
+    @rx.var
+    def es_ultimo_paso_wizard(self) -> bool:
+        return self.form_paso_actual == self.total_pasos_wizard
+
+    @rx.var
+    def puede_avanzar_desde_datos_wizard(self) -> bool:
+        return len(self._errores_paso_datos_formulario()) == 0
+
+    @rx.var
+    def puede_avanzar_desde_plazas_wizard(self) -> bool:
+        return len(self._errores_paso_plazas_formulario()) == 0
+
+    @rx.var
+    def puede_navegar_a_paso_2_wizard(self) -> bool:
+        return self.form_paso_actual >= 2 or self.puede_avanzar_desde_datos_wizard
+
+    @rx.var
+    def puede_navegar_a_paso_3_wizard(self) -> bool:
+        return self.form_paso_actual >= 3 or (
+            self.puede_avanzar_desde_datos_wizard
+            and self.puede_avanzar_desde_plazas_wizard
+        )
+
+    @rx.var
+    def puede_avanzar_paso_actual_wizard(self) -> bool:
+        if self.form_paso_actual == 1:
+            return self.puede_avanzar_desde_datos_wizard
+        if self.paso_actual_wizard == "plazas":
+            return self.puede_avanzar_desde_plazas_wizard
+        return True
+
+    @rx.var
+    def puede_guardar_borrador_contrato(self) -> bool:
+        return (
+            not self.es_edicion
+            and not self.saving
+            and len(self._errores_guardado_borrador_formulario()) == 0
+        )
+
+    @rx.var
+    def titulo_paso_actual_wizard(self) -> str:
+        if self.form_paso_actual == 1:
+            return "Datos"
+        if self.mostrar_paso_plazas and self.form_paso_actual == 2:
+            return "Plazas"
+        return "Entregables"
+
+    @rx.var
+    def paso_actual_wizard(self) -> str:
+        if self.form_paso_actual == 1:
+            return "datos"
+        if self.mostrar_paso_plazas and self.form_paso_actual == 2:
+            return "plazas"
+        if self.mostrar_paso_entregables:
+            return "entregables"
+        return "datos"
+
+    @rx.var
+    def vigencia_formulario_label(self) -> str:
+        """Etiqueta de vigencia derivada desde la fecha fin capturada."""
+        if not self.form_fecha_fin:
+            return "VIGENTE"
+
+        fecha_fin = parse_date_input(self.form_fecha_fin)
+        if fecha_fin is None:
+            return "VIGENTE"
+
+        return "VENCIDO" if fecha_fin < date.today() else "VIGENTE"
+
+    @rx.var
+    def vigencia_formulario_color_scheme(self) -> str:
+        return "red" if self.vigencia_formulario_label == "VENCIDO" else "green"
+
+    @rx.var
+    def tiene_filtros_activos(self) -> bool:
+        """Indica si hay algún filtro aplicado"""
+        return (
+            self.filtro_empresa_id != FILTRO_SIN_SELECCION or
+            self.filtro_tipo_servicio_id != FILTRO_SIN_SELECCION or
+            (self.filtro_estatus != FILTRO_TODOS and bool(self.filtro_estatus)) or
+            bool(self.filtro_modalidad) or
+            bool(self.filtro_fecha_desde) or
+            bool(self.filtro_fecha_hasta) or
+            bool(self.filtro_busqueda.strip()) or
+            self.incluir_inactivos
+        )
+
+    @rx.var
+    def mostrar_tabla(self) -> bool:
+        """Muestra tabla si hay contratos O si hay filtro activo"""
+        return self.total_contratos > 0 or bool(self.filtro_busqueda.strip())
+
+    @rx.var
+    def opciones_empresa(self) -> List[dict]:
+        """Opciones formateadas para el select de empresa"""
+        return [{"value": str(e["id"]), "label": f"{e['codigo_corto']} - {e['nombre_comercial']}"} for e in self.empresas]
+
+    @rx.var
+    def nombre_empresa_formulario(self) -> str:
+        """Nombre legible de la empresa actualmente seleccionada en el formulario."""
+        for empresa in self.empresas:
+            if str(empresa["id"]) == self.form_empresa_id:
+                codigo = str(empresa.get("codigo_corto") or "").strip()
+                nombre = str(empresa.get("nombre_comercial") or "").strip()
+                return f"{codigo} - {nombre}".strip(" -")
+        return self.nombre_empresa_actual or "Empresa actual"
+
+    @rx.var
+    def opciones_tipo_servicio(self) -> List[dict]:
+        """Opciones formateadas para el select de tipo de servicio"""
+        return [{"value": str(t["id"]), "label": f"{t['clave']} - {t['nombre']}"} for t in self.tipos_servicio]
+
+    @rx.var
+    def opciones_categoria_puesto(self) -> List[dict]:
+        """Opciones formateadas para el select de categoría de puesto"""
+        return [{"value": str(c["id"]), "label": f"{c['clave']} - {c['nombre']}"} for c in self.categorias_puesto]
+
+    @rx.var
+    def opciones_categoria_puesto_disponibles(self) -> List[dict]:
+        """Opciones aún no seleccionadas para el selector acumulativo."""
+        seleccionadas = set(self.form_categoria_puesto_ids)
+        return [
+            option
+            for option in self.opciones_categoria_puesto
+            if option["value"] not in seleccionadas
+        ]
+
+    @rx.var
+    def opciones_modalidad(self) -> List[dict]:
+        """Opciones para el select de modalidad de adjudicación"""
+        return opciones_desde_enum(ModalidadAdjudicacion)
+
+    @rx.var
+    def opciones_tipo_duracion(self) -> List[dict]:
+        """Opciones para el select de tipo de duración"""
+        return opciones_desde_enum(TipoDuracion)
+
+    @rx.var
+    def opciones_tipo_contrato(self) -> List[dict]:
+        """Opciones para el select de tipo de contrato"""
+        return opciones_desde_enum(TipoContrato)
+
+    # ========================
+    # VARS CONDICIONALES DE NEGOCIO
+    # ========================
+    @rx.var
+    def es_adquisicion(self) -> bool:
+        """True si el tipo de contrato es ADQUISICION"""
+        return self.form_tipo_contrato == TipoContrato.ADQUISICION.value
+
+    @rx.var
+    def es_servicios(self) -> bool:
+        """True si el tipo de contrato es SERVICIOS"""
+        return self.form_tipo_contrato == TipoContrato.SERVICIOS.value
+
+    @rx.var
+    def es_tiempo_determinado(self) -> bool:
+        """True si el tipo de duración es TIEMPO_DETERMINADO"""
+        return self.form_tipo_duracion == TipoDuracion.TIEMPO_DETERMINADO.value
+
+    @rx.var
+    def requiere_tipo_servicio(self) -> bool:
+        """Tipo de servicio solo es requerido para SERVICIOS"""
+        return self.es_servicios
+
+    @rx.var
+    def requiere_tipo_duracion(self) -> bool:
+        """Tipo de duración solo es requerido para SERVICIOS"""
+        return self.es_servicios
+
+    @rx.var
+    def requiere_fecha_fin(self) -> bool:
+        """Fecha fin solo es requerida si es TIEMPO_DETERMINADO"""
+        return self.es_tiempo_determinado
+
+    @rx.var
+    def muestra_monto_minimo(self) -> bool:
+        """Monto mínimo solo aplica para SERVICIOS"""
+        return self.es_servicios
+
+    @rx.var
+    def muestra_tiene_personal(self) -> bool:
+        """Tiene personal solo aplica para SERVICIOS"""
+        return self.es_servicios
+
+    @rx.var
+    def requiere_poliza_auto(self) -> bool:
+        """
+        Póliza es requerida automáticamente si:
+        - Es SERVICIOS y tiene ambos montos (mínimo y máximo)
+        """
+        if not self.es_servicios:
+            return False
+        tiene_monto_min = bool(self.form_monto_minimo and self.form_monto_minimo.strip())
+        tiene_monto_max = bool(self.form_monto_maximo and self.form_monto_maximo.strip())
+        return tiene_monto_min and tiene_monto_max
+
+    @rx.var
+    def opciones_estatus(self) -> List[dict]:
+        """Opciones para el select de estatus"""
+        return opciones_desde_enum(EstatusContrato)
+
+    @rx.var
+    def opciones_tipo_entregable(self) -> List[dict]:
+        """Opciones para el select de tipo de entregable"""
+        return opciones_desde_enum(TipoEntregable)
+
+    @rx.var
+    def opciones_periodicidad_entregable(self) -> List[dict]:
+        """Opciones para el select de periodicidad"""
+        return opciones_desde_enum(PeriodicidadEntregable)
+
+    @rx.var
+    def tiene_config_entregables(self) -> bool:
+        """True si hay tipos de entregable configurados"""
+        return len(self.config_entregables) > 0
+
+    @rx.var
+    def puede_agregar_entregable(self) -> bool:
+        """True si se puede agregar un tipo de entregable"""
+        return bool(self.form_tipo_entregable)
+
+    @rx.var
+    def tiene_categorias_puesto_disponibles(self) -> bool:
+        return len(self.categorias_puesto) > 0
+
+    @rx.var
+    def tiene_categorias_puesto_seleccionadas(self) -> bool:
+        return len(self.form_categoria_puesto_ids) > 0
+
+    @rx.var
+    def puede_agregar_categoria_puesto(self) -> bool:
+        return bool(self.form_categoria_puesto_id and self.form_categoria_puesto_id not in self.form_categoria_puesto_ids)
+
+    @rx.var
+    def categorias_puesto_seleccionadas_resumen(self) -> List[dict]:
+        """Resumen de categorías seleccionadas para mostrar badges/lista."""
+        seleccionadas = set(self.form_categoria_puesto_ids)
+        return [
+            {
+                "id": str(c["id"]),
+                "clave": c["clave"],
+                "nombre": c["nombre"],
+                "label": f"{c['clave']} - {c['nombre']}",
+            }
+            for c in self.categorias_puesto
+            if str(c["id"]) in seleccionadas
+        ]
+
+    @rx.var
+    def tiene_categorias_contrato_configuradas(self) -> bool:
+        return len(self.form_categorias_contrato) > 0
+
+    @rx.var
+    def usa_desglose_categorias_plazas(self) -> bool:
+        return self._usa_desglose_categorias_plazas()
+
+    @rx.var
+    def total_plazas_minimas_desglose(self) -> int:
+        minimo, _ = self._obtener_totales_plazas_desde_categorias()
+        return minimo
+
+    @rx.var
+    def total_plazas_maximas_desglose(self) -> int:
+        _, maximo = self._obtener_totales_plazas_desde_categorias()
+        return maximo
+
+    @rx.var
+    def opciones_categoria_puesto_para_contrato(self) -> List[dict]:
+        ids_asignados = {
+            str(item.get("categoria_puesto_id"))
+            for item in self.form_categorias_contrato
+            if item.get("categoria_puesto_id") is not None
+        }
+        return [
+            option
+            for option in self.opciones_categoria_puesto
+            if option["value"] not in ids_asignados
+        ]
+
+    @rx.var
+    def puede_agregar_categoria_contrato(self) -> bool:
+        if self.mostrar_form_nueva_categoria:
+            tiene_categoria = bool(
+                self.form_nueva_categoria_nombre.strip()
+                and self.form_nueva_categoria_clave.strip()
+            )
+        else:
+            tiene_categoria = bool(self.form_categoria_puesto_id)
+
+        return bool(
+            self.form_tipo_servicio_id
+            and tiene_categoria
+            and self.form_categoria_contrato_minima
+            and self.form_categoria_contrato_maxima
+            and self.form_categoria_contrato_costo
+            and not self.guardando_categoria_contrato
+        )
+
+    @rx.var
+    def es_contexto_portal(self) -> bool:
+        """True cuando el state se usa en una ruta del portal."""
+        ruta_actual = self.router.route_id or ""
+        return ruta_actual.startswith("/portal/")
+
+    @rx.var
+    def empresa_fijada_en_contexto(self) -> bool:
+        """En portal, el contrato siempre debe crearse sobre la empresa activa."""
+        return self.es_contexto_portal and self.es_admin_empresa and bool(self.id_empresa_actual)
+
+    @rx.var
+    def puede_operar_contratos_en_contexto(self) -> bool:
+        """Permiso efectivo para operar contratos según backoffice o portal."""
+        if self.es_contexto_portal:
+            return self.es_admin_empresa and bool(self.id_empresa_actual)
+        return self.es_superadmin or self.puede_operar_contratos
+
+    # ========================
+    # OPERACIONES PRINCIPALES
+    # ========================
+    async def cargar_datos_iniciales(self):
+        """Cargar empresas, tipos de servicio y contratos"""
+        async for _ in self._montar_pagina(
+            self.cargar_empresas,
+            self.cargar_tipos_servicio,
+            self._fetch_contratos,
+        ):
+            yield
+
+    async def cargar_empresas(self):
+        """Cargar empresas para el dropdown"""
+        if self.es_contexto_portal and self.id_empresa_actual:
+            await self._cargar_empresa_actual_portal()
+            return
+
+        from app.modules.application import empresa_service
+
+        self.empresas = await self.cargar_y_asignar_lista(
+            "empresas",
+            lambda: empresa_service.obtener_todas(incluir_inactivas=False),
+            contexto_error="al cargar empresas",
+        )
+
+    async def _cargar_empresa_actual_portal(self):
+        """Carga solo la empresa activa cuando el formulario se usa desde el portal."""
+        if not self.id_empresa_actual:
+            self.empresas = []
+            return
+
+        from app.modules.application import empresa_service
+
+        empresa = await empresa_service.obtener_por_id(self.id_empresa_actual)
+        self.empresas = [self.serializar_item_state(empresa)]
+
+    async def cargar_tipos_servicio(self):
+        """Cargar tipos de servicio para el dropdown"""
+        self.tipos_servicio = await self.cargar_y_asignar_lista(
+            "tipos_servicio",
+            tipo_servicio_service.obtener_activas,
+            contexto_error="al cargar tipos de servicio",
+        )
+
+    async def cargar_categorias_puesto(self):
+        """Cargar categorías de puesto según el tipo de servicio seleccionado"""
+        if not self.form_tipo_servicio_id:
+            self.categorias_puesto = []
+            return
+        self.cargando_categorias_puesto = True
+        try:
+            tipo_servicio_id = self.parse_id(self.form_tipo_servicio_id)
+            self.categorias_puesto = await self.cargar_y_asignar_lista(
+                "categorias_puesto",
+                lambda: categoria_puesto_service.obtener_por_tipo_servicio(
+                    tipo_servicio_id,
+                    incluir_inactivas=False,
+                ),
+                contexto_error="al cargar categorías",
+            )
+        finally:
+            self.cargando_categorias_puesto = False
+
+    async def _fetch_contratos(self):
+        """Carga la lista de contratos con filtros (sin manejo de loading)."""
+        try:
+            # Preparar filtros
+            empresa_id = int(self.filtro_empresa_id) if self.filtro_empresa_id != FILTRO_SIN_SELECCION else None
+            tipo_servicio_id = int(self.filtro_tipo_servicio_id) if self.filtro_tipo_servicio_id != FILTRO_SIN_SELECCION else None
+
+            # Preparar filtros de fecha
+            fecha_desde = None
+            fecha_hasta = None
+            if self.filtro_fecha_desde:
+                fecha_desde = parse_date_input(self.filtro_fecha_desde)
+            if self.filtro_fecha_hasta:
+                fecha_hasta = parse_date_input(self.filtro_fecha_hasta)
+
+            contratos = await contrato_service.buscar_con_filtros(
+                texto=self.filtro_busqueda or None,
+                empresa_id=empresa_id,
+                tipo_servicio_id=tipo_servicio_id,
+                estatus=None if self.filtro_estatus == FILTRO_TODOS else (self.filtro_estatus or None),
+                modalidad=self.filtro_modalidad or None,
+                fecha_inicio_desde=fecha_desde,
+                fecha_inicio_hasta=fecha_hasta,
+                incluir_inactivos=self.incluir_inactivos,
+                limite=100,
+                offset=0
+            )
+
+            # Obtener saldos pendientes en batch (1 query en lugar de N)
+            contratos_info = [
+                {"id": c.id, "monto_maximo": c.monto_maximo}
+                for c in contratos
+            ]
+            try:
+                saldos_pendientes = await pago_service.obtener_saldos_pendientes_batch(contratos_info)
+            except Exception:
+                saldos_pendientes = {}
+
+            # Enriquecer con nombres de empresa, tipo de servicio y saldos
+            self.contratos = []
+            for c in contratos:
+                self.contratos.append(
+                    self._enriquecer_contrato_dict(
+                        c,
+                        saldo_pendiente=saldos_pendientes.get(c.id),
+                    )
+                )
+
+            # Filtro adicional por nombre de empresa (búsqueda in-memory)
+            if self.filtro_busqueda and self.filtro_busqueda.strip():
+                termino = self.filtro_busqueda.strip().lower()
+                self.contratos = [
+                    c for c in self.contratos
+                    if (
+                        termino in c.get("codigo", "").lower() or
+                        termino in (c.get("numero_folio_buap") or "").lower() or
+                        termino in (c.get("descripcion_objeto") or "").lower() or
+                        termino in (c.get("nombre_empresa") or "").lower()
+                    )
+                ]
+
+            self.total_contratos = len(self.contratos)
+
+        except Exception as e:
+            self.manejar_error(e, "al cargar contratos")
+            self.contratos = []
+
+    async def cargar_contratos(self):
+        """Carga contratos con skeleton loading (público)."""
+        async for _ in self._recargar_datos(self._fetch_contratos):
+            yield
+
+    async def on_change_busqueda(self, value: str):
+        """Actualizar filtro y buscar automáticamente"""
+        self.filtro_busqueda = value
+        async for _ in self._recargar_datos(self._fetch_contratos):
+            yield
+
+    async def limpiar_busqueda(self):
+        """Limpia la búsqueda usando la misma ruta de recarga que el input live."""
+        async for _ in self.on_change_busqueda(""):
+            yield
+
+    async def aplicar_filtros(self):
+        """Aplicar filtros y recargar"""
+        async for _ in self._recargar_datos(self._fetch_contratos):
+            yield
+
+    async def limpiar_filtros(self):
+        """Limpia todos los filtros"""
+        self.filtro_busqueda = ""
+        self.filtro_empresa_id = FILTRO_SIN_SELECCION
+        self.filtro_tipo_servicio_id = FILTRO_SIN_SELECCION
+        self.filtro_estatus = FILTRO_TODOS
+        self.filtro_modalidad = ""
+        self.filtro_fecha_desde = ""
+        self.filtro_fecha_hasta = ""
+        self.incluir_inactivos = False
+        async for _ in self._recargar_datos(self._fetch_contratos):
+            yield
+
+    # ========================
+    # OPERACIONES CRUD
+    # ========================
+    async def abrir_modal_crear(self):
+        """Abrir modal para crear nuevo contrato"""
+        self._limpiar_formulario()
+        self.es_edicion = False
+        # Auto-seleccionar filtros activos
+        if self.filtro_empresa_id != FILTRO_SIN_SELECCION:
+            self.form_empresa_id = self.filtro_empresa_id
+        if self.filtro_tipo_servicio_id != FILTRO_SIN_SELECCION:
+            self.form_tipo_servicio_id = self.filtro_tipo_servicio_id
+            await self.cargar_categorias_puesto()
+        self.mostrar_modal_contrato = True
+
+    async def abrir_modal_crear_portal(self):
+        """Abre el modal de creación desde el portal para la empresa activa."""
+        try:
+            resultado = await self.verificar_y_redirigir()
+            if resultado:
+                return resultado
+
+            self._asegurar_permiso_operar_contratos()
+            await self.cargar_empresas()
+            await self.cargar_tipos_servicio()
+
+            self._limpiar_formulario()
+            self.es_edicion = False
+            self.form_empresa_id = str(self.id_empresa_actual)
+            self.mostrar_modal_contrato = True
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "al preparar el formulario de contrato")
+
+    async def abrir_modal_editar(self, contrato: dict):
+        """Abrir modal para editar contrato"""
+        try:
+            self._asegurar_permiso_editar_contrato(contrato)
+            self._limpiar_formulario()
+            self.es_edicion = True
+            self.categorias_contrato_cargadas = False
+            self.contrato_seleccionado = contrato
+            self._cargar_contrato_en_formulario(contrato)
+            if self.form_tipo_servicio_id:
+                await self.cargar_categorias_puesto()
+            await self._cargar_categorias_contrato_en_formulario(int(contrato["id"]))
+            self.mostrar_modal_contrato = True
+        except Exception as e:
+            return self.manejar_error_con_toast(e, "al abrir edición de contrato")
+
+    def cerrar_modal_contrato(self):
+        """Cerrar modal de crear/editar"""
+        self.mostrar_modal_contrato = False
+        self._limpiar_formulario()
+
+    async def abrir_modal_detalle(self, contrato_id: int):
+        """Abrir modal de detalles"""
+        try:
+            contrato = await contrato_service.obtener_por_id(contrato_id)
+            self.contrato_seleccionado = self._enriquecer_contrato_dict(contrato)
+            await self._cargar_categorias_detalle_contrato(contrato_id)
+            await self._cargar_entregables_contrato(contrato_id)
+            self.mostrar_modal_detalle = True
+        except Exception as e:
+            self.manejar_error(e, "al abrir detalles")
+
+    async def _cargar_entregables_contrato(self, contrato_id: int):
+        """Cargar entregables del contrato seleccionado"""
+        self.cargando_entregables = True
+        try:
+            entregables = await entregable_service.obtener_por_contrato(contrato_id, sincronizar=True)
+            self.entregables_contrato = [
+                {
+                    "id": e.id,
+                    "numero_periodo": e.numero_periodo,
+                    "periodo_texto": e.periodo_texto,
+                    "estatus": e.estatus.value if hasattr(e.estatus, 'value') else e.estatus,
+                    "fecha_entrega": str(e.fecha_entrega) if e.fecha_entrega else None,
+                    "monto_aprobado": str(e.monto_aprobado) if e.monto_aprobado else None,
+                    "monto_aprobado_fmt": (
+                        formatear_moneda(str(e.monto_aprobado))
+                        if e.monto_aprobado is not None else "-"
+                    ),
+                    "puede_revisar": e.puede_revisar_admin,
+                }
+                for e in entregables
+            ]
+        except Exception:
+            self.entregables_contrato = []
+        finally:
+            self.cargando_entregables = False
+
+    async def _cargar_categorias_detalle_contrato(self, contrato_id: int):
+        """Carga el desglose por categoría para el modal de detalle."""
+        self.cargando_categorias_detalle = True
+        try:
+            resumen = await contrato_categoria_service.obtener_resumen_de_contrato(contrato_id)
+            self.categorias_detalle_contrato = [
+                serializar_categoria_contrato_detalle(item)
+                for item in resumen
+            ]
+        except Exception:
+            self.categorias_detalle_contrato = []
+        finally:
+            self.cargando_categorias_detalle = False
+
+    @rx.var
+    def tiene_entregables_contrato(self) -> bool:
+        return len(self.entregables_contrato) > 0
+
+    @rx.var
+    def tiene_categorias_detalle_contrato(self) -> bool:
+        return len(self.categorias_detalle_contrato) > 0
+
+    @rx.var
+    def total_categorias_detalle_contrato(self) -> int:
+        return len(self.categorias_detalle_contrato)
+
+    def cerrar_modal_detalle(self):
+        """Cerrar modal de detalles"""
+        self.mostrar_modal_detalle = False
+        self.contrato_seleccionado = None
+        self.entregables_contrato = []
+        self.categorias_detalle_contrato = []
+
+    def abrir_confirmar_cancelar(self, contrato: dict):
+        """Abrir modal de confirmación para cancelar"""
+        self.contrato_seleccionado = contrato
+        self.mostrar_modal_confirmar_cancelar = True
+
+    def cerrar_confirmar_cancelar(self):
+        """Cerrar modal de confirmación"""
+        self.mostrar_modal_confirmar_cancelar = False
+        self.contrato_seleccionado = None
+
+    async def guardar_contrato(self):
+        """Guardar contrato (crear o actualizar)"""
+        try:
+            self._asegurar_permiso_operar_contratos()
+            self._validar_todos_los_campos()
+
+            if self.tiene_errores_formulario:
+                mensaje_errores = self._mensaje_errores_formulario()
+                yield self.crear_toast(
+                    mensaje_errores,
+                    "error",
+                    duration=5000,
+                )
+                return
+
+            self.saving = True
+            yield
+
+            if self.es_edicion:
+                mensaje = await self._actualizar_contrato()
+            elif self.form_requisicion_id:
+                mensaje = await self._crear_contrato_desde_requisicion()
+            else:
+                mensaje = await self._crear_contrato()
+
+            self.cerrar_modal_contrato()
+            await self._fetch_contratos()
+            if self.es_contexto_portal:
+                from app.presentation.pages.portal.state.portal_state import PortalState
+
+                portal_state = await self.get_state(PortalState)
+                await portal_state.refrescar_sidebar()
+
+            yield self.crear_toast(
+                mensaje,
+                "success",
+                duration=3000,
+            )
+
+            if self.es_contexto_portal:
+                from app.presentation.pages.portal.mis_contratos import MisContratosState
+
+                yield MisContratosState.cargar_contratos
+
+        except DuplicateError as e:
+            self.error_codigo = f"El código '{self.form_codigo}' ya existe"
+            yield self.manejar_error_con_toast(e, "al guardar contrato")
+        except Exception as e:
+            yield self.manejar_error_con_toast(e, "al guardar contrato")
+        finally:
+            self.saving = False
+
+    async def guardar_borrador_contrato(self):
+        """Guarda un nuevo contrato en borrador con validación mínima."""
+        try:
+            self._asegurar_permiso_operar_contratos()
+
+            if self.es_edicion:
+                return
+
+            mensaje_error = self._validar_guardado_borrador_contrato()
+            if mensaje_error:
+                yield self.crear_toast(
+                    mensaje_error,
+                    "error",
+                    duration=5000,
+                )
+                return
+
+            self.saving = True
+            yield
+
+            if self.form_requisicion_id:
+                mensaje = await self._crear_contrato_desde_requisicion(borrador=True)
+            else:
+                mensaje = await self._crear_contrato(borrador=True)
+
+            self.cerrar_modal_contrato()
+            await self._fetch_contratos()
+            if self.es_contexto_portal:
+                from app.presentation.pages.portal.state.portal_state import PortalState
+
+                portal_state = await self.get_state(PortalState)
+                await portal_state.refrescar_sidebar()
+
+            yield self.crear_toast(
+                mensaje,
+                "success",
+                duration=3000,
+            )
+
+            if self.es_contexto_portal:
+                from app.presentation.pages.portal.mis_contratos import MisContratosState
+
+                yield MisContratosState.cargar_contratos
+
+        except DuplicateError as e:
+            self.error_codigo = f"El código '{self.form_codigo}' ya existe"
+            yield self.manejar_error_con_toast(e, "al guardar borrador de contrato")
+        except Exception as e:
+            yield self.manejar_error_con_toast(e, "al guardar borrador de contrato")
+        finally:
+            self.saving = False
+
+    async def _crear_contrato(self, *, borrador: bool = False):
+        """Crear nuevo contrato"""
+        codigo_empresa, clave_servicio = self._resolver_codigos_contrato()
+
+        contrato_create = self._preparar_contrato_desde_formulario()
+
+        # Crear con código autogenerado
+        contrato_creado = await contrato_service.crear_con_codigo_auto(
+            contrato_create,
+            codigo_empresa,
+            clave_servicio
+        )
+
+        await self._guardar_categorias_contrato_configuradas(contrato_creado.id)
+        await self._guardar_entregables_configurados(contrato_creado.id)
+
+        if borrador:
+            return f"Contrato '{contrato_creado.codigo}' guardado como borrador"
+
+        return f"Contrato '{contrato_creado.codigo}' creado exitosamente"
+
+    async def _actualizar_contrato(self) -> str:
+        """Actualizar contrato existente con lógica condicional"""
+        if not self.contrato_seleccionado:
+            raise BusinessRuleError("No hay contrato seleccionado para actualizar")
+
+        codigo = self.contrato_seleccionado.get("codigo", "")
+        es_adquisicion = self.form_tipo_contrato == TipoContrato.ADQUISICION.value
+
+        # tipo_duracion: solo para SERVICIOS
+        tipo_duracion = None
+        if self.form_tipo_duracion and not es_adquisicion:
+            tipo_duracion = TipoDuracion(self.form_tipo_duracion)
+
+        # montos: en servicios con desglose se derivan desde costo x cantidad
+        monto_minimo = None
+        monto_maximo = self._parse_decimal(self.form_monto_maximo)
+        if not es_adquisicion:
+            monto_minimo, monto_maximo = self._obtener_totales_montos_formulario()
+
+        # tiene_personal: False para ADQUISICION
+        tiene_personal = False if es_adquisicion else self.form_tiene_personal
+        cantidad_plazas_minima = 0
+        cantidad_plazas_maxima = 0
+        if tiene_personal:
+            cantidad_plazas_minima, cantidad_plazas_maxima = self._obtener_totales_plazas_formulario()
+
+        contrato_update = ContratoUpdate(
+            empresa_id=self.parse_id(self.form_empresa_id),
+            tipo_servicio_id=self.parse_id(self.form_tipo_servicio_id) if self.form_tipo_servicio_id and not es_adquisicion else None,
+            numero_folio_buap=self.form_folio_buap.strip() or None,
+            tipo_contrato=TipoContrato(self.form_tipo_contrato) if self.form_tipo_contrato else None,
+            modalidad_adjudicacion=ModalidadAdjudicacion(self.form_modalidad_adjudicacion) if self.form_modalidad_adjudicacion else None,
+            tipo_duracion=tipo_duracion,
+            fecha_inicio=parse_date_input(self.form_fecha_inicio),
+            fecha_fin=parse_date_input(self.form_fecha_fin),
+            descripcion_objeto=self.form_descripcion_objeto.strip() or None,
+            monto_minimo=monto_minimo,
+            monto_maximo=monto_maximo,
+            incluye_iva=self.form_incluye_iva,
+            origen_recurso=self.form_origen_recurso.strip() or None,
+            segmento_asignacion=self.form_segmento_asignacion.strip() or None,
+            sede_campus=self.form_sede_campus.strip() or None,
+            requiere_poliza=self.form_requiere_poliza,
+            poliza_detalle=self.form_poliza_detalle.strip() or None,
+            tiene_personal=tiene_personal,
+            cantidad_plazas_minima=cantidad_plazas_minima,
+            cantidad_plazas_maxima=cantidad_plazas_maxima,
+            estatus=EstatusContrato(self.form_estatus) if self.form_estatus else None,
+            notas=self.form_notas.strip() or None,
+        )
+
+        await contrato_service.actualizar(
+            self.contrato_seleccionado["id"],
+            contrato_update
+        )
+        await self._guardar_categorias_contrato_configuradas(self.contrato_seleccionado["id"])
+
+        return f"Contrato '{codigo}' actualizado exitosamente"
+
+    # ========================
+    # CREAR DESDE REQUISICIÓN
+    # ========================
+
+    # Mapeo TipoContratacion -> TipoContrato
+    TIPO_CONTRATACION_A_CONTRATO = {
+        TipoContratacion.ADQUISICION.value: TipoContrato.ADQUISICION.value,
+        TipoContratacion.ARRENDAMIENTO.value: TipoContrato.ADQUISICION.value,
+        TipoContratacion.SERVICIO.value: TipoContrato.SERVICIOS.value,
+    }
+
+    async def abrir_desde_requisicion(self, requisicion_id: int):
+        """
+        Pre-llena el formulario de contrato desde una requisición ADJUDICADA.
+
+        1. Carga datos de la requisición
+        2. Pre-llena: empresa_id, tipo_contrato, descripcion_objeto
+        3. Si ADQUISICION: carga items de requisición en form_contrato_items
+        4. Abre modal de creación
+        """
+        try:
+            requisicion = await requisicion_service.obtener_por_id(requisicion_id)
+
+            if requisicion.estado != EstadoRequisicion.ADJUDICADA:
+                self.mostrar_mensaje(
+                    f"Solo se pueden crear contratos desde requisiciones ADJUDICADAS. Estado actual: {requisicion.estado}",
+                    "error"
+                )
+                return
+
+            # Limpiar formulario
+            self._limpiar_formulario()
+
+            # Pre-llenar datos desde requisición
+            self.form_requisicion_id = str(requisicion.id)
+            self.form_numero_requisicion = requisicion.numero_requisicion
+
+            if requisicion.empresa_id:
+                self.form_empresa_id = str(requisicion.empresa_id)
+
+            # Mapear tipo de contratación
+            tipo_contrato = self.TIPO_CONTRATACION_A_CONTRATO.get(
+                requisicion.tipo_contratacion,
+                TipoContrato.ADQUISICION.value
+            )
+            self.form_tipo_contrato = tipo_contrato
+
+            # Descripción del objeto
+            self.form_descripcion_objeto = requisicion.objeto_contratacion or ""
+
+            # Para ADQUISICION, cargar items de la requisición
+            es_adquisicion = tipo_contrato == TipoContrato.ADQUISICION.value
+            if es_adquisicion and requisicion.items:
+                items_form = []
+                for item in requisicion.items:
+                    items_form.append({
+                        "requisicion_item_id": item.id,
+                        "numero_item": item.numero_item,
+                        "unidad_medida": item.unidad_medida,
+                        "cantidad": str(item.cantidad),
+                        "descripcion": item.descripcion,
+                        "precio_unitario": "",  # Debe llenarse por el usuario
+                        "especificaciones_tecnicas": item.especificaciones_tecnicas or "",
+                        "incluir": True,
+                    })
+                self.form_contrato_items = items_form
+
+            # En creación, "incluye personal" arranca apagado y el usuario decide activarlo.
+            self.form_tiene_personal = False
+
+            # Abrir modal
+            self.es_edicion = False
+            self.mostrar_modal_contrato = True
+
+        except Exception as e:
+            self.manejar_error(e, "al cargar datos de requisición")
+
+    async def _crear_contrato_desde_requisicion(self, *, borrador: bool = False) -> str:
+        """
+        Crea contrato vinculado a requisición con items de contrato.
+        Se usa cuando form_requisicion_id está presente.
+        """
+        requisicion_id = self.parse_id(self.form_requisicion_id)
+
+        codigo_empresa, clave_servicio = self._resolver_codigos_contrato()
+
+        contrato_create = self._preparar_contrato_desde_formulario()
+
+        # Preparar items de contrato si es ADQUISICION
+        items_contrato = None
+        if self.form_contrato_items:
+            items_contrato = []
+            for item in self.form_contrato_items:
+                if not item.get("incluir", True):
+                    continue
+                precio = item.get("precio_unitario", "0")
+                if not precio or precio.strip() == "":
+                    continue
+                items_contrato.append(ContratoItemCreate(
+                    requisicion_item_id=item.get("requisicion_item_id"),
+                    numero_item=item.get("numero_item", 1),
+                    unidad_medida=item.get("unidad_medida", "Pieza"),
+                    cantidad=Decimal(str(item.get("cantidad", "1")).replace(',', '') or "1"),
+                    descripcion=item.get("descripcion", ""),
+                    precio_unitario=Decimal(str(precio).replace(',', '')),
+                    especificaciones_tecnicas=item.get("especificaciones_tecnicas") or None,
+                ))
+
+        contrato_creado = await contrato_service.crear_desde_requisicion(
+            requisicion_id=requisicion_id,
+            contrato_create=contrato_create,
+            codigo_empresa=codigo_empresa,
+            clave_servicio=clave_servicio,
+            items_contrato=items_contrato,
+        )
+
+        await self._guardar_categorias_contrato_configuradas(contrato_creado.id)
+        await self._guardar_entregables_configurados(contrato_creado.id)
+
+        if borrador:
+            return f"Contrato '{contrato_creado.codigo}' guardado como borrador"
+
+        return f"Contrato '{contrato_creado.codigo}' creado desde requisición"
+
+    async def cancelar_contrato(self):
+        """Cancelar (soft delete) un contrato"""
+        if not self.contrato_seleccionado:
+            return
+
+        async for event in self._ejecutar_transicion_contrato(
+            contrato=self.contrato_seleccionado,
+            operacion=lambda contrato_id: contrato_service.cancelar(contrato_id),
+            mensaje_accion="Cancelando",
+            mensaje_exito="cancelado",
+            contexto_error="al cancelar contrato",
+            on_exito=self.cerrar_confirmar_cancelar,
+        ):
+            yield event
+
+    async def activar_contrato(self, contrato: dict):
+        """Activar un contrato en borrador"""
+        async for event in self._ejecutar_transicion_contrato(
+            contrato=contrato,
+            operacion=lambda contrato_id: contrato_service.activar(contrato_id),
+            mensaje_exito="activado",
+            contexto_error="al activar contrato",
+        ):
+            yield event
+
+    async def suspender_contrato(self, contrato: dict):
+        """Suspender un contrato activo"""
+        async for event in self._ejecutar_transicion_contrato(
+            contrato=contrato,
+            operacion=lambda contrato_id: contrato_service.suspender(contrato_id),
+            mensaje_exito="suspendido",
+            contexto_error="al suspender contrato",
+        ):
+            yield event
+
+    async def reactivar_contrato(self, contrato: dict):
+        """Reactivar un contrato suspendido"""
+        async for event in self._ejecutar_transicion_contrato(
+            contrato=contrato,
+            operacion=lambda contrato_id: contrato_service.reactivar(contrato_id),
+            mensaje_exito="reactivado",
+            contexto_error="al reactivar contrato",
+        ):
+            yield event
+
+    # ========================
+    # CONFIGURACIÓN DE ENTREGABLES
+    # ========================
+    def agregar_tipo_entregable(self):
+        """Agregar tipo de entregable a la configuración"""
+        if not self.form_tipo_entregable:
+            return
+
+        # Verificar si ya existe este tipo
+        for config in self.config_entregables:
+            if config["tipo_entregable"] == self.form_tipo_entregable:
+                return self.crear_toast(
+                    "Este tipo de entregable ya está configurado",
+                    "warning",
+                )
+
+        # Obtener descripción del enum
+        try:
+            tipo_enum = TipoEntregable(self.form_tipo_entregable)
+            tipo_label = tipo_enum.descripcion
+        except ValueError:
+            tipo_label = self.form_tipo_entregable
+
+        try:
+            periodicidad_enum = PeriodicidadEntregable(self.form_periodicidad_entregable)
+            periodicidad_label = periodicidad_enum.descripcion
+        except ValueError:
+            periodicidad_label = self.form_periodicidad_entregable
+
+        nuevo_config = {
+            "tipo_entregable": self.form_tipo_entregable,
+            "tipo_label": tipo_label,
+            "periodicidad": self.form_periodicidad_entregable,
+            "periodicidad_label": periodicidad_label,
+            "requerido": self.form_entregable_requerido,
+            "descripcion": self.form_entregable_descripcion.strip() or None,
+            "instrucciones": self.form_entregable_instrucciones.strip() or None,
+        }
+
+        self.config_entregables = self.config_entregables + [nuevo_config]
+        self._limpiar_form_entregable()
+
+    def eliminar_tipo_entregable(self, tipo: str):
+        """Eliminar tipo de entregable de la configuración por tipo"""
+        self.config_entregables = [
+            c for c in self.config_entregables if c["tipo_entregable"] != tipo
+        ]
+
+    def _limpiar_form_entregable(self):
+        """Limpiar formulario de entregable"""
+        self.form_tipo_entregable = ""
+        self.form_periodicidad_entregable = PeriodicidadEntregable.MENSUAL.value
+        self.form_entregable_requerido = True
+        self.form_entregable_descripcion = ""
+        self.form_entregable_instrucciones = ""
+        self.mostrar_form_agregar_entregable = False
+
+    # ========================
+    # HELPERS
+    # ========================
+    def _limpiar_formulario(self):
+        """Limpia campos del formulario"""
+        for campo, default in FORM_DEFAULTS.items():
+            setattr(self, f"form_{campo}", default)
+        self.form_categoria_puesto_ids = []
+        self.form_categorias_contrato = []
+        self.categorias_contrato_cargadas = True
+        self.guardando_categoria_contrato = False
+        self._limpiar_form_categoria_contrato()
+        self.form_paso_actual = 1
+        self._limpiar_errores()
+        self._limpiar_form_entregable()
+        self.config_entregables = []
+        self.form_contrato_items = []
+        self.contrato_seleccionado = None
+        self.es_edicion = False
+        self.limpiar_mensajes()
+        self._aplicar_contexto_empresa_portal()
+
+    def _limpiar_errores(self):
+        """Limpia todos los errores de validación"""
+        self.limpiar_errores_campos(self._campos_error)
+
+    def _enriquecer_contrato_dict(self, contrato, *, saldo_pendiente=None) -> dict:
+        """Convierte un contrato a dict de UI y agrega campos derivados."""
+        contrato_dict = self.serializar_item_state(contrato)
+        nombre_empresa = None
+        nombre_servicio = None
+
+        for empresa in self.empresas:
+            if empresa["id"] == contrato.empresa_id:
+                nombre_empresa = empresa["nombre_comercial"]
+                break
+
+        for tipo in self.tipos_servicio:
+            if tipo["id"] == contrato.tipo_servicio_id:
+                nombre_servicio = tipo["nombre"]
+                break
+        return enriquecer_contrato_presentacion(
+            contrato_dict,
+            saldo_pendiente=saldo_pendiente,
+            nombre_empresa=nombre_empresa,
+            nombre_servicio=nombre_servicio,
+        )
+
+    def _cargar_contrato_en_formulario(self, contrato: dict):
+        """Carga datos de contrato en el formulario"""
+        self.form_empresa_id = str(contrato.get("empresa_id", ""))
+        self.form_tipo_servicio_id = str(contrato.get("tipo_servicio_id", ""))
+        self.form_codigo = contrato.get("codigo", "")
+        self.form_folio_buap = contrato.get("numero_folio_buap", "") or ""
+        self.form_tipo_contrato = contrato.get("tipo_contrato", "")
+        self.form_modalidad_adjudicacion = contrato.get("modalidad_adjudicacion", "")
+        self.form_tipo_duracion = contrato.get("tipo_duracion", "") or ""
+
+        # Fechas
+        fecha_inicio = contrato.get("fecha_inicio")
+        self.form_fecha_inicio = str(fecha_inicio) if fecha_inicio else ""
+        fecha_fin = contrato.get("fecha_fin")
+        self.form_fecha_fin = str(fecha_fin) if fecha_fin else ""
+
+        self.form_descripcion_objeto = contrato.get("descripcion_objeto", "") or ""
+
+        # Montos
+        monto_min = contrato.get("monto_minimo")
+        self.form_monto_minimo = str(monto_min) if monto_min else ""
+        monto_max = contrato.get("monto_maximo")
+        self.form_monto_maximo = str(monto_max) if monto_max else ""
+
+        self.form_incluye_iva = contrato.get("incluye_iva", False)
+        self.form_origen_recurso = contrato.get("origen_recurso", "") or ""
+        self.form_segmento_asignacion = contrato.get("segmento_asignacion", "") or ""
+        self.form_sede_campus = contrato.get("sede_campus", "") or ""
+        self.form_requiere_poliza = contrato.get("requiere_poliza", False)
+        self.form_poliza_detalle = contrato.get("poliza_detalle", "") or ""
+        self.form_tiene_personal = contrato.get("tiene_personal", False)
+        self.form_cantidad_plazas_minima = str(contrato.get("cantidad_plazas_minima", 0) or 0)
+        self.form_cantidad_plazas_maxima = str(contrato.get("cantidad_plazas_maxima", 0) or 0)
+        self.form_estatus = contrato.get("estatus", EstatusContrato.BORRADOR.value)
+        self.form_notas = contrato.get("notas", "") or ""
+
+        # Requisición origen
+        req_id = contrato.get("requisicion_id")
+        self.form_requisicion_id = str(req_id) if req_id else ""
+        self.form_numero_requisicion = contrato.get("numero_requisicion", "") or ""
+        if not self.form_modalidad_adjudicacion:
+            self.form_modalidad_adjudicacion = ModalidadAdjudicacion.ADJUDICACION_DIRECTA.value
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value and not self.form_tipo_duracion:
+            self._sincronizar_tipo_duracion()
+
+    async def _cargar_categorias_contrato_en_formulario(self, contrato_id: int):
+        """Precarga el desglose existente de categorías al editar un contrato."""
+        self.form_categorias_contrato = []
+
+        if (
+            not contrato_id
+            or self.form_tipo_contrato != TipoContrato.SERVICIOS.value
+            or not self.form_tiene_personal
+        ):
+            self.categorias_contrato_cargadas = True
+            return
+
+        resumen = await contrato_categoria_service.obtener_resumen_de_contrato(contrato_id)
+        self.form_categorias_contrato = [
+            {
+                "uid": str(item.id),
+                "categoria_puesto_id": item.categoria_puesto_id,
+                "categoria_clave": item.categoria_clave,
+                "categoria_nombre": item.categoria_nombre,
+                "cantidad_minima": item.cantidad_minima,
+                "cantidad_maxima": item.cantidad_maxima,
+                "costo_unitario": (
+                    formatear_moneda(str(item.costo_unitario))
+                    if item.costo_unitario is not None
+                    else ""
+                ),
+            }
+            for item in resumen
+        ]
+        self.categorias_contrato_cargadas = True
+        if self.form_categorias_contrato:
+            self._sincronizar_totales_plazas_desde_categorias()
+
+    def _validar_paso(self, paso: int) -> str:
+        """Valida únicamente los campos del paso actual del wizard."""
+        self.limpiar_mensajes()
+
+        if paso == 1:
+            self._limpiar_errores()
+            self.validar_empresa_id_campo()
+            self.validar_tipo_contrato_campo()
+            self.validar_fecha_inicio_campo()
+            self.validar_descripcion_objeto_campo()
+            if self._usa_folio_en_formulario():
+                self._validar_campo("folio_buap")
+            else:
+                self.error_folio_buap = ""
+
+            if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
+                self.validar_tipo_servicio_id_campo()
+                if self.form_fecha_fin:
+                    self.validar_fecha_fin_campo()
+                else:
+                    self.error_fecha_fin = ""
+            else:
+                self.error_tipo_servicio_id = ""
+                if self.form_fecha_fin:
+                    self.validar_fecha_fin_campo()
+                else:
+                    self.error_fecha_fin = ""
+
+            return "; ".join(self._errores_paso_datos_formulario())
+
+        if paso == 2:
+            self.error_cantidad_plazas_minima = ""
+            self.error_cantidad_plazas_maxima = ""
+
+            if not (self.form_tipo_contrato == TipoContrato.SERVICIOS.value and self.form_tiene_personal):
+                return ""
+
+            self.validar_cantidad_plazas_minima_campo()
+            self.validar_cantidad_plazas_maxima_campo()
+            return "; ".join(self._errores_paso_plazas_formulario())
+
+        return ""
+
+    def _preparar_contrato_desde_formulario(self) -> ContratoCreate:
+        """Prepara objeto ContratoCreate desde formulario con lógica condicional"""
+        self._aplicar_contexto_empresa_portal()
+        es_adquisicion = self.form_tipo_contrato == TipoContrato.ADQUISICION.value
+
+        # tipo_servicio_id: requerido para SERVICIOS, opcional para ADQUISICION
+        tipo_servicio_id = None
+        if self.form_tipo_servicio_id:
+            tipo_servicio_id = self.parse_id(self.form_tipo_servicio_id)
+        elif not es_adquisicion:
+            # Solo error si es SERVICIOS y no tiene tipo_servicio
+            raise ValueError("Tipo de servicio es requerido para contratos de servicios")
+
+        # tipo_duracion: requerido para SERVICIOS, no aplica para ADQUISICION
+        tipo_duracion = None
+        if self.form_tipo_duracion:
+            tipo_duracion = TipoDuracion(self.form_tipo_duracion)
+
+        # fecha_fin: según tipo_duracion
+        fecha_fin = None
+        if self.form_fecha_fin:
+            fecha_fin = parse_date_input(self.form_fecha_fin)
+        if tipo_duracion == TipoDuracion.TIEMPO_DETERMINADO and not fecha_fin:
+            raise BusinessRuleError("Los contratos de tiempo determinado deben tener fecha de fin")
+
+        # montos: en servicios con desglose se derivan desde costo x cantidad
+        monto_minimo = None
+        monto_maximo = self._parse_decimal(self.form_monto_maximo)
+        if not es_adquisicion:
+            monto_minimo, monto_maximo = self._obtener_totales_montos_formulario()
+
+        # tiene_personal: False para ADQUISICION, configurable para SERVICIOS
+        tiene_personal = False if es_adquisicion else self.form_tiene_personal
+        cantidad_plazas_minima = 0
+        cantidad_plazas_maxima = 0
+        if tiene_personal:
+            cantidad_plazas_minima, cantidad_plazas_maxima = self._obtener_totales_plazas_formulario()
+
+        # requisicion_id (si viene del flujo Requisicion -> Contrato)
+        requisicion_id = None
+        if self.form_requisicion_id:
+            requisicion_id = self.parse_id(self.form_requisicion_id)
+
+        return ContratoCreate(
+            empresa_id=self.parse_id(self.form_empresa_id),
+            tipo_servicio_id=tipo_servicio_id,
+            requisicion_id=requisicion_id,
+            codigo="TEMP",  # Se sobrescribe con autogenerado
+            numero_folio_buap=self.form_folio_buap.strip() or None,
+            tipo_contrato=TipoContrato(self.form_tipo_contrato),
+            modalidad_adjudicacion=ModalidadAdjudicacion(self.form_modalidad_adjudicacion),
+            tipo_duracion=tipo_duracion,
+            fecha_inicio=parse_date_input(self.form_fecha_inicio),
+            fecha_fin=fecha_fin,
+            descripcion_objeto=self.form_descripcion_objeto.strip() or None,
+            monto_minimo=monto_minimo,
+            monto_maximo=monto_maximo,
+            incluye_iva=self.form_incluye_iva,
+            origen_recurso=self.form_origen_recurso.strip() or None,
+            segmento_asignacion=self.form_segmento_asignacion.strip() or None,
+            sede_campus=self.form_sede_campus.strip() or None,
+            requiere_poliza=self.form_requiere_poliza,
+            poliza_detalle=self.form_poliza_detalle.strip() or None,
+            tiene_personal=tiene_personal,
+            cantidad_plazas_minima=cantidad_plazas_minima,
+            cantidad_plazas_maxima=cantidad_plazas_maxima,
+            estatus=EstatusContrato(self.form_estatus) if self.form_estatus else EstatusContrato.BORRADOR,
+            notas=self.form_notas.strip() or None,
+        )
+
+    def _parse_decimal(self, value: str) -> Optional[Decimal]:
+        """Parsea string a Decimal, retorna None si vacío o inválido"""
+        if not value or value.strip() == "":
+            return None
+        try:
+            return Decimal(value.replace(",", "").replace("$", "").strip())
+        except InvalidOperation:
+            return None
+
+    def _resolver_codigos_contrato(self) -> tuple[str, str]:
+        """Resuelve los códigos necesarios para autogenerar el folio del contrato."""
+        return self._resolver_codigo_empresa(), self._resolver_clave_servicio()
+
+    def _aplicar_contexto_empresa_portal(self):
+        """Fija empresa del formulario a la empresa activa cuando aplica."""
+        if self.empresa_fijada_en_contexto:
+            self.form_empresa_id = str(self.id_empresa_actual)
+
+    async def _guardar_entregables_configurados(self, contrato_id: int):
+        """Persistir tipos de entregable configurados desde el formulario."""
+        if not self.config_entregables:
+            return
+
+        for config in self.config_entregables:
+            tipo_config = ContratoTipoEntregableCreate(
+                contrato_id=contrato_id,
+                tipo_entregable=TipoEntregable(config["tipo_entregable"]),
+                periodicidad=PeriodicidadEntregable(config["periodicidad"]),
+                requerido=config["requerido"],
+                descripcion=config.get("descripcion"),
+                instrucciones=config.get("instrucciones"),
+            )
+            await entregable_service.configurar_tipo_entregable(tipo_config)
+
+    async def _guardar_categorias_contrato_configuradas(self, contrato_id: int):
+        """Reemplaza el desglose de categorías del contrato con el capturado en el wizard."""
+        if not contrato_id or not self.categorias_contrato_cargadas:
+            return
+
+        if self.form_tipo_contrato != TipoContrato.SERVICIOS.value or not self.form_tiene_personal:
+            await contrato_categoria_service.reemplazar_categorias(contrato_id, [])
+            return
+
+        categorias = [
+            {
+                "categoria_puesto_id": int(item["categoria_puesto_id"]),
+                "cantidad_minima": int(item.get("cantidad_minima") or 0),
+                "cantidad_maxima": int(item.get("cantidad_maxima") or 0),
+                "costo_unitario": self._parse_decimal(item.get("costo_unitario") or ""),
+            }
+            for item in self.form_categorias_contrato
+        ]
+        await contrato_categoria_service.reemplazar_categorias(contrato_id, categorias)
+        if categorias:
+            await plaza_service.sincronizar_categorias_desde_contrato(contrato_id)
+
+    def _mensaje_errores_formulario(self) -> str:
+        """Construye el mensaje agregado de errores visibles del formulario."""
+        errores = []
+        errores_base = (
+            ("Empresa", self.error_empresa_id),
+            ("Tipo Contrato", self.error_tipo_contrato),
+            ("Modalidad", self.error_modalidad_adjudicacion),
+            ("Fecha inicio", self.error_fecha_inicio),
+            ("Objeto del contrato", self.error_descripcion_objeto),
+        )
+        for etiqueta, error in errores_base:
+            if error:
+                errores.append(f"{etiqueta}: {error}")
+
+        if self.form_tipo_contrato == TipoContrato.SERVICIOS.value:
+            errores_servicio = (
+                ("Tipo Servicio", self.error_tipo_servicio_id),
+                ("Duración", self.error_tipo_duracion),
+                ("Fecha fin", self.error_fecha_fin),
+            )
+            for etiqueta, error in errores_servicio:
+                if error:
+                    errores.append(f"{etiqueta}: {error}")
+
+        return "; ".join(errores) if errores else "Verifique los campos del formulario"
+
+    async def _ejecutar_transicion_contrato(
+        self,
+        *,
+        contrato: dict,
+        operacion,
+        mensaje_exito: str,
+        contexto_error: str,
+        mensaje_accion: Optional[str] = None,
+        on_exito=None,
+    ):
+        """Centraliza transiciones de estatus y refresh del listado."""
+        codigo = contrato["codigo"]
+        self.saving = True
+
+        if mensaje_accion:
+            yield self.crear_toast(
+                f"{mensaje_accion} contrato '{codigo}'...",
+                "info",
+                duration=2000,
+            )
+        else:
+            yield
+
+        try:
+            await operacion(contrato["id"])
+            if on_exito:
+                on_exito()
+            await self._fetch_contratos()
+            yield self.crear_toast(
+                f"Contrato '{codigo}' {mensaje_exito} exitosamente",
+                "success",
+                duration=3000,
+            )
+        except Exception as e:
+            yield self.manejar_error_con_toast(e, contexto_error)
+        finally:
+            self.saving = False
+
+    def _asegurar_permiso_operar_contratos(self):
+        """Valida que el usuario pueda operar contratos en el contexto actual."""
+        if self.es_contexto_portal:
+            if not self.es_admin_empresa:
+                raise BusinessRuleError("Solo admin_empresa puede crear contratos desde el portal")
+            if not self.id_empresa_actual:
+                raise BusinessRuleError("No hay empresa activa seleccionada")
+            return
+
+        if not (self.es_superadmin or self.puede_operar_contratos):
+            raise BusinessRuleError("No tienes permisos para operar contratos")
+
+    def _asegurar_permiso_editar_contrato(self, contrato: Optional[dict]):
+        """Valida que el usuario pueda editar el contrato en el contexto actual."""
+        self._asegurar_permiso_operar_contratos()
+
+        if not contrato:
+            raise BusinessRuleError("No hay contrato seleccionado para editar")
+
+        if self.es_contexto_portal:
+            contrato_empresa_id = int(contrato.get("empresa_id") or 0)
+            if not self.id_empresa_actual or contrato_empresa_id != int(self.id_empresa_actual):
+                raise BusinessRuleError(
+                    "Solo puedes editar contratos de la empresa activa en el portal"
+                )
+
+    def _resolver_codigo_empresa(self) -> str:
+        """Obtiene el código corto configurado de la empresa seleccionada."""
+        for empresa in self.empresas:
+            if str(empresa["id"]) != self.form_empresa_id:
+                continue
+
+            codigo_empresa = normalizar_mayusculas(str(empresa.get("codigo_corto") or "").strip())
+            if codigo_empresa:
+                return codigo_empresa
+            raise BusinessRuleError(
+                "La empresa seleccionada no tiene código corto configurado"
+            )
+
+        raise BusinessRuleError("No se encontró la empresa seleccionada para generar el contrato")
+
+    def _resolver_clave_servicio(self) -> str:
+        """Obtiene la clave de servicio para el código autogenerado del contrato."""
+        if self.form_tipo_contrato == TipoContrato.ADQUISICION.value:
+            return CLAVE_SERVICIO_ADQUISICION
+
+        for tipo in self.tipos_servicio:
+            if str(tipo["id"]) != self.form_tipo_servicio_id:
+                continue
+
+            clave_servicio = normalizar_mayusculas(str(tipo.get("clave") or "").strip())
+            if clave_servicio:
+                return clave_servicio
+            raise BusinessRuleError(
+                "El tipo de servicio seleccionado no tiene clave configurada"
+            )
+
+        raise BusinessRuleError(
+            "No se encontró el tipo de servicio seleccionado para generar el contrato"
+        )
+
+    def obtener_nombre_empresa(self, empresa_id: int) -> str:
+        """Obtener nombre de empresa por ID"""
+        for empresa in self.empresas:
+            if empresa["id"] == empresa_id:
+                return f"{empresa['codigo_corto']} - {empresa['nombre_comercial']}"
+        return "Desconocida"
+
+    def obtener_nombre_tipo_servicio(self, tipo_servicio_id: int) -> str:
+        """Obtener nombre de tipo de servicio por ID"""
+        for tipo in self.tipos_servicio:
+            if tipo["id"] == tipo_servicio_id:
+                return f"{tipo['clave']} - {tipo['nombre']}"
+        return "Desconocido"

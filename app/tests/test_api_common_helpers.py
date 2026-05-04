@@ -28,7 +28,8 @@ class HTTPException(Exception):
 # Stub de modulo fastapi antes de cargar app.api.v1.common.errors
 fastapi_stub = types.ModuleType("fastapi")
 fastapi_stub.HTTPException = HTTPException
-sys.modules.setdefault("fastapi", fastapi_stub)
+_original_fastapi = sys.modules.get("fastapi")
+sys.modules["fastapi"] = fastapi_stub
 
 _COMMON_DIR = Path(__file__).resolve().parents[1] / "api" / "v1" / "common"
 
@@ -55,19 +56,40 @@ app_api_v1_stub = types.ModuleType("app.api.v1")
 app_api_v1_schemas_stub = types.ModuleType("app.api.v1.schemas")
 app_api_v1_schemas_stub.APIResponse = _SimpleAPIResponse
 app_api_v1_schemas_stub.APIListResponse = _SimpleAPIListResponse
-sys.modules.setdefault("app.api", app_api_stub)
-sys.modules.setdefault("app.api.v1", app_api_v1_stub)
+_original_app_api = sys.modules.get("app.api")
+_original_app_api_v1 = sys.modules.get("app.api.v1")
+_original_app_api_v1_schemas = sys.modules.get("app.api.v1.schemas")
+sys.modules["app.api"] = app_api_stub
+sys.modules["app.api.v1"] = app_api_v1_stub
 sys.modules["app.api.v1.schemas"] = app_api_v1_schemas_stub
 
 _RESP_SPEC = spec_from_file_location("test_api_common_responses", _COMMON_DIR / "responses.py")
 _RESP_MOD = module_from_spec(_RESP_SPEC)
 assert _RESP_SPEC and _RESP_SPEC.loader
-_RESP_SPEC.loader.exec_module(_RESP_MOD)
+try:
+    _RESP_SPEC.loader.exec_module(_RESP_MOD)
 
-_ERR_SPEC = spec_from_file_location("test_api_common_errors", _COMMON_DIR / "errors.py")
-_ERR_MOD = module_from_spec(_ERR_SPEC)
-assert _ERR_SPEC and _ERR_SPEC.loader
-_ERR_SPEC.loader.exec_module(_ERR_MOD)
+    _ERR_SPEC = spec_from_file_location("test_api_common_errors", _COMMON_DIR / "errors.py")
+    _ERR_MOD = module_from_spec(_ERR_SPEC)
+    assert _ERR_SPEC and _ERR_SPEC.loader
+    _ERR_SPEC.loader.exec_module(_ERR_MOD)
+finally:
+    if _original_fastapi is not None:
+        sys.modules["fastapi"] = _original_fastapi
+    else:
+        sys.modules.pop("fastapi", None)
+    if _original_app_api is not None:
+        sys.modules["app.api"] = _original_app_api
+    else:
+        sys.modules.pop("app.api", None)
+    if _original_app_api_v1 is not None:
+        sys.modules["app.api.v1"] = _original_app_api_v1
+    else:
+        sys.modules.pop("app.api.v1", None)
+    if _original_app_api_v1_schemas is not None:
+        sys.modules["app.api.v1.schemas"] = _original_app_api_v1_schemas
+    else:
+        sys.modules.pop("app.api.v1.schemas", None)
 
 ok = _RESP_MOD.ok
 ok_list = _RESP_MOD.ok_list

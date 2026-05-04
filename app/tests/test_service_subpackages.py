@@ -1,6 +1,6 @@
 """Tests de compatibilidad para rutas canónicas de subpaquetes de servicios."""
 
-from app.services import (
+from app.domain.services import (
     AsistenciaConfigService as InitAsistenciaConfigService,
     AsistenciaIncidenciaService as InitAsistenciaIncidenciaService,
     AsistenciaJornadaService as InitAsistenciaJornadaService,
@@ -15,26 +15,26 @@ from app.services import (
     UserCompanyService as InitUserCompanyService,
     UserProfileService as InitUserProfileService,
 )
-from app.services.contratos import ContratoItemService, ContratoMutationService, ContratoQueryService
-from app.services.empleados import (
+from app.domain.services.contratos import ContratoItemService, ContratoMutationService, ContratoQueryService
+from app.domain.services.empleados import (
     EmpleadoMutationService,
     EmpleadoQueryService,
     EmpleadoRestrictionService,
 )
-from app.services.asistencia_config_service import AsistenciaConfigService as LegacyAsistenciaConfigService
-from app.services.asistencia_incidencia_service import AsistenciaIncidenciaService as LegacyAsistenciaIncidenciaService
-from app.services.asistencia_jornada_service import AsistenciaJornadaService as LegacyAsistenciaJornadaService
-from app.services.asistencia_panel_service import AsistenciaPanelService as LegacyAsistenciaPanelService
-from app.services.asistencias.config import AsistenciaConfigService
-from app.services.asistencias.incidencias import AsistenciaIncidenciaService
-from app.services.asistencias.jornadas import AsistenciaJornadaService
-from app.services.asistencias.panel import AsistenciaPanelService
-from app.services.user_auth_service import UserAuthService as LegacyUserAuthService
-from app.services.user_company_service import UserCompanyService as LegacyUserCompanyService
-from app.services.user_profile_service import UserProfileService as LegacyUserProfileService
-from app.services.users.auth import UserAuthService
-from app.services.users.companies import UserCompanyService
-from app.services.users.profiles import UserProfileService
+from app.domain.services.asistencia_config_service import AsistenciaConfigService as LegacyAsistenciaConfigService
+from app.domain.services.asistencia_incidencia_service import AsistenciaIncidenciaService as LegacyAsistenciaIncidenciaService
+from app.domain.services.asistencia_jornada_service import AsistenciaJornadaService as LegacyAsistenciaJornadaService
+from app.domain.services.asistencia_panel_service import AsistenciaPanelService as LegacyAsistenciaPanelService
+from app.domain.services.asistencias.config import AsistenciaConfigService
+from app.domain.services.asistencias.incidencias import AsistenciaIncidenciaService
+from app.domain.services.asistencias.jornadas import AsistenciaJornadaService
+from app.domain.services.asistencias.panel import AsistenciaPanelService
+from app.domain.services.user_auth_service import UserAuthService as LegacyUserAuthService
+from app.domain.services.user_company_service import UserCompanyService as LegacyUserCompanyService
+from app.domain.services.user_profile_service import UserProfileService as LegacyUserProfileService
+from app.domain.services.users.auth import UserAuthService
+from app.domain.services.users.companies import UserCompanyService
+from app.domain.services.users.profiles import UserProfileService
 
 
 def test_user_subpackages_reexportan_clases_canonicas():

@@ -21,6 +21,8 @@ class Layout:
     SIDEBAR_WIDTH: str = "240px"
     SIDEBAR_MIN_WIDTH: str = "240px"
     CONTENT_MAX_WIDTH: str = "1400px"
+    CONTENT_MAX_WIDTH_COMPACT: str = "900px"
+    CONTENT_MAX_WIDTH_OPERATIONS: str = "1200px"
 
 
 def content_container(*children, **props) -> rx.Component:

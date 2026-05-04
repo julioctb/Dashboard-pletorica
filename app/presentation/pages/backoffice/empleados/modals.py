@@ -1,0 +1,1037 @@
+"""
+Modales para la pagina de Empleados.
+
+Modal crear/editar, detalle, baja, restriccion, liberacion e historial.
+"""
+import reflex as rx
+
+from app.presentation.pages.backoffice.empleados.empleados_state import EmpleadosState
+from app.presentation.theme import Colors, Typography, Spacing
+from app.presentation.components.reusable import (
+    employee_form_body,
+    employee_form_modal,
+    employee_address_field,
+    employee_birth_gender_row,
+    employee_curp_field,
+    employee_date_field,
+    employee_emergency_contact_section,
+    employee_name_fields_section,
+    employee_notes_field,
+    employee_phone_email_row,
+    employee_recurring_discount_card,
+    employee_recurring_discounts_section,
+    employee_rfc_nss_row,
+)
+from app.presentation.components.ui import boton_cancelar, boton_guardar, identifier_badge
+from app.presentation.components.ui.form_input import form_date, select_items_from_options
+from app.presentation.components.ui.modals import modal_formulario, modal_detalle
+from .components import estatus_badge, restriccion_badge
+
+
+# =============================================================================
+# MODAL CREAR/EDITAR EMPLEADO
+# =============================================================================
+
+def modal_empleado() -> rx.Component:
+    """Modal para crear/editar empleado"""
+    return employee_form_modal(
+        open_state=EmpleadosState.mostrar_modal_empleado,
+        title=EmpleadosState.titulo_modal,
+        description="Complete los datos del empleado",
+        body=employee_form_body(
+                # Empresa
+                rx.vstack(
+                    rx.text("Empresa", size="2", weight="medium"),
+                    rx.select.root(
+                        rx.select.trigger(
+                            placeholder="Seleccionar empresa...",
+                            width="100%",
+                        ),
+                        rx.select.content(select_items_from_options(EmpleadosState.opciones_empresas)),
+                        value=EmpleadosState.form_empresa_id,
+                        on_change=EmpleadosState.set_form_empresa_id,
+                        disabled=~EmpleadosState.puede_cambiar_empresa_formulario,
+                    ),
+                    rx.cond(
+                        EmpleadosState.error_empresa_id != "",
+                        rx.text(EmpleadosState.error_empresa_id, size="1", color="red"),
+                    ),
+                    width="100%",
+                    spacing="1",
+                ),
+
+                # CURP (obligatorio, solo en creación)
+                rx.cond(
+                    ~EmpleadosState.es_edicion,
+                    employee_curp_field(
+                        value=EmpleadosState.form_curp,
+                        on_change=EmpleadosState.set_form_curp,
+                        on_blur=EmpleadosState.validar_curp_blur,
+                        error=EmpleadosState.error_curp,
+                        placeholder="18 caracteres",
+                    ),
+                ),
+
+                # Nombre y apellidos
+                employee_name_fields_section(
+                    nombre_value=EmpleadosState.form_nombre,
+                    nombre_on_change=EmpleadosState.set_form_nombre,
+                    nombre_on_blur=EmpleadosState.validar_nombre_blur,
+                    nombre_error=EmpleadosState.error_nombre,
+                    apellido_paterno_value=EmpleadosState.form_apellido_paterno,
+                    apellido_paterno_on_change=EmpleadosState.set_form_apellido_paterno,
+                    apellido_paterno_on_blur=EmpleadosState.validar_apellido_paterno_blur,
+                    apellido_paterno_error=EmpleadosState.error_apellido_paterno,
+                    apellido_materno_value=EmpleadosState.form_apellido_materno,
+                    apellido_materno_on_change=EmpleadosState.set_form_apellido_materno,
+                    materno_requerido=False,
+                    materno_placeholder="Apellido materno (opcional)",
+                ),
+
+                # RFC y NSS
+                employee_rfc_nss_row(
+                    rfc_value=EmpleadosState.form_rfc,
+                    rfc_on_change=EmpleadosState.set_form_rfc,
+                    rfc_on_blur=EmpleadosState.validar_rfc_blur,
+                    rfc_error=EmpleadosState.error_rfc,
+                    nss_value=EmpleadosState.form_nss,
+                    nss_on_change=EmpleadosState.set_form_nss,
+                    nss_on_blur=EmpleadosState.validar_nss_blur,
+                    nss_error=EmpleadosState.error_nss,
+                    rfc_required=False,
+                    nss_required=False,
+                    rfc_placeholder="13 caracteres",
+                    nss_placeholder="11 dígitos",
+                ),
+
+                _campo_fecha_ingreso(),
+
+                # Fecha nacimiento y género
+                employee_birth_gender_row(
+                    fecha_value=EmpleadosState.form_fecha_nacimiento,
+                    fecha_on_change=EmpleadosState.set_form_fecha_nacimiento,
+                    genero_value=EmpleadosState.form_genero,
+                    genero_on_change=EmpleadosState.set_form_genero,
+                    opciones_genero=EmpleadosState.opciones_genero,
+                    fecha_required=False,
+                    genero_required=False,
+                    genero_label="Género",
+                ),
+
+                # Teléfono y email
+                employee_phone_email_row(
+                    telefono_value=EmpleadosState.form_telefono,
+                    telefono_on_change=EmpleadosState.set_form_telefono,
+                    telefono_on_blur=EmpleadosState.validar_telefono_blur,
+                    telefono_error=EmpleadosState.error_telefono,
+                    email_value=EmpleadosState.form_email,
+                    email_on_change=EmpleadosState.set_form_email,
+                    email_on_blur=EmpleadosState.validar_email_blur,
+                    email_error=EmpleadosState.error_email,
+                    telefono_required=False,
+                    telefono_placeholder="10 dígitos",
+                    email_placeholder="correo@ejemplo.com",
+                ),
+
+                # Dirección
+                employee_address_field(
+                    value=EmpleadosState.form_direccion,
+                    on_change=EmpleadosState.set_form_direccion,
+                    placeholder="Dirección completa",
+                    label="Dirección",
+                ),
+
+                # Contacto de emergencia
+                employee_emergency_contact_section(
+                    mode="simple",
+                    simple_value=EmpleadosState.form_contacto_emergencia,
+                    simple_on_change=EmpleadosState.set_form_contacto_emergencia,
+                    simple_placeholder="Nombre y teléfono",
+                    label_weight="medium",
+                ),
+
+                # Notas
+                employee_notes_field(
+                    value=EmpleadosState.form_notas,
+                    on_change=EmpleadosState.set_form_notas,
+                    placeholder="Observaciones adicionales",
+                ),
+
+                _seccion_descuentos_recurrentes_form(),
+
+                padding_y="4",
+        ),
+        on_cancel=EmpleadosState.cerrar_modal_empleado,
+        on_save=EmpleadosState.guardar_empleado,
+        save_text=rx.cond(
+            EmpleadosState.es_edicion,
+            "Guardar Cambios",
+            "Crear Empleado",
+        ),
+        saving=EmpleadosState.saving,
+        save_loading_text="Guardando...",
+        max_width="600px",
+    )
+
+
+def _campo_fecha_ingreso() -> rx.Component:
+    """Campo reusable de fecha de ingreso para backoffice."""
+    return employee_date_field(
+        label="Fecha de Ingreso",
+        required=True,
+        value=EmpleadosState.form_fecha_ingreso,
+        on_change=EmpleadosState.set_form_fecha_ingreso,
+        on_blur=EmpleadosState.validar_fecha_ingreso_blur,
+        error=EmpleadosState.error_fecha_ingreso,
+        helper_text=rx.text(
+            "Se autocompleta con la fecha actual al crear, pero sigue siendo editable.",
+            font_size=Typography.SIZE_XS,
+            color=Colors.TEXT_SECONDARY,
+        ),
+    )
+
+
+def _seccion_descuentos_recurrentes_form() -> rx.Component:
+    """Sección de descuentos recurrentes en el formulario de empleado."""
+    return employee_recurring_discounts_section(
+        employee_recurring_discount_card(
+            title="INFONAVIT",
+            badge_text="INF",
+            badge_color_scheme="blue",
+            amount_value=EmpleadosState.form_descuento_infonavit_monto,
+            amount_on_change=lambda value: EmpleadosState.set_form_descuento_monto("infonavit", value),
+            start_value=EmpleadosState.form_descuento_infonavit_inicio,
+            start_on_change=lambda value: EmpleadosState.set_form_descuento_inicio("infonavit", value),
+            end_value=EmpleadosState.form_descuento_infonavit_fin,
+            end_on_change=lambda value: EmpleadosState.set_form_descuento_fin("infonavit", value),
+            notes_value=EmpleadosState.form_descuento_infonavit_notas,
+            notes_on_change=lambda value: EmpleadosState.set_form_descuento_notas("infonavit", value),
+        ),
+        employee_recurring_discount_card(
+            title="FONACOT",
+            badge_text="FON",
+            badge_color_scheme="orange",
+            amount_value=EmpleadosState.form_descuento_fonacot_monto,
+            amount_on_change=lambda value: EmpleadosState.set_form_descuento_monto("fonacot", value),
+            start_value=EmpleadosState.form_descuento_fonacot_inicio,
+            start_on_change=lambda value: EmpleadosState.set_form_descuento_inicio("fonacot", value),
+            end_value=EmpleadosState.form_descuento_fonacot_fin,
+            end_on_change=lambda value: EmpleadosState.set_form_descuento_fin("fonacot", value),
+            notes_value=EmpleadosState.form_descuento_fonacot_notas,
+            notes_on_change=lambda value: EmpleadosState.set_form_descuento_notas("fonacot", value),
+        ),
+        employee_recurring_discount_card(
+            title="Préstamo empresa",
+            badge_text="PRE",
+            badge_color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+            amount_value=EmpleadosState.form_descuento_prestamo_empresa_monto,
+            amount_on_change=lambda value: EmpleadosState.set_form_descuento_monto("prestamo_empresa", value),
+            start_value=EmpleadosState.form_descuento_prestamo_empresa_inicio,
+            start_on_change=lambda value: EmpleadosState.set_form_descuento_inicio("prestamo_empresa", value),
+            end_value=EmpleadosState.form_descuento_prestamo_empresa_fin,
+            end_on_change=lambda value: EmpleadosState.set_form_descuento_fin("prestamo_empresa", value),
+            notes_value=EmpleadosState.form_descuento_prestamo_empresa_notas,
+            notes_on_change=lambda value: EmpleadosState.set_form_descuento_notas("prestamo_empresa", value),
+        ),
+        employee_recurring_discount_card(
+            title="Pensión alimenticia",
+            badge_text="PEN",
+            badge_color_scheme="red",
+            amount_value=EmpleadosState.form_descuento_pension_alimenticia_monto,
+            amount_on_change=lambda value: EmpleadosState.set_form_descuento_monto("pension_alimenticia", value),
+            start_value=EmpleadosState.form_descuento_pension_alimenticia_inicio,
+            start_on_change=lambda value: EmpleadosState.set_form_descuento_inicio("pension_alimenticia", value),
+            end_value=EmpleadosState.form_descuento_pension_alimenticia_fin,
+            end_on_change=lambda value: EmpleadosState.set_form_descuento_fin("pension_alimenticia", value),
+            notes_value=EmpleadosState.form_descuento_pension_alimenticia_notas,
+            notes_on_change=lambda value: EmpleadosState.set_form_descuento_notas("pension_alimenticia", value),
+        ),
+        error=EmpleadosState.error_descuentos_recurrentes,
+        helper_text=(
+            "Capture solo los descuentos configurados. Si deja la fecha fin vacía, "
+            "el descuento se considera indefinido."
+        ),
+    )
+
+
+def _badge_descuento_empleado(descuento: dict) -> rx.Component:
+    """Badge compacto con tooltip para descuentos configurados."""
+    return rx.tooltip(
+        rx.badge(
+            descuento["badge"],
+            color_scheme=descuento["color_scheme"],
+            variant="soft",
+            size="1",
+        ),
+        content=descuento["tooltip"],
+    )
+
+
+def _fila_descuento_detalle(descuento: dict) -> rx.Component:
+    """Fila de lectura para descuentos configurados del empleado."""
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.hstack(
+                    _badge_descuento_empleado(descuento),
+                    rx.text(descuento["concepto_nombre"], size="2", weight="medium"),
+                    spacing="2",
+                    align="center",
+                ),
+                rx.spacer(),
+                rx.text(descuento["monto_periodico_fmt"], size="2", weight="medium"),
+                width="100%",
+                align="center",
+            ),
+            rx.text(descuento["vigencia"], size="1", color="gray"),
+            rx.cond(
+                descuento["notas"] != "",
+                rx.text(descuento["notas"], size="1", color="gray"),
+                rx.fragment(),
+            ),
+            width="100%",
+            spacing="1",
+        ),
+        width="100%",
+        padding_y="6px",
+        border_bottom=f"1px solid {Colors.BORDER}",
+    )
+
+
+def _seccion_descuentos_detalle() -> rx.Component:
+    """Sección de lectura para descuentos configurados del empleado."""
+    descuentos_configurados = EmpleadosState.empleado_seleccionado[
+        "descuentos_configurados"
+    ].to(list[dict])
+    descuentos_activos = EmpleadosState.empleado_seleccionado[
+        "descuentos_activos_hoy"
+    ].to(list[dict])
+    return rx.vstack(
+        rx.text("Descuentos Recurrentes", weight="bold", size="3"),
+        rx.cond(
+            descuentos_configurados.length() > 0,
+            rx.vstack(
+                rx.hstack(
+                    rx.foreach(descuentos_activos, _badge_descuento_empleado),
+                    spacing="2",
+                    wrap="wrap",
+                    width="100%",
+                ),
+                rx.vstack(
+                    rx.foreach(descuentos_configurados, _fila_descuento_detalle),
+                    width="100%",
+                    spacing="0",
+                ),
+                width="100%",
+                spacing="3",
+            ),
+            rx.text(
+                "No hay descuentos recurrentes configurados.",
+                size="2",
+                color="gray",
+            ),
+        ),
+        spacing="2",
+        width="100%",
+        align_items="start",
+    )
+
+
+# =============================================================================
+# MODAL DETALLE EMPLEADO
+# =============================================================================
+
+def modal_detalle_empleado() -> rx.Component:
+    """Modal de detalle del empleado"""
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.hstack(
+                rx.dialog.title(
+                    rx.hstack(
+                        rx.icon("user", size=20),
+                        EmpleadosState.nombre_completo_seleccionado,
+                        spacing="2",
+                        align="center",
+                    ),
+                ),
+                rx.spacer(),
+                rx.button(
+                    rx.icon("x", size=16),
+                    variant="ghost",
+                    color_scheme="gray",
+                    size="1",
+                    on_click=EmpleadosState.cerrar_modal_detalle,
+                    cursor="pointer",
+                ),
+                align="center",
+                width="100%",
+            ),
+
+            rx.vstack(
+                # Información principal
+                rx.cond(
+                    EmpleadosState.empleado_seleccionado,
+                    rx.vstack(
+                        # Clave, estatus y badge de restriccion
+                        rx.hstack(
+                            identifier_badge(EmpleadosState.empleado_seleccionado["clave"]),
+                            estatus_badge(EmpleadosState.empleado_seleccionado["estatus"]),
+                            restriccion_badge(EmpleadosState.empleado_esta_restringido),
+                            spacing="2",
+                        ),
+
+                        # Callout de restriccion (si esta restringido)
+                        rx.cond(
+                            EmpleadosState.empleado_esta_restringido,
+                            rx.callout(
+                                rx.vstack(
+                                    rx.text("Motivo:", weight="bold", size="2"),
+                                    rx.cond(
+                                        EmpleadosState.es_admin,
+                                        rx.text(
+                                            EmpleadosState.motivo_restriccion_actual,
+                                            size="2",
+                                        ),
+                                        rx.text(
+                                            "Contacte al administrador para mas informacion.",
+                                            size="2",
+                                            color="gray",
+                                        ),
+                                    ),
+                                    rx.cond(
+                                        EmpleadosState.fecha_restriccion_actual != "",
+                                        rx.text(
+                                            "Desde: ",
+                                            EmpleadosState.fecha_restriccion_actual,
+                                            size="1",
+                                            color="gray",
+                                        ),
+                                    ),
+                                    spacing="1",
+                                    align_items="start",
+                                ),
+                                icon="triangle-alert",
+                                color_scheme="red",
+                                size="2",
+                                width="100%",
+                            ),
+                        ),
+
+                        rx.divider(),
+
+                        # Datos personales
+                        rx.vstack(
+                            rx.text("Datos Personales", weight="bold", size="3"),
+                            rx.hstack(
+                                rx.vstack(
+                                    rx.text("CURP", size="1", color="gray"),
+                                    rx.text(EmpleadosState.empleado_seleccionado["curp"], size="2"),
+                                    spacing="1",
+                                ),
+                                rx.vstack(
+                                    rx.text("RFC", size="1", color="gray"),
+                                    rx.text(
+                                        rx.cond(
+                                            EmpleadosState.empleado_seleccionado["rfc"],
+                                            EmpleadosState.empleado_seleccionado["rfc"],
+                                            "No registrado",
+                                        ),
+                                        size="2",
+                                    ),
+                                    spacing="1",
+                                ),
+                                rx.vstack(
+                                    rx.text("NSS", size="1", color="gray"),
+                                    rx.text(
+                                        rx.cond(
+                                            EmpleadosState.empleado_seleccionado["nss"],
+                                            EmpleadosState.empleado_seleccionado["nss"],
+                                            "No registrado",
+                                        ),
+                                        size="2",
+                                    ),
+                                    spacing="1",
+                                ),
+                                spacing="4",
+                                width="100%",
+                            ),
+                            spacing="2",
+                            width="100%",
+                            align_items="start",
+                        ),
+
+                        rx.divider(),
+
+                        # Empresa y contacto
+                        rx.vstack(
+                            rx.text("Información Laboral", weight="bold", size="3"),
+                            rx.hstack(
+                                rx.vstack(
+                                    rx.text("Empresa", size="1", color="gray"),
+                                    rx.text(EmpleadosState.empleado_seleccionado["empresa_nombre"], size="2"),
+                                    spacing="1",
+                                ),
+                                rx.vstack(
+                                    rx.text("Primer ingreso", size="1", color="gray"),
+                                    rx.text(
+                                        rx.cond(
+                                            EmpleadosState.empleado_seleccionado.get("fecha_ingreso", ""),
+                                            EmpleadosState.empleado_seleccionado.get("fecha_ingreso", ""),
+                                            "No registrada",
+                                        ),
+                                        size="2",
+                                    ),
+                                    spacing="1",
+                                ),
+                                rx.vstack(
+                                    rx.text("Ingreso vigente", size="1", color="gray"),
+                                    rx.text(
+                                        rx.cond(
+                                            EmpleadosState.empleado_seleccionado.get("fecha_ingreso_vigente", ""),
+                                            EmpleadosState.empleado_seleccionado.get("fecha_ingreso_vigente", ""),
+                                            "No registrado",
+                                        ),
+                                        size="2",
+                                    ),
+                                    spacing="1",
+                                ),
+                                spacing="4",
+                                width="100%",
+                            ),
+                            spacing="2",
+                            width="100%",
+                            align_items="start",
+                        ),
+
+                        rx.divider(),
+
+                        _seccion_descuentos_detalle(),
+
+                        rx.divider(),
+
+                        # Contacto
+                        rx.vstack(
+                            rx.text("Contacto", weight="bold", size="3"),
+                            rx.hstack(
+                                rx.vstack(
+                                    rx.text("Teléfono", size="1", color="gray"),
+                                    rx.text(
+                                        rx.cond(
+                                            EmpleadosState.empleado_seleccionado["telefono"],
+                                            EmpleadosState.empleado_seleccionado["telefono"],
+                                            "No registrado",
+                                        ),
+                                        size="2",
+                                    ),
+                                    spacing="1",
+                                ),
+                                rx.vstack(
+                                    rx.text("Email", size="1", color="gray"),
+                                    rx.text(
+                                        rx.cond(
+                                            EmpleadosState.empleado_seleccionado["email"],
+                                            EmpleadosState.empleado_seleccionado["email"],
+                                            "No registrado",
+                                        ),
+                                        size="2",
+                                    ),
+                                    spacing="1",
+                                ),
+                                spacing="4",
+                                width="100%",
+                            ),
+                            spacing="2",
+                            width="100%",
+                            align_items="start",
+                        ),
+
+                        spacing="4",
+                        width="100%",
+                    ),
+                ),
+
+                spacing="4",
+                width="100%",
+                padding_y="4",
+            ),
+
+            # Botones de accion
+            rx.box(height="16px"),
+            rx.hstack(
+                # Ver historial (solo admin)
+                rx.cond(
+                    EmpleadosState.es_admin,
+                    rx.button(
+                        rx.icon("history", size=14),
+                        "Historial",
+                        variant="soft",
+                        color_scheme="gray",
+                        on_click=EmpleadosState.abrir_modal_historial,
+                    ),
+                ),
+                # Restringir (solo admin, solo si no restringido)
+                rx.cond(
+                    EmpleadosState.puede_restringir,
+                    rx.button(
+                        rx.icon("ban", size=14),
+                        "Restringir",
+                        variant="soft",
+                        color_scheme="red",
+                        on_click=EmpleadosState.abrir_modal_restriccion,
+                    ),
+                ),
+                # Liberar (solo admin, solo si restringido)
+                rx.cond(
+                    EmpleadosState.puede_liberar,
+                    rx.button(
+                        rx.icon("circle-check", size=14),
+                        "Liberar",
+                        variant="soft",
+                        color_scheme="green",
+                        on_click=EmpleadosState.abrir_modal_liberacion,
+                    ),
+                ),
+                # Reactivar (si inactivo Y no restringido)
+                rx.cond(
+                    EmpleadosState.empleado_esta_inactivo & ~EmpleadosState.empleado_esta_restringido,
+                    rx.button(
+                        rx.icon("user-check", size=14),
+                        "Reactivar",
+                        variant="soft",
+                        color_scheme="green",
+                        on_click=EmpleadosState.reactivar_empleado,
+                    ),
+                ),
+                spacing="3",
+                width="100%",
+                justify="end",
+            ),
+
+            max_width="650px",
+        ),
+        open=EmpleadosState.mostrar_modal_detalle,
+        # No cerrar al hacer click fuera - solo con botones
+        on_open_change=rx.noop,
+    )
+
+
+# =============================================================================
+# MODAL BAJA
+# =============================================================================
+
+def modal_baja() -> rx.Component:
+    """Modal para dar de baja a un empleado - version mejorada."""
+    return modal_formulario(
+        open=EmpleadosState.mostrar_modal_baja,
+        titulo="Dar de Baja",
+        descripcion="Se registrara un proceso de baja con seguimiento de liquidacion.",
+        icono="user-minus",
+        color_icono="red",
+        on_guardar=EmpleadosState.dar_de_baja,
+        on_cancelar=EmpleadosState.cerrar_modal_baja,
+        loading=EmpleadosState.saving,
+        texto_guardar="Confirmar Baja",
+        texto_guardando="Procesando...",
+        color_guardar="red",
+        max_width="480px",
+        contenido=rx.vstack(
+            rx.vstack(
+                rx.text(
+                    "Motivo de baja *",
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                ),
+                rx.select.root(
+                    rx.select.trigger(
+                        placeholder="Seleccionar motivo...",
+                        width="100%",
+                    ),
+                    rx.select.content(select_items_from_options(EmpleadosState.opciones_motivo_baja)),
+                    value=EmpleadosState.form_motivo_baja,
+                    on_change=EmpleadosState.set_form_motivo_baja,
+                ),
+                width="100%",
+                spacing="1",
+            ),
+            form_date(
+                label="Fecha efectiva",
+                required=True,
+                value=EmpleadosState.form_fecha_efectiva,
+                on_change=EmpleadosState.set_form_fecha_efectiva,
+                hint="Fecha en que el empleado deja de trabajar. Si es hoy, dejar vacio.",
+            ),
+            rx.vstack(
+                rx.text(
+                    "Observaciones",
+                    font_size=Typography.SIZE_SM,
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                ),
+                rx.text_area(
+                    placeholder="Detalles adicionales sobre la baja...",
+                    value=EmpleadosState.form_notas_baja,
+                    on_change=EmpleadosState.set_form_notas_baja,
+                    rows="3",
+                    width="100%",
+                ),
+                width="100%",
+                spacing="1",
+            ),
+            rx.callout(
+                rx.text(
+                    "Se generara alerta automatica para entregar "
+                    "liquidacion/finiquito dentro de 15 dias habiles.",
+                    font_size=Typography.SIZE_BASE,
+                ),
+                icon="info",
+                color_scheme="blue",
+                size="1",
+                width="100%",
+            ),
+            spacing="4",
+            width="100%",
+            padding_y=Spacing.SM,
+        ),
+    )
+
+
+# =============================================================================
+# MODAL RESTRICCION
+# =============================================================================
+
+def modal_restriccion() -> rx.Component:
+    """Modal para restringir un empleado."""
+    return modal_formulario(
+        open=EmpleadosState.mostrar_modal_restriccion,
+        titulo="Restringir Empleado",
+        icono="ban",
+        color_icono="red",
+        on_guardar=EmpleadosState.confirmar_restriccion,
+        on_cancelar=EmpleadosState.cerrar_modal_restriccion,
+        puede_guardar=EmpleadosState.puede_guardar_restriccion,
+        loading=EmpleadosState.saving,
+        texto_guardar="Confirmar Restriccion",
+        texto_guardando="Restringiendo...",
+        color_guardar="red",
+        max_width="500px",
+        contenido=rx.vstack(
+            # Info del empleado
+            rx.cond(
+                EmpleadosState.empleado_seleccionado,
+                rx.vstack(
+                    rx.hstack(
+                        rx.text("Empleado:", weight="medium"),
+                        rx.text(EmpleadosState.nombre_completo_seleccionado),
+                        spacing="2",
+                    ),
+                    rx.hstack(
+                        rx.text("Clave:", weight="medium"),
+                        rx.badge(
+                            EmpleadosState.empleado_seleccionado["clave"],
+                            variant="outline",
+                        ),
+                        spacing="2",
+                    ),
+                    rx.hstack(
+                        rx.text("CURP:", weight="medium"),
+                        rx.text(EmpleadosState.empleado_seleccionado["curp"]),
+                        spacing="2",
+                    ),
+                    spacing="2",
+                    width="100%",
+                    align_items="start",
+                ),
+            ),
+
+            rx.divider(),
+
+            # Advertencia
+            rx.callout(
+                rx.text(
+                    "Esta accion bloqueara al empleado en todas las empresas proveedoras del sistema. "
+                    "Ninguna empresa proveedora podra darlo de alta.",
+                    as_="span",
+                ),
+                icon="triangle-alert",
+                color_scheme="red",
+                size="2",
+            ),
+
+            # Motivo (obligatorio)
+            rx.vstack(
+                rx.text("Motivo de restriccion *", size="2", weight="medium"),
+                rx.text_area(
+                    placeholder="Describa el motivo de la restriccion (minimo 10 caracteres)...",
+                    value=EmpleadosState.form_motivo_restriccion,
+                    on_change=EmpleadosState.set_form_motivo_restriccion,
+                    max_length=500,
+                    rows="3",
+                    width="100%",
+                ),
+                rx.text(
+                    EmpleadosState.form_motivo_restriccion.length(),
+                    "/500 caracteres (min. 10)",
+                    size="1",
+                    color="gray",
+                ),
+                width="100%",
+                spacing="1",
+            ),
+
+            # Notas adicionales (opcional)
+            rx.vstack(
+                rx.text("Notas adicionales (opcional)", size="2", weight="medium"),
+                rx.text_area(
+                    placeholder="Observaciones, numero de expediente, etc...",
+                    value=EmpleadosState.form_notas_restriccion,
+                    on_change=EmpleadosState.set_form_notas_restriccion,
+                    max_length=1000,
+                    rows="2",
+                    width="100%",
+                ),
+                width="100%",
+                spacing="1",
+            ),
+
+            spacing="4",
+            width="100%",
+            padding_y="4",
+        ),
+    )
+
+
+# =============================================================================
+# MODAL LIBERACION
+# =============================================================================
+
+def modal_liberacion() -> rx.Component:
+    """Modal para liberar restriccion de un empleado."""
+    return modal_formulario(
+        open=EmpleadosState.mostrar_modal_liberacion,
+        titulo="Liberar Restriccion",
+        icono="circle-check",
+        color_icono="green",
+        on_guardar=EmpleadosState.confirmar_liberacion,
+        on_cancelar=EmpleadosState.cerrar_modal_liberacion,
+        puede_guardar=EmpleadosState.puede_guardar_liberacion,
+        loading=EmpleadosState.saving,
+        texto_guardar="Confirmar Liberacion",
+        texto_guardando="Liberando...",
+        color_guardar="green",
+        max_width="500px",
+        contenido=rx.vstack(
+            # Info del empleado
+            rx.cond(
+                EmpleadosState.empleado_seleccionado,
+                rx.vstack(
+                    rx.hstack(
+                        rx.text("Empleado:", weight="medium"),
+                        rx.text(EmpleadosState.nombre_completo_seleccionado),
+                        spacing="2",
+                    ),
+                    rx.badge(
+                        EmpleadosState.empleado_seleccionado["clave"],
+                        variant="outline",
+                    ),
+                    spacing="2",
+                    width="100%",
+                ),
+            ),
+
+            rx.divider(),
+
+            # Restriccion actual
+            rx.callout(
+                rx.vstack(
+                    rx.text("Restriccion actual:", weight="bold", size="2"),
+                    rx.text(
+                        EmpleadosState.motivo_restriccion_actual,
+                        size="2",
+                    ),
+                    rx.cond(
+                        EmpleadosState.fecha_restriccion_actual != "",
+                        rx.text(
+                            "Fecha: ",
+                            EmpleadosState.fecha_restriccion_actual,
+                            size="1",
+                            color="gray",
+                        ),
+                    ),
+                    spacing="1",
+                    align_items="start",
+                ),
+                icon="info",
+                color_scheme="blue",
+                size="2",
+            ),
+
+            # Motivo de liberacion (obligatorio)
+            rx.vstack(
+                rx.text("Motivo de liberacion *", size="2", weight="medium"),
+                rx.text_area(
+                    placeholder="Describa por que se libera la restriccion (minimo 10 caracteres)...",
+                    value=EmpleadosState.form_motivo_liberacion,
+                    on_change=EmpleadosState.set_form_motivo_liberacion,
+                    max_length=500,
+                    rows="3",
+                    width="100%",
+                ),
+                rx.text(
+                    EmpleadosState.form_motivo_liberacion.length(),
+                    "/500 caracteres (min. 10)",
+                    size="1",
+                    color="gray",
+                ),
+                width="100%",
+                spacing="1",
+            ),
+
+            # Notas adicionales (opcional)
+            rx.vstack(
+                rx.text("Notas adicionales (opcional)", size="2", weight="medium"),
+                rx.text_area(
+                    placeholder="Observaciones adicionales...",
+                    value=EmpleadosState.form_notas_liberacion,
+                    on_change=EmpleadosState.set_form_notas_liberacion,
+                    max_length=1000,
+                    rows="2",
+                    width="100%",
+                ),
+                width="100%",
+                spacing="1",
+            ),
+
+            spacing="4",
+            width="100%",
+            padding_y="4",
+        ),
+    )
+
+
+# =============================================================================
+# MODAL HISTORIAL RESTRICCIONES
+# =============================================================================
+
+def _item_historial(item: dict) -> rx.Component:
+    """Renderiza un item del historial de restricciones."""
+    return rx.card(
+        rx.vstack(
+            # Header con badge de accion y fecha
+            rx.hstack(
+                rx.cond(
+                    item["es_restriccion"],
+                    rx.badge(
+                        rx.hstack(
+                            rx.icon("ban", size=12),
+                            rx.text("RESTRICCION"),
+                            spacing="1",
+                        ),
+                        color_scheme="red",
+                        variant="solid",
+                    ),
+                    rx.badge(
+                        rx.hstack(
+                            rx.icon("check", size=12),
+                            rx.text("LIBERACION"),
+                            spacing="1",
+                        ),
+                        color_scheme="green",
+                        variant="solid",
+                    ),
+                ),
+                rx.spacer(),
+                rx.text(item["fecha"], size="1", color="gray"),
+                width="100%",
+            ),
+
+            # Motivo
+            rx.text(item["motivo"], size="2"),
+
+            # Ejecutado por
+            rx.hstack(
+                rx.icon("user", size=12, color="gray"),
+                rx.text("Por: ", item["ejecutado_por_nombre"], size="1", color="gray"),
+                spacing="1",
+            ),
+
+            # Notas (si existen)
+            rx.cond(
+                item["notas"] != "",
+                rx.box(
+                    rx.text(
+                        item["notas"],
+                        size="1",
+                        color="gray",
+                        style={"font-style": "italic"},
+                    ),
+                    padding="2",
+                    background="var(--gray-2)",
+                    border_radius="4px",
+                    width="100%",
+                ),
+            ),
+
+            spacing="2",
+            width="100%",
+            align_items="start",
+        ),
+        width="100%",
+    )
+
+
+def modal_historial_restricciones() -> rx.Component:
+    """Modal que muestra el historial de restricciones de un empleado."""
+    return modal_detalle(
+        open=EmpleadosState.mostrar_modal_historial,
+        titulo="Historial de Restricciones",
+        on_cerrar=EmpleadosState.cerrar_modal_historial,
+        max_width="550px",
+        contenido=rx.vstack(
+                # Info del empleado
+                rx.cond(
+                    EmpleadosState.empleado_seleccionado,
+                    rx.hstack(
+                        rx.text("Empleado:", weight="medium"),
+                        rx.text(EmpleadosState.nombre_completo_seleccionado),
+                        rx.badge(
+                            EmpleadosState.empleado_seleccionado["clave"],
+                            variant="outline",
+                            size="1",
+                        ),
+                        spacing="2",
+                    ),
+                ),
+
+                rx.divider(),
+
+                # Lista de historial
+                rx.cond(
+                    EmpleadosState.loading,
+                    rx.center(
+                        rx.spinner(size="3"),
+                        padding="8",
+                    ),
+                    rx.cond(
+                        EmpleadosState.tiene_historial_restricciones,
+                        rx.vstack(
+                            rx.foreach(
+                                EmpleadosState.historial_restricciones,
+                                _item_historial,
+                            ),
+                            spacing="3",
+                            width="100%",
+                            max_height="400px",
+                            overflow_y="auto",
+                        ),
+                        rx.callout(
+                            "Este empleado no tiene historial de restricciones.",
+                            icon="info",
+                            color_scheme="blue",
+                        ),
+                    ),
+                ),
+
+                spacing="4",
+                width="100%",
+                padding_y="4",
+            ),
+    )

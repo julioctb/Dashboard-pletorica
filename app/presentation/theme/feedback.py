@@ -11,7 +11,7 @@ FeedbackKind = Literal["error", "success", "warning", "info"]
 DEFAULT_TOAST_POSITION = "top-center"
 
 _STATIC_FEEDBACK_CONFIG = {
-    "error": {"icon": "triangle-alert", "color_scheme": "red"},
+    "error": {"icon": "circle-x", "color_scheme": "red"},
     "success": {"icon": "circle-check", "color_scheme": "green"},
     "warning": {"icon": "triangle-alert", "color_scheme": "amber"},
     "info": {"icon": "info", "color_scheme": "blue"},
@@ -25,7 +25,7 @@ def _feedback_icon(kind: FeedbackKind | rx.Var) -> str | rx.Var:
 
     return rx.match(
         kind,
-        ("error", "triangle-alert"),
+        ("error", "circle-x"),
         ("success", "circle-check"),
         ("warning", "triangle-alert"),
         "info",

@@ -28,9 +28,9 @@ class _ImportStubSupabaseClient:
 os.environ.setdefault("SUPABASE_URL", "http://localhost")
 os.environ.setdefault("SUPABASE_KEY", "test-key")
 os.environ.setdefault("SUPABASE_SERVICE_KEY", "test-service-key")
-services_pkg = types.ModuleType("app.services")
-services_pkg.__path__ = [os.path.join(os.getcwd(), "app", "services")]
-sys.modules.setdefault("app.services", services_pkg)
+services_pkg = types.ModuleType("app.domain.services")
+services_pkg.__path__ = [os.path.join(os.getcwd(), "app", "domain", "services")]
+sys.modules.setdefault("app.domain.services", services_pkg)
 sys.modules.setdefault(
     "dotenv",
     types.SimpleNamespace(load_dotenv=lambda *_args, **_kwargs: False),
@@ -53,16 +53,16 @@ from app.core.catalogs.nomina.periodos import (
     resolver_periodo_por_key,
     resolver_quincena_por_key,
 )
-from app.core.enums import (
+from app.domain.enums import (
     PeriodicidadNomina,
     ReglaCalculoQuincenal,
     TipoPeriodoNomina,
 )
 from app.core.exceptions import BusinessRuleError, DuplicateError
 from app.core.text_utils import formatear_fecha, formatear_fecha_hora
-from app.entities.empleado_descuento_recurrente import EmpleadoDescuentoRecurrenteCreate
+from app.domain.models.empleado_descuento_recurrente import EmpleadoDescuentoRecurrenteCreate
 
-nomina_periodo_module = importlib.import_module("app.services.nomina_periodo_service")
+nomina_periodo_module = importlib.import_module("app.domain.services.nomina_periodo_service")
 
 
 class _FakeResult:
@@ -664,7 +664,7 @@ def test_transicionar_a_preparacion_materializa_descuentos_recurrentes_rrhh(monk
         "_consultar_empleados_periodo",
         lambda _periodo_id: [{"id": 501, "empleado_id": 9}],
     )
-    sys.modules["app.services.empleado_descuento_recurrente_service"] = types.SimpleNamespace(
+    sys.modules["app.domain.services.empleado_descuento_recurrente_service"] = types.SimpleNamespace(
         empleado_descuento_recurrente_service=types.SimpleNamespace(
             obtener_vigentes_en_rango=_fake_descuentos_vigentes,
         )
@@ -767,7 +767,7 @@ def test_resumen_operativo_cuenta_permiso_sin_goce_como_inasistencia(monkeypatch
         "validar_contrato_nomina",
         _fake_validar_contrato,
     )
-    sys.modules["app.services"].plaza_service = types.SimpleNamespace(
+    sys.modules["app.domain.services"].plaza_service = types.SimpleNamespace(
         calcular_totales_contrato=_fake_totales_contrato,
     )
 

@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import ClassVar, Optional
 
-from app.core.enums import TipoConcepto, TratamientoISR, OrigenCaptura
+from app.domain.enums import TipoConcepto, TratamientoISR, OrigenCaptura
 from app.core.catalogs.nomina.enums import CategoriaConcepto
 
 

@@ -8,36 +8,31 @@ Usar esta referencia cuando el trabajo sea dentro de este repo y haya que decidi
 
 - Runtime principal: Python `>=3.10,<4.0`.
 - Framework UI: `reflex >=0.8.21,<0.9.0` en `pyproject.toml`.
-- Layout de alto nivel: app Reflex en `app/app.py`.
+- Layout de alto nivel: app Reflex en `app/app.py` y bootstrap en `app/bootstrap/app_factory.py`.
 - Patrón dominante: dominio y acceso a datos fuera de UI; presentación separada por páginas y componentes.
 
 ## Main Directories
 
-### `app/app.py`
+### `app/app.py` + `app/bootstrap/`
 
-- Registrar la app Reflex.
-- Definir tema, wrappers de layout y rutas con `app.add_page(...)`.
-- Distinguir rutas de backoffice y portal.
+- `app/app.py` delega a `create_app()`.
+- `app/bootstrap/app_factory.py` compone tema, toaster, API transformer y registro de rutas.
+- El registro de rutas vive en `app/bootstrap/routes_core.py`, `routes_backoffice.py` y `routes_portal.py`.
 
-### `app/entities/`
+### `app/domain/`
 
-- Reunir entidades, DTOs y modelos compartidos por dominio.
+- Reunir modelos, servicios y repositories legacy donde vive gran parte de la lógica actual.
 - Mantener aquí estructuras que no deben depender de Reflex.
 
-### `app/services/`
+### `app/modules/`
 
-- Concentrar consultas, coordinación con Supabase, armado de reportes y reglas de aplicación.
-- Preferir que la presentación consuma servicios antes que hablar directo con infraestructura.
+- Fachadas DDD por feature (`cotizaciones`, `empleados`, `nomina`) sobre `app/domain/`.
+- Útil para ubicar exports de UI/state por superficie (backoffice/portal).
 
 ### `app/presentation/`
 
-- Contener páginas, estados, layouts y componentes visuales del backoffice.
+- Contener páginas, estados, layouts y componentes visuales de backoffice y portal.
 - Organizar por módulo funcional.
-
-### `app/presentation/portal/`
-
-- Contener el portal y sus páginas específicas.
-- Seguir la misma idea de separación entre page, state y components.
 
 ### `app/api/`
 
@@ -63,24 +58,28 @@ Usar esta referencia cuando el trabajo sea dentro de este repo y haya que decidi
 
 ## Route and Layout Patterns
 
-- Backoffice: las páginas suelen entrar mediante `index(...)`.
-- Portal: las páginas suelen entrar mediante `portal_index(...)`.
-- La ruta declarada en `app/app.py` es la referencia final para navegación.
-- Si una página parece no renderizar, revisar primero import, wrapper y `app.add_page(...)`.
+- Backoffice: revisar `BACKOFFICE_PAGE_ROUTES` en `app/presentation/config/routes.py`.
+- Portal: revisar `PORTAL_PAGE_ROUTES` en `app/presentation/config/routes.py`.
+- La referencia final de rutas es `app/presentation/config/routes.py` + registro en `app/bootstrap/routes_*.py`.
+- Si una página parece no renderizar, revisar primero import, route map y registro en bootstrap.
 
 ## Feature Placement Guide
 
 Si el cambio es visual:
+
 - Tocar `page.py`, `components.py` o componentes reutilizables.
 
 Si el cambio es de interacción:
+
 - Tocar el `state.py` del módulo y sus handlers.
 
 Si el cambio es de negocio, persistencia o agregación:
-- Tocar `services/`.
+
+- Tocar `app/domain/services/` (o `app/modules/*/application` cuando aplique).
 
 Si el cambio altera contratos o forma de los datos:
-- Tocar `entities/`, `api/` o ambos.
+
+- Tocar `app/domain/models/`, `app/core/validation/`, `app/api/` o combinación según el caso.
 
 ## Working Style for This Repo
 
@@ -92,7 +91,7 @@ Si el cambio altera contratos o forma de los datos:
 
 ## Fast Checks
 
-1. `rg -n "app.add_page\\(" app/app.py`
-2. `rg -n "class .*State\\(" app/presentation app/presentation/portal`
-3. `rg -n "BaseState|CRUDStateMixin|AuthState" app`
-4. `rg -n "toast|on_mount|model_dump" app`
+1. `rg -n "CORE_ROUTES|BACKOFFICE_PAGE_ROUTES|PORTAL_PAGE_ROUTES" app/presentation/config/routes.py`
+2. `rg -n "register_core_routes|register_backoffice_routes|register_portal_routes" app/bootstrap`
+3. `rg -n "class .*State\\(" app/presentation`
+4. `rg -n "BaseState|CRUDStateMixin|AuthState|PortalState|NominaBaseState" app`

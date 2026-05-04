@@ -11,7 +11,7 @@ from app.core.validation import (
     normalizar_cuenta_bancaria,
     normalizar_nombre_banco,
 )
-from app.entities.empleado_descuento_recurrente import (
+from app.domain.models.empleado_descuento_recurrente import (
     DESCUENTOS_RECURRENTES_CONFIG,
     DESCUENTOS_RECURRENTES_POR_FORM_KEY,
     EmpleadoDescuentoRecurrenteCreate,

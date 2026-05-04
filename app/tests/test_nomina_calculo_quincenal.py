@@ -26,9 +26,9 @@ class _ImportStubSupabaseClient:
 os.environ.setdefault("SUPABASE_URL", "http://localhost")
 os.environ.setdefault("SUPABASE_KEY", "test-key")
 os.environ.setdefault("SUPABASE_SERVICE_KEY", "test-service-key")
-services_pkg = types.ModuleType("app.services")
-services_pkg.__path__ = [os.path.join(os.getcwd(), "app", "services")]
-sys.modules.setdefault("app.services", services_pkg)
+services_pkg = types.ModuleType("app.domain.services")
+services_pkg.__path__ = [os.path.join(os.getcwd(), "app", "domain", "services")]
+sys.modules.setdefault("app.domain.services", services_pkg)
 sys.modules.setdefault(
     "dotenv",
     types.SimpleNamespace(load_dotenv=lambda *_args, **_kwargs: False),
@@ -47,13 +47,13 @@ from app.core.catalogs import (
     CatalogoUMA,
     PoliticaFiscalResolver,
 )
-from app.core.enums import (
+from app.domain.enums import (
     PeriodicidadNomina,
     ReglaCalculoQuincenal,
     TipoJornadaPlaza,
 )
 
-nomina_calculo_module = importlib.import_module("app.services.nomina_calculo_service")
+nomina_calculo_module = importlib.import_module("app.domain.services.nomina_calculo_service")
 
 
 class _FakeResult:
@@ -272,7 +272,7 @@ def test_resolver_regla_quincenal_hereda_config_y_persiste_snapshot(monkeypatch)
 
 def test_catalogos_fiscales_resuelven_por_fecha():
     assert CatalogoUMA.diario_vigente("2026-01-15") == Decimal("113.14")
-    assert CatalogoUMA.diario_vigente("2026-02-15") == Decimal("118.57")
+    assert CatalogoUMA.diario_vigente("2026-02-15") == Decimal("117.31")
     assert CatalogoSalarioMinimo.diario_vigente(
         "2026-03-15",
         zona_frontera=False,
@@ -288,7 +288,12 @@ def test_catalogos_fiscales_resuelven_por_fecha():
     assert CatalogoISR.calcular_subsidio(
         Decimal("10000"),
         "2026-03-15",
-    ) == Decimal("541.40")
+    ) == Decimal("535.65")
+    assert CatalogoISR.calcular_subsidio_periodo(
+        Decimal("10000"),
+        Decimal("15"),
+        "2026-03-15",
+    ) == Decimal("264.30")
 
 
 def test_catalogos_fiscales_hacen_fallback_a_ultima_vigencia_previa():
@@ -306,7 +311,7 @@ def test_catalogos_fiscales_hacen_fallback_a_ultima_vigencia_previa():
     assert vigencia_salario is not None
     assert vigencia_salario.general == Decimal("315.04")
     assert politica_subsidio is not None
-    assert politica_subsidio.subsidio_mensual == Decimal("541.40")
+    assert politica_subsidio.subsidio_mensual == Decimal("535.65")
 
 
 def test_politica_fiscal_resolver_marca_fallback_cuando_no_hay_vigencia_exacta():
@@ -315,7 +320,130 @@ def test_politica_fiscal_resolver_marca_fallback_cuando_no_hay_vigencia_exacta()
     assert contexto.vigencia_soportada is False
     assert "fallback" in contexto.mensaje_vigencia.lower()
     assert contexto.salario_minimo_diario_aplicable == Decimal("315.04")
-    assert contexto.subsidio_mensual == Decimal("541.40")
+    assert contexto.subsidio_mensual == Decimal("535.65")
+
+
+def test_calculo_isr_incluye_percepciones_manuales_gravables():
+    bono_gravable = {
+        "tipo": "PERCEPCION",
+        "monto": 10000.0,
+        "monto_gravable": 10000.0,
+        "monto_exento": 0.0,
+        "origen": "CONTABILIDAD",
+    }
+    fake_client = _FakeSupabaseClient({
+        "nomina_movimientos": [
+            _FakeResult([]),
+            _FakeResult([bono_gravable]),
+        ],
+    })
+    service = _build_service(fake_client)
+
+    nomina = {
+        "id": 701,
+        "empleado_id": 30,
+        "salario_diario": "1000.00",
+        "salario_diario_integrado": "1000.00",
+        "dias_trabajados": 15,
+        "dias_faltas": 0,
+        "dias_incapacidad": 0,
+        "dias_periodo": 15,
+        "horas_extra_dobles": 0,
+        "horas_extra_triples": 0,
+        "domingos_trabajados": 0,
+        "tipo_jornada": TipoJornadaPlaza.COMPLETA.value,
+        "factor_jornada": "1.0",
+    }
+    periodo = {
+        "id": 70,
+        "empresa_id": 7,
+        "fecha_pago": "2026-03-15",
+        "fecha_fin": "2026-03-15",
+        "periodicidad": PeriodicidadNomina.QUINCENAL.value,
+        "regla_calculo_quincenal": ReglaCalculoQuincenal.MIXTA.value,
+        "zona_frontera": False,
+        "aplicar_art_36": True,
+    }
+
+    result = asyncio.run(service._calcular_nomina_empleado(nomina, periodo))
+
+    movimientos = fake_client.inserts["nomina_movimientos"][0]
+    isr_mov = next(m for m in movimientos if m["concepto_id"] == 7)
+    expected_isr = nomina_calculo_module._round2(
+        CatalogoISR.calcular_isr_mensual(
+            Decimal("50000.00"),
+            "2026-03-15",
+        ) / Decimal("2")
+    )
+
+    assert Decimal(str(isr_mov["monto"])) == expected_isr
+    assert result["total_percepciones"] == Decimal("25000.00")
+    assert result["total_deducciones"] == expected_isr
+
+
+def test_salario_minimo_con_percepcion_extra_no_exenta_isr():
+    fake_client = _FakeSupabaseClient({
+        "nomina_movimientos": [
+            _FakeResult([]),
+            _FakeResult([]),
+        ],
+    })
+    service = _build_service(fake_client)
+
+    nomina = {
+        "id": 702,
+        "empleado_id": 31,
+        "salario_diario": "315.04",
+        "salario_diario_integrado": "315.04",
+        "dias_trabajados": 15,
+        "dias_faltas": 0,
+        "dias_incapacidad": 0,
+        "dias_periodo": 15,
+        "horas_extra_dobles": 0,
+        "horas_extra_triples": 1,
+        "domingos_trabajados": 0,
+        "tipo_jornada": TipoJornadaPlaza.COMPLETA.value,
+        "factor_jornada": "1.0",
+    }
+    periodo = {
+        "id": 71,
+        "empresa_id": 7,
+        "fecha_pago": "2026-03-15",
+        "fecha_fin": "2026-03-15",
+        "periodicidad": PeriodicidadNomina.QUINCENAL.value,
+        "regla_calculo_quincenal": ReglaCalculoQuincenal.MIXTA.value,
+        "zona_frontera": False,
+        "aplicar_art_36": True,
+    }
+
+    asyncio.run(service._calcular_nomina_empleado(nomina, periodo))
+
+    movimientos = fake_client.inserts["nomina_movimientos"][0]
+    by_concepto = {mov["concepto_id"]: mov for mov in movimientos}
+    monto_horas_triples = nomina_calculo_module._round2(
+        Decimal("315.04") / Decimal("8") * Decimal("3")
+    )
+    base_mensual = nomina_calculo_module._round2(
+        ((Decimal("315.04") * Decimal("15")) + monto_horas_triples) * Decimal("2")
+    )
+    isr_mensual = CatalogoISR.calcular_isr_mensual(base_mensual, "2026-03-15")
+    isr_periodo = nomina_calculo_module._round2(isr_mensual / Decimal("2"))
+    subsidio_periodo = min(
+        CatalogoISR.calcular_subsidio_periodo(
+            base_mensual,
+            Decimal("15"),
+            "2026-03-15",
+        ),
+        isr_periodo,
+    )
+
+    assert 7 in by_concepto
+    assert 9 in by_concepto
+    assert Decimal(str(by_concepto[7]["monto"])) == isr_periodo
+    assert Decimal(str(by_concepto[9]["monto"])) == nomina_calculo_module._round2(
+        subsidio_periodo
+    )
+    assert fake_client.updates["nominas_empleado"][0]["es_salario_minimo_art36"] is True
 
 
 def test_calculo_aplica_art36_en_salario_minimo_jornada_completa(monkeypatch):
@@ -514,6 +642,42 @@ def test_calculo_aguinaldo_manual_usa_override_y_no_depende_de_periodicidad(monk
     assert update["imss_obrero_absorbido"] == 0.0
     assert result["total_percepciones"] == Decimal("5200.00")
     assert result["total_deducciones"] == Decimal("0.00")
+
+
+def test_calculo_aguinaldo_no_aplica_subsidio_empleo():
+    fake_client = _FakeSupabaseClient({"nomina_movimientos": [_FakeResult([])]})
+    service = _build_service(fake_client)
+
+    nomina = {
+        "id": 902,
+        "empleado_id": 52,
+        "salario_diario": "315.04",
+        "salario_diario_integrado": "315.04",
+        "monto_aguinaldo_bruto": "4000.00",
+        "modo_calculo_aguinaldo": "AUTO",
+        "tipo_jornada": TipoJornadaPlaza.COMPLETA.value,
+        "factor_jornada": "1.0",
+    }
+    periodo = {
+        "id": 82,
+        "empresa_id": 7,
+        "tipo_periodo": "AGUINALDO",
+        "periodicidad": PeriodicidadNomina.QUINCENAL.value,
+        "regla_calculo_quincenal": ReglaCalculoQuincenal.MIXTA.value,
+        "fecha_pago": "2026-12-20",
+        "fecha_fin": "2026-12-31",
+        "zona_frontera": False,
+        "aplicar_art_36": True,
+    }
+
+    asyncio.run(service._calcular_nomina_empleado(nomina, periodo))
+
+    movimientos = fake_client.inserts["nomina_movimientos"][0]
+    concepto_ids = [mov["concepto_id"] for mov in movimientos]
+
+    assert 10 in concepto_ids
+    assert 7 in concepto_ids
+    assert 9 not in concepto_ids
 
 
 def test_guardar_override_aguinaldo_persiste_manual_y_recalcula(monkeypatch):
