@@ -466,7 +466,7 @@ def _paso_resultados(state) -> rx.Component:
             gap=Spacing.SM,
         ),
         rx.cond(
-            state.alta_masiva_resultado_detalles.length() > 0,
+            state.alta_masiva_resultado_errores_count > 0,
             table_shell(
                 loading=False,
                 headers=_ENCABEZADOS_RESULTADOS,

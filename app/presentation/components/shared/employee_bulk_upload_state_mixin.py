@@ -318,7 +318,11 @@ class EmployeeBulkUploadStateMixin:
 
     @rx.var
     def alta_masiva_puede_procesar(self) -> bool:
-        return self._puede_procesar_alta_masiva()
+        tiene_procesables = (
+            len(self.alta_masiva_validacion_validos) > 0
+            or len(self.alta_masiva_validacion_reingresos) > 0
+        )
+        return tiene_procesables and len(self.alta_masiva_validacion_errores) == 0
 
     def _puede_procesar_alta_masiva(self) -> bool:
         """Permite confirmar solo si no hay errores y hay procesables."""
