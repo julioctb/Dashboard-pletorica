@@ -5,6 +5,12 @@ Vista global con filtros compactos y tabla densa para actuar sin scroll extra.
 
 import reflex as rx
 
+from app.presentation.components.common.upload_zone import (
+    ACCEPT_IMAGES_PDF_WILDCARD,
+    ACCEPT_PDF,
+    ACCEPT_XML,
+    upload_zone,
+)
 from app.presentation.layouts.backoffice import page_header, page_layout, page_toolbar
 from app.presentation.pages.portal.mis_entregables_state import MisEntregablesState
 from app.presentation.components.ui import (
@@ -29,6 +35,8 @@ ENCABEZADOS_TABLA = [
     {"nombre": "Estado", "ancho": "160px", "header_align": "center"},
     {"nombre": "Acción", "ancho": "120px", "header_align": "center"},
 ]
+
+
 def _seccion_estadisticas() -> rx.Component:
     """Pills compactas que actúan como filtros de la tabla."""
     return rx.flex(
@@ -93,7 +101,9 @@ def _barra_filtros() -> rx.Component:
     return filtros_inline(
         rx.select.root(
             rx.select.trigger(placeholder="Todos los contratos", width="200px"),
-            rx.select.content(select_items_from_options(MisEntregablesState.opciones_contratos)),
+            rx.select.content(
+                select_items_from_options(MisEntregablesState.opciones_contratos)
+            ),
             value=MisEntregablesState.filtro_contrato_id,
             on_change=MisEntregablesState.set_filtro_contrato,
             size="2",
@@ -177,8 +187,14 @@ def _accion_entregable(entregable: dict) -> rx.Component:
         on_click=rx.match(
             entregable["estatus"],
             ("APROBADO", MisEntregablesState.abrir_modal_prefactura(entregable["id"])),
-            ("PREFACTURA_RECHAZADA", MisEntregablesState.abrir_modal_prefactura(entregable["id"])),
-            ("PREFACTURA_APROBADA", MisEntregablesState.abrir_modal_factura(entregable["id"])),
+            (
+                "PREFACTURA_RECHAZADA",
+                MisEntregablesState.abrir_modal_prefactura(entregable["id"]),
+            ),
+            (
+                "PREFACTURA_APROBADA",
+                MisEntregablesState.abrir_modal_factura(entregable["id"]),
+            ),
             MisEntregablesState.abrir_entregable(entregable["id"]),
         ),
         color_scheme=rx.match(
@@ -354,8 +370,17 @@ def _archivo_item(archivo: dict) -> rx.Component:
             flex_shrink="0",
         ),
         rx.vstack(
-            rx.text(archivo["nombre"], font_size=Typography.SIZE_SM, weight="medium", no_of_lines=1),
-            rx.text(f"{archivo['tamanio_mb']} MB", font_size=Typography.SIZE_XS, color=Colors.TEXT_MUTED),
+            rx.text(
+                archivo["nombre"],
+                font_size=Typography.SIZE_SM,
+                weight="medium",
+                no_of_lines=1,
+            ),
+            rx.text(
+                f"{archivo['tamanio_mb']} MB",
+                font_size=Typography.SIZE_XS,
+                color=Colors.TEXT_MUTED,
+            ),
             spacing="0",
             align="start",
             flex="1",
@@ -385,19 +410,30 @@ def _seccion_archivos_modal() -> rx.Component:
     return rx.vstack(
         rx.hstack(
             rx.text("Archivos subidos", font_size=Typography.SIZE_SM, weight="bold"),
-            rx.badge(MisEntregablesState.archivos_entregable.length(), color_scheme=Colors.NEUTRAL_SCHEME, size="1"),
+            rx.badge(
+                MisEntregablesState.archivos_entregable.length(),
+                color_scheme=Colors.NEUTRAL_SCHEME,
+                size="1",
+            ),
             spacing="2",
             align="center",
         ),
         rx.cond(
             MisEntregablesState.archivos_entregable.length() > 0,
             rx.vstack(
-                rx.foreach(MisEntregablesState.archivos_entregable.to(list[dict]), _archivo_item),
+                rx.foreach(
+                    MisEntregablesState.archivos_entregable.to(list[dict]),
+                    _archivo_item,
+                ),
                 spacing="2",
                 width="100%",
             ),
             rx.center(
-                rx.text("No hay archivos subidos", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
+                rx.text(
+                    "No hay archivos subidos",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_MUTED,
+                ),
                 padding="4",
             ),
         ),
@@ -406,78 +442,25 @@ def _seccion_archivos_modal() -> rx.Component:
             MisEntregablesState.entregable_actual["puede_editar"],
             rx.vstack(
                 rx.separator(),
-                rx.upload(
-                    rx.vstack(
-                        rx.cond(
-                            MisEntregablesState.subiendo_archivo,
-                            rx.vstack(
-                                rx.spinner(size="3"),
-                                rx.text("Subiendo...", font_size=Typography.SIZE_SM, color=Colors.TEXT_SECONDARY),
-                                align="center",
-                                spacing="2",
-                            ),
-                            rx.vstack(
-                                rx.icon("upload", size=32, color=Colors.PORTAL_PRIMARY),
-                                rx.text("Click o arrastra archivos", font_size=Typography.SIZE_LG, weight="medium"),
-                                rx.text("JPG, PNG, PDF | Máx 10 archivos", font_size=Typography.SIZE_SM, color=Colors.TEXT_MUTED),
-                                align="center",
-                                spacing="2",
-                            ),
-                        ),
-                        align="center",
-                        justify="center",
-                        padding=Spacing.XL,
-                        width="100%",
-                    ),
-                    id="upload_entregable",
-                    accept={"image/*": [".jpg", ".jpeg", ".png"], "application/pdf": [".pdf"]},
+                upload_zone(
+                    upload_id="upload_entregable",
+                    title="Click o arrastra archivos",
+                    helper_text="JPG, PNG, PDF | Máx 10 archivos",
+                    accept=ACCEPT_IMAGES_PDF_WILDCARD,
                     max_files=10,
-                    no_click=MisEntregablesState.subiendo_archivo,
-                    no_drag=MisEntregablesState.subiendo_archivo,
+                    loading=MisEntregablesState.subiendo_archivo,
+                    on_upload=MisEntregablesState.subir_archivos,
+                    button_label="Subir",
+                    button_color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                    allow_cancel=True,
+                    show_selected_label=True,
+                    icon_color=Colors.PORTAL_PRIMARY,
+                    icon_size=32,
                     border=f"2px dashed {Colors.TEXT_MUTED}",
                     border_radius="8px",
-                    cursor=rx.cond(MisEntregablesState.subiendo_archivo, "wait", "pointer"),
-                    _hover={"borderColor": Colors.PORTAL_PRIMARY, "background": Colors.PORTAL_PRIMARY_LIGHTER},
-                    width="100%",
-                ),
-                rx.cond(
-                    rx.selected_files("upload_entregable").length() > 0,
-                    rx.vstack(
-                        rx.text("Archivos seleccionados:", font_size=Typography.SIZE_SM, weight="bold"),
-                        rx.foreach(
-                            rx.selected_files("upload_entregable"),
-                            lambda f: rx.hstack(
-                                rx.icon("file", size=14, color=Colors.PORTAL_PRIMARY),
-                                rx.text(f, font_size=Typography.SIZE_SM, color=Colors.TEXT_SECONDARY),
-                                spacing="2",
-                                align="center",
-                            ),
-                        ),
-                        rx.hstack(
-                            rx.button("Cancelar", on_click=rx.clear_selected_files("upload_entregable"), variant="outline", size="2"),
-                            rx.button(
-                                rx.cond(
-                                    MisEntregablesState.subiendo_archivo,
-                                    rx.hstack(rx.spinner(size="1"), rx.text("Subiendo..."), spacing="2"),
-                                    rx.hstack(rx.icon("cloud-upload", size=16), rx.text("Subir"), spacing="2"),
-                                ),
-                                on_click=MisEntregablesState.subir_archivos(rx.upload_files(upload_id="upload_entregable")),
-                                disabled=MisEntregablesState.subiendo_archivo,
-                                size="2",
-                                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-                            ),
-                            spacing="3",
-                            width="100%",
-                            justify="end",
-                        ),
-                        spacing="3",
-                        width="100%",
-                        padding=Spacing.MD,
-                        background=Colors.PORTAL_PRIMARY_LIGHTER,
-                        border=f"1px solid {Colors.PORTAL_PRIMARY}",
-                        border_radius="8px",
-                    ),
-                    rx.fragment(),
+                    hover_border_color=Colors.PORTAL_PRIMARY,
+                    hover_background=Colors.PORTAL_PRIMARY_LIGHTER,
+                    padding=Spacing.XL,
                 ),
                 spacing="4",
                 width="100%",
@@ -498,16 +481,32 @@ def _modal_entregable() -> rx.Component:
                     rx.hstack(
                         rx.vstack(
                             rx.hstack(
-                                rx.badge(MisEntregablesState.entregable_actual["contrato_codigo"], color_scheme=Colors.PORTAL_ACCENT_SCHEME, size="1"),
-                                rx.text(f"Período {MisEntregablesState.entregable_actual['numero_periodo']}", size="5", weight="bold"),
+                                rx.badge(
+                                    MisEntregablesState.entregable_actual[
+                                        "contrato_codigo"
+                                    ],
+                                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                                    size="1",
+                                ),
+                                rx.text(
+                                    f"Período {MisEntregablesState.entregable_actual['numero_periodo']}",
+                                    size="5",
+                                    weight="bold",
+                                ),
                                 spacing="2",
                                 align="center",
                             ),
-                            rx.text(MisEntregablesState.entregable_actual["periodo_texto"], size="2", color=Colors.TEXT_SECONDARY),
+                            rx.text(
+                                MisEntregablesState.entregable_actual["periodo_texto"],
+                                size="2",
+                                color=Colors.TEXT_SECONDARY,
+                            ),
                             spacing="0",
                         ),
                         rx.spacer(),
-                        status_badge_reactive(MisEntregablesState.entregable_actual["estatus"]),
+                        status_badge_reactive(
+                            MisEntregablesState.entregable_actual["estatus"]
+                        ),
                         width="100%",
                         align="start",
                     ),
@@ -517,8 +516,15 @@ def _modal_entregable() -> rx.Component:
                         MisEntregablesState.entregable_actual["observaciones_rechazo"],
                         rx.callout(
                             rx.vstack(
-                                rx.text("Observaciones de BUAP:", size="2", weight="bold"),
-                                rx.text(MisEntregablesState.entregable_actual["observaciones_rechazo"], size="2"),
+                                rx.text(
+                                    "Observaciones de BUAP:", size="2", weight="bold"
+                                ),
+                                rx.text(
+                                    MisEntregablesState.entregable_actual[
+                                        "observaciones_rechazo"
+                                    ],
+                                    size="2",
+                                ),
                                 spacing="1",
                                 align="start",
                             ),
@@ -549,7 +555,11 @@ def _modal_entregable() -> rx.Component:
                             ),
                             rx.cond(
                                 MisEntregablesState.esta_en_revision,
-                                rx.badge("Esperando revisión de BUAP", color_scheme="sky", size="2"),
+                                rx.badge(
+                                    "Esperando revisión de BUAP",
+                                    color_scheme="sky",
+                                    size="2",
+                                ),
                                 rx.fragment(),
                             ),
                         ),
@@ -581,8 +591,18 @@ def _modal_prefactura() -> rx.Component:
                         rx.vstack(
                             rx.text("Subir Prefactura", size="5", weight="bold"),
                             rx.hstack(
-                                rx.badge(MisEntregablesState.entregable_actual["contrato_codigo"], color_scheme=Colors.PORTAL_ACCENT_SCHEME, size="1"),
-                                rx.text(f"Periodo {MisEntregablesState.entregable_actual['numero_periodo']}", size="2", color=Colors.TEXT_SECONDARY),
+                                rx.badge(
+                                    MisEntregablesState.entregable_actual[
+                                        "contrato_codigo"
+                                    ],
+                                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                                    size="1",
+                                ),
+                                rx.text(
+                                    f"Periodo {MisEntregablesState.entregable_actual['numero_periodo']}",
+                                    size="2",
+                                    color=Colors.TEXT_SECONDARY,
+                                ),
                                 spacing="2",
                                 align="center",
                             ),
@@ -590,7 +610,12 @@ def _modal_prefactura() -> rx.Component:
                         ),
                         rx.spacer(),
                         rx.dialog.close(
-                            rx.button(rx.icon("x", size=16), variant="ghost", size="1", on_click=MisEntregablesState.cerrar_modal_prefactura),
+                            rx.button(
+                                rx.icon("x", size=16),
+                                variant="ghost",
+                                size="1",
+                                on_click=MisEntregablesState.cerrar_modal_prefactura,
+                            ),
                         ),
                         width="100%",
                         align="start",
@@ -599,7 +624,10 @@ def _modal_prefactura() -> rx.Component:
                     rx.cond(
                         MisEntregablesState.entregable_actual["monto_aprobado"],
                         rx.callout(
-                            rx.text(f"Monto aprobado: ${MisEntregablesState.entregable_actual['monto_aprobado']}", weight="bold"),
+                            rx.text(
+                                f"Monto aprobado: ${MisEntregablesState.entregable_actual['monto_aprobado']}",
+                                weight="bold",
+                            ),
                             icon="banknote",
                             color_scheme="green",
                             size="1",
@@ -608,61 +636,50 @@ def _modal_prefactura() -> rx.Component:
                         rx.fragment(),
                     ),
                     rx.callout(
-                        rx.text("BUAP validara los datos fiscales antes de solicitar la factura definitiva.", size="2"),
+                        rx.text(
+                            "BUAP validara los datos fiscales antes de solicitar la factura definitiva.",
+                            size="2",
+                        ),
                         icon="info",
                         color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                         size="1",
                         width="100%",
                     ),
                     # Upload zone
-                    rx.upload(
-                        rx.vstack(
-                            rx.cond(
-                                MisEntregablesState.enviando_prefactura,
-                                rx.vstack(rx.spinner(size="3"), rx.text("Subiendo...", size="2"), align="center", spacing="2"),
-                                rx.vstack(
-                                    rx.icon("file-text", size=32, color=Colors.PORTAL_PRIMARY),
-                                    rx.text("Click o arrastra el PDF de prefactura", size="3", weight="medium"),
-                                    rx.text("Solo PDF", size="2", color=Colors.TEXT_MUTED),
-                                    align="center",
-                                    spacing="2",
-                                ),
-                            ),
-                            align="center",
-                            justify="center",
-                            padding=Spacing.XL,
-                            width="100%",
-                        ),
-                        id="upload_prefactura",
-                        accept={"application/pdf": [".pdf"]},
+                    upload_zone(
+                        upload_id="upload_prefactura",
+                        title="Click o arrastra el PDF de prefactura",
+                        helper_text="Solo PDF",
+                        accept=ACCEPT_PDF,
                         max_files=1,
+                        loading=MisEntregablesState.enviando_prefactura,
+                        icon="file-text",
+                        icon_color=Colors.PORTAL_PRIMARY,
+                        icon_size=32,
                         border=f"2px dashed {Colors.TEXT_MUTED}",
                         border_radius="8px",
-                        cursor="pointer",
-                        _hover={"borderColor": Colors.PORTAL_PRIMARY},
-                        width="100%",
-                    ),
-                    rx.cond(
-                        rx.selected_files("upload_prefactura").length() > 0,
-                        rx.hstack(
-                            rx.icon("file", size=14, color=Colors.PORTAL_PRIMARY),
-                            rx.foreach(rx.selected_files("upload_prefactura"), lambda f: rx.text(f, size="2")),
-                            spacing="2",
-                            align="center",
-                        ),
-                        rx.fragment(),
+                        hover_border_color=Colors.PORTAL_PRIMARY,
+                        padding=Spacing.XL,
                     ),
                     rx.divider(),
                     rx.hstack(
-                        rx.button("Cancelar", variant="soft", color_scheme=Colors.NEUTRAL_SCHEME, on_click=MisEntregablesState.cerrar_modal_prefactura),
+                        rx.button(
+                            "Cancelar",
+                            variant="soft",
+                            color_scheme=Colors.NEUTRAL_SCHEME,
+                            on_click=MisEntregablesState.cerrar_modal_prefactura,
+                        ),
                         rx.spacer(),
                         rx.button(
                             rx.icon("send", size=14),
                             "Enviar Prefactura",
                             color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-                            disabled=rx.selected_files("upload_prefactura").length() == 0,
+                            disabled=rx.selected_files("upload_prefactura").length()
+                            == 0,
                             loading=MisEntregablesState.enviando_prefactura,
-                            on_click=MisEntregablesState.subir_prefactura(rx.upload_files(upload_id="upload_prefactura")),
+                            on_click=MisEntregablesState.subir_prefactura(
+                                rx.upload_files(upload_id="upload_prefactura")
+                            ),
                         ),
                         width="100%",
                     ),
@@ -691,33 +708,57 @@ def _validacion_xml() -> rx.Component:
             rx.hstack(
                 rx.cond(
                     MisEntregablesState.resultado_validacion_xml["es_valido"],
-                    rx.badge(rx.hstack(rx.icon("check", size=12), "Valido", spacing="1"), color_scheme="green"),
-                    rx.badge(rx.hstack(rx.icon("x", size=12), "Con errores", spacing="1"), color_scheme="red"),
+                    rx.badge(
+                        rx.hstack(rx.icon("check", size=12), "Valido", spacing="1"),
+                        color_scheme="green",
+                    ),
+                    rx.badge(
+                        rx.hstack(rx.icon("x", size=12), "Con errores", spacing="1"),
+                        color_scheme="red",
+                    ),
                 ),
                 spacing="2",
             ),
             rx.vstack(
                 rx.hstack(
-                    rx.text("RFC Emisor:", size="2", weight="medium", min_width="100px"),
-                    rx.text(MisEntregablesState.resultado_validacion_xml["rfc_emisor"], size="2"),
+                    rx.text(
+                        "RFC Emisor:", size="2", weight="medium", min_width="100px"
+                    ),
+                    rx.text(
+                        MisEntregablesState.resultado_validacion_xml["rfc_emisor"],
+                        size="2",
+                    ),
                     spacing="2",
                     align="center",
                 ),
                 rx.hstack(
-                    rx.text("RFC Receptor:", size="2", weight="medium", min_width="100px"),
-                    rx.text(MisEntregablesState.resultado_validacion_xml["rfc_receptor"], size="2"),
+                    rx.text(
+                        "RFC Receptor:", size="2", weight="medium", min_width="100px"
+                    ),
+                    rx.text(
+                        MisEntregablesState.resultado_validacion_xml["rfc_receptor"],
+                        size="2",
+                    ),
                     spacing="2",
                     align="center",
                 ),
                 rx.hstack(
                     rx.text("Monto:", size="2", weight="medium", min_width="100px"),
-                    rx.text(f"${MisEntregablesState.resultado_validacion_xml['monto_total']}", size="2"),
+                    rx.text(
+                        f"${MisEntregablesState.resultado_validacion_xml['monto_total']}",
+                        size="2",
+                    ),
                     spacing="2",
                     align="center",
                 ),
                 rx.hstack(
-                    rx.text("Folio Fiscal:", size="2", weight="medium", min_width="100px"),
-                    rx.text(MisEntregablesState.resultado_validacion_xml["folio_fiscal"], size="2"),
+                    rx.text(
+                        "Folio Fiscal:", size="2", weight="medium", min_width="100px"
+                    ),
+                    rx.text(
+                        MisEntregablesState.resultado_validacion_xml["folio_fiscal"],
+                        size="2",
+                    ),
                     spacing="2",
                     align="center",
                 ),
@@ -728,11 +769,16 @@ def _validacion_xml() -> rx.Component:
                 width="100%",
             ),
             rx.cond(
-                MisEntregablesState.resultado_validacion_xml["errores"].to(list[str]).length() > 0,
+                MisEntregablesState.resultado_validacion_xml["errores"]
+                .to(list[str])
+                .length()
+                > 0,
                 rx.callout(
                     rx.vstack(
                         rx.foreach(
-                            MisEntregablesState.resultado_validacion_xml["errores"].to(list[str]),
+                            MisEntregablesState.resultado_validacion_xml["errores"].to(
+                                list[str]
+                            ),
                             lambda err: rx.text(err, size="2"),
                         ),
                         spacing="1",
@@ -761,8 +807,18 @@ def _modal_factura() -> rx.Component:
                         rx.vstack(
                             rx.text("Subir Factura", size="5", weight="bold"),
                             rx.hstack(
-                                rx.badge(MisEntregablesState.entregable_actual["contrato_codigo"], color_scheme=Colors.PORTAL_ACCENT_SCHEME, size="1"),
-                                rx.text(f"Periodo {MisEntregablesState.entregable_actual['numero_periodo']}", size="2", color=Colors.TEXT_SECONDARY),
+                                rx.badge(
+                                    MisEntregablesState.entregable_actual[
+                                        "contrato_codigo"
+                                    ],
+                                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                                    size="1",
+                                ),
+                                rx.text(
+                                    f"Periodo {MisEntregablesState.entregable_actual['numero_periodo']}",
+                                    size="2",
+                                    color=Colors.TEXT_SECONDARY,
+                                ),
                                 spacing="2",
                                 align="center",
                             ),
@@ -770,7 +826,12 @@ def _modal_factura() -> rx.Component:
                         ),
                         rx.spacer(),
                         rx.dialog.close(
-                            rx.button(rx.icon("x", size=16), variant="ghost", size="1", on_click=MisEntregablesState.cerrar_modal_factura),
+                            rx.button(
+                                rx.icon("x", size=16),
+                                variant="ghost",
+                                size="1",
+                                on_click=MisEntregablesState.cerrar_modal_factura,
+                            ),
                         ),
                         width="100%",
                         align="start",
@@ -779,7 +840,10 @@ def _modal_factura() -> rx.Component:
                     rx.cond(
                         MisEntregablesState.entregable_actual["monto_aprobado"],
                         rx.callout(
-                            rx.text(f"Monto aprobado: ${MisEntregablesState.entregable_actual['monto_aprobado']}", weight="bold"),
+                            rx.text(
+                                f"Monto aprobado: ${MisEntregablesState.entregable_actual['monto_aprobado']}",
+                                weight="bold",
+                            ),
                             icon="banknote",
                             color_scheme="green",
                             size="1",
@@ -790,36 +854,23 @@ def _modal_factura() -> rx.Component:
                     # 1. Upload Factura PDF
                     rx.vstack(
                         rx.text("1. Factura PDF", size="3", weight="bold"),
-                        rx.upload(
-                            rx.vstack(
-                                rx.icon("file-text", size=24, color=Colors.PORTAL_PRIMARY),
-                                rx.text("Subir PDF de factura", size="2", weight="medium"),
-                                align="center",
-                                spacing="1",
-                                padding=Spacing.MD,
-                            ),
-                            id="upload_factura_pdf",
-                            accept={"application/pdf": [".pdf"]},
+                        upload_zone(
+                            upload_id="upload_factura_pdf",
+                            title="Subir PDF de factura",
+                            helper_text="Solo PDF",
+                            accept=ACCEPT_PDF,
                             max_files=1,
+                            loading=MisEntregablesState.subiendo_factura_pdf,
+                            on_upload=MisEntregablesState.subir_factura_pdf,
+                            button_label="Subir PDF",
+                            button_color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                            icon="file-text",
+                            icon_color=Colors.PORTAL_PRIMARY,
+                            icon_size=24,
                             border=f"2px dashed {Colors.TEXT_MUTED}",
                             border_radius="8px",
-                            cursor="pointer",
-                            _hover={"borderColor": Colors.PORTAL_PRIMARY},
-                            width="100%",
-                        ),
-                        rx.cond(
-                            rx.selected_files("upload_factura_pdf").length() > 0,
-                            rx.hstack(
-                                rx.button(
-                                    "Subir PDF",
-                                    size="2",
-                                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-                                    loading=MisEntregablesState.subiendo_factura_pdf,
-                                    on_click=MisEntregablesState.subir_factura_pdf(rx.upload_files(upload_id="upload_factura_pdf")),
-                                ),
-                                spacing="2",
-                            ),
-                            rx.fragment(),
+                            hover_border_color=Colors.PORTAL_PRIMARY,
+                            padding=Spacing.MD,
                         ),
                         spacing="2",
                         width="100%",
@@ -827,36 +878,23 @@ def _modal_factura() -> rx.Component:
                     # 2. Upload XML CFDI
                     rx.vstack(
                         rx.text("2. XML CFDI", size="3", weight="bold"),
-                        rx.upload(
-                            rx.vstack(
-                                rx.icon("code-xml", size=24, color=Colors.PORTAL_PRIMARY),
-                                rx.text("Subir XML del CFDI", size="2", weight="medium"),
-                                align="center",
-                                spacing="1",
-                                padding=Spacing.MD,
-                            ),
-                            id="upload_factura_xml",
-                            accept={"application/xml": [".xml"], "text/xml": [".xml"]},
+                        upload_zone(
+                            upload_id="upload_factura_xml",
+                            title="Subir XML del CFDI",
+                            helper_text="Solo XML",
+                            accept=ACCEPT_XML,
                             max_files=1,
+                            loading=MisEntregablesState.subiendo_factura_xml,
+                            on_upload=MisEntregablesState.subir_factura_xml,
+                            button_label="Subir y Validar XML",
+                            button_color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                            icon="code-xml",
+                            icon_color=Colors.PORTAL_PRIMARY,
+                            icon_size=24,
                             border=f"2px dashed {Colors.TEXT_MUTED}",
                             border_radius="8px",
-                            cursor="pointer",
-                            _hover={"borderColor": Colors.PORTAL_PRIMARY},
-                            width="100%",
-                        ),
-                        rx.cond(
-                            rx.selected_files("upload_factura_xml").length() > 0,
-                            rx.hstack(
-                                rx.button(
-                                    "Subir y Validar XML",
-                                    size="2",
-                                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-                                    loading=MisEntregablesState.subiendo_factura_xml,
-                                    on_click=MisEntregablesState.subir_factura_xml(rx.upload_files(upload_id="upload_factura_xml")),
-                                ),
-                                spacing="2",
-                            ),
-                            rx.fragment(),
+                            hover_border_color=Colors.PORTAL_PRIMARY,
+                            padding=Spacing.MD,
                         ),
                         spacing="2",
                         width="100%",
@@ -865,7 +903,12 @@ def _modal_factura() -> rx.Component:
                     _validacion_xml(),
                     rx.divider(),
                     rx.hstack(
-                        rx.button("Cancelar", variant="soft", color_scheme=Colors.NEUTRAL_SCHEME, on_click=MisEntregablesState.cerrar_modal_factura),
+                        rx.button(
+                            "Cancelar",
+                            variant="soft",
+                            color_scheme=Colors.NEUTRAL_SCHEME,
+                            on_click=MisEntregablesState.cerrar_modal_factura,
+                        ),
                         rx.spacer(),
                         rx.button(
                             rx.icon("send", size=14),

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import reflex as rx
 
+from app.presentation.components.common.upload_zone import (
+    ACCEPT_IMAGES_PDF,
+    upload_zone,
+)
 from app.presentation.components.ui import (
     document_status_badge,
     employee_status_badge,
@@ -164,7 +168,9 @@ def _plaza_info() -> rx.Component:
             ),
             _info_card(
                 "Categoría",
-                EmpleadoFichaState.plaza_actual.get("categoria_nombre", "Sin categoría"),
+                EmpleadoFichaState.plaza_actual.get(
+                    "categoria_nombre", "Sin categoría"
+                ),
                 EmpleadoFichaState.plaza_actual.get("plaza_texto", ""),
             ),
             _info_card(
@@ -237,7 +243,11 @@ def _mini_expediente() -> rx.Component:
         _section_label("Expediente"),
         rx.box(
             rx.flex(
-                rx.text("Documentos", font_size=Typography.SIZE_SM, color=Colors.TEXT_SECONDARY),
+                rx.text(
+                    "Documentos",
+                    font_size=Typography.SIZE_SM,
+                    color=Colors.TEXT_SECONDARY,
+                ),
                 rx.text(
                     EmpleadoFichaState.total_aprobados.to_string()
                     + " de "
@@ -417,7 +427,9 @@ def _badge_validacion(valor_bool) -> rx.Component:
             variant="soft",
             size="1",
         ),
-        rx.badge("Pendiente", color_scheme=Colors.WARNING_SCHEME, variant="soft", size="1"),
+        rx.badge(
+            "Pendiente", color_scheme=Colors.WARNING_SCHEME, variant="soft", size="1"
+        ),
     )
 
 
@@ -432,7 +444,9 @@ def tab_datos_personales() -> rx.Component:
                     "Fecha nacimiento",
                     EmpleadoFichaState.empleado.get("fecha_nacimiento", "—"),
                 ),
-                _row_label_value("Género", EmpleadoFichaState.empleado.get("genero", "—")),
+                _row_label_value(
+                    "Género", EmpleadoFichaState.empleado.get("genero", "—")
+                ),
                 _row_label_value(
                     "Entidad nacimiento",
                     EmpleadoFichaState.empleado.get("entidad_nacimiento", "—"),
@@ -443,7 +457,9 @@ def tab_datos_personales() -> rx.Component:
                         font_size=Typography.SIZE_SM,
                         color=Colors.TEXT_SECONDARY,
                     ),
-                    _badge_validacion(EmpleadoFichaState.empleado.get("renapo_validado", False)),
+                    _badge_validacion(
+                        EmpleadoFichaState.empleado.get("renapo_validado", False)
+                    ),
                     justify="between",
                     align="center",
                     width="100%",
@@ -460,7 +476,9 @@ def tab_datos_personales() -> rx.Component:
         rx.flex(
             _section_label("Contacto y bancarios"),
             rx.box(
-                _row_label_value("Dirección", EmpleadoFichaState.empleado.get("direccion", "—")),
+                _row_label_value(
+                    "Dirección", EmpleadoFichaState.empleado.get("direccion", "—")
+                ),
                 _row_label_value(
                     "Contacto emergencia",
                     EmpleadoFichaState.empleado.get("contacto_emergencia", "—"),
@@ -470,9 +488,15 @@ def tab_datos_personales() -> rx.Component:
                     border_top=f"1px solid {Colors.BORDER}",
                     margin_y=Spacing.SM,
                 ),
-                _row_label_value("Banco", EmpleadoFichaState.empleado.get("banco", "—")),
+                _row_label_value(
+                    "Banco", EmpleadoFichaState.empleado.get("banco", "—")
+                ),
                 rx.flex(
-                    rx.text("Cuenta", font_size=Typography.SIZE_SM, color=Colors.TEXT_SECONDARY),
+                    rx.text(
+                        "Cuenta",
+                        font_size=Typography.SIZE_SM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
                     rx.text(
                         EmpleadoFichaState.empleado.get("cuenta_bancaria", "—"),
                         font_size=Typography.SIZE_XS,
@@ -485,7 +509,11 @@ def tab_datos_personales() -> rx.Component:
                     padding_y=Spacing.XS,
                 ),
                 rx.flex(
-                    rx.text("CLABE", font_size=Typography.SIZE_SM, color=Colors.TEXT_SECONDARY),
+                    rx.text(
+                        "CLABE",
+                        font_size=Typography.SIZE_SM,
+                        color=Colors.TEXT_SECONDARY,
+                    ),
                     rx.text(
                         EmpleadoFichaState.empleado.get("clabe_interbancaria", "—"),
                         font_size=Typography.SIZE_XS,
@@ -561,7 +589,9 @@ def tab_datos_laborales() -> rx.Component:
                 "Categoría",
                 rx.cond(
                     EmpleadoFichaState.tiene_plaza,
-                    EmpleadoFichaState.plaza_actual.get("categoria_nombre", "Sin categoría"),
+                    EmpleadoFichaState.plaza_actual.get(
+                        "categoria_nombre", "Sin categoría"
+                    ),
                     "Sin plaza asignada",
                 ),
             ),
@@ -842,47 +872,22 @@ def modal_subir_documento_ficha() -> rx.Component:
                     ),
                     rx.cond(
                         EmpleadoFichaState.tipo_documento_subiendo != "",
-                        rx.upload(
-                            rx.vstack(
-                                rx.cond(
-                                    EmpleadoFichaState.subiendo_archivo,
-                                    rx.spinner(size="2"),
-                                    rx.icon(
-                                        "cloud-upload",
-                                        size=30,
-                                        color=Colors.TEXT_SECONDARY,
-                                    ),
-                                ),
-                                rx.text(
-                                    "Arrastre un archivo o haga clic para seleccionar",
-                                    font_size=Typography.SIZE_SM,
-                                    color=Colors.TEXT_SECONDARY,
-                                ),
-                                rx.text(
-                                    "PDF, PNG o JPG (máximo 1 archivo)",
-                                    font_size=Typography.SIZE_XS,
-                                    color=Colors.TEXT_MUTED,
-                                ),
-                                spacing="2",
-                                align="center",
-                                width="100%",
-                                padding_y=Spacing.XL,
-                            ),
-                            id=EMPLOYEE_EXPEDIENTE_UPLOAD_ID,
-                            accept={
-                                "application/pdf": [".pdf"],
-                                "image/png": [".png"],
-                                "image/jpeg": [".jpg", ".jpeg"],
-                            },
+                        upload_zone(
+                            upload_id=EMPLOYEE_EXPEDIENTE_UPLOAD_ID,
+                            title="Arrastre un archivo o haga clic para seleccionar",
+                            helper_text="PDF, PNG o JPG (máximo 1 archivo)",
+                            accept=ACCEPT_IMAGES_PDF,
                             max_files=1,
-                            on_drop=EmpleadoFichaState.handle_upload_documento(
-                                rx.upload_files(upload_id=EMPLOYEE_EXPEDIENTE_UPLOAD_ID),
-                            ),
+                            loading=EmpleadoFichaState.subiendo_archivo,
+                            on_drop=EmpleadoFichaState.handle_upload_documento,
+                            auto_upload=True,
+                            icon="cloud-upload",
+                            icon_color=Colors.TEXT_SECONDARY,
+                            icon_size=30,
                             border=f"1px dashed {Colors.BORDER_STRONG}",
                             border_radius=Radius.LG,
                             background=Colors.SECONDARY_LIGHT,
-                            width="100%",
-                            cursor="pointer",
+                            padding=Spacing.XL,
                         ),
                         rx.callout.root(
                             rx.callout.icon(rx.icon("info", size=16)),

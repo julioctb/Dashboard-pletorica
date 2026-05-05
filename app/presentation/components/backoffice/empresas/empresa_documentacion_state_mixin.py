@@ -11,7 +11,11 @@ from app.domain.models.empresa_documento import (
     EmpresaDocumentoCreate,
     EmpresaDocumentoRequisitoCreate,
 )
-from app.modules.application import archivo_service, empresa_documento_service, empresa_service
+from app.modules.application import (
+    archivo_service,
+    empresa_documento_service,
+    empresa_service,
+)
 
 
 EMPRESA_DOCUMENTACION_UPLOAD_ID = "empresa_documentacion_upload"
@@ -135,7 +139,9 @@ class EmpresaDocumentacionStateMixin:
     def abrir_modal_subir(self, documento: dict):
         self.tipo_documento_subiendo = str(documento.get("tipo_documento", ""))
         self.requisito_id_subiendo = int(documento.get("requisito_id") or 0)
-        self.nombre_documento_subiendo = str(documento.get("tipo_documento_label", "Documento"))
+        self.nombre_documento_subiendo = str(
+            documento.get("tipo_documento_label", "Documento")
+        )
         self.ayuda_documento_subiendo = self._build_upload_guidance(documento)
         self.mostrar_modal_subir = True
 
@@ -145,6 +151,7 @@ class EmpresaDocumentacionStateMixin:
         self.requisito_id_subiendo = 0
         self.nombre_documento_subiendo = ""
         self.ayuda_documento_subiendo = ""
+        return rx.clear_selected_files(EMPRESA_DOCUMENTACION_UPLOAD_ID)
 
     def abrir_modal_documento_personalizado(self):
         self.form_documento_personalizado_nombre = ""
@@ -191,7 +198,10 @@ class EmpresaDocumentacionStateMixin:
 
             self.cerrar_modal_subir()
             await self._fetch_documentacion_empresa()
-            return rx.toast.success("Documento actualizado")
+            return [
+                rx.clear_selected_files(EMPRESA_DOCUMENTACION_UPLOAD_ID),
+                rx.toast.success("Documento actualizado"),
+            ]
         except Exception as e:
             return self.manejar_error_con_toast(e, "subiendo documento")
         finally:

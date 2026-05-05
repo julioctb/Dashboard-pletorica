@@ -5,8 +5,13 @@ Lista de tipos de documento obligatorios/opcionales con estatus y
 area de subida. Usa un solo rx.upload con id estatico para evitar
 problemas de id dinamico dentro de rx.foreach.
 """
+
 import reflex as rx
 
+from app.presentation.components.common.upload_zone import (
+    ACCEPT_IMAGES_PDF,
+    upload_zone,
+)
 from app.presentation.components.ui import document_status_badge
 from app.presentation.components.reusable import (
     document_section_container,
@@ -27,6 +32,7 @@ UPLOAD_ID = "upload_doc_expediente"
 # BADGES
 # =============================================================================
 
+
 def _badge_doc_estatus(estatus: str) -> rx.Component:
     """Badge de estatus de un documento."""
     return document_status_badge(estatus)
@@ -35,6 +41,7 @@ def _badge_doc_estatus(estatus: str) -> rx.Component:
 # =============================================================================
 # FILA DE TIPO DE DOCUMENTO
 # =============================================================================
+
 
 def fila_tipo_documento(tipo_doc: dict) -> rx.Component:
     """Fila individual para un tipo de documento."""
@@ -93,6 +100,7 @@ def fila_tipo_documento(tipo_doc: dict) -> rx.Component:
 # AREA DE SUBIDA (unica, estatica)
 # =============================================================================
 
+
 def area_subida_documento() -> rx.Component:
     """Area de upload que aparece cuando se selecciona un tipo de documento."""
     return rx.cond(
@@ -122,44 +130,22 @@ def area_subida_documento() -> rx.Component:
                 align="center",
                 width="100%",
             ),
-            rx.upload(
-                rx.vstack(
-                    rx.cond(
-                        MisDatosState.subiendo_archivo,
-                        rx.spinner(size="2"),
-                        rx.icon("cloud-upload", size=32, color=Colors.TEXT_MUTED),
-                    ),
-                    rx.text(
-                        "Arrastre un archivo o haga clic para seleccionar",
-                        font_size=Typography.SIZE_SM,
-                        color=Colors.TEXT_SECONDARY,
-                    ),
-                    rx.text(
-                        "PDF, PNG o JPG (max 1 archivo)",
-                        font_size=Typography.SIZE_XS,
-                        color=Colors.TEXT_MUTED,
-                    ),
-                    align="center",
-                    spacing="2",
-                    padding_y=Spacing.LG,
-                ),
-                id=UPLOAD_ID,
-                accept={
-                    "application/pdf": [".pdf"],
-                    "image/png": [".png"],
-                    "image/jpeg": [".jpg", ".jpeg"],
-                },
+            upload_zone(
+                upload_id=UPLOAD_ID,
+                title="Arrastre un archivo o haga clic para seleccionar",
+                helper_text="PDF, PNG o JPG (max 1 archivo)",
+                accept=ACCEPT_IMAGES_PDF,
                 max_files=1,
-                on_drop=MisDatosState.handle_upload_documento(
-                    rx.upload_files(upload_id=UPLOAD_ID),
-                ),
+                loading=MisDatosState.subiendo_archivo,
+                on_drop=MisDatosState.handle_upload_documento,
+                auto_upload=True,
+                icon="cloud-upload",
+                icon_color=Colors.TEXT_MUTED,
+                icon_size=32,
                 border=f"2px dashed {Colors.BORDER}",
                 border_radius="8px",
-                width="100%",
-                cursor="pointer",
-                style={
-                    "_hover": {"border_color": "var(--blue-7)"},
-                },
+                hover_border_color="var(--blue-7)",
+                padding=Spacing.LG,
             ),
             width="100%",
             spacing="2",
@@ -175,6 +161,7 @@ def area_subida_documento() -> rx.Component:
 # =============================================================================
 # LISTA COMPLETA DE DOCUMENTOS
 # =============================================================================
+
 
 def lista_documentos_requeridos() -> rx.Component:
     """Lista de todos los tipos de documento con su estatus."""

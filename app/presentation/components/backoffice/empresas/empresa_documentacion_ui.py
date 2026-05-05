@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import reflex as rx
 
+from app.presentation.components.common.upload_zone import ACCEPT_PDF, upload_zone
 from app.presentation.components.backoffice.empresas.empresa_documentacion_state_mixin import (
     EMPRESA_DOCUMENTACION_UPLOAD_ID,
 )
@@ -29,7 +30,10 @@ def _status_badge(estatus) -> rx.Component:
     return rx.match(
         estatus,
         ("Subido", rx.badge("Subido", color_scheme="green", variant="soft", size="1")),
-        ("No aplica", rx.badge("No aplica", color_scheme="gray", variant="soft", size="1")),
+        (
+            "No aplica",
+            rx.badge("No aplica", color_scheme="gray", variant="soft", size="1"),
+        ),
         rx.badge("Pendiente", color_scheme="orange", variant="soft", size="1"),
     )
 
@@ -69,8 +73,14 @@ def _acciones_documento(item, state, *, can_edit, readonly: bool) -> rx.Componen
                 icon="upload",
                 tooltip=rx.cond(
                     item["es_anual"],
-                    rx.cond(item["subido"], "Reemplazar PDF del año", "Subir PDF del año"),
-                    rx.cond(item["subido"], "Actualizar documento vigente", "Subir documento vigente"),
+                    rx.cond(
+                        item["subido"], "Reemplazar PDF del año", "Subir PDF del año"
+                    ),
+                    rx.cond(
+                        item["subido"],
+                        "Actualizar documento vigente",
+                        "Subir documento vigente",
+                    ),
                 ),
                 on_click=state.abrir_modal_subir(item),
                 color_scheme="blue",
@@ -124,7 +134,12 @@ def _fila_documento_empresa(item, state, *, can_edit, readonly: bool) -> rx.Comp
                     _scope_badge(item["es_anual"]),
                     rx.cond(
                         item["es_personalizado"],
-                        rx.badge("Personalizado", color_scheme="gray", variant="soft", size="1"),
+                        rx.badge(
+                            "Personalizado",
+                            color_scheme="gray",
+                            variant="soft",
+                            size="1",
+                        ),
                         rx.fragment(),
                     ),
                     spacing="2",
@@ -208,15 +223,21 @@ def resumen_documentacion_empresa(state) -> rx.Component:
     return rx.grid(
         _metric_card("Año", state.anio_seleccionado.to(str)),
         _metric_card("Requeridos", state.documentos_requeridos.to(str)),
-        _metric_card("Subidos", state.documentos_subidos_requeridos.to(str), tone="success"),
-        _metric_card("Completitud", state.porcentaje_completitud.to(str) + "%", tone="warning"),
+        _metric_card(
+            "Subidos", state.documentos_subidos_requeridos.to(str), tone="success"
+        ),
+        _metric_card(
+            "Completitud", state.porcentaje_completitud.to(str) + "%", tone="warning"
+        ),
         columns=rx.breakpoints(initial="1", sm="2", lg="4"),
         spacing="4",
         width="100%",
     )
 
 
-def toolbar_documentacion_empresa(state, *, allow_change_year: bool = True) -> rx.Component:
+def toolbar_documentacion_empresa(
+    state, *, allow_change_year: bool = True
+) -> rx.Component:
     selector_anio = (
         rx.select.root(
             rx.select.trigger(
@@ -240,7 +261,9 @@ def toolbar_documentacion_empresa(state, *, allow_change_year: bool = True) -> r
                 ),
                 width="180px",
             ),
-            rx.select.content(select_items_from_options(state.opciones_anio_documentacion)),
+            rx.select.content(
+                select_items_from_options(state.opciones_anio_documentacion)
+            ),
             value=state.anio_seleccionado.to(str),
             on_change=state.cambiar_anio_documentacion,
             size="2",
@@ -277,7 +300,9 @@ def toolbar_documentacion_empresa(state, *, allow_change_year: bool = True) -> r
     )
 
 
-def tabla_documentacion_empresa(state, *, can_edit, readonly: bool = False) -> rx.Component:
+def tabla_documentacion_empresa(
+    state, *, can_edit, readonly: bool = False
+) -> rx.Component:
     return table_shell(
         loading=state.loading,
         headers=_HEADERS_DOCUMENTACION,
@@ -290,7 +315,10 @@ def tabla_documentacion_empresa(state, *, can_edit, readonly: bool = False) -> r
         ),
         has_rows=state.checklist_documentos.length() > 0,
         empty_component=rx.center(
-            rx.text("No hay documentos configurados para este expediente.", color=Colors.TEXT_SECONDARY),
+            rx.text(
+                "No hay documentos configurados para este expediente.",
+                color=Colors.TEXT_SECONDARY,
+            ),
             padding="2rem",
         ),
         total_caption="Checklist anual de documentación",
@@ -371,7 +399,11 @@ def share_block_documentacion_empresa(state, *, can_share) -> rx.Component:
             rx.hstack(
                 rx.button(
                     rx.icon("link", size=16),
-                    rx.cond(state.hay_link_compartible_activo, "Regenerar link", "Generar link"),
+                    rx.cond(
+                        state.hay_link_compartible_activo,
+                        "Regenerar link",
+                        "Generar link",
+                    ),
                     on_click=state.generar_link_compartible_empresa,
                     disabled=~can_share,
                 ),
@@ -412,60 +444,19 @@ def modal_subir_documento_empresa(state) -> rx.Component:
                 ),
                 rx.fragment(),
             ),
-            rx.upload(
-                rx.vstack(
-                    rx.cond(
-                        state.subiendo_archivo,
-                        rx.vstack(
-                            rx.spinner(size="3"),
-                            rx.text("Subiendo PDF...", size="2"),
-                            spacing="2",
-                            align="center",
-                        ),
-                        rx.vstack(
-                            rx.icon("upload", size=24, color=Colors.PRIMARY),
-                            rx.text("Arrastra un PDF o haz clic para seleccionarlo", size="2", weight="medium"),
-                            rx.text("Solo se aceptan archivos PDF", size="1", color=Colors.TEXT_SECONDARY),
-                            spacing="1",
-                            align="center",
-                        ),
-                    ),
-                    width="100%",
-                    align="center",
-                    justify="center",
-                    padding="1.5rem",
-                ),
-                id=EMPRESA_DOCUMENTACION_UPLOAD_ID,
-                accept={"application/pdf": [".pdf"]},
+            upload_zone(
+                upload_id=EMPRESA_DOCUMENTACION_UPLOAD_ID,
+                title="Arrastra un PDF o haz clic para seleccionarlo",
+                helper_text="Solo se aceptan archivos PDF",
+                accept=ACCEPT_PDF,
                 max_files=1,
-                no_click=state.subiendo_archivo,
-                no_drag=state.subiendo_archivo,
-                border=f"2px dashed {Colors.BORDER_STRONG}",
+                loading=state.subiendo_archivo,
+                on_upload=state.handle_upload_documento_empresa,
+                button_label="Guardar PDF",
+                loading_label="Subiendo PDF...",
+                icon_color=Colors.PRIMARY,
                 border_radius="12px",
-                width="100%",
-            ),
-            rx.cond(
-                rx.selected_files(EMPRESA_DOCUMENTACION_UPLOAD_ID).length() > 0,
-                rx.vstack(
-                    rx.foreach(
-                        rx.selected_files(EMPRESA_DOCUMENTACION_UPLOAD_ID),
-                        lambda archivo: rx.text(archivo, size="1", color=Colors.TEXT_SECONDARY),
-                    ),
-                    rx.button(
-                        rx.cond(
-                            state.subiendo_archivo,
-                            rx.hstack(rx.spinner(size="1"), rx.text("Subiendo..."), spacing="2"),
-                            rx.hstack(rx.icon("upload", size=16), rx.text("Guardar PDF"), spacing="2"),
-                        ),
-                        on_click=state.handle_upload_documento_empresa(
-                            rx.upload_files(upload_id=EMPRESA_DOCUMENTACION_UPLOAD_ID)
-                        ),
-                        disabled=state.subiendo_archivo,
-                    ),
-                    width="100%",
-                    spacing="2",
-                ),
-                rx.fragment(),
+                padding="1.5rem",
             ),
             rx.hstack(
                 rx.spacer(),
@@ -535,8 +526,12 @@ def modal_documento_personalizado(state) -> rx.Component:
                 rx.button(
                     rx.cond(
                         state.guardando_documento_personalizado,
-                        rx.hstack(rx.spinner(size="1"), rx.text("Guardando..."), spacing="2"),
-                        rx.hstack(rx.icon("plus", size=16), rx.text("Agregar"), spacing="2"),
+                        rx.hstack(
+                            rx.spinner(size="1"), rx.text("Guardando..."), spacing="2"
+                        ),
+                        rx.hstack(
+                            rx.icon("plus", size=16), rx.text("Agregar"), spacing="2"
+                        ),
                     ),
                     on_click=state.crear_documento_personalizado,
                     disabled=state.guardando_documento_personalizado,
@@ -566,7 +561,9 @@ def panel_documentacion_empresa(
         else rx.fragment()
     )
     modal_upload = rx.fragment() if readonly else modal_subir_documento_empresa(state)
-    modal_documento_extra = rx.fragment() if readonly else modal_documento_personalizado(state)
+    modal_documento_extra = (
+        rx.fragment() if readonly else modal_documento_personalizado(state)
+    )
     acciones_checklist = (
         rx.cond(
             can_edit,

@@ -16,6 +16,10 @@ Uso:
 
 import reflex as rx
 
+from app.presentation.components.common.upload_zone import (
+    ACCEPT_IMAGES_PDF,
+    upload_zone,
+)
 from app.presentation.theme import Colors, Radius, Spacing
 
 
@@ -35,7 +39,12 @@ def _archivo_card(archivo: dict, on_delete: callable) -> rx.Component:
                 size="2",
                 weight="medium",
                 trim="both",
-                style={"maxWidth": "200px", "overflow": "hidden", "textOverflow": "ellipsis", "whiteSpace": "nowrap"},
+                style={
+                    "maxWidth": "200px",
+                    "overflow": "hidden",
+                    "textOverflow": "ellipsis",
+                    "whiteSpace": "nowrap",
+                },
             ),
             rx.text(
                 rx.cond(
@@ -111,86 +120,20 @@ def archivo_uploader(
     return rx.vstack(
         # Archivos existentes
         _archivos_list(archivos, on_delete),
-
-        # Zona de upload
-        rx.upload(
-            rx.vstack(
-                rx.cond(
-                    subiendo,
-                    rx.vstack(
-                        rx.spinner(size="3"),
-                        rx.text("Subiendo archivo...", size="2", color=Colors.TEXT_SECONDARY),
-                        align="center",
-                        spacing="2",
-                    ),
-                    rx.vstack(
-                        rx.icon("upload", size=24, color=Colors.PRIMARY),
-                        rx.text(
-                            "Click o arrastra archivos aqui",
-                            size="2",
-                            weight="medium",
-                        ),
-                        rx.text(
-                            "JPG, PNG o PDF",
-                            size="1",
-                            color=Colors.TEXT_SECONDARY,
-                        ),
-                        align="center",
-                        spacing="1",
-                    ),
-                ),
-                align="center",
-                justify="center",
-                padding=Spacing.LG,
-                width="100%",
-            ),
-            id=upload_id,
-            accept={
-                "image/jpeg": [".jpg", ".jpeg"],
-                "image/png": [".png"],
-                "application/pdf": [".pdf"],
-            },
+        upload_zone(
+            upload_id=upload_id,
+            title="Click o arrastra archivos aqui",
+            helper_text="JPG, PNG o PDF",
+            accept=ACCEPT_IMAGES_PDF,
             max_files=max_archivos,
-            no_click=subiendo,
-            no_drag=subiendo,
-            border=f"2px dashed {Colors.BORDER_STRONG}",
+            loading=subiendo,
+            on_upload=on_upload,
+            button_label="Subir archivos",
+            loading_label="Cargando...",
+            button_variant="soft",
             border_radius=Radius.MD,
-            cursor=rx.cond(subiendo, "wait", "pointer"),
-            _hover={"borderColor": Colors.PRIMARY, "background": Colors.PRIMARY_LIGHTER},
-            width="100%",
+            hover_background=Colors.PRIMARY_LIGHTER,
         ),
-
-        # Archivos seleccionados (pendientes de subir)
-        rx.cond(
-            rx.selected_files(upload_id).length() > 0,
-            rx.vstack(
-                rx.foreach(
-                    rx.selected_files(upload_id),
-                    lambda file: rx.text(file, size="1", color=Colors.TEXT_SECONDARY),
-                ),
-                rx.button(
-                    rx.cond(
-                        subiendo,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Cargando..."),
-                            spacing="2",
-                            align="center",
-                        ),
-                        "Subir archivos",
-                    ),
-                    on_click=on_upload(
-                        rx.upload_files(upload_id=upload_id),
-                    ),
-                    disabled=subiendo,
-                    size="2",
-                    variant="soft",
-                ),
-                spacing="2",
-                width="100%",
-            ),
-        ),
-
         spacing="3",
         width="100%",
     )
@@ -212,7 +155,12 @@ def _archivo_visor_card(archivo: dict, on_ver: callable) -> rx.Component:
                 size="2",
                 weight="medium",
                 trim="both",
-                style={"maxWidth": "250px", "overflow": "hidden", "textOverflow": "ellipsis", "whiteSpace": "nowrap"},
+                style={
+                    "maxWidth": "250px",
+                    "overflow": "hidden",
+                    "textOverflow": "ellipsis",
+                    "whiteSpace": "nowrap",
+                },
             ),
             rx.cond(
                 archivo["fue_comprimido"].to(bool),

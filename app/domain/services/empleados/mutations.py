@@ -14,7 +14,9 @@ from app.domain.models.empleado import Empleado, EmpleadoCreate, EmpleadoUpdate
 def _get_historial_service():
     """Import diferido para evitar imports circulares."""
     from app.domain.services.historial_laboral_service import historial_laboral_service
+
     return historial_laboral_service
+
 
 if TYPE_CHECKING:
     from app.domain.services.empleado_service import EmpleadoService
@@ -38,7 +40,9 @@ class EmpleadoMutationService:
         return fecha_vigente or fecha_historica
 
     async def crear(self, empleado_create: EmpleadoCreate) -> Empleado:
-        empleado_existente = await self.root.repository.obtener_por_curp(empleado_create.curp)
+        empleado_existente = await self.root.repository.obtener_por_curp(
+            empleado_create.curp
+        )
         if empleado_existente:
             if empleado_existente.is_restricted:
                 raise BusinessRuleError(
@@ -71,12 +75,10 @@ class EmpleadoMutationService:
             telefono=empleado_create.telefono,
             email=empleado_create.email,
             direccion=empleado_create.direccion,
+            codigo_postal=empleado_create.codigo_postal,
             contacto_emergencia=empleado_create.contacto_emergencia,
             fecha_ingreso=fecha_ingreso,
-            fecha_ingreso_vigente=self._resolver_fecha_ingreso_vigente(
-                fecha_historica=fecha_ingreso,
-                fecha_vigente=empleado_create.fecha_ingreso_vigente,
-            ),
+            fecha_ingreso_vigente=empleado_create.fecha_ingreso_vigente,
             notas=empleado_create.notas,
             cuenta_bancaria=empleado_create.cuenta_bancaria,
             banco=empleado_create.banco,
@@ -99,10 +101,15 @@ class EmpleadoMutationService:
 
         return empleado_creado
 
-    async def actualizar(self, empleado_id: int, empleado_update: EmpleadoUpdate) -> Empleado:
+    async def actualizar(
+        self, empleado_id: int, empleado_update: EmpleadoUpdate
+    ) -> Empleado:
         empleado = await self.root.repository.obtener_por_id(empleado_id)
 
-        if empleado_update.empresa_id and empleado_update.empresa_id != empleado.empresa_id:
+        if (
+            empleado_update.empresa_id
+            and empleado_update.empresa_id != empleado.empresa_id
+        ):
             await self.root._validar_empresa(empleado_update.empresa_id)
 
         update_data = empleado_update.model_dump(exclude_unset=True)
@@ -117,23 +124,27 @@ class EmpleadoMutationService:
         empleado_id: int,
         *,
         tiene_plaza_activa: bool,
+        fecha_ingreso_vigente: Optional[date] = None,
     ) -> Empleado:
         empleado = await self.root.repository.obtener_por_id(empleado_id)
         if empleado.estatus == EstatusEmpleado.SUSPENDIDO:
             return empleado
 
         nuevo_estatus = (
-            EstatusEmpleado.ACTIVO
-            if tiene_plaza_activa
-            else EstatusEmpleado.INACTIVO
+            EstatusEmpleado.ACTIVO if tiene_plaza_activa else EstatusEmpleado.INACTIVO
         )
         if empleado.estatus == nuevo_estatus:
+            if tiene_plaza_activa and fecha_ingreso_vigente:
+                empleado.fecha_ingreso_vigente = fecha_ingreso_vigente
+                return await self.root.repository.actualizar(empleado)
             return empleado
 
         empleado.estatus = nuevo_estatus
         if nuevo_estatus == EstatusEmpleado.ACTIVO:
             empleado.fecha_baja = None
             empleado.motivo_baja = None
+            if fecha_ingreso_vigente:
+                empleado.fecha_ingreso_vigente = fecha_ingreso_vigente
         return await self.root.repository.actualizar(empleado)
 
     async def dar_de_baja(
@@ -214,7 +225,10 @@ class EmpleadoMutationService:
                 "en el sistema. Contacte al administrador de BUAP para mas informacion."
             )
 
-        if empleado.estatus == EstatusEmpleado.ACTIVO and empleado.empresa_id == nueva_empresa_id:
+        if (
+            empleado.estatus == EstatusEmpleado.ACTIVO
+            and empleado.empresa_id == nueva_empresa_id
+        ):
             raise BusinessRuleError(
                 f"El empleado {empleado.clave} ya esta activo en esta empresa"
             )

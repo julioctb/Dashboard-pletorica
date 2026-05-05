@@ -4,6 +4,7 @@ State para la pagina Mis Datos del portal (autoservicio empleado).
 El empleado accede con su user_id, completa datos personales/bancarios
 y sube documentos de su expediente.
 """
+
 import reflex as rx
 import logging
 from typing import List
@@ -16,7 +17,10 @@ from app.core.validation import (
     validar_cuenta_bancaria_empleado,
 )
 from app.presentation.pages.portal.state.portal_state import PortalState
-from app.modules.empleados.application import onboarding_service, empleado_documento_service
+from app.modules.empleados.application import (
+    onboarding_service,
+    empleado_documento_service,
+)
 from app.domain.enums import TipoDocumentoEmpleado
 from app.core.exceptions import (
     BusinessRuleError,
@@ -168,15 +172,23 @@ class MisDatosState(PortalState):
                     doc_existente = d
                     break
 
-            tipos.append({
-                **(doc_existente or {}),
-                "tipo": tipo.value,
-                "nombre": tipo.descripcion,
-                "obligatorio": tipo.es_obligatorio,
-                "subido": doc_existente is not None,
-                "estatus": doc_existente.get("estatus", "") if doc_existente else "",
-                "observacion": doc_existente.get("observacion_rechazo", "") if doc_existente else "",
-            })
+            tipos.append(
+                {
+                    **(doc_existente or {}),
+                    "tipo": tipo.value,
+                    "nombre": tipo.descripcion,
+                    "obligatorio": tipo.es_obligatorio,
+                    "subido": doc_existente is not None,
+                    "estatus": (
+                        doc_existente.get("estatus", "") if doc_existente else ""
+                    ),
+                    "observacion": (
+                        doc_existente.get("observacion_rechazo", "")
+                        if doc_existente
+                        else ""
+                    ),
+                }
+            )
         return tipos
 
     @rx.var
@@ -227,17 +239,26 @@ class MisDatosState(PortalState):
                 return
 
             self.empleado_encontrado = True
-            self.empleado_data = empleado.model_dump(mode='json')
+            self.empleado_data = empleado.model_dump(mode="json")
             self.estatus_actual = empleado.estatus_onboarding or ""
 
             # Pre-llenar formulario con datos existentes
             self.form_telefono = empleado.telefono or ""
             self.form_direccion = empleado.direccion or ""
             self.form_contacto_emergencia = empleado.contacto_emergencia or ""
-            self.form_entidad_nacimiento = empleado.entidad_nacimiento if hasattr(empleado, 'entidad_nacimiento') and empleado.entidad_nacimiento else ""
-            self.form_cuenta_bancaria = normalizar_cuenta_bancaria(empleado.cuenta_bancaria)
+            self.form_entidad_nacimiento = (
+                empleado.entidad_nacimiento
+                if hasattr(empleado, "entidad_nacimiento")
+                and empleado.entidad_nacimiento
+                else ""
+            )
+            self.form_cuenta_bancaria = normalizar_cuenta_bancaria(
+                empleado.cuenta_bancaria
+            )
             self.form_banco = normalizar_nombre_banco(empleado.banco)
-            self.form_clabe = normalizar_clabe_interbancaria(empleado.clabe_interbancaria)
+            self.form_clabe = normalizar_clabe_interbancaria(
+                empleado.clabe_interbancaria
+            )
             self.limpiar_errores_campos(["error_cuenta_bancaria", "error_clabe"])
 
             # Cargar documentos y expediente status
@@ -255,10 +276,10 @@ class MisDatosState(PortalState):
                 empleado_id=empleado_id,
                 solo_vigentes=True,
             )
-            self.documentos = [d.model_dump(mode='json') for d in docs]
+            self.documentos = [d.model_dump(mode="json") for d in docs]
 
             expediente = await onboarding_service.obtener_expediente(empleado_id)
-            self.expediente_status = expediente.model_dump(mode='json')
+            self.expediente_status = expediente.model_dump(mode="json")
         except Exception as e:
             logger.error(f"Error cargando documentos: {e}")
             self.documentos = []
@@ -269,18 +290,20 @@ class MisDatosState(PortalState):
     # ========================
     def _validar_datos_bancarios(self) -> bool:
         """Ejecuta validación inline de cuenta y CLABE antes de persistir."""
-        return all([
-            self.validar_y_asignar_error(
-                valor=self.form_cuenta_bancaria,
-                validador=validar_cuenta_bancaria_empleado,
-                error_attr="error_cuenta_bancaria",
-            ),
-            self.validar_y_asignar_error(
-                valor=self.form_clabe,
-                validador=validar_clabe_empleado,
-                error_attr="error_clabe",
-            ),
-        ])
+        return all(
+            [
+                self.validar_y_asignar_error(
+                    valor=self.form_cuenta_bancaria,
+                    validador=validar_cuenta_bancaria_empleado,
+                    error_attr="error_cuenta_bancaria",
+                ),
+                self.validar_y_asignar_error(
+                    valor=self.form_clabe,
+                    validador=validar_clabe_empleado,
+                    error_attr="error_clabe",
+                ),
+            ]
+        )
 
     async def guardar_datos_personales(self):
         """Guarda datos personales/bancarios y transiciona estatus."""
@@ -300,9 +323,11 @@ class MisDatosState(PortalState):
                 direccion=self.form_direccion or None,
                 contacto_emergencia=self.form_contacto_emergencia or None,
                 entidad_nacimiento=self.form_entidad_nacimiento or None,
-                cuenta_bancaria=normalizar_cuenta_bancaria(self.form_cuenta_bancaria) or None,
+                cuenta_bancaria=normalizar_cuenta_bancaria(self.form_cuenta_bancaria)
+                or None,
                 banco=normalizar_nombre_banco(self.form_banco) or None,
-                clabe_interbancaria=normalizar_clabe_interbancaria(self.form_clabe) or None,
+                clabe_interbancaria=normalizar_clabe_interbancaria(self.form_clabe)
+                or None,
             )
 
             empleado = await onboarding_service.completar_datos(
@@ -311,7 +336,7 @@ class MisDatosState(PortalState):
                 self.obtener_uuid_usuario_actual(),
             )
             self.estatus_actual = empleado.estatus_onboarding or ""
-            self.empleado_data = empleado.model_dump(mode='json')
+            self.empleado_data = empleado.model_dump(mode="json")
 
             # Recargar documentos
             await self._fetch_documentos(empleado_id)
@@ -363,7 +388,10 @@ class MisDatosState(PortalState):
             await self._fetch_documentos(empleado_id)
             self.tipo_documento_subiendo = ""
 
-            return rx.toast.success("Documento subido correctamente")
+            return [
+                rx.clear_selected_files("upload_doc_expediente"),
+                rx.toast.success("Documento subido correctamente"),
+            ]
 
         except (BusinessRuleError, ValidationError) as e:
             return rx.toast.error(str(e))
@@ -385,7 +413,7 @@ class MisDatosState(PortalState):
 
             empleado = await onboarding_service.enviar_a_revision(empleado_id)
             self.estatus_actual = empleado.estatus_onboarding or ""
-            self.empleado_data = empleado.model_dump(mode='json')
+            self.empleado_data = empleado.model_dump(mode="json")
 
             return rx.toast.success("Expediente enviado a revision")
 

@@ -88,6 +88,20 @@ from .employee_validators import (
     validar_clabe_empleado,
 )
 
+# Validadores de formulario (UI) para Empresas
+from .empresa_form_validators import (
+    validar_nombre_comercial_empresa,
+    validar_razon_social_empresa,
+    validar_codigo_corto_empresa,
+    validar_email_empresa,
+    validar_codigo_postal_empresa,
+    validar_telefono_empresa,
+    validar_prima_riesgo_empresa,
+    validar_rfc_empresa,
+    validar_registro_patronal_empresa,
+    validar_campos_requeridos_empresa,
+)
+
 # Validadores comunes reutilizables
 from .common_validators import (
     # Utilidades
@@ -341,6 +355,16 @@ __all__ = [
     "validar_cuenta_bancaria_empleado",
     "validar_banco_empleado",
     "validar_clabe_empleado",
+    "validar_nombre_comercial_empresa",
+    "validar_razon_social_empresa",
+    "validar_codigo_corto_empresa",
+    "validar_email_empresa",
+    "validar_codigo_postal_empresa",
+    "validar_telefono_empresa",
+    "validar_prima_riesgo_empresa",
+    "validar_rfc_empresa",
+    "validar_registro_patronal_empresa",
+    "validar_campos_requeridos_empresa",
     # Validadores comunes
     "limpiar_moneda",
     "validar_select_requerido",

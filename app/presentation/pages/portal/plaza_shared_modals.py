@@ -46,6 +46,17 @@ def modal_asignacion_plaza(state_cls) -> rx.Component:
                 label_variant="portal",
                 style_variant="portal",
             ),
+            form_input(
+                label="Fecha de asignación",
+                required=True,
+                placeholder="DD/MM/AAAA",
+                value=state_cls.form_fecha_asignacion_plaza,
+                on_change=state_cls.set_form_fecha_asignacion_plaza,
+                error=state_cls.error_fecha_asignacion_plaza,
+                hint="Se guardará como fecha de ingreso vigente de la plaza.",
+                label_variant="portal",
+                style_variant="portal",
+            ),
             rx.cond(
                 state_cls.cargando_empleados_plaza,
                 rx.hstack(
@@ -62,7 +73,8 @@ def modal_asignacion_plaza(state_cls) -> rx.Component:
                 rx.fragment(),
             ),
             rx.cond(
-                ~state_cls.tiene_empleados_disponibles_plaza & ~state_cls.cargando_empleados_plaza,
+                ~state_cls.tiene_empleados_disponibles_plaza
+                & ~state_cls.cargando_empleados_plaza,
                 rx.button(
                     rx.icon("plus", size=16),
                     "Nuevo empleado",
@@ -218,6 +230,17 @@ def modal_reasignacion_plaza(state_cls) -> rx.Component:
                 on_change=state_cls.set_plaza_destino_reasignacion_id,
                 options=state_cls.opciones_reasignacion_plaza,
                 hint=state_cls.hint_reasignacion_plaza,
+                label_variant="portal",
+                style_variant="portal",
+            ),
+            form_input(
+                label="Fecha de asignación",
+                required=True,
+                placeholder="DD/MM/AAAA",
+                value=state_cls.form_fecha_asignacion_plaza,
+                on_change=state_cls.set_form_fecha_asignacion_plaza,
+                error=state_cls.error_fecha_asignacion_plaza,
+                hint="Se guardará como fecha de ingreso vigente de la plaza.",
                 label_variant="portal",
                 style_variant="portal",
             ),

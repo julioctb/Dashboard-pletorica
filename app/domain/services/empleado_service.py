@@ -12,6 +12,7 @@ IMPORTANTE: Este servicio registra automáticamente los movimientos en historial
 - reactivar() -> registrar_reactivacion()
 - suspender() -> registrar_suspension()
 """
+
 import logging
 from typing import List, Optional
 from datetime import date
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 def _get_historial_service():
     """Import diferido para evitar imports circulares"""
     from app.domain.services.historial_laboral_service import historial_laboral_service
+
     return historial_laboral_service
 
 
@@ -137,7 +139,9 @@ class EmpleadoService:
         """
         return await self._mutation_service.crear(empleado_create)
 
-    async def actualizar(self, empleado_id: int, empleado_update: EmpleadoUpdate) -> Empleado:
+    async def actualizar(
+        self, empleado_id: int, empleado_update: EmpleadoUpdate
+    ) -> Empleado:
         """
         Actualiza un empleado existente.
         CURP y clave NO se pueden modificar.
@@ -154,6 +158,7 @@ class EmpleadoService:
         empleado_id: int,
         *,
         tiene_plaza_activa: bool,
+        fecha_ingreso_vigente: Optional[date] = None,
     ) -> Empleado:
         """
         Sincroniza el estatus laboral binario con la asignación de plazas válidas.
@@ -163,6 +168,7 @@ class EmpleadoService:
         return await self._mutation_service.sincronizar_estatus_por_plazas(
             empleado_id,
             tiene_plaza_activa=tiene_plaza_activa,
+            fecha_ingreso_vigente=fecha_ingreso_vigente,
         )
 
     # =========================================================================
@@ -170,10 +176,7 @@ class EmpleadoService:
     # =========================================================================
 
     async def dar_de_baja(
-        self,
-        empleado_id: int,
-        motivo: MotivoBaja,
-        fecha_baja: Optional[date] = None
+        self, empleado_id: int, motivo: MotivoBaja, fecha_baja: Optional[date] = None
     ) -> Empleado:
         """
         Da de baja a un empleado.
@@ -219,7 +222,7 @@ class EmpleadoService:
         self,
         empleado_id: int,
         nueva_empresa_id: int,
-        datos_actualizados: Optional[EmpleadoUpdate] = None
+        datos_actualizados: Optional[EmpleadoUpdate] = None,
     ) -> Empleado:
         """
         Reingresa un empleado existente a una nueva empresa.
@@ -255,7 +258,7 @@ class EmpleadoService:
         self,
         incluir_inactivos: bool = False,
         limite: Optional[int] = 50,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[Empleado]:
         """
         Obtiene todos los empleados con paginación.
@@ -263,14 +266,16 @@ class EmpleadoService:
         Raises:
             DatabaseError: Si hay error de BD
         """
-        return await self._query_service.obtener_todos(incluir_inactivos, limite, offset)
+        return await self._query_service.obtener_todos(
+            incluir_inactivos, limite, offset
+        )
 
     async def obtener_por_empresa(
         self,
         empresa_id: int,
         incluir_inactivos: bool = False,
         limite: Optional[int] = 50,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[Empleado]:
         """
         Obtiene empleados de una empresa específica.
@@ -286,10 +291,7 @@ class EmpleadoService:
         )
 
     async def obtener_resumen_empleados(
-        self,
-        incluir_inactivos: bool = False,
-        limite: int = 100,
-        offset: int = 0
+        self, incluir_inactivos: bool = False, limite: int = 100, offset: int = 0
     ) -> List[EmpleadoResumen]:
         """
         Obtiene resumen de todos los empleados para UI (selects, listados).
@@ -308,7 +310,7 @@ class EmpleadoService:
         empresa_id: int,
         incluir_inactivos: bool = False,
         limite: int = 50,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[EmpleadoResumen]:
         """
         Obtiene resumen de empleados de una empresa para UI.
@@ -324,10 +326,7 @@ class EmpleadoService:
         )
 
     async def buscar(
-        self,
-        texto: str,
-        empresa_id: Optional[int] = None,
-        limite: int = 20
+        self, texto: str, empresa_id: Optional[int] = None, limite: int = 20
     ) -> List[Empleado]:
         """
         Busca empleados por nombre, CURP o clave.
@@ -343,9 +342,7 @@ class EmpleadoService:
         return await self._query_service.buscar(texto, empresa_id, limite)
 
     async def contar(
-        self,
-        empresa_id: Optional[int] = None,
-        estatus: Optional[str] = None
+        self, empresa_id: Optional[int] = None, estatus: Optional[str] = None
     ) -> int:
         """
         Cuenta empleados con filtros opcionales.
@@ -356,8 +353,7 @@ class EmpleadoService:
         return await self._query_service.contar(empresa_id, estatus)
 
     async def obtener_disponibles_para_asignacion(
-        self,
-        limite: int = 100
+        self, limite: int = 100
     ) -> List[EmpleadoResumen]:
         """
         Obtiene empleados disponibles para asignar a una plaza.
@@ -398,9 +394,7 @@ class EmpleadoService:
     # =========================================================================
 
     async def validar_curp_disponible(
-        self,
-        curp: str,
-        excluir_id: Optional[int] = None
+        self, curp: str, excluir_id: Optional[int] = None
     ) -> bool:
         """
         Verifica si un CURP está disponible.
@@ -447,7 +441,7 @@ class EmpleadoService:
         empleado_id: int,
         motivo: str,
         admin_user_id: UUID,
-        notas: Optional[str] = None
+        notas: Optional[str] = None,
     ) -> Empleado:
         """
         Restringe un empleado. Solo administradores BUAP pueden ejecutar esto.
@@ -477,7 +471,7 @@ class EmpleadoService:
         empleado_id: int,
         motivo: str,
         admin_user_id: UUID,
-        notas: Optional[str] = None
+        notas: Optional[str] = None,
     ) -> Empleado:
         """
         Libera la restriccion de un empleado. Solo administradores BUAP.
@@ -541,7 +535,7 @@ class EmpleadoService:
         accion: AccionRestriccion,
         motivo: str,
         ejecutado_por: UUID,
-        notas: Optional[str] = None
+        notas: Optional[str] = None,
     ) -> None:
         """Registra un evento en el log de restricciones."""
         await self._restriction_service.registrar_log_restriccion(
