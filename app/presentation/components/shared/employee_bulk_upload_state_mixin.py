@@ -1,10 +1,10 @@
 """Mixin reusable para alta masiva de empleados en pantallas del portal."""
 
-import base64
 from typing import List
 
 import reflex as rx
 
+from app.core.ui_helpers import rango_paginacion
 from app.domain.models.alta_masiva import (
     DetalleResultado,
     RegistroValidado,
@@ -18,6 +18,7 @@ from app.modules.empleados.application import (
 )
 
 EMPLOYEE_BULK_UPLOAD_ID = "employee_bulk_upload"
+EMPLOYEE_BULK_UPLOAD_PAGE_SIZE = 20
 
 
 class EmployeeBulkUploadStateMixin:
@@ -32,24 +33,92 @@ class EmployeeBulkUploadStateMixin:
     alta_masiva_validacion_validos: List[dict] = []
     alta_masiva_validacion_reingresos: List[dict] = []
     alta_masiva_validacion_errores: List[dict] = []
+    alta_masiva_preview_rows: List[dict] = []
+    alta_masiva_preview_pagina: int = 1
     alta_masiva_procesando: bool = False
     alta_masiva_resultado_creados: int = 0
     alta_masiva_resultado_reingresados: int = 0
     alta_masiva_resultado_errores_count: int = 0
     alta_masiva_resultado_detalles: List[dict] = []
+    alta_masiva_resultados_pagina: int = 1
+    alta_masiva_por_pagina: int = EMPLOYEE_BULK_UPLOAD_PAGE_SIZE
     _alta_masiva_cache_validos: List[dict] = []
     _alta_masiva_cache_reingresos: List[dict] = []
 
     @staticmethod
     def _descargar_bytes(data: bytes, media_type: str, filename: str):
-        """Convierte bytes a data URL para descarga directa."""
-        b64 = base64.b64encode(data).decode()
-        return rx.download(url=f"data:{media_type};base64,{b64}", filename=filename)
+        """Descarga bytes generados en servidor con el MIME correcto."""
+        return rx.download(data=data, filename=filename, mime_type=media_type)
 
     @staticmethod
     def _serializar_registros(registros: list) -> List[dict]:
         """Serializa entidades Pydantic del flujo de alta masiva."""
-        return [registro.model_dump(mode="json") for registro in registros]
+        return [
+            EmployeeBulkUploadStateMixin._normalizar_registro_serializado(
+                registro.model_dump(mode="json")
+            )
+            for registro in registros
+        ]
+
+    @staticmethod
+    def _inferir_campo_error(mensaje: str) -> str:
+        """Deriva un campo visible cuando la validación solo entrega texto."""
+        texto = str(mensaje or "").lower()
+        campos = [
+            ("clabe", "CLABE Interbancaria"),
+            ("curp", "CURP"),
+            ("rfc", "RFC"),
+            ("nss", "NSS"),
+            ("fecha de nacimiento", "Fecha Nacimiento"),
+            ("fecha nacimiento", "Fecha Nacimiento"),
+            ("fecha de ingreso", "Fecha Ingreso"),
+            ("fecha ingreso", "Fecha Ingreso"),
+            ("codigo postal", "Codigo Postal"),
+            ("código postal", "Codigo Postal"),
+            ("cuenta bancaria", "Cuenta Bancaria"),
+            ("banco", "Banco"),
+            ("telefono", "Telefono"),
+            ("teléfono", "Telefono"),
+        ]
+        for clave, campo in campos:
+            if clave in texto:
+                return campo
+        return "Validacion"
+
+    @staticmethod
+    def _normalizar_registro_serializado(registro: dict) -> dict:
+        """Asegura campos visibles y estables para mostrar errores en UI."""
+        item = dict(registro or {})
+        datos = item.get("datos") or {}
+        errores = item.get("errores") or []
+
+        nombre_completo = " ".join(
+            parte
+            for parte in [
+                str(datos.get("nombre") or "").strip(),
+                str(datos.get("apellido_paterno") or "").strip(),
+                str(datos.get("apellido_materno") or "").strip(),
+            ]
+            if parte
+        ).strip()
+        mensaje = str(item.get("mensaje") or "").strip()
+        if not mensaje and errores:
+            mensaje = "; ".join(str(error) for error in errores if str(error).strip())
+        if not mensaje:
+            mensaje = "Error de validacion sin detalle"
+
+        item["fila"] = item.get("fila") or "-"
+        item["curp"] = str(item.get("curp") or datos.get("curp") or "").strip()
+        item["nombre_completo"] = nombre_completo or "-"
+        item["mensaje_display"] = mensaje
+        item["campo_error_display"] = "-"
+        if str(item.get("resultado") or "").upper() == "ERROR":
+            item["campo_error_display"] = str(
+                item.get("campo")
+                or item.get("campo_error")
+                or EmployeeBulkUploadStateMixin._inferir_campo_error(mensaje)
+            ).strip()
+        return item
 
     def _query_solicita_alta_masiva(self) -> bool:
         """Indica si la URL actual pide abrir la sección de alta masiva."""
@@ -73,11 +142,14 @@ class EmployeeBulkUploadStateMixin:
             "alta_masiva_validacion_validos": [],
             "alta_masiva_validacion_reingresos": [],
             "alta_masiva_validacion_errores": [],
+            "alta_masiva_preview_rows": [],
+            "alta_masiva_preview_pagina": 1,
             "alta_masiva_procesando": False,
             "alta_masiva_resultado_creados": 0,
             "alta_masiva_resultado_reingresados": 0,
             "alta_masiva_resultado_errores_count": 0,
             "alta_masiva_resultado_detalles": [],
+            "alta_masiva_resultados_pagina": 1,
             "_alta_masiva_cache_validos": [],
             "_alta_masiva_cache_reingresos": [],
         }
@@ -118,6 +190,8 @@ class EmployeeBulkUploadStateMixin:
             self.alta_masiva_validacion_errores = self._serializar_registros(
                 resultado.errores
             )
+            self.alta_masiva_preview_pagina = 1
+            self._actualizar_preview_paginado_alta_masiva()
             self._alta_masiva_cache_validos = self.alta_masiva_validacion_validos
             self._alta_masiva_cache_reingresos = self.alta_masiva_validacion_reingresos
             self.alta_masiva_paso_actual = 2
@@ -143,6 +217,13 @@ class EmployeeBulkUploadStateMixin:
 
     async def confirmar_alta_masiva(self):
         """Procesa el archivo validado y muestra resultados inline."""
+        if not self._puede_procesar_alta_masiva():
+            yield rx.toast.error(
+                "Corrija los errores del archivo antes de confirmar la alta.",
+                position="top-center",
+            )
+            return
+
         self.alta_masiva_procesando = True
         yield
 
@@ -158,6 +239,7 @@ class EmployeeBulkUploadStateMixin:
             self.alta_masiva_resultado_detalles = self._serializar_registros(
                 resultado.detalles
             )
+            self.alta_masiva_resultados_pagina = 1
             await self._post_procesamiento_alta_masiva()
             self.alta_masiva_paso_actual = 3
         except Exception as e:
@@ -236,16 +318,161 @@ class EmployeeBulkUploadStateMixin:
 
     @rx.var
     def alta_masiva_puede_procesar(self) -> bool:
-        return (
+        return self._puede_procesar_alta_masiva()
+
+    def _puede_procesar_alta_masiva(self) -> bool:
+        """Permite confirmar solo si no hay errores y hay procesables."""
+        tiene_procesables = (
             len(self.alta_masiva_validacion_validos) > 0
             or len(self.alta_masiva_validacion_reingresos) > 0
         )
+        return tiene_procesables and len(self.alta_masiva_validacion_errores) == 0
+
+    def _obtener_registros_preview_alta_masiva(self) -> List[dict]:
+        """Devuelve errores serializados ordenados para el preview."""
+        return sorted(
+            self.alta_masiva_validacion_errores,
+            key=lambda item: item.get("fila", 0),
+        )
+
+    def _actualizar_preview_paginado_alta_masiva(self) -> None:
+        """Materializa filas visibles para evitar depender del render reactivo."""
+        registros = self._obtener_registros_preview_alta_masiva()
+        total_paginas = self._calcular_total_paginas_alta_masiva(
+            len(registros),
+            self.alta_masiva_por_pagina,
+        )
+        self.alta_masiva_preview_pagina = max(
+            1,
+            min(int(self.alta_masiva_preview_pagina or 1), total_paginas),
+        )
+        self.alta_masiva_preview_rows = self._paginar_alta_masiva(
+            registros,
+            self.alta_masiva_preview_pagina,
+            self.alta_masiva_por_pagina,
+        )
+
+    @staticmethod
+    def _calcular_total_paginas_alta_masiva(total_items: int, por_pagina: int) -> int:
+        if total_items <= 0:
+            return 1
+        return ((total_items - 1) // max(1, por_pagina)) + 1
+
+    @staticmethod
+    def _paginar_alta_masiva(
+        items: List[dict], pagina: int, por_pagina: int
+    ) -> List[dict]:
+        pagina_segura = max(1, int(pagina or 1))
+        inicio = (pagina_segura - 1) * max(1, por_pagina)
+        fin = inicio + max(1, por_pagina)
+        return items[inicio:fin]
+
+    def ir_a_pagina_alta_masiva_preview(self, pagina: int):
+        self.alta_masiva_preview_pagina = max(
+            1,
+            min(int(pagina or 1), self.alta_masiva_total_paginas_preview),
+        )
+        self._actualizar_preview_paginado_alta_masiva()
+
+    def pagina_anterior_alta_masiva_preview(self):
+        self.ir_a_pagina_alta_masiva_preview(self.alta_masiva_preview_pagina - 1)
+
+    def pagina_siguiente_alta_masiva_preview(self):
+        self.ir_a_pagina_alta_masiva_preview(self.alta_masiva_preview_pagina + 1)
+
+    def ir_a_pagina_alta_masiva_resultados(self, pagina: int):
+        self.alta_masiva_resultados_pagina = max(
+            1,
+            min(int(pagina or 1), self.alta_masiva_total_paginas_resultados),
+        )
+
+    def pagina_anterior_alta_masiva_resultados(self):
+        self.ir_a_pagina_alta_masiva_resultados(self.alta_masiva_resultados_pagina - 1)
+
+    def pagina_siguiente_alta_masiva_resultados(self):
+        self.ir_a_pagina_alta_masiva_resultados(self.alta_masiva_resultados_pagina + 1)
 
     @rx.var
-    def alta_masiva_registros_preview(self) -> List[dict]:
-        """Lista combinada y ordenada para la tabla de preview."""
-        todos = list(self.alta_masiva_validacion_validos)
-        todos.extend(self.alta_masiva_validacion_reingresos)
-        todos.extend(self.alta_masiva_validacion_errores)
-        todos.sort(key=lambda item: item.get("fila", 0))
-        return todos
+    def alta_masiva_preview_pagina_actual(self) -> int:
+        return max(
+            1,
+            min(
+                self.alta_masiva_preview_pagina, self.alta_masiva_total_paginas_preview
+            ),
+        )
+
+    @rx.var
+    def alta_masiva_total_paginas_preview(self) -> int:
+        return self._calcular_total_paginas_alta_masiva(
+            len(self._obtener_registros_preview_alta_masiva()),
+            self.alta_masiva_por_pagina,
+        )
+
+    @rx.var
+    def alta_masiva_paginas_visibles_preview(self) -> List[int]:
+        return rango_paginacion(
+            self.alta_masiva_preview_pagina_actual,
+            self.alta_masiva_total_paginas_preview,
+            visible=5,
+        )
+
+    @rx.var
+    def alta_masiva_resumen_paginacion_preview(self) -> str:
+        total = len(self._obtener_registros_preview_alta_masiva())
+        if total <= 0:
+            return "Sin registros"
+        inicio = (
+            (self.alta_masiva_preview_pagina_actual - 1) * self.alta_masiva_por_pagina
+        ) + 1
+        fin = min(
+            self.alta_masiva_preview_pagina_actual * self.alta_masiva_por_pagina, total
+        )
+        return f"Mostrando {inicio}-{fin} de {total} error(es)"
+
+    @rx.var
+    def alta_masiva_resultados_pagina_actual(self) -> int:
+        return max(
+            1,
+            min(
+                self.alta_masiva_resultados_pagina,
+                self.alta_masiva_total_paginas_resultados,
+            ),
+        )
+
+    @rx.var
+    def alta_masiva_total_paginas_resultados(self) -> int:
+        return self._calcular_total_paginas_alta_masiva(
+            len(self.alta_masiva_resultado_detalles),
+            self.alta_masiva_por_pagina,
+        )
+
+    @rx.var
+    def alta_masiva_resultados_paginados(self) -> List[dict]:
+        return self._paginar_alta_masiva(
+            self.alta_masiva_resultado_detalles,
+            self.alta_masiva_resultados_pagina_actual,
+            self.alta_masiva_por_pagina,
+        )
+
+    @rx.var
+    def alta_masiva_paginas_visibles_resultados(self) -> List[int]:
+        return rango_paginacion(
+            self.alta_masiva_resultados_pagina_actual,
+            self.alta_masiva_total_paginas_resultados,
+            visible=5,
+        )
+
+    @rx.var
+    def alta_masiva_resumen_paginacion_resultados(self) -> str:
+        total = len(self.alta_masiva_resultado_detalles)
+        if total <= 0:
+            return "Sin resultados"
+        inicio = (
+            (self.alta_masiva_resultados_pagina_actual - 1)
+            * self.alta_masiva_por_pagina
+        ) + 1
+        fin = min(
+            self.alta_masiva_resultados_pagina_actual * self.alta_masiva_por_pagina,
+            total,
+        )
+        return f"Mostrando {inicio}-{fin} de {total} resultado(s)"

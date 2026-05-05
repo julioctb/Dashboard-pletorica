@@ -1,6 +1,7 @@
 """
 State para la pagina Mis Empleados del portal.
 """
+
 import asyncio
 import logging
 from datetime import date
@@ -18,7 +19,7 @@ from app.core.text_utils import (
     normalizar_mayusculas,
     obtener_iniciales,
 )
-from app.core.utils import parse_date_input
+from app.core.utils import normalize_date_input, parse_date_input
 from app.modules.empleados.domain.enums import (
     EstatusEmpleado,
     EstatusPlaza,
@@ -26,13 +27,16 @@ from app.modules.empleados.domain.enums import (
 )
 from app.presentation.components.shared import (
     EMPLOYEE_BULK_UPLOAD_ID,
+    EMPLOYEE_BULK_UPLOAD_PAGE_SIZE,
     EmployeeBulkUploadStateMixin,
 )
 from app.presentation.pages.portal.mis_empleados.form_state_mixin import (
     MisEmpleadosFormStateMixin,
 )
 from app.presentation.pages.portal.state.portal_state import PortalState
-from app.presentation.components.shared.employee_form_state_mixin import EmployeeFormStateMixin
+from app.presentation.components.shared.employee_form_state_mixin import (
+    EmployeeFormStateMixin,
+)
 from app.modules.application import (
     categoria_puesto_service,
     contrato_categoria_service,
@@ -153,6 +157,7 @@ class MisEmpleadosState(
     EmployeeBulkUploadStateMixin,
 ):
     """State para la lista de empleados del portal."""
+
     # Reflex registra handlers/vars declarados en la clase concreta del State.
     # Reexponemos los miembros extraidos al mixin para conservar bindings en UI.
     set_form_curp = MisEmpleadosFormStateMixin.set_form_curp
@@ -173,31 +178,49 @@ class MisEmpleadosState(
     set_form_notas = MisEmpleadosFormStateMixin.set_form_notas
     set_form_contacto_nombre = MisEmpleadosFormStateMixin.set_form_contacto_nombre
     set_form_contacto_telefono = MisEmpleadosFormStateMixin.set_form_contacto_telefono
-    set_form_contacto_parentesco = MisEmpleadosFormStateMixin.set_form_contacto_parentesco
+    set_form_contacto_parentesco = (
+        MisEmpleadosFormStateMixin.set_form_contacto_parentesco
+    )
     set_form_descuento_monto = MisEmpleadosFormStateMixin.set_form_descuento_monto
     set_form_descuento_inicio = MisEmpleadosFormStateMixin.set_form_descuento_inicio
     set_form_descuento_fin = MisEmpleadosFormStateMixin.set_form_descuento_fin
     set_form_descuento_notas = MisEmpleadosFormStateMixin.set_form_descuento_notas
     set_form_descuento_activo = MisEmpleadosFormStateMixin.set_form_descuento_activo
     set_form_motivo_baja = MisEmpleadosFormStateMixin.set_form_motivo_baja
-    set_form_fecha_efectiva_baja = MisEmpleadosFormStateMixin.set_form_fecha_efectiva_baja
+    set_form_fecha_efectiva_baja = (
+        MisEmpleadosFormStateMixin.set_form_fecha_efectiva_baja
+    )
     set_form_notas_baja = MisEmpleadosFormStateMixin.set_form_notas_baja
 
     validar_curp_blur = MisEmpleadosFormStateMixin.validar_curp_blur
     validar_nombre_blur = MisEmpleadosFormStateMixin.validar_nombre_blur
-    validar_apellido_paterno_blur = MisEmpleadosFormStateMixin.validar_apellido_paterno_blur
-    validar_apellido_materno_blur = MisEmpleadosFormStateMixin.validar_apellido_materno_blur
+    validar_apellido_paterno_blur = (
+        MisEmpleadosFormStateMixin.validar_apellido_paterno_blur
+    )
+    validar_apellido_materno_blur = (
+        MisEmpleadosFormStateMixin.validar_apellido_materno_blur
+    )
     validar_rfc_blur = MisEmpleadosFormStateMixin.validar_rfc_blur
     validar_nss_blur = MisEmpleadosFormStateMixin.validar_nss_blur
     validar_fecha_ingreso_blur = MisEmpleadosFormStateMixin.validar_fecha_ingreso_blur
-    validar_fecha_nacimiento_blur = MisEmpleadosFormStateMixin.validar_fecha_nacimiento_blur
+    validar_fecha_nacimiento_blur = (
+        MisEmpleadosFormStateMixin.validar_fecha_nacimiento_blur
+    )
     validar_genero_blur = MisEmpleadosFormStateMixin.validar_genero_blur
     validar_email_blur = MisEmpleadosFormStateMixin.validar_email_blur
     validar_telefono_blur = MisEmpleadosFormStateMixin.validar_telefono_blur
-    validar_contacto_nombre_blur = MisEmpleadosFormStateMixin.validar_contacto_nombre_blur
-    validar_contacto_telefono_blur = MisEmpleadosFormStateMixin.validar_contacto_telefono_blur
-    validar_contacto_parentesco_blur = MisEmpleadosFormStateMixin.validar_contacto_parentesco_blur
-    validar_cuenta_bancaria_blur = MisEmpleadosFormStateMixin.validar_cuenta_bancaria_blur
+    validar_contacto_nombre_blur = (
+        MisEmpleadosFormStateMixin.validar_contacto_nombre_blur
+    )
+    validar_contacto_telefono_blur = (
+        MisEmpleadosFormStateMixin.validar_contacto_telefono_blur
+    )
+    validar_contacto_parentesco_blur = (
+        MisEmpleadosFormStateMixin.validar_contacto_parentesco_blur
+    )
+    validar_cuenta_bancaria_blur = (
+        MisEmpleadosFormStateMixin.validar_cuenta_bancaria_blur
+    )
     validar_banco_blur = MisEmpleadosFormStateMixin.validar_banco_blur
     validar_clabe_blur = MisEmpleadosFormStateMixin.validar_clabe_blur
 
@@ -264,11 +287,15 @@ class MisEmpleadosState(
     alta_masiva_validacion_validos: List[dict] = []
     alta_masiva_validacion_reingresos: List[dict] = []
     alta_masiva_validacion_errores: List[dict] = []
+    alta_masiva_preview_rows: List[dict] = []
+    alta_masiva_preview_pagina: int = 1
     alta_masiva_procesando: bool = False
     alta_masiva_resultado_creados: int = 0
     alta_masiva_resultado_reingresados: int = 0
     alta_masiva_resultado_errores_count: int = 0
     alta_masiva_resultado_detalles: List[dict] = []
+    alta_masiva_resultados_pagina: int = 1
+    alta_masiva_por_pagina: int = EMPLOYEE_BULK_UPLOAD_PAGE_SIZE
     _alta_masiva_cache_validos: List[dict] = []
     _alta_masiva_cache_reingresos: List[dict] = []
 
@@ -334,6 +361,8 @@ class MisEmpleadosState(
     plaza_seleccionada: dict = {}
     empleados_disponibles_plaza: List[dict] = []
     empleado_seleccionado_plaza_id: str = ""
+    form_fecha_asignacion_plaza: str = ""
+    error_fecha_asignacion_plaza: str = ""
     cargando_empleados_plaza: bool = False
     modo_asignacion_plaza: str = "asignar"
     mostrar_modal_categoria_plaza: bool = False
@@ -418,7 +447,9 @@ class MisEmpleadosState(
 
     async def set_vista_personal(self, value: str):
         self.vista_personal = (
-            VISTA_PERSONAL_PLAZA if value == VISTA_PERSONAL_PLAZA else VISTA_PERSONAL_EMPLEADO
+            VISTA_PERSONAL_PLAZA
+            if value == VISTA_PERSONAL_PLAZA
+            else VISTA_PERSONAL_EMPLEADO
         )
         self.pagina = 1
         if self.vista_es_plaza:
@@ -450,6 +481,10 @@ class MisEmpleadosState(
     def set_empleado_seleccionado_plaza_id(self, value: str):
         self.empleado_seleccionado_plaza_id = value or ""
 
+    def set_form_fecha_asignacion_plaza(self, value: str):
+        self.form_fecha_asignacion_plaza = normalize_date_input(value)
+        self.error_fecha_asignacion_plaza = ""
+
     def set_categoria_seleccionada_plaza_id(self, value: str):
         self.categoria_seleccionada_plaza_id = value or ""
 
@@ -480,10 +515,7 @@ class MisEmpleadosState(
         telefono = formatear_telefono(str(payload.get("telefono") or ""))
         if telefono:
             return telefono
-        return str(
-            payload.get("email")
-            or ""
-        ).strip()
+        return str(payload.get("email") or "").strip()
 
     @staticmethod
     def _normalizar_nombre_visual(nombre: str) -> str:
@@ -569,7 +601,9 @@ class MisEmpleadosState(
     def _clave_contrato(contrato_id: int | str) -> str:
         return str(int(contrato_id or 0))
 
-    def _opciones_categoria_masiva_contrato(self, contrato_id: int | str) -> list[dict[str, str]]:
+    def _opciones_categoria_masiva_contrato(
+        self, contrato_id: int | str
+    ) -> list[dict[str, str]]:
         clave = self._clave_contrato(contrato_id)
         return list(self.opciones_categorias_masivas_por_contrato.get(clave, []) or [])
 
@@ -696,12 +730,10 @@ class MisEmpleadosState(
         if contrato_cambio:
             self._reset_contexto_plazas_ui()
 
-        if (
-            not force_reload
-            and not contrato_cambio
-            and self.plazas_contrato_expandido
-        ):
-            self.pagina_plaza_actual = min(pagina_segura, self.total_paginas_plaza_actual)
+        if not force_reload and not contrato_cambio and self.plazas_contrato_expandido:
+            self.pagina_plaza_actual = min(
+                pagina_segura, self.total_paginas_plaza_actual
+            )
             self._sincronizar_seleccion_contrato_actual()
             return
 
@@ -752,7 +784,9 @@ class MisEmpleadosState(
             and int(plaza.get("categoria_puesto_id") or 0) > 0
         )
 
-    def _resolver_estatus_portal_empleado(self, empleado_data: dict, plaza: dict) -> str:
+    def _resolver_estatus_portal_empleado(
+        self, empleado_data: dict, plaza: dict
+    ) -> str:
         estatus_actual = str(empleado_data.get("estatus", "") or "").strip().upper()
         if estatus_actual == EstatusEmpleado.SUSPENDIDO.value:
             return FILTRO_PANEL_INACTIVOS
@@ -766,7 +800,9 @@ class MisEmpleadosState(
         row["es_activo_portal"] = estatus_portal == FILTRO_PANEL_ACTIVOS
         return row
 
-    def _normalizar_resumen_empleado(self, empleado, plazas_por_empleado: dict[int, dict]) -> dict:
+    def _normalizar_resumen_empleado(
+        self, empleado, plazas_por_empleado: dict[int, dict]
+    ) -> dict:
         data = (
             empleado.model_dump(mode="json")
             if hasattr(empleado, "model_dump")
@@ -786,23 +822,27 @@ class MisEmpleadosState(
         )
         data["contacto_secundario_ui"] = self._texto_contacto_secundario(data)
         data["contrato_id"] = plaza.get("contrato_id")
-        data["contrato_codigo"] = str(plaza.get("contrato_codigo", "") or "").strip().upper()
+        data["contrato_codigo"] = (
+            str(plaza.get("contrato_codigo", "") or "").strip().upper()
+        )
         data["categoria_puesto_id"] = int(plaza.get("categoria_puesto_id") or 0)
         data["categoria_nombre"] = self._normalizar_nombre_visual(
             str(plaza.get("categoria_nombre", "") or "")
         )
-        data["categoria_clave"] = str(plaza.get("categoria_clave", "") or "").strip().upper()
-        data["sede_nombre_ui"] = self._normalizar_sede_visual(str(plaza.get("sede_nombre", "") or ""))
-        data["expediente_resumen"] = (
-            str(aprobados)
-            + "/"
-            + str(requeridos)
+        data["categoria_clave"] = (
+            str(plaza.get("categoria_clave", "") or "").strip().upper()
         )
+        data["sede_nombre_ui"] = self._normalizar_sede_visual(
+            str(plaza.get("sede_nombre", "") or "")
+        )
+        data["expediente_resumen"] = str(aprobados) + "/" + str(requeridos)
         data.update(self._resumen_docs(aprobados, requeridos))
         data.update(self._estado_expediente(aprobados, requeridos))
         return self._aplicar_estatus_portal(data, plaza)
 
-    def _normalizar_resumen_onboarding(self, onboarding: dict, plazas_por_empleado: dict[int, dict]) -> dict:
+    def _normalizar_resumen_onboarding(
+        self, onboarding: dict, plazas_por_empleado: dict[int, dict]
+    ) -> dict:
         empleado_id = int(onboarding.get("id") or 0)
         plaza = plazas_por_empleado.get(empleado_id, {})
         row = {
@@ -817,13 +857,19 @@ class MisEmpleadosState(
             "estatus_personal": "",
             "estatus_onboarding": onboarding.get("estatus_onboarding", ""),
             "contrato_id": plaza.get("contrato_id"),
-            "contrato_codigo": str(plaza.get("contrato_codigo", "") or "").strip().upper(),
+            "contrato_codigo": str(plaza.get("contrato_codigo", "") or "")
+            .strip()
+            .upper(),
             "categoria_puesto_id": int(plaza.get("categoria_puesto_id") or 0),
             "categoria_nombre": self._normalizar_nombre_visual(
                 str(plaza.get("categoria_nombre", "") or "")
             ),
-            "categoria_clave": str(plaza.get("categoria_clave", "") or "").strip().upper(),
-            "sede_nombre_ui": self._normalizar_sede_visual(str(plaza.get("sede_nombre", "") or "")),
+            "categoria_clave": str(plaza.get("categoria_clave", "") or "")
+            .strip()
+            .upper(),
+            "sede_nombre_ui": self._normalizar_sede_visual(
+                str(plaza.get("sede_nombre", "") or "")
+            ),
             "documentos_aprobados_expediente": 0,
             "documentos_requeridos_expediente": 0,
             "expediente_resumen": "Pendiente",
@@ -888,7 +934,11 @@ class MisEmpleadosState(
 
         acciones = [
             cls._opcion_accion_plaza(
-                ACCION_PLAZA_CAMBIAR_CATEGORIA if tiene_empleado else ACCION_PLAZA_REASIGNAR_CATEGORIA,
+                (
+                    ACCION_PLAZA_CAMBIAR_CATEGORIA
+                    if tiene_empleado
+                    else ACCION_PLAZA_REASIGNAR_CATEGORIA
+                ),
                 "Cambiar de categoria" if tiene_empleado else "Reasignar categoria",
             ),
         ]
@@ -960,19 +1010,27 @@ class MisEmpleadosState(
 
     def _serializar_plaza_portal(self, plaza) -> dict:
         plaza_dict = plaza.model_dump(mode="json")
-        plaza_dict["contrato_codigo"] = str(plaza_dict.get("contrato_codigo", "") or "").strip().upper()
+        plaza_dict["contrato_codigo"] = (
+            str(plaza_dict.get("contrato_codigo", "") or "").strip().upper()
+        )
         plaza_dict["categoria_nombre"] = self._normalizar_nombre_visual(
             str(plaza_dict.get("categoria_nombre") or "sin categoria")
         )
-        plaza_dict["categoria_clave"] = str(plaza_dict.get("categoria_clave") or "").strip().upper()
+        plaza_dict["categoria_clave"] = (
+            str(plaza_dict.get("categoria_clave") or "").strip().upper()
+        )
         plaza_dict["sede_nombre"] = self._normalizar_sede_visual(
             str(plaza_dict.get("sede_nombre") or "")
         )
-        plaza_dict["sede_codigo"] = str(plaza_dict.get("sede_codigo") or "").strip().upper()
+        plaza_dict["sede_codigo"] = (
+            str(plaza_dict.get("sede_codigo") or "").strip().upper()
+        )
         plaza_dict["empleado_nombre"] = self._normalizar_nombre_visual(
             str(plaza_dict.get("empleado_nombre", "") or "")
         )
-        plaza_dict["empleado_uuid"] = str(plaza_dict.get("empleado_uuid", "") or "").strip()
+        plaza_dict["empleado_uuid"] = str(
+            plaza_dict.get("empleado_uuid", "") or ""
+        ).strip()
         plaza_dict["sede_display"] = (
             f"{plaza_dict['sede_codigo']} - {plaza_dict['sede_nombre']}".strip(" -")
             if plaza_dict["sede_codigo"]
@@ -980,7 +1038,9 @@ class MisEmpleadosState(
         )
         plaza_dict["estatus_plaza"] = self._estatus_visual_plaza(plaza_dict)
         plaza_dict["acciones_disponibles"] = self._resolver_acciones_plaza(plaza_dict)
-        plaza_dict["acciones_placeholder"] = self._placeholder_acciones_plaza(plaza_dict)
+        plaza_dict["acciones_placeholder"] = self._placeholder_acciones_plaza(
+            plaza_dict
+        )
         return plaza_dict
 
     def _normalizar_resumen_contrato_plaza(self, contrato: dict) -> dict:
@@ -988,16 +1048,18 @@ class MisEmpleadosState(
         plazas_ocupadas = int(contrato.get("plazas_ocupadas") or 0)
         plazas_vacantes = int(contrato.get("plazas_vacantes") or 0)
         plazas_sin_sede = int(
-            contrato.get("plazas_sin_sede")
-            or contrato.get("plazas_suspendidas")
-            or 0
+            contrato.get("plazas_sin_sede") or contrato.get("plazas_suspendidas") or 0
         )
         total_sedes = int(contrato.get("total_sedes") or 0)
         return {
             "contrato_id": int(contrato.get("contrato_id") or 0),
-            "contrato_codigo": str(contrato.get("contrato_codigo", "") or "").strip().upper(),
+            "contrato_codigo": str(contrato.get("contrato_codigo", "") or "")
+            .strip()
+            .upper(),
             "contrato_estatus": str(contrato.get("contrato_estatus", "") or ""),
-            "tipo_servicio_clave": str(contrato.get("tipo_servicio_clave", "") or "").strip().upper(),
+            "tipo_servicio_clave": str(contrato.get("tipo_servicio_clave", "") or "")
+            .strip()
+            .upper(),
             "tipo_servicio_nombre": self._normalizar_nombre_visual(
                 str(contrato.get("tipo_servicio_nombre", "") or "")
             ),
@@ -1007,7 +1069,9 @@ class MisEmpleadosState(
             "plazas_sin_sede": plazas_sin_sede,
             "total_sedes": total_sedes,
             "tiene_plazas": total_plazas > 0,
-            "resumen_plazas": self._texto_resumen_plazas_sedes(total_plazas, total_sedes),
+            "resumen_plazas": self._texto_resumen_plazas_sedes(
+                total_plazas, total_sedes
+            ),
         }
 
     def _aplicar_query_inicial(self) -> None:
@@ -1017,7 +1081,9 @@ class MisEmpleadosState(
         contrato_id = str(query.get("contrato_id", "") or "").strip()
 
         self.vista_personal = (
-            VISTA_PERSONAL_PLAZA if view == VISTA_PERSONAL_PLAZA else VISTA_PERSONAL_EMPLEADO
+            VISTA_PERSONAL_PLAZA
+            if view == VISTA_PERSONAL_PLAZA
+            else VISTA_PERSONAL_EMPLEADO
         )
         self.filtro_panel_personal = QUERY_STATUS_MAP.get(status, FILTRO_PANEL_TODOS)
 
@@ -1104,7 +1170,8 @@ class MisEmpleadosState(
     def total_activos(self) -> int:
         return len(
             [
-                item for item in self.empleados_por_contrato
+                item
+                for item in self.empleados_por_contrato
                 if item.get("estatus_portal") == FILTRO_PANEL_ACTIVOS
             ]
         )
@@ -1113,7 +1180,8 @@ class MisEmpleadosState(
     def total_inactivos(self) -> int:
         return len(
             [
-                item for item in self.empleados_por_contrato
+                item
+                for item in self.empleados_por_contrato
                 if item.get("estatus_portal") == FILTRO_PANEL_INACTIVOS
             ]
         )
@@ -1132,7 +1200,13 @@ class MisEmpleadosState(
 
     @rx.var
     def docs_pendientes(self) -> int:
-        return len([item for item in self.empleados_por_contrato if bool(item.get("expediente_requiere_accion"))])
+        return len(
+            [
+                item
+                for item in self.empleados_por_contrato
+                if bool(item.get("expediente_requiere_accion"))
+            ]
+        )
 
     @rx.var
     def total_contratos_label(self) -> str:
@@ -1152,12 +1226,24 @@ class MisEmpleadosState(
 
     @rx.var
     def sedes_opciones(self) -> List[dict]:
-        sedes = sorted({str(item.get("sede_nombre_ui", "") or "").strip() for item in self.empleados if str(item.get("sede_nombre_ui", "") or "").strip()})
+        sedes = sorted(
+            {
+                str(item.get("sede_nombre_ui", "") or "").strip()
+                for item in self.empleados
+                if str(item.get("sede_nombre_ui", "") or "").strip()
+            }
+        )
         return [{"value": sede, "label": sede} for sede in sedes]
 
     @rx.var
     def categorias_opciones(self) -> List[dict]:
-        categorias = sorted({str(item.get("categoria_nombre", "") or "").strip() for item in self.empleados if str(item.get("categoria_nombre", "") or "").strip()})
+        categorias = sorted(
+            {
+                str(item.get("categoria_nombre", "") or "").strip()
+                for item in self.empleados
+                if str(item.get("categoria_nombre", "") or "").strip()
+            }
+        )
         return [{"value": categoria, "label": categoria} for categoria in categorias]
 
     @rx.var
@@ -1185,14 +1271,17 @@ class MisEmpleadosState(
 
         if self.filtro_sede != "all":
             empleados = [
-                item for item in empleados
+                item
+                for item in empleados
                 if str(item.get("sede_nombre_ui", "") or "").strip() == self.filtro_sede
             ]
 
         if self.filtro_categoria != "all":
             empleados = [
-                item for item in empleados
-                if str(item.get("categoria_nombre", "") or "").strip() == self.filtro_categoria
+                item
+                for item in empleados
+                if str(item.get("categoria_nombre", "") or "").strip()
+                == self.filtro_categoria
             ]
 
         if not self.filtro_busqueda_emp:
@@ -1290,7 +1379,10 @@ class MisEmpleadosState(
 
     @rx.var
     def total_plazas_visibles(self) -> int:
-        return sum(int(grupo.get("total_plazas") or 0) for grupo in self.contratos_plaza_filtrados)
+        return sum(
+            int(grupo.get("total_plazas") or 0)
+            for grupo in self.contratos_plaza_filtrados
+        )
 
     @rx.var
     def resumen_paginacion_plazas(self) -> str:
@@ -1321,7 +1413,9 @@ class MisEmpleadosState(
 
     @rx.var
     def contrato_plaza_seleccionado_value(self) -> str:
-        contrato_id = self._resolver_contrato_plaza_seleccionado(autoselect_if_empty=True)
+        contrato_id = self._resolver_contrato_plaza_seleccionado(
+            autoselect_if_empty=True
+        )
         return str(contrato_id) if contrato_id > 0 else ""
 
     @rx.var
@@ -1354,9 +1448,15 @@ class MisEmpleadosState(
                 "plazas seleccionadas",
             ),
             "seleccion_todas_visibles": self.seleccion_todas_plazas_visibles_actual,
-            "sede_masiva_value": str(self.sedes_masivas_por_contrato.get(clave, "") or ""),
-            "categoria_masiva_value": str(self.categorias_masivas_por_contrato.get(clave, "") or ""),
-            "opciones_categorias_masivas": self._opciones_categoria_masiva_contrato(clave),
+            "sede_masiva_value": str(
+                self.sedes_masivas_por_contrato.get(clave, "") or ""
+            ),
+            "categoria_masiva_value": str(
+                self.categorias_masivas_por_contrato.get(clave, "") or ""
+            ),
+            "opciones_categorias_masivas": self._opciones_categoria_masiva_contrato(
+                clave
+            ),
             "mostrar_badge_sin_sede": int(contrato.get("plazas_sin_sede") or 0) > 0,
         }
 
@@ -1371,7 +1471,11 @@ class MisEmpleadosState(
 
     @rx.var
     def puede_confirmar_asignacion_plaza(self) -> bool:
-        return bool(self.empleado_seleccionado_plaza_id) and not self.saving
+        return (
+            bool(self.empleado_seleccionado_plaza_id)
+            and bool(self.form_fecha_asignacion_plaza)
+            and not self.saving
+        )
 
     @rx.var
     def titulo_modal_categoria_plaza(self) -> str:
@@ -1520,7 +1624,11 @@ class MisEmpleadosState(
 
     @rx.var
     def puede_confirmar_reasignacion_plaza(self) -> bool:
-        return bool(self.plaza_destino_reasignacion_id) and not self.saving
+        return (
+            bool(self.plaza_destino_reasignacion_id)
+            and bool(self.form_fecha_asignacion_plaza)
+            and not self.saving
+        )
 
     @rx.var
     def opciones_reasignacion_plaza(self) -> List[dict]:
@@ -1540,7 +1648,9 @@ class MisEmpleadosState(
 
     @rx.var
     def opciones_categorias_masivas_actuales(self) -> List[dict[str, str]]:
-        return self._opciones_categoria_masiva_contrato(self.contrato_accion_masiva_activo)
+        return self._opciones_categoria_masiva_contrato(
+            self.contrato_accion_masiva_activo
+        )
 
     @rx.var
     def plaza_categorias_opciones(self) -> List[dict]:
@@ -1549,7 +1659,9 @@ class MisEmpleadosState(
             categoria_id = str(plaza.get("categoria_puesto_id") or "").strip()
             if not categoria_id:
                 continue
-            categorias[categoria_id] = str(plaza.get("categoria_nombre", "") or "Sin categoria")
+            categorias[categoria_id] = str(
+                plaza.get("categoria_nombre", "") or "Sin categoria"
+            )
         return [
             {"value": categoria_id, "label": nombre}
             for categoria_id, nombre in sorted(
@@ -1566,9 +1678,7 @@ class MisEmpleadosState(
             if not sede_id:
                 continue
             sedes[sede_id] = str(
-                plaza.get("sede_display")
-                or plaza.get("sede_nombre")
-                or "Sin sede"
+                plaza.get("sede_display") or plaza.get("sede_nombre") or "Sin sede"
             )
         return [
             {"value": sede_id, "label": nombre}
@@ -1589,7 +1699,8 @@ class MisEmpleadosState(
             plazas = [
                 plaza
                 for plaza in plazas
-                if str(plaza.get("categoria_puesto_id") or "") == self.plaza_filtro_categoria
+                if str(plaza.get("categoria_puesto_id") or "")
+                == self.plaza_filtro_categoria
             ]
 
         if self.plaza_filtro_sede != "all":
@@ -1682,22 +1793,32 @@ class MisEmpleadosState(
         return [
             {
                 "value": str(empleado.get("id")),
-                "label": str(empleado.get("nombre_completo", "")).strip() or "Sin nombre",
+                "label": str(empleado.get("nombre_completo", "")).strip()
+                or "Sin nombre",
             }
             for empleado in self.empleados_disponibles_plaza
         ]
 
     @rx.var
     def metrica_plazas_totales(self) -> int:
-        return sum(int(item.get("total_plazas") or 0) for item in self.contratos_activos_filtrados)
+        return sum(
+            int(item.get("total_plazas") or 0)
+            for item in self.contratos_activos_filtrados
+        )
 
     @rx.var
     def metrica_plazas_ocupadas(self) -> int:
-        return sum(int(item.get("plazas_ocupadas") or 0) for item in self.contratos_activos_filtrados)
+        return sum(
+            int(item.get("plazas_ocupadas") or 0)
+            for item in self.contratos_activos_filtrados
+        )
 
     @rx.var
     def metrica_plazas_vacantes(self) -> int:
-        return sum(int(item.get("plazas_vacantes") or 0) for item in self.contratos_activos_filtrados)
+        return sum(
+            int(item.get("plazas_vacantes") or 0)
+            for item in self.contratos_activos_filtrados
+        )
 
     @rx.var
     def metrica_hint_plazas(self) -> str:
@@ -1722,9 +1843,7 @@ class MisEmpleadosState(
         if not emp:
             return ""
         return str(
-            emp.get("nombre_completo", "")
-            or emp.get("nombre_completo_ui", "")
-            or ""
+            emp.get("nombre_completo", "") or emp.get("nombre_completo_ui", "") or ""
         )
 
     @rx.var
@@ -1748,8 +1867,12 @@ class MisEmpleadosState(
     @rx.var
     def detalle_expediente_resumen(self) -> str:
         """Progreso del expediente visible en el detalle."""
-        aprobados = int(self.empleado_detalle.get("documentos_aprobados_expediente", 0) or 0)
-        requeridos = int(self.empleado_detalle.get("documentos_requeridos_expediente", 0) or 0)
+        aprobados = int(
+            self.empleado_detalle.get("documentos_aprobados_expediente", 0) or 0
+        )
+        requeridos = int(
+            self.empleado_detalle.get("documentos_requeridos_expediente", 0) or 0
+        )
         return f"{aprobados}/{requeridos}"
 
     @rx.var
@@ -1777,7 +1900,9 @@ class MisEmpleadosState(
     @rx.var
     def detalle_clabe_mascara(self) -> str:
         """CLABE actual enmascarada."""
-        return self._enmascarar_digitos(self.empleado_detalle.get("clabe_interbancaria"))
+        return self._enmascarar_digitos(
+            self.empleado_detalle.get("clabe_interbancaria")
+        )
 
     @rx.var
     def detalle_tiene_bancarios(self) -> bool:
@@ -1818,7 +1943,10 @@ class MisEmpleadosState(
     def puede_editar_detalle(self) -> bool:
         """Permite editar desde el modal de detalle."""
         is_restricted = bool(self.empleado_detalle.get("is_restricted", False))
-        return bool(self.empleado_detalle.get("es_activo_portal", False)) and not is_restricted
+        return (
+            bool(self.empleado_detalle.get("es_activo_portal", False))
+            and not is_restricted
+        )
 
     @rx.var
     def puede_dar_baja_detalle(self) -> bool:
@@ -1867,7 +1995,9 @@ class MisEmpleadosState(
             }
         return plazas_por_empleado
 
-    def _filtrar_plazas_por_busqueda(self, plazas: list[dict], termino: str) -> list[dict]:
+    def _filtrar_plazas_por_busqueda(
+        self, plazas: list[dict], termino: str
+    ) -> list[dict]:
         termino_normalizado = termino.lower().strip()
         if not termino_normalizado:
             return plazas
@@ -1916,7 +2046,9 @@ class MisEmpleadosState(
         opciones_por_contrato[clave] = opciones
         self.opciones_categorias_masivas_por_contrato = opciones_por_contrato
 
-    async def _cargar_pagina_plazas_contrato(self, contrato_id: int, pagina: int = 1) -> None:
+    async def _cargar_pagina_plazas_contrato(
+        self, contrato_id: int, pagina: int = 1
+    ) -> None:
         pagina_segura = max(1, int(pagina or 1))
         self.cargando_plazas_contrato_actual = True
         self.contrato_expandido_plaza_id = int(contrato_id or 0)
@@ -1936,7 +2068,9 @@ class MisEmpleadosState(
         finally:
             self.cargando_plazas_contrato_actual = False
 
-    async def _recargar_contrato_expandido(self, contrato_id: int, pagina: int = 1) -> None:
+    async def _recargar_contrato_expandido(
+        self, contrato_id: int, pagina: int = 1
+    ) -> None:
         contrato_id_int = int(contrato_id or 0)
         if contrato_id_int <= 0:
             self._reset_contexto_plazas_ui()
@@ -1949,7 +2083,14 @@ class MisEmpleadosState(
             return
 
         try:
-            resumen_contratos, plazas_ocupadas, empleados_resumen, onboarding_resumen, bajas_activas, sedes = await asyncio.gather(
+            (
+                resumen_contratos,
+                plazas_ocupadas,
+                empleados_resumen,
+                onboarding_resumen,
+                bajas_activas,
+                sedes,
+            ) = await asyncio.gather(
                 plaza_service.obtener_resumen_contratos_con_plazas(
                     empresa_id=self.id_empresa_actual,
                     solo_activos=True,
@@ -1975,7 +2116,9 @@ class MisEmpleadosState(
                 ),
             )
 
-            plazas_por_empleado = self._mapear_plazas_ocupadas_por_empleado(plazas_ocupadas)
+            plazas_por_empleado = self._mapear_plazas_ocupadas_por_empleado(
+                plazas_ocupadas
+            )
 
             onboarding_lookup = {
                 int(item.get("id") or 0): item
@@ -1984,13 +2127,22 @@ class MisEmpleadosState(
                 and item.get("estatus_onboarding") not in ESTATUS_ONBOARDING_COMPLETOS
             }
             bajas_lookup = {
-                int(item.empleado_id if hasattr(item, "empleado_id") else item.get("empleado_id") or 0): (
+                int(
+                    item.empleado_id
+                    if hasattr(item, "empleado_id")
+                    else item.get("empleado_id") or 0
+                ): (
                     item.model_dump(mode="json")
                     if hasattr(item, "model_dump")
                     else dict(item)
                 )
                 for item in bajas_activas
-                if int(item.empleado_id if hasattr(item, "empleado_id") else item.get("empleado_id") or 0) > 0
+                if int(
+                    item.empleado_id
+                    if hasattr(item, "empleado_id")
+                    else item.get("empleado_id") or 0
+                )
+                > 0
             }
             bajas_ids = set(bajas_lookup.keys())
 
@@ -2008,28 +2160,35 @@ class MisEmpleadosState(
                     continue
                 base_row = filas_por_empleado_id.get(empleado_id)
                 if base_row is None:
-                    filas_por_empleado_id[empleado_id] = self._normalizar_resumen_onboarding(
-                        onboarding,
-                        plazas_por_empleado,
+                    filas_por_empleado_id[empleado_id] = (
+                        self._normalizar_resumen_onboarding(
+                            onboarding,
+                            plazas_por_empleado,
+                        )
                     )
                     continue
 
-                base_row["estatus_onboarding"] = onboarding.get("estatus_onboarding", "")
+                base_row["estatus_onboarding"] = onboarding.get(
+                    "estatus_onboarding", ""
+                )
                 base_row["expediente_resumen"] = "Pendiente"
                 base_row["expediente_pendiente"] = True
                 base_row.update(self._estado_expediente(0, 0, pendiente=True))
-                base_row["contacto_secundario_ui"] = (
-                    str(onboarding.get("email", "") or "")
-                    or base_row.get("contacto_secundario_ui", "")
-                )
+                base_row["contacto_secundario_ui"] = str(
+                    onboarding.get("email", "") or ""
+                ) or base_row.get("contacto_secundario_ui", "")
 
             contratos_normalizados = [
                 self._normalizar_resumen_contrato_plaza(
-                    item.model_dump(mode="json") if hasattr(item, "model_dump") else dict(item)
+                    item.model_dump(mode="json")
+                    if hasattr(item, "model_dump")
+                    else dict(item)
                 )
                 for item in resumen_contratos
             ]
-            contratos_normalizados.sort(key=lambda item: str(item.get("contrato_codigo", "")))
+            contratos_normalizados.sort(
+                key=lambda item: str(item.get("contrato_codigo", ""))
+            )
 
             contrato_expandido_previo = int(self.contrato_expandido_plaza_id or 0)
             pagina_plaza_previa = int(self.pagina_plaza_actual or 1)
@@ -2037,7 +2196,11 @@ class MisEmpleadosState(
             self.onboarding_empleados = list(onboarding_lookup.values())
             self.bajas_activas = list(bajas_lookup.values())
             self.sedes_catalogo_rrhh = [
-                sede.model_dump(mode="json") if hasattr(sede, "model_dump") else dict(sede)
+                (
+                    sede.model_dump(mode="json")
+                    if hasattr(sede, "model_dump")
+                    else dict(sede)
+                )
                 for sede in sedes
             ]
             self.plazas_por_contrato = list(contratos_normalizados)
@@ -2167,12 +2330,18 @@ class MisEmpleadosState(
         self._sincronizar_seleccion_contrato_actual()
 
     def pagina_anterior_plaza_contrato(self, contrato_id: int):
-        self.ir_a_pagina_plaza_contrato(int(contrato_id or 0), self.pagina_plaza_actual - 1)
+        self.ir_a_pagina_plaza_contrato(
+            int(contrato_id or 0), self.pagina_plaza_actual - 1
+        )
 
     def pagina_siguiente_plaza_contrato(self, contrato_id: int):
-        self.ir_a_pagina_plaza_contrato(int(contrato_id or 0), self.pagina_plaza_actual + 1)
+        self.ir_a_pagina_plaza_contrato(
+            int(contrato_id or 0), self.pagina_plaza_actual + 1
+        )
 
-    def toggle_plaza_seleccionada(self, contrato_id: int, plaza_id: int, checked) -> None:
+    def toggle_plaza_seleccionada(
+        self, contrato_id: int, plaza_id: int, checked
+    ) -> None:
         contrato_id_int = int(contrato_id or 0)
         plaza_id_int = int(plaza_id or 0)
         if contrato_id_int <= 0 or plaza_id_int <= 0:
@@ -2208,7 +2377,9 @@ class MisEmpleadosState(
             item_clave: ([] if item_clave != clave else list(valores))
             for item_clave, valores in self.seleccion_plazas_por_contrato.items()
         }
-        nuevas_selecciones[clave] = visibles if self._valor_switch_a_bool(checked) else []
+        nuevas_selecciones[clave] = (
+            visibles if self._valor_switch_a_bool(checked) else []
+        )
         self.seleccion_plazas_por_contrato = nuevas_selecciones
         self.contrato_accion_masiva_activo = clave if nuevas_selecciones[clave] else ""
 
@@ -2267,7 +2438,9 @@ class MisEmpleadosState(
         contrato_id_int = int(contrato_id or 0)
         clave = self._clave_contrato(contrato_id_int)
         plaza_ids = list(self.seleccion_plazas_por_contrato.get(clave, []) or [])
-        categoria_id = self.parse_id(self.categorias_masivas_por_contrato.get(clave, ""))
+        categoria_id = self.parse_id(
+            self.categorias_masivas_por_contrato.get(clave, "")
+        )
         if contrato_id_int <= 0 or not plaza_ids:
             return rx.toast.error("Seleccione al menos una plaza")
         if categoria_id is None:
@@ -2330,6 +2503,96 @@ class MisEmpleadosState(
         """Wrapper de Reflex para procesamiento de alta masiva."""
         async for event in EmployeeBulkUploadStateMixin.confirmar_alta_masiva(self):
             yield event
+
+    def ir_a_pagina_alta_masiva_preview(self, pagina: int):
+        """Wrapper de Reflex para paginar el preview de alta masiva."""
+        return EmployeeBulkUploadStateMixin.ir_a_pagina_alta_masiva_preview(
+            self,
+            pagina,
+        )
+
+    def pagina_anterior_alta_masiva_preview(self):
+        """Wrapper de Reflex para retroceder en el preview de alta masiva."""
+        return EmployeeBulkUploadStateMixin.pagina_anterior_alta_masiva_preview(self)
+
+    def pagina_siguiente_alta_masiva_preview(self):
+        """Wrapper de Reflex para avanzar en el preview de alta masiva."""
+        return EmployeeBulkUploadStateMixin.pagina_siguiente_alta_masiva_preview(self)
+
+    @rx.var
+    def alta_masiva_total_validos(self) -> int:
+        """Total de registros validos para bindings Reflex."""
+        return len(self.alta_masiva_validacion_validos)
+
+    @rx.var
+    def alta_masiva_total_reingresos(self) -> int:
+        """Total de reingresos para bindings Reflex."""
+        return len(self.alta_masiva_validacion_reingresos)
+
+    @rx.var
+    def alta_masiva_total_errores(self) -> int:
+        """Total de errores para bindings Reflex."""
+        return len(self.alta_masiva_validacion_errores)
+
+    @rx.var
+    def alta_masiva_puede_procesar(self) -> bool:
+        """Permite confirmar solo si no hay errores y hay procesables."""
+        return EmployeeBulkUploadStateMixin._puede_procesar_alta_masiva(self)
+
+    @rx.var
+    def alta_masiva_preview_pagina_actual(self) -> int:
+        """Página actual del preview de alta masiva para bindings Reflex."""
+        return max(
+            1,
+            min(
+                self.alta_masiva_preview_pagina,
+                self.alta_masiva_total_paginas_preview,
+            ),
+        )
+
+    @rx.var
+    def alta_masiva_total_paginas_preview(self) -> int:
+        """Total de páginas del preview de alta masiva."""
+        return EmployeeBulkUploadStateMixin._calcular_total_paginas_alta_masiva(
+            len(EmployeeBulkUploadStateMixin._obtener_registros_preview_alta_masiva(self)),
+            self.alta_masiva_por_pagina,
+        )
+
+    @rx.var
+    def alta_masiva_paginas_visibles_preview(self) -> List[int]:
+        """Números visibles en el paginador del preview."""
+        return rango_paginacion(
+            self.alta_masiva_preview_pagina_actual,
+            self.alta_masiva_total_paginas_preview,
+            visible=5,
+        )
+
+    @rx.var
+    def alta_masiva_resumen_paginacion_preview(self) -> str:
+        """Caption de rango visible del preview de alta masiva."""
+        total = len(EmployeeBulkUploadStateMixin._obtener_registros_preview_alta_masiva(self))
+        if total <= 0:
+            return "Sin registros"
+        inicio = ((self.alta_masiva_preview_pagina_actual - 1) * self.alta_masiva_por_pagina) + 1
+        fin = min(self.alta_masiva_preview_pagina_actual * self.alta_masiva_por_pagina, total)
+        return f"Mostrando {inicio}-{fin} de {total} error(es)"
+
+    def ir_a_pagina_alta_masiva_resultados(self, pagina: int):
+        """Wrapper de Reflex para paginar resultados de alta masiva."""
+        return EmployeeBulkUploadStateMixin.ir_a_pagina_alta_masiva_resultados(
+            self,
+            pagina,
+        )
+
+    def pagina_anterior_alta_masiva_resultados(self):
+        """Wrapper de Reflex para retroceder en resultados de alta masiva."""
+        return EmployeeBulkUploadStateMixin.pagina_anterior_alta_masiva_resultados(self)
+
+    def pagina_siguiente_alta_masiva_resultados(self):
+        """Wrapper de Reflex para avanzar en resultados de alta masiva."""
+        return EmployeeBulkUploadStateMixin.pagina_siguiente_alta_masiva_resultados(
+            self
+        )
 
     def descargar_plantilla_excel_alta_masiva(self):
         """Wrapper de Reflex para descarga de plantilla Excel."""
@@ -2451,7 +2714,9 @@ class MisEmpleadosState(
             if int(categoria.id or 0) > 0
         ]
 
-    def _construir_plazas_reasignacion_disponibles(self, plaza_origen: dict) -> list[dict]:
+    def _construir_plazas_reasignacion_disponibles(
+        self, plaza_origen: dict
+    ) -> list[dict]:
         origen_id = int(plaza_origen.get("id") or 0)
         categoria_id = int(plaza_origen.get("categoria_puesto_id") or 0)
         contrato_id = int(plaza_origen.get("contrato_id") or 0)
@@ -2502,10 +2767,14 @@ class MisEmpleadosState(
             yield rx.toast.error("Reactive la plaza antes de asignar personal")
             return
         if not plaza.get("categoria_puesto_id"):
-            yield rx.toast.error("La plaza debe tener categoría antes de asignar un empleado")
+            yield rx.toast.error(
+                "La plaza debe tener categoría antes de asignar un empleado"
+            )
             return
         if not plaza.get("sede_id"):
-            yield rx.toast.error("La plaza debe tener sede antes de asignar un empleado")
+            yield rx.toast.error(
+                "La plaza debe tener sede antes de asignar un empleado"
+            )
             return
         if int(plaza.get("empleado_id") or 0) > 0:
             yield rx.toast.error(
@@ -2516,6 +2785,8 @@ class MisEmpleadosState(
         self.plaza_seleccionada = dict(plaza)
         self.modo_asignacion_plaza = "asignar"
         self.empleado_seleccionado_plaza_id = ""
+        self.form_fecha_asignacion_plaza = date.today().isoformat()
+        self.error_fecha_asignacion_plaza = ""
         self.empleados_disponibles_plaza = []
         self.cargando_empleados_plaza = True
         self.mostrar_modal_asignacion_plaza = True
@@ -2552,12 +2823,17 @@ class MisEmpleadosState(
                     {
                         "id": empleado.id,
                         "clave": empleado.clave,
-                        "nombre_completo": self._resolver_nombre_empleado_visual(empleado),
+                        "nombre_completo": self._resolver_nombre_empleado_visual(
+                            empleado
+                        ),
                     }
                 )
             self.empleados_disponibles_plaza = sorted(
                 opciones,
-                key=lambda item: (item.get("nombre_completo", ""), item.get("clave", "")),
+                key=lambda item: (
+                    item.get("nombre_completo", ""),
+                    item.get("clave", ""),
+                ),
             )
         except Exception as e:
             self.manejar_error(e, "cargar empleados disponibles para plaza")
@@ -2573,6 +2849,8 @@ class MisEmpleadosState(
         self.plaza_seleccionada = {}
         self.empleados_disponibles_plaza = []
         self.empleado_seleccionado_plaza_id = ""
+        self.form_fecha_asignacion_plaza = ""
+        self.error_fecha_asignacion_plaza = ""
         self.cargando_empleados_plaza = False
         self.modo_asignacion_plaza = "asignar"
 
@@ -2588,6 +2866,13 @@ class MisEmpleadosState(
         if empleado_nuevo_id is None:
             yield rx.toast.error("Seleccione un empleado")
             return
+        fecha_asignacion = parse_date_input(self.form_fecha_asignacion_plaza)
+        if fecha_asignacion is None:
+            self.error_fecha_asignacion_plaza = (
+                "Formato de fecha inválido (use DD/MM/AAAA)"
+            )
+            yield rx.toast.error(self.error_fecha_asignacion_plaza)
+            return
 
         self.saving = True
         yield
@@ -2598,7 +2883,11 @@ class MisEmpleadosState(
                 )
                 return
 
-            await plaza_service.asignar_empleado(plaza_id, empleado_nuevo_id)
+            await plaza_service.asignar_empleado(
+                plaza_id,
+                empleado_nuevo_id,
+                fecha_asignacion=fecha_asignacion,
+            )
             self.cerrar_modal_asignacion_plaza()
             await self._recargar_empleados_y_sidebar()
             yield rx.toast.success("Empleado asignado correctamente")
@@ -2625,14 +2914,18 @@ class MisEmpleadosState(
             return
 
         self.plaza_categoria_seleccionada = dict(plaza)
-        self.categoria_seleccionada_plaza_id = str(plaza.get("categoria_puesto_id") or "")
+        self.categoria_seleccionada_plaza_id = str(
+            plaza.get("categoria_puesto_id") or ""
+        )
         self.categorias_disponibles_plaza = []
         self.cargando_categorias_plaza = True
         self.mostrar_modal_categoria_plaza = True
         yield
 
         try:
-            self.categorias_disponibles_plaza = await self._cargar_categorias_disponibles_plaza()
+            self.categorias_disponibles_plaza = (
+                await self._cargar_categorias_disponibles_plaza()
+            )
         except Exception as e:
             self.manejar_error(e, "cargando categorias disponibles para plaza")
             self.cerrar_modal_categoria_plaza()
@@ -2650,7 +2943,9 @@ class MisEmpleadosState(
     async def confirmar_categoria_plaza(self):
         plaza_id = int(self.plaza_categoria_seleccionada.get("id") or 0)
         categoria_nueva_id = self.parse_id(self.categoria_seleccionada_plaza_id)
-        categoria_actual_id = int(self.plaza_categoria_seleccionada.get("categoria_puesto_id") or 0)
+        categoria_actual_id = int(
+            self.plaza_categoria_seleccionada.get("categoria_puesto_id") or 0
+        )
 
         if plaza_id <= 0:
             yield rx.toast.error("No hay plaza seleccionada")
@@ -2718,9 +3013,7 @@ class MisEmpleadosState(
         salario_actual = self._parse_decimal_seguro(plaza.get("salario_mensual"))
         self.plaza_salario_seleccionada = dict(plaza)
         self.form_salario_plaza = (
-            formatear_moneda(str(salario_actual))
-            if salario_actual > 0
-            else ""
+            formatear_moneda(str(salario_actual)) if salario_actual > 0 else ""
         )
         self.error_salario_plaza = ""
         self.salario_base_categoria_plaza_referencia = ""
@@ -2822,6 +3115,8 @@ class MisEmpleadosState(
 
         self.plaza_reasignacion_seleccionada = dict(plaza)
         self.plaza_destino_reasignacion_id = ""
+        self.form_fecha_asignacion_plaza = date.today().isoformat()
+        self.error_fecha_asignacion_plaza = ""
         self.plazas_disponibles_reasignacion = opciones
         self.mostrar_modal_reasignacion_plaza = True
 
@@ -2829,6 +3124,8 @@ class MisEmpleadosState(
         self.mostrar_modal_reasignacion_plaza = False
         self.plaza_reasignacion_seleccionada = {}
         self.plaza_destino_reasignacion_id = ""
+        self.form_fecha_asignacion_plaza = ""
+        self.error_fecha_asignacion_plaza = ""
         self.plazas_disponibles_reasignacion = []
 
     async def confirmar_reasignacion_plaza(self):
@@ -2841,6 +3138,13 @@ class MisEmpleadosState(
         if plaza_destino_id is None:
             yield rx.toast.error("Seleccione una plaza destino")
             return
+        fecha_asignacion = parse_date_input(self.form_fecha_asignacion_plaza)
+        if fecha_asignacion is None:
+            self.error_fecha_asignacion_plaza = (
+                "Formato de fecha inválido (use DD/MM/AAAA)"
+            )
+            yield rx.toast.error(self.error_fecha_asignacion_plaza)
+            return
 
         self.saving = True
         yield
@@ -2848,6 +3152,7 @@ class MisEmpleadosState(
             await plaza_service.reasignar_empleado_a_plaza(
                 plaza_origen_id=plaza_origen_id,
                 plaza_destino_id=plaza_destino_id,
+                fecha_asignacion=fecha_asignacion,
             )
             self.cerrar_modal_reasignacion_plaza()
             await self._recargar_empleados_y_sidebar()
@@ -3047,9 +3352,8 @@ class MisEmpleadosState(
 
         try:
             empleado_entidad = await empleado_service.obtener_por_id(int(empleado_id))
-            if (
+            if self.id_empresa_actual and int(empleado_entidad.empresa_id or 0) != int(
                 self.id_empresa_actual
-                and int(empleado_entidad.empresa_id or 0) != int(self.id_empresa_actual)
             ):
                 raise BusinessRuleError("No tiene acceso a este empleado")
 
@@ -3247,12 +3551,17 @@ class MisEmpleadosState(
                 "apellido_materno": empleado.apellido_materno,
                 "rfc": empleado.rfc,
                 "nss": empleado.nss,
-                "fecha_ingreso": str(empleado.fecha_ingreso) if empleado.fecha_ingreso else "",
+                "fecha_ingreso": (
+                    str(empleado.fecha_ingreso) if empleado.fecha_ingreso else ""
+                ),
                 "fecha_ingreso_vigente": (
                     str(empleado.fecha_ingreso_vigente)
-                    if empleado.fecha_ingreso_vigente else ""
+                    if empleado.fecha_ingreso_vigente
+                    else ""
                 ),
-                "fecha_nacimiento": str(empleado.fecha_nacimiento) if empleado.fecha_nacimiento else "",
+                "fecha_nacimiento": (
+                    str(empleado.fecha_nacimiento) if empleado.fecha_nacimiento else ""
+                ),
                 "genero": empleado.genero,
                 "telefono": empleado.telefono,
                 "email": empleado.email,
@@ -3293,7 +3602,9 @@ class MisEmpleadosState(
             snapshot_bancario_nuevo = self._snapshot_bancario_form()
             empleado_update = EmpleadoUpdate(**self._payload_base_empleado())
 
-            empleado = await empleado_service.actualizar(self.empleado_editando_id, empleado_update)
+            empleado = await empleado_service.actualizar(
+                self.empleado_editando_id, empleado_update
+            )
             await empleado_descuento_recurrente_service.reemplazar_descuentos_empleado(
                 empleado.id,
                 descuentos_form,
@@ -3307,7 +3618,9 @@ class MisEmpleadosState(
 
             self.cerrar_modal_empleado()
             await self._recargar_empleados_y_sidebar()
-            return rx.toast.success(f"Empleado {empleado.clave} actualizado correctamente")
+            return rx.toast.success(
+                f"Empleado {empleado.clave} actualizado correctamente"
+            )
 
         except NotFoundError:
             return rx.toast.error("Empleado no encontrado")
@@ -3423,7 +3736,9 @@ class MisEmpleadosState(
         """Normaliza un snapshot externo al contrato bancario usado por el modal."""
         snapshot = snapshot or {}
         return {
-            "cuenta_bancaria": normalizar_cuenta_bancaria(snapshot.get("cuenta_bancaria")),
+            "cuenta_bancaria": normalizar_cuenta_bancaria(
+                snapshot.get("cuenta_bancaria")
+            ),
             "banco": normalizar_banco(snapshot.get("banco")),
             "clabe_interbancaria": normalizar_clabe_interbancaria(
                 snapshot.get("clabe_interbancaria")
@@ -3475,14 +3790,17 @@ class MisEmpleadosState(
             return
 
         try:
-            from app.domain.models.cuenta_bancaria_historial import CuentaBancariaHistorialCreate
+            from app.domain.models.cuenta_bancaria_historial import (
+                CuentaBancariaHistorialCreate,
+            )
 
             await cuenta_bancaria_historial_service.registrar_cambio(
                 CuentaBancariaHistorialCreate(
                     empleado_id=empleado_id,
                     cuenta_bancaria=snapshot_bancario["cuenta_bancaria"] or None,
                     banco=snapshot_bancario["banco"] or None,
-                    clabe_interbancaria=snapshot_bancario["clabe_interbancaria"] or None,
+                    clabe_interbancaria=snapshot_bancario["clabe_interbancaria"]
+                    or None,
                     cambiado_por=actor,
                 )
             )
@@ -3514,98 +3832,108 @@ class MisEmpleadosState(
     def _detalle_empleado_placeholder(resumen: dict) -> dict:
         """Construye un placeholder ligero mientras carga el detalle completo."""
         detalle = _empty_empleado_detalle()
-        detalle.update({
-            "id": resumen.get("id"),
-            "uuid": str(resumen.get("uuid", "") or ""),
-            "empresa_id": resumen.get("empresa_id"),
-            "clave": resumen.get("clave", "") or "",
-            "nombre_completo": (
-                resumen.get("nombre_completo", "")
-                or resumen.get("nombre_completo_ui", "")
-                or ""
-            ),
-            "estatus": resumen.get("estatus", "") or "",
-            "estatus_portal": resumen.get("estatus_portal", "") or FILTRO_PANEL_INACTIVOS,
-            "es_activo_portal": bool(
-                resumen.get("es_activo_portal", False)
-                or resumen.get("estatus_portal", "") == FILTRO_PANEL_ACTIVOS
-            ),
-            "estatus_personal": resumen.get("estatus_personal", "") or "",
-            "contrato_codigo": resumen.get("contrato_codigo", "") or "",
-            "fecha_ingreso": resumen.get("fecha_ingreso", "") or "",
-            "fecha_ingreso_vigente": resumen.get("fecha_ingreso_vigente", "") or "",
-            "telefono": resumen.get("telefono", "") or "",
-            "email": resumen.get("email", "") or "",
-            "is_restricted": bool(resumen.get("is_restricted", False)),
-            "documentos_aprobados_expediente": int(
-                resumen.get("documentos_aprobados_expediente", 0) or 0
-            ),
-            "documentos_requeridos_expediente": int(
-                resumen.get("documentos_requeridos_expediente", 0) or 0
-            ),
-            "descuentos_configurados": list(
-                resumen.get("descuentos_configurados", []) or []
-            ),
-            "descuentos_activos_hoy": list(
-                resumen.get("descuentos_activos_hoy", []) or []
-            ),
-        })
+        detalle.update(
+            {
+                "id": resumen.get("id"),
+                "uuid": str(resumen.get("uuid", "") or ""),
+                "empresa_id": resumen.get("empresa_id"),
+                "clave": resumen.get("clave", "") or "",
+                "nombre_completo": (
+                    resumen.get("nombre_completo", "")
+                    or resumen.get("nombre_completo_ui", "")
+                    or ""
+                ),
+                "estatus": resumen.get("estatus", "") or "",
+                "estatus_portal": resumen.get("estatus_portal", "")
+                or FILTRO_PANEL_INACTIVOS,
+                "es_activo_portal": bool(
+                    resumen.get("es_activo_portal", False)
+                    or resumen.get("estatus_portal", "") == FILTRO_PANEL_ACTIVOS
+                ),
+                "estatus_personal": resumen.get("estatus_personal", "") or "",
+                "contrato_codigo": resumen.get("contrato_codigo", "") or "",
+                "fecha_ingreso": resumen.get("fecha_ingreso", "") or "",
+                "fecha_ingreso_vigente": resumen.get("fecha_ingreso_vigente", "") or "",
+                "telefono": resumen.get("telefono", "") or "",
+                "email": resumen.get("email", "") or "",
+                "is_restricted": bool(resumen.get("is_restricted", False)),
+                "documentos_aprobados_expediente": int(
+                    resumen.get("documentos_aprobados_expediente", 0) or 0
+                ),
+                "documentos_requeridos_expediente": int(
+                    resumen.get("documentos_requeridos_expediente", 0) or 0
+                ),
+                "descuentos_configurados": list(
+                    resumen.get("descuentos_configurados", []) or []
+                ),
+                "descuentos_activos_hoy": list(
+                    resumen.get("descuentos_activos_hoy", []) or []
+                ),
+            }
+        )
         return detalle
 
     def _serializar_empleado_detalle_modal(self, empleado, resumen: dict) -> dict:
         """Normaliza el detalle del empleado a un payload seguro para Reflex."""
-        contacto_nombre, contacto_telefono, contacto_parentesco = self._split_contacto_emergencia(
-            empleado.contacto_emergencia
+        contacto_nombre, contacto_telefono, contacto_parentesco = (
+            self._split_contacto_emergencia(empleado.contacto_emergencia)
         )
         estatus_portal = (
             str(resumen.get("estatus_portal", "") or "").strip()
             or FILTRO_PANEL_INACTIVOS
         )
         detalle = _empty_empleado_detalle()
-        detalle.update({
-            "id": empleado.id,
-            "uuid": str(empleado.uuid) if getattr(empleado, "uuid", None) else "",
-            "empresa_id": empleado.empresa_id,
-            "user_id": str(empleado.user_id) if empleado.user_id else "",
-            "clave": empleado.clave,
-            "nombre_completo": empleado.nombre_completo(),
-            "estatus": str(empleado.estatus or ""),
-            "estatus_portal": estatus_portal,
-            "es_activo_portal": estatus_portal == FILTRO_PANEL_ACTIVOS,
-            "estatus_personal": resumen.get("estatus_personal", "") or "",
-            "contrato_codigo": resumen.get("contrato_codigo", "") or "",
-            "is_restricted": bool(empleado.is_restricted),
-            "curp": empleado.curp or "",
-            "rfc": empleado.rfc or "",
-            "nss": empleado.nss or "",
-            "telefono": empleado.telefono or "",
-            "email": empleado.email or "",
-            "direccion": empleado.direccion or "",
-            "notas": empleado.notas or "",
-            "fecha_ingreso": formatear_fecha(empleado.fecha_ingreso) if empleado.fecha_ingreso else "",
-            "fecha_ingreso_vigente": (
-                formatear_fecha(empleado.fecha_ingreso_vigente)
-                if empleado.fecha_ingreso_vigente else ""
-            ),
-            "contacto_nombre": contacto_nombre,
-            "contacto_telefono": contacto_telefono,
-            "contacto_parentesco": contacto_parentesco,
-            "banco": empleado.banco or "",
-            "cuenta_bancaria": empleado.cuenta_bancaria or "",
-            "clabe_interbancaria": empleado.clabe_interbancaria or "",
-            "documentos_aprobados_expediente": int(
-                resumen.get("documentos_aprobados_expediente", 0) or 0
-            ),
-            "documentos_requeridos_expediente": int(
-                resumen.get("documentos_requeridos_expediente", 0) or 0
-            ),
-            "descuentos_configurados": list(
-                resumen.get("descuentos_configurados", []) or []
-            ),
-            "descuentos_activos_hoy": list(
-                resumen.get("descuentos_activos_hoy", []) or []
-            ),
-        })
+        detalle.update(
+            {
+                "id": empleado.id,
+                "uuid": str(empleado.uuid) if getattr(empleado, "uuid", None) else "",
+                "empresa_id": empleado.empresa_id,
+                "user_id": str(empleado.user_id) if empleado.user_id else "",
+                "clave": empleado.clave,
+                "nombre_completo": empleado.nombre_completo(),
+                "estatus": str(empleado.estatus or ""),
+                "estatus_portal": estatus_portal,
+                "es_activo_portal": estatus_portal == FILTRO_PANEL_ACTIVOS,
+                "estatus_personal": resumen.get("estatus_personal", "") or "",
+                "contrato_codigo": resumen.get("contrato_codigo", "") or "",
+                "is_restricted": bool(empleado.is_restricted),
+                "curp": empleado.curp or "",
+                "rfc": empleado.rfc or "",
+                "nss": empleado.nss or "",
+                "telefono": empleado.telefono or "",
+                "email": empleado.email or "",
+                "direccion": empleado.direccion or "",
+                "notas": empleado.notas or "",
+                "fecha_ingreso": (
+                    formatear_fecha(empleado.fecha_ingreso)
+                    if empleado.fecha_ingreso
+                    else ""
+                ),
+                "fecha_ingreso_vigente": (
+                    formatear_fecha(empleado.fecha_ingreso_vigente)
+                    if empleado.fecha_ingreso_vigente
+                    else ""
+                ),
+                "contacto_nombre": contacto_nombre,
+                "contacto_telefono": contacto_telefono,
+                "contacto_parentesco": contacto_parentesco,
+                "banco": empleado.banco or "",
+                "cuenta_bancaria": empleado.cuenta_bancaria or "",
+                "clabe_interbancaria": empleado.clabe_interbancaria or "",
+                "documentos_aprobados_expediente": int(
+                    resumen.get("documentos_aprobados_expediente", 0) or 0
+                ),
+                "documentos_requeridos_expediente": int(
+                    resumen.get("documentos_requeridos_expediente", 0) or 0
+                ),
+                "descuentos_configurados": list(
+                    resumen.get("descuentos_configurados", []) or []
+                ),
+                "descuentos_activos_hoy": list(
+                    resumen.get("descuentos_activos_hoy", []) or []
+                ),
+            }
+        )
         return detalle
 
     def _serializar_historial_bancario(self, registros, user_id) -> List[dict]:
@@ -3624,7 +3952,9 @@ class MisEmpleadosState(
                     "fecha_cambio": self._formatear_fecha_hora(registro.fecha_cambio),
                     "origen": origen,
                     "banco": registro.banco or "",
-                    "cuenta_bancaria": self._enmascarar_digitos(registro.cuenta_bancaria),
+                    "cuenta_bancaria": self._enmascarar_digitos(
+                        registro.cuenta_bancaria
+                    ),
                     "clabe_interbancaria": self._enmascarar_digitos(
                         registro.clabe_interbancaria
                     ),
@@ -3704,19 +4034,49 @@ class MisEmpleadosState(
             curp_validator=validar_curp,
             required_validations=[
                 ("error_nombre", self.form_nombre, validar_nombre),
-                ("error_apellido_paterno", self.form_apellido_paterno, validar_apellido_paterno),
-                ("error_apellido_materno", self.form_apellido_materno, validar_apellido_materno_empleado),
+                (
+                    "error_apellido_paterno",
+                    self.form_apellido_paterno,
+                    validar_apellido_paterno,
+                ),
+                (
+                    "error_apellido_materno",
+                    self.form_apellido_materno,
+                    validar_apellido_materno_empleado,
+                ),
                 ("error_rfc", self.form_rfc, validar_rfc_empleado_requerido),
                 ("error_nss", self.form_nss, validar_nss_empleado_requerido),
                 ("error_genero", self.form_genero, validar_genero_empleado_requerido),
-                ("error_fecha_nacimiento", self.form_fecha_nacimiento, lambda v: validar_fecha_nacimiento_empleado(v, requerida=True, edad_min=18)),
-                ("error_telefono", self.form_telefono, validar_telefono_empleado_requerido),
+                (
+                    "error_fecha_nacimiento",
+                    self.form_fecha_nacimiento,
+                    lambda v: validar_fecha_nacimiento_empleado(
+                        v, requerida=True, edad_min=18
+                    ),
+                ),
+                (
+                    "error_telefono",
+                    self.form_telefono,
+                    validar_telefono_empleado_requerido,
+                ),
             ],
             optional_validations=[
                 ("error_email", self.form_email, validar_email),
-                ("error_contacto_nombre", self.form_contacto_nombre, validar_contacto_emergencia_nombre),
-                ("error_contacto_telefono", self.form_contacto_telefono, validar_contacto_emergencia_telefono),
-                ("error_cuenta_bancaria", self.form_cuenta_bancaria, validar_cuenta_bancaria),
+                (
+                    "error_contacto_nombre",
+                    self.form_contacto_nombre,
+                    validar_contacto_emergencia_nombre,
+                ),
+                (
+                    "error_contacto_telefono",
+                    self.form_contacto_telefono,
+                    validar_contacto_emergencia_telefono,
+                ),
+                (
+                    "error_cuenta_bancaria",
+                    self.form_cuenta_bancaria,
+                    validar_cuenta_bancaria,
+                ),
                 ("error_banco", self.form_banco, validar_banco),
                 ("error_clabe", self.form_clabe, validar_clabe),
             ],

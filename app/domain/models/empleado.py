@@ -4,6 +4,7 @@ Entidades de dominio para Empleados.
 El CURP es el identificador único real (gobierno mexicano).
 La clave interna (B25-00001) es para uso operativo del sistema.
 """
+
 import re
 from datetime import date, datetime
 from typing import Optional
@@ -40,6 +41,7 @@ from app.core.validation.employee_validators import (
     validar_clabe_empleado,
     validar_cuenta_bancaria_empleado,
 )
+from app.core.validation.empresa_form_validators import validar_codigo_postal_empresa
 from app.core.validation.bank_validators import (
     normalizar_clabe_interbancaria,
     normalizar_cuenta_bancaria,
@@ -60,7 +62,7 @@ class Empleado(BaseModel):
         use_enum_values=True,
         str_strip_whitespace=True,
         validate_assignment=True,
-        from_attributes=True
+        from_attributes=True,
     )
 
     # Identificación interna
@@ -72,7 +74,7 @@ class Empleado(BaseModel):
     clave: str = Field(
         max_length=CLAVE_EMPLEADO_MAX,
         pattern=CLAVE_EMPLEADO_PATTERN,
-        description="Clave permanente única: B25-00001"
+        description="Clave permanente única: B25-00001",
     )
     empresa_id: Optional[int] = Field(None, description="ID del proveedor actual")
 
@@ -80,19 +82,19 @@ class Empleado(BaseModel):
     curp: str = Field(
         min_length=CURP_LEN,
         max_length=CURP_LEN,
-        description="CURP - Identificador único del gobierno mexicano"
+        description="CURP - Identificador único del gobierno mexicano",
     )
     rfc: Optional[str] = Field(
         None,
         min_length=RFC_PERSONA_LEN,
         max_length=RFC_PERSONA_LEN,
-        description="RFC persona física (13 caracteres)"
+        description="RFC persona física (13 caracteres)",
     )
     nss: Optional[str] = Field(
         None,
         min_length=NSS_LEN,
         max_length=NSS_LEN,
-        description="Número de Seguro Social IMSS"
+        description="Número de Seguro Social IMSS",
     )
 
     # Datos personales
@@ -106,16 +108,17 @@ class Empleado(BaseModel):
     telefono: Optional[str] = Field(None, max_length=TELEFONO_DIGITOS)
     email: Optional[str] = Field(None, max_length=EMAIL_MAX)
     direccion: Optional[str] = Field(None, max_length=DIRECCION_MAX)
+    codigo_postal: Optional[str] = Field(None, max_length=5)
     contacto_emergencia: Optional[str] = Field(
         None,
         max_length=CONTACTO_EMERGENCIA_MAX,
-        description="Nombre y teléfono de contacto de emergencia"
+        description="Nombre y teléfono de contacto de emergencia",
     )
 
     # Estado laboral
     estatus: EstatusEmpleado = Field(default=EstatusEmpleado.ACTIVO)
     fecha_ingreso: date = Field(default_factory=date.today)
-    fecha_ingreso_vigente: date = Field(default_factory=date.today)
+    fecha_ingreso_vigente: Optional[date] = None
     fecha_baja: Optional[date] = None
     motivo_baja: Optional[MotivoBaja] = None
 
@@ -124,21 +127,18 @@ class Empleado(BaseModel):
 
     # Restricción (solo admin BUAP puede modificar)
     is_restricted: bool = Field(
-        default=False,
-        description="true = empleado bloqueado por BUAP"
+        default=False, description="true = empleado bloqueado por BUAP"
     )
     restriction_reason: Optional[str] = Field(
         None,
         max_length=500,
-        description="Motivo de la restriccion (solo visible para admins)"
+        description="Motivo de la restriccion (solo visible para admins)",
     )
     restricted_at: Optional[datetime] = Field(
-        None,
-        description="Fecha/hora de la restriccion"
+        None, description="Fecha/hora de la restriccion"
     )
     restricted_by: Optional[UUID] = Field(
-        None,
-        description="UUID del admin que aplico la restriccion"
+        None, description="UUID del admin que aplico la restriccion"
     )
 
     # Datos bancarios
@@ -152,7 +152,7 @@ class Empleado(BaseModel):
     renapo_fecha_validacion: Optional[datetime] = None
 
     # Onboarding
-    estatus_onboarding: Optional[str] = Field(default='REGISTRADO')
+    estatus_onboarding: Optional[str] = Field(default="REGISTRADO")
 
     # Autoservicio
     user_id: Optional[UUID] = Field(None)
@@ -170,41 +170,45 @@ class Empleado(BaseModel):
     # VALIDADORES
     # =========================================================================
 
-    @field_validator('curp', mode='before')
+    @field_validator("curp", mode="before")
     @classmethod
     def validar_curp(cls, v: str) -> str:
         """Valida formato de CURP."""
         if v:
             v = v.upper().strip()
             if len(v) != CURP_LEN:
-                raise ValueError(f'CURP debe tener {CURP_LEN} caracteres (tiene {len(v)})')
+                raise ValueError(
+                    f"CURP debe tener {CURP_LEN} caracteres (tiene {len(v)})"
+                )
             if not re.match(CURP_PATTERN, v):
-                raise ValueError('CURP con formato inválido')
+                raise ValueError("CURP con formato inválido")
         return v
 
-    @field_validator('rfc', mode='before')
+    @field_validator("rfc", mode="before")
     @classmethod
     def validar_rfc(cls, v: Optional[str]) -> Optional[str]:
         """Valida formato de RFC persona física."""
         if v:
             v = v.upper().strip()
             if len(v) != RFC_PERSONA_LEN:
-                raise ValueError(f'RFC debe tener {RFC_PERSONA_LEN} caracteres (tiene {len(v)})')
+                raise ValueError(
+                    f"RFC debe tener {RFC_PERSONA_LEN} caracteres (tiene {len(v)})"
+                )
             if not re.match(RFC_PERSONA_PATTERN, v):
-                raise ValueError('RFC con formato inválido')
+                raise ValueError("RFC con formato inválido")
         return v
 
-    @field_validator('nss', mode='before')
+    @field_validator("nss", mode="before")
     @classmethod
     def validar_nss(cls, v: Optional[str]) -> Optional[str]:
         """Valida formato de NSS."""
         if v:
             v = v.strip()
             if not re.match(NSS_PATTERN, v):
-                raise ValueError('NSS debe tener 11 dígitos numéricos')
+                raise ValueError("NSS debe tener 11 dígitos numéricos")
         return v
 
-    @field_validator('nombre', 'apellido_paterno', 'apellido_materno', mode='before')
+    @field_validator("nombre", "apellido_paterno", "apellido_materno", mode="before")
     @classmethod
     def normalizar_nombre(cls, v: Optional[str]) -> Optional[str]:
         """Normaliza nombres a mayúsculas."""
@@ -212,37 +216,49 @@ class Empleado(BaseModel):
             return v.upper().strip()
         return v
 
-    @field_validator('email', mode='before')
+    @field_validator("email", mode="before")
     @classmethod
     def validar_email(cls, v: Optional[str]) -> Optional[str]:
         """Valida formato de email."""
         if v:
             v = v.lower().strip()
-            if '@' not in v or '.' not in v:
-                raise ValueError('Email con formato inválido')
+            if "@" not in v or "." not in v:
+                raise ValueError("Email con formato inválido")
         return v
 
-    @field_validator('telefono', mode='before')
+    @field_validator("telefono", mode="before")
     @classmethod
     def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
         """Valida teléfono (solo 10 dígitos)."""
         if v:
-            v = re.sub(r'[^0-9]', '', v)
+            v = re.sub(r"[^0-9]", "", v)
             if len(v) != TELEFONO_DIGITOS:
-                raise ValueError(f'Teléfono debe tener {TELEFONO_DIGITOS} dígitos')
+                raise ValueError(f"Teléfono debe tener {TELEFONO_DIGITOS} dígitos")
         return v
 
-    @field_validator('fecha_baja', mode='after')
+    @field_validator("codigo_postal", mode="before")
+    @classmethod
+    def validar_codigo_postal(cls, v: Optional[str]) -> Optional[str]:
+        """Valida codigo postal usando el validador centralizado."""
+        if v:
+            v = str(v).strip()
+            error = validar_codigo_postal_empresa(v)
+            if error:
+                raise ValueError(error)
+        return v
+
+    @field_validator("fecha_baja", mode="after")
     @classmethod
     def validar_fecha_baja(cls, v: Optional[date], info) -> Optional[date]:
         """Valida que fecha_baja sea >= fecha_ingreso_vigente."""
-        if v and ('fecha_ingreso_vigente' in info.data or 'fecha_ingreso' in info.data):
-            fecha_ingreso = (
-                info.data.get('fecha_ingreso_vigente')
-                or info.data.get('fecha_ingreso')
+        if v and ("fecha_ingreso_vigente" in info.data or "fecha_ingreso" in info.data):
+            fecha_ingreso = info.data.get("fecha_ingreso_vigente") or info.data.get(
+                "fecha_ingreso"
             )
             if fecha_ingreso and v < fecha_ingreso:
-                raise ValueError('Fecha de baja no puede ser anterior a fecha de ingreso')
+                raise ValueError(
+                    "Fecha de baja no puede ser anterior a fecha de ingreso"
+                )
         return v
 
     # =========================================================================
@@ -282,7 +298,10 @@ class Empleado(BaseModel):
             return None
         hoy = date.today()
         edad = hoy.year - self.fecha_nacimiento.year
-        if (hoy.month, hoy.day) < (self.fecha_nacimiento.month, self.fecha_nacimiento.day):
+        if (hoy.month, hoy.day) < (
+            self.fecha_nacimiento.month,
+            self.fecha_nacimiento.day,
+        ):
             edad -= 1
         return edad
 
@@ -351,9 +370,7 @@ class EmpleadoCreate(BaseModel):
     """
 
     model_config = ConfigDict(
-        use_enum_values=True,
-        str_strip_whitespace=True,
-        validate_assignment=True
+        use_enum_values=True, str_strip_whitespace=True, validate_assignment=True
     )
 
     empresa_id: Optional[int] = None
@@ -368,6 +385,7 @@ class EmpleadoCreate(BaseModel):
     telefono: Optional[str] = Field(None, max_length=TELEFONO_DIGITOS)
     email: Optional[str] = Field(None, max_length=EMAIL_MAX)
     direccion: Optional[str] = Field(None, max_length=DIRECCION_MAX)
+    codigo_postal: Optional[str] = Field(None, max_length=5)
     contacto_emergencia: Optional[str] = Field(None, max_length=CONTACTO_EMERGENCIA_MAX)
     fecha_ingreso: Optional[date] = None
     fecha_ingreso_vigente: Optional[date] = None
@@ -377,16 +395,25 @@ class EmpleadoCreate(BaseModel):
     clabe_interbancaria: Optional[str] = Field(None, max_length=CLABE_LEN)
 
     # Validadores reutilizados
-    validar_curp = field_validator('curp', mode='before')(Empleado.validar_curp.__func__)
-    validar_rfc = field_validator('rfc', mode='before')(Empleado.validar_rfc.__func__)
-    validar_nss = field_validator('nss', mode='before')(Empleado.validar_nss.__func__)
-    normalizar_nombre = field_validator('nombre', 'apellido_paterno', 'apellido_materno', mode='before')(
-        Empleado.normalizar_nombre.__func__
+    validar_curp = field_validator("curp", mode="before")(
+        Empleado.validar_curp.__func__
     )
-    validar_email_create = field_validator('email', mode='before')(Empleado.validar_email.__func__)
-    validar_telefono_create = field_validator('telefono', mode='before')(Empleado.validar_telefono.__func__)
+    validar_rfc = field_validator("rfc", mode="before")(Empleado.validar_rfc.__func__)
+    validar_nss = field_validator("nss", mode="before")(Empleado.validar_nss.__func__)
+    normalizar_nombre = field_validator(
+        "nombre", "apellido_paterno", "apellido_materno", mode="before"
+    )(Empleado.normalizar_nombre.__func__)
+    validar_email_create = field_validator("email", mode="before")(
+        Empleado.validar_email.__func__
+    )
+    validar_telefono_create = field_validator("telefono", mode="before")(
+        Empleado.validar_telefono.__func__
+    )
+    validar_codigo_postal_create = field_validator("codigo_postal", mode="before")(
+        Empleado.validar_codigo_postal.__func__
+    )
 
-    @field_validator('clabe_interbancaria', mode='before')
+    @field_validator("clabe_interbancaria", mode="before")
     @classmethod
     def validar_clabe_create(cls, v: Optional[str]) -> Optional[str]:
         """Valida CLABE interbancaria (18 dígitos)."""
@@ -397,7 +424,7 @@ class EmpleadoCreate(BaseModel):
                 raise ValueError(error)
         return v
 
-    @field_validator('cuenta_bancaria', mode='before')
+    @field_validator("cuenta_bancaria", mode="before")
     @classmethod
     def validar_cuenta_create(cls, v: Optional[str]) -> Optional[str]:
         """Valida cuenta bancaria (10-18 dígitos)."""
@@ -408,7 +435,7 @@ class EmpleadoCreate(BaseModel):
                 raise ValueError(error)
         return v
 
-    @field_validator('banco', mode='before')
+    @field_validator("banco", mode="before")
     @classmethod
     def normalizar_banco_create(cls, v: Optional[str]) -> Optional[str]:
         """Normaliza banco a mayúsculas antes de persistir."""
@@ -424,9 +451,7 @@ class EmpleadoUpdate(BaseModel):
     """
 
     model_config = ConfigDict(
-        use_enum_values=True,
-        str_strip_whitespace=True,
-        validate_assignment=True
+        use_enum_values=True, str_strip_whitespace=True, validate_assignment=True
     )
 
     # empresa_id puede cambiar (cambio de proveedor)
@@ -436,14 +461,19 @@ class EmpleadoUpdate(BaseModel):
 
     rfc: Optional[str] = Field(None, max_length=RFC_PERSONA_LEN)
     nss: Optional[str] = Field(None, max_length=NSS_LEN)
-    nombre: Optional[str] = Field(None, min_length=NOMBRE_EMPLEADO_MIN, max_length=NOMBRE_EMPLEADO_MAX)
-    apellido_paterno: Optional[str] = Field(None, min_length=APELLIDO_MIN, max_length=APELLIDO_MAX)
+    nombre: Optional[str] = Field(
+        None, min_length=NOMBRE_EMPLEADO_MIN, max_length=NOMBRE_EMPLEADO_MAX
+    )
+    apellido_paterno: Optional[str] = Field(
+        None, min_length=APELLIDO_MIN, max_length=APELLIDO_MAX
+    )
     apellido_materno: Optional[str] = Field(None, max_length=APELLIDO_MAX)
     fecha_nacimiento: Optional[date] = None
     genero: Optional[GeneroEmpleado] = None
     telefono: Optional[str] = Field(None, max_length=TELEFONO_DIGITOS)
     email: Optional[str] = Field(None, max_length=EMAIL_MAX)
     direccion: Optional[str] = Field(None, max_length=DIRECCION_MAX)
+    codigo_postal: Optional[str] = Field(None, max_length=5)
     contacto_emergencia: Optional[str] = Field(None, max_length=CONTACTO_EMERGENCIA_MAX)
     estatus: Optional[EstatusEmpleado] = None
     fecha_ingreso: Optional[date] = None
@@ -472,15 +502,26 @@ class EmpleadoUpdate(BaseModel):
     entidad_nacimiento: Optional[str] = Field(None, max_length=100)
 
     # Validadores reutilizados
-    validar_rfc_update = field_validator('rfc', mode='before')(Empleado.validar_rfc.__func__)
-    validar_nss_update = field_validator('nss', mode='before')(Empleado.validar_nss.__func__)
+    validar_rfc_update = field_validator("rfc", mode="before")(
+        Empleado.validar_rfc.__func__
+    )
+    validar_nss_update = field_validator("nss", mode="before")(
+        Empleado.validar_nss.__func__
+    )
     normalizar_nombre_update = field_validator(
-        'nombre', 'apellido_paterno', 'apellido_materno', mode='before'
+        "nombre", "apellido_paterno", "apellido_materno", mode="before"
     )(Empleado.normalizar_nombre.__func__)
-    validar_email_update = field_validator('email', mode='before')(Empleado.validar_email.__func__)
-    validar_telefono_update = field_validator('telefono', mode='before')(Empleado.validar_telefono.__func__)
+    validar_email_update = field_validator("email", mode="before")(
+        Empleado.validar_email.__func__
+    )
+    validar_telefono_update = field_validator("telefono", mode="before")(
+        Empleado.validar_telefono.__func__
+    )
+    validar_codigo_postal_update = field_validator("codigo_postal", mode="before")(
+        Empleado.validar_codigo_postal.__func__
+    )
 
-    @field_validator('clabe_interbancaria', mode='before')
+    @field_validator("clabe_interbancaria", mode="before")
     @classmethod
     def validar_clabe_update(cls, v: Optional[str]) -> Optional[str]:
         """Valida CLABE interbancaria (18 dígitos)."""
@@ -491,7 +532,7 @@ class EmpleadoUpdate(BaseModel):
                 raise ValueError(error)
         return v
 
-    @field_validator('cuenta_bancaria', mode='before')
+    @field_validator("cuenta_bancaria", mode="before")
     @classmethod
     def validar_cuenta_update(cls, v: Optional[str]) -> Optional[str]:
         """Valida cuenta bancaria (10-18 dígitos)."""
@@ -502,7 +543,7 @@ class EmpleadoUpdate(BaseModel):
                 raise ValueError(error)
         return v
 
-    @field_validator('banco', mode='before')
+    @field_validator("banco", mode="before")
     @classmethod
     def normalizar_banco_update(cls, v: Optional[str]) -> Optional[str]:
         """Normaliza banco a mayúsculas antes de persistir."""
@@ -517,10 +558,7 @@ class EmpleadoResumen(BaseModel):
     Optimizado para mostrar en tablas y cards.
     """
 
-    model_config = ConfigDict(
-        use_enum_values=True,
-        from_attributes=True
-    )
+    model_config = ConfigDict(use_enum_values=True, from_attributes=True)
 
     id: int
     uuid: Optional[UUID] = None
@@ -551,7 +589,7 @@ class EmpleadoResumen(BaseModel):
         documentos_requeridos_expediente: int = 0,
         descuentos_configurados: Optional[list[dict]] = None,
         descuentos_activos_hoy: Optional[list[dict]] = None,
-    ) -> 'EmpleadoResumen':
+    ) -> "EmpleadoResumen":
         """Factory method para crear desde un empleado completo."""
         return cls(
             id=empleado.id,
@@ -584,31 +622,31 @@ class EmpleadoResumen(BaseModel):
         documentos_requeridos_expediente: int = 0,
         descuentos_configurados: Optional[list[dict]] = None,
         descuentos_activos_hoy: Optional[list[dict]] = None,
-    ) -> 'EmpleadoResumen':
+    ) -> "EmpleadoResumen":
         """Factory method para crear desde un diccionario de BD."""
         # Construir nombre completo
-        nombre = data.get('nombre', '')
-        apellido_p = data.get('apellido_paterno', '')
-        apellido_m = data.get('apellido_materno', '')
+        nombre = data.get("nombre", "")
+        apellido_p = data.get("apellido_paterno", "")
+        apellido_m = data.get("apellido_materno", "")
         nombre_completo = f"{nombre} {apellido_p}".strip()
         if apellido_m:
             nombre_completo = f"{nombre_completo} {apellido_m}"
 
         return cls(
-            id=data['id'],
-            uuid=data.get('uuid'),
-            clave=data['clave'],
-            curp=data['curp'],
+            id=data["id"],
+            uuid=data.get("uuid"),
+            clave=data["clave"],
+            curp=data["curp"],
             nombre_completo=nombre_completo,
-            empresa_id=data['empresa_id'],
+            empresa_id=data["empresa_id"],
             empresa_nombre=empresa_nombre,
-            estatus=data['estatus'],
-            is_restricted=data.get('is_restricted', False),
-            fecha_ingreso=data['fecha_ingreso'],
-            fecha_ingreso_vigente=data.get('fecha_ingreso_vigente'),
-            telefono=data.get('telefono'),
-            email=data.get('email'),
-            estatus_onboarding=data.get('estatus_onboarding'),
+            estatus=data["estatus"],
+            is_restricted=data.get("is_restricted", False),
+            fecha_ingreso=data["fecha_ingreso"],
+            fecha_ingreso_vigente=data.get("fecha_ingreso_vigente"),
+            telefono=data.get("telefono"),
+            email=data.get("email"),
+            estatus_onboarding=data.get("estatus_onboarding"),
             documentos_aprobados_expediente=documentos_aprobados_expediente,
             documentos_requeridos_expediente=documentos_requeridos_expediente,
             descuentos_configurados=descuentos_configurados or [],

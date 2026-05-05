@@ -6,6 +6,7 @@ Modelo plazas-first:
 - si el contrato desglosa categorías, la plaza se materializa o sincroniza con ellas
 - la sede, el salario operativo y la asignación de personal se gestionan desde plazas
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,7 +32,9 @@ try:
     import sys
 
     services_pkg = sys.modules.get("app.domain.services")
-    if services_pkg is not None and not hasattr(services_pkg, "contrato_categoria_service"):
+    if services_pkg is not None and not hasattr(
+        services_pkg, "contrato_categoria_service"
+    ):
         from app.domain.services.contrato_categoria_service import (
             contrato_categoria_service as _contrato_categoria_service,
         )
@@ -86,14 +89,18 @@ class PlazaService:
         contrato_id: int,
         incluir_canceladas: bool = False,
     ) -> list[Plaza]:
-        return await self.repository.obtener_por_contrato(contrato_id, incluir_canceladas)
+        return await self.repository.obtener_por_contrato(
+            contrato_id, incluir_canceladas
+        )
 
     async def obtener_por_estatus(
         self,
         estatus: EstatusPlaza,
         limite: int = 100,
     ) -> list[PlazaResumen]:
-        resumen_data = await self.repository.obtener_resumen_por_estatus(estatus, limite)
+        resumen_data = await self.repository.obtener_resumen_por_estatus(
+            estatus, limite
+        )
         return [self._map_resumen(item) for item in resumen_data]
 
     async def obtener_resumen_de_contrato(
@@ -122,7 +129,9 @@ class PlazaService:
         )
         return [self._map_resumen(item) for item in resumen_data]
 
-    async def calcular_totales_contrato(self, contrato_id: int) -> ResumenPlazasContrato:
+    async def calcular_totales_contrato(
+        self, contrato_id: int
+    ) -> ResumenPlazasContrato:
         totales = await self.repository.obtener_totales_por_contrato(contrato_id)
         return ResumenPlazasContrato(
             contrato_id=contrato_id,
@@ -176,6 +185,7 @@ class PlazaService:
         self,
         empleado_id: int,
         plaza_id: int,
+        fecha_asignacion: Optional[date] = None,
     ) -> None:
         """Registra en historial la plaza activa del empleado."""
         from app.domain.services import historial_laboral_service
@@ -191,12 +201,14 @@ class PlazaService:
             await historial_laboral_service.registrar_cambio_plaza(
                 empleado_id=empleado_id,
                 nueva_plaza_id=plaza_id,
+                fecha=fecha_asignacion,
             )
             return
 
         await historial_laboral_service.registrar_asignacion(
             empleado_id=empleado_id,
             plaza_id=plaza_id,
+            fecha=fecha_asignacion,
         )
 
     async def _sincronizar_historial_liberacion(
@@ -219,7 +231,9 @@ class PlazaService:
         self,
         empresa_id: int,
     ) -> list[PlazaResumen]:
-        resumen_data = await self.repository.obtener_resumen_ocupadas_por_empresa(empresa_id)
+        resumen_data = await self.repository.obtener_resumen_ocupadas_por_empresa(
+            empresa_id
+        )
         return [self._map_resumen(item) for item in resumen_data]
 
     async def tiene_plazas_configuradas(self, empresa_id: int) -> bool:
@@ -230,7 +244,9 @@ class PlazaService:
         contrato_id: int,
         fecha_referencia: Optional[date] = None,
     ) -> dict[int, int]:
-        return await self.repository.contar_vigentes_por_categoria(contrato_id, fecha_referencia)
+        return await self.repository.contar_vigentes_por_categoria(
+            contrato_id, fecha_referencia
+        )
 
     async def sincronizar_plazas_contrato(
         self,
@@ -239,12 +255,16 @@ class PlazaService:
         fecha_inicio: date,
     ) -> int:
         """Materializa plazas vacantes hasta alcanzar el máximo contractual."""
-        plazas_existentes = await self.repository.contar_por_contrato(contrato_id, incluir_canceladas=True)
+        plazas_existentes = await self.repository.contar_por_contrato(
+            contrato_id, incluir_canceladas=True
+        )
         faltantes = max(0, cantidad_plazas_maxima - plazas_existentes)
         if faltantes == 0:
             return 0
 
-        siguiente_numero = await self.repository.obtener_siguiente_numero_plaza(contrato_id)
+        siguiente_numero = await self.repository.obtener_siguiente_numero_plaza(
+            contrato_id
+        )
         creadas = 0
         for offset in range(faltantes):
             plaza = Plaza(
@@ -278,11 +298,15 @@ class PlazaService:
         """
         from app.domain.services import contrato_categoria_service
 
-        categorias_contrato = await contrato_categoria_service.obtener_categorias_de_contrato(contrato_id)
+        categorias_contrato = (
+            await contrato_categoria_service.obtener_categorias_de_contrato(contrato_id)
+        )
         if not categorias_contrato:
             return 0
 
-        plazas = await self.repository.obtener_por_contrato(contrato_id, incluir_canceladas=True)
+        plazas = await self.repository.obtener_por_contrato(
+            contrato_id, incluir_canceladas=True
+        )
         if not plazas:
             return 0
 
@@ -306,7 +330,9 @@ class PlazaService:
             if categoria_id is not None:
                 conteo_actual[categoria_id] = conteo_actual.get(categoria_id, 0) + 1
                 if plaza.estatus == EstatusPlaza.VACANTE and plaza.empleado_id is None:
-                    vacantes_reasignables_por_categoria.setdefault(categoria_id, []).append(plaza)
+                    vacantes_reasignables_por_categoria.setdefault(
+                        categoria_id, []
+                    ).append(plaza)
                 continue
 
             if plaza.estatus == EstatusPlaza.VACANTE and plaza.empleado_id is None:
@@ -314,7 +340,10 @@ class PlazaService:
 
         pool_reasignable: list[Plaza] = list(vacantes_sin_categoria)
 
-        for categoria_id, vacantes_categoria in vacantes_reasignables_por_categoria.items():
+        for (
+            categoria_id,
+            vacantes_categoria,
+        ) in vacantes_reasignables_por_categoria.items():
             objetivo = objetivos.get(categoria_id, 0)
             actual = conteo_actual.get(categoria_id, 0)
             excedente = max(0, actual - objetivo)
@@ -445,7 +474,8 @@ class PlazaService:
         if (
             "salario_mensual" in cambios
             and int(empleado_original_id or 0) > 0
-            and int(plaza_actualizada.empleado_id or 0) == int(empleado_original_id or 0)
+            and int(plaza_actualizada.empleado_id or 0)
+            == int(empleado_original_id or 0)
             and plaza_actualizada.estatus == EstatusPlaza.OCUPADA
             and salario_actualizado != salario_original
         ):
@@ -513,7 +543,9 @@ class PlazaService:
             raise BusinessRuleError("La cantidad debe ser mayor a cero")
 
         await self._validar_sede_activa(sede_id)
-        vacantes = await self.repository.obtener_vacantes_con_categoria_sin_sede(contrato_id)
+        vacantes = await self.repository.obtener_vacantes_con_categoria_sin_sede(
+            contrato_id
+        )
         if len(vacantes) < cantidad:
             raise BusinessRuleError(
                 "No hay suficientes plazas vacantes con categoría y sin sede. "
@@ -527,12 +559,22 @@ class PlazaService:
 
         return actualizadas
 
-    async def asignar_empleado(self, plaza_id: int, empleado_id: int) -> Plaza:
+    async def asignar_empleado(
+        self,
+        plaza_id: int,
+        empleado_id: int,
+        fecha_asignacion: Optional[date] = None,
+    ) -> Plaza:
+        fecha_asignacion = fecha_asignacion or date.today()
         plaza = await self.repository.obtener_por_id(plaza_id)
         if plaza.categoria_puesto_id is None:
-            raise BusinessRuleError("La plaza debe tener categoría antes de asignar un empleado")
+            raise BusinessRuleError(
+                "La plaza debe tener categoría antes de asignar un empleado"
+            )
         if plaza.sede_id is None:
-            raise BusinessRuleError("La plaza debe tener sede antes de asignar un empleado")
+            raise BusinessRuleError(
+                "La plaza debe tener sede antes de asignar un empleado"
+            )
         if not plaza.puede_asignar_empleado():
             raise BusinessRuleError("La plaza no está disponible para asignación")
         plaza.empleado_id = empleado_id
@@ -541,10 +583,15 @@ class PlazaService:
 
         from app.domain.services import empleado_service
 
-        await self._sincronizar_historial_asignacion(empleado_id, plaza_id)
+        await self._sincronizar_historial_asignacion(
+            empleado_id,
+            plaza_id,
+            fecha_asignacion,
+        )
         await empleado_service.sincronizar_estatus_por_plazas(
             empleado_id,
             tiene_plaza_activa=True,
+            fecha_ingreso_vigente=fecha_asignacion,
         )
         return plaza_actualizada
 
@@ -576,21 +623,34 @@ class PlazaService:
         *,
         plaza_origen_id: int,
         plaza_destino_id: int,
+        fecha_asignacion: Optional[date] = None,
     ) -> Plaza:
+        fecha_asignacion = fecha_asignacion or date.today()
         if plaza_origen_id == plaza_destino_id:
             raise BusinessRuleError("Seleccione una plaza destino diferente")
 
         plaza_origen = await self.repository.obtener_por_id(plaza_origen_id)
         plaza_destino = await self.repository.obtener_por_id(plaza_destino_id)
 
-        if plaza_origen.estatus != EstatusPlaza.OCUPADA or plaza_origen.empleado_id is None:
-            raise BusinessRuleError("La plaza origen debe estar ocupada para reasignarse")
+        if (
+            plaza_origen.estatus != EstatusPlaza.OCUPADA
+            or plaza_origen.empleado_id is None
+        ):
+            raise BusinessRuleError(
+                "La plaza origen debe estar ocupada para reasignarse"
+            )
         if plaza_destino.categoria_puesto_id is None:
-            raise BusinessRuleError("La plaza destino debe tener categoría antes de reasignar")
+            raise BusinessRuleError(
+                "La plaza destino debe tener categoría antes de reasignar"
+            )
         if plaza_destino.sede_id is None:
-            raise BusinessRuleError("La plaza destino debe tener sede antes de reasignar")
+            raise BusinessRuleError(
+                "La plaza destino debe tener sede antes de reasignar"
+            )
         if not plaza_destino.puede_asignar_empleado():
-            raise BusinessRuleError("La plaza destino no está disponible para reasignación")
+            raise BusinessRuleError(
+                "La plaza destino no está disponible para reasignación"
+            )
         if plaza_destino.categoria_puesto_id != plaza_origen.categoria_puesto_id:
             raise BusinessRuleError(
                 "La plaza destino debe conservar la misma categoría de la plaza actual"
@@ -607,17 +667,24 @@ class PlazaService:
 
         from app.domain.services import empleado_service
 
-        await self._sincronizar_historial_asignacion(empleado_id, plaza_destino_id)
+        await self._sincronizar_historial_asignacion(
+            empleado_id,
+            plaza_destino_id,
+            fecha_asignacion,
+        )
         await empleado_service.sincronizar_estatus_por_plazas(
             empleado_id,
             tiene_plaza_activa=True,
+            fecha_ingreso_vigente=fecha_asignacion,
         )
         return plaza_actualizada
 
     async def suspender_plaza(self, plaza_id: int) -> Plaza:
         plaza = await self.repository.obtener_por_id(plaza_id)
         if not plaza.puede_suspender():
-            raise BusinessRuleError("La plaza no se puede suspender en su estatus actual")
+            raise BusinessRuleError(
+                "La plaza no se puede suspender en su estatus actual"
+            )
         plaza.estatus = EstatusPlaza.SUSPENDIDA
         return await self.repository.actualizar(plaza)
 
@@ -634,8 +701,12 @@ class PlazaService:
         categoria_puesto_id: int,
         fecha_referencia: Optional[date] = None,
     ) -> ResumenPlazasCategoria:
-        plazas = await self.obtener_resumen_de_categoria(contrato_id, categoria_puesto_id)
-        cantidades = await self.obtener_cantidad_esperada_por_categoria(contrato_id, fecha_referencia)
+        plazas = await self.obtener_resumen_de_categoria(
+            contrato_id, categoria_puesto_id
+        )
+        cantidades = await self.obtener_cantidad_esperada_por_categoria(
+            contrato_id, fecha_referencia
+        )
         cantidad_esperada = cantidades.get(categoria_puesto_id, 0)
 
         categoria_clave = ""
@@ -669,12 +740,19 @@ class PlazaService:
             costo_total_mensual=costo_total,
         )
 
-    async def _validar_limite_contrato(self, contrato_id: int, nueva_cantidad: int = 0) -> None:
+    async def _validar_limite_contrato(
+        self, contrato_id: int, nueva_cantidad: int = 0
+    ) -> None:
         from app.domain.services import contrato_service
 
         contrato = await contrato_service.obtener_por_id(contrato_id)
-        plazas_existentes = await self.repository.contar_por_contrato(contrato_id, incluir_canceladas=True)
-        if contrato.cantidad_plazas_maxima and plazas_existentes + nueva_cantidad > contrato.cantidad_plazas_maxima:
+        plazas_existentes = await self.repository.contar_por_contrato(
+            contrato_id, incluir_canceladas=True
+        )
+        if (
+            contrato.cantidad_plazas_maxima
+            and plazas_existentes + nueva_cantidad > contrato.cantidad_plazas_maxima
+        ):
             raise BusinessRuleError(
                 f"Ya se alcanzó el máximo contractual de plazas ({contrato.cantidad_plazas_maxima})"
             )
@@ -684,18 +762,14 @@ class PlazaService:
 
         categoria = await categoria_puesto_service.obtener_por_id(categoria_puesto_id)
         if not categoria.esta_activo():
-            raise BusinessRuleError(
-                f"La categoría '{categoria.nombre}' no está activa"
-            )
+            raise BusinessRuleError(f"La categoría '{categoria.nombre}' no está activa")
 
     async def _validar_sede_activa(self, sede_id: int) -> None:
         from app.domain.services import sede_service
 
         sede = await sede_service.obtener_por_id(sede_id)
         if not sede.esta_activa():
-            raise BusinessRuleError(
-                f"La sede '{sede.nombre_display()}' no está activa"
-            )
+            raise BusinessRuleError(f"La sede '{sede.nombre_display()}' no está activa")
 
     def _map_resumen(self, item: dict) -> PlazaResumen:
         return PlazaResumen(

@@ -2,20 +2,23 @@
 
 import reflex as rx
 
+from app.presentation.components.common.upload_zone import ACCEPT_CSV_EXCEL, upload_zone
 from app.presentation.components.shared.employee_bulk_upload_state_mixin import (
     EMPLOYEE_BULK_UPLOAD_ID,
 )
 from app.presentation.components.ui import (
     table_cell_text_sm,
+    table_pagination,
     table_shell,
 )
 from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 
 _ENCABEZADOS_PREVIEW = [
-    {"nombre": "Fila", "ancho": "72px", "header_align": "center"},
+    {"nombre": "Fila archivo", "ancho": "110px", "header_align": "center"},
     {"nombre": "CURP", "ancho": "180px"},
-    {"nombre": "Resultado", "ancho": "120px", "header_align": "center"},
+    {"nombre": "Nombre", "ancho": "220px"},
+    {"nombre": "Campo", "ancho": "150px"},
     {"nombre": "Mensaje", "ancho": "auto"},
 ]
 
@@ -33,7 +36,10 @@ def _badge_resultado(resultado: str) -> rx.Component:
     return rx.match(
         resultado,
         ("VALIDO", rx.badge("Valido", color_scheme="green", variant="soft", size="1")),
-        ("REINGRESO", rx.badge("Reingreso", color_scheme="yellow", variant="soft", size="1")),
+        (
+            "REINGRESO",
+            rx.badge("Reingreso", color_scheme="yellow", variant="soft", size="1"),
+        ),
         ("ERROR", rx.badge("Error", color_scheme="red", variant="soft", size="1")),
         rx.badge(resultado, size="1"),
     )
@@ -87,6 +93,28 @@ def _card_resumen(titulo: str, valor, color_scheme: str, icono: str) -> rx.Compo
         border_radius=Radius.LG,
         flex="1 1 170px",
         min_width="170px",
+    )
+
+
+def _error_callout(message) -> rx.Component:
+    """Callout de error con texto reactivo renderizado explicitamente."""
+    return rx.callout(
+        text=message,
+        icon="triangle-alert",
+        color_scheme="red",
+        size="1",
+        width="100%",
+    )
+
+
+def _validation_callout(message: str, icon: str, color_scheme: str) -> rx.Component:
+    """Callout de estado para el paso de validacion."""
+    return rx.callout(
+        message,
+        icon=icon,
+        color_scheme=color_scheme,
+        size="1",
+        width="100%",
     )
 
 
@@ -158,22 +186,24 @@ def _fila_preview(reg: dict) -> rx.Component:
     return rx.table.row(
         rx.table.cell(
             rx.center(
-                rx.text(reg["fila"], font_size=Typography.SIZE_SM),
+                rx.text(reg.get("fila", "-"), font_size=Typography.SIZE_SM),
                 width="100%",
             ),
         ),
         table_cell_text_sm(
-            reg["curp"],
+            reg.get("curp", ""),
             weight=Typography.WEIGHT_MEDIUM,
         ),
-        rx.table.cell(
-            rx.center(
-                _badge_resultado(reg["resultado"]),
-                width="100%",
-            ),
+        table_cell_text_sm(
+            reg.get("nombre_completo", "-"),
+            tone="secondary",
         ),
         table_cell_text_sm(
-            reg["mensaje"],
+            reg.get("campo_error_display", "-"),
+            tone="secondary",
+        ),
+        table_cell_text_sm(
+            reg.get("mensaje_display", "Error de validacion sin detalle"),
             tone="secondary",
         ),
     )
@@ -219,125 +249,30 @@ def _fila_resultado(det: dict) -> rx.Component:
 def _paso_subir(state, upload_id: str) -> rx.Component:
     """Paso 1 del flujo inline: selección y validación del archivo."""
     return rx.vstack(
-        rx.upload(
-            rx.vstack(
-                rx.cond(
-                    state.alta_masiva_validando_archivo,
-                    rx.vstack(
-                        rx.spinner(size="3"),
-                        rx.text(
-                            "Validando archivo...",
-                            font_size=Typography.SIZE_SM,
-                            color=Colors.TEXT_SECONDARY,
-                        ),
-                        spacing="2",
-                        align="center",
-                    ),
-                    rx.vstack(
-                        rx.icon(
-                            "upload",
-                            size=30,
-                            color=Colors.PORTAL_PRIMARY_TEXT,
-                        ),
-                        rx.text(
-                            "Arrastre o seleccione un archivo CSV o Excel",
-                            font_size=Typography.SIZE_BASE,
-                            font_weight=Typography.WEIGHT_MEDIUM,
-                            color=Colors.TEXT_PRIMARY,
-                            text_align="center",
-                        ),
-                        rx.text(
-                            "Formatos .csv, .xlsx o .xls. Maximo 500 filas y 5 MB.",
-                            font_size=Typography.SIZE_SM,
-                            color=Colors.TEXT_MUTED,
-                            text_align="center",
-                        ),
-                        spacing="2",
-                        align="center",
-                    ),
-                ),
-                width="100%",
-                align="center",
-                justify="center",
-                padding_y=Spacing.XL,
-                padding_x=Spacing.LG,
-            ),
-            id=upload_id,
-            accept={
-                "text/csv": [".csv"],
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-                "application/vnd.ms-excel": [".xls"],
-            },
+        upload_zone(
+            upload_id=upload_id,
+            title="Arrastre o seleccione un archivo CSV o Excel",
+            helper_text="Formatos .csv, .xlsx o .xls. Maximo 500 filas y 5 MB.",
+            accept=ACCEPT_CSV_EXCEL,
             max_files=1,
-            no_click=state.alta_masiva_validando_archivo,
-            no_drag=state.alta_masiva_validando_archivo,
-            border=f"2px dashed {Colors.BORDER_STRONG}",
-            border_radius=Radius.LG,
-            width="100%",
-            cursor=rx.cond(state.alta_masiva_validando_archivo, "wait", "pointer"),
+            loading=state.alta_masiva_validando_archivo,
+            on_upload=state.handle_upload_alta_masiva,
+            button_label="Validar archivo",
+            loading_label="Validando...",
+            button_icon="circle-check",
+            icon_color=Colors.PORTAL_PRIMARY_TEXT,
+            icon_size=30,
+            button_color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+            allow_cancel=True,
+            disable_when_selected=True,
             background=Colors.SURFACE,
-            style={
-                "_hover": {
-                    "border_color": Colors.PORTAL_PRIMARY,
-                    "background": Colors.PORTAL_PRIMARY_LIGHTER,
-                }
-            },
-        ),
-        rx.cond(
-            rx.selected_files(upload_id).length() > 0,
-            rx.hstack(
-                rx.hstack(
-                    rx.icon("file", size=16, color=Colors.PORTAL_PRIMARY_TEXT),
-                    rx.foreach(
-                        rx.selected_files(upload_id),
-                        lambda archivo: rx.text(
-                            archivo,
-                            font_size=Typography.SIZE_SM,
-                            color=Colors.TEXT_SECONDARY,
-                        ),
-                    ),
-                    spacing="2",
-                    align="center",
-                ),
-                rx.spacer(),
-                rx.button(
-                    rx.cond(
-                        state.alta_masiva_validando_archivo,
-                        rx.hstack(
-                            rx.spinner(size="1"),
-                            rx.text("Validando...", font_size=Typography.SIZE_SM),
-                            spacing="2",
-                            align="center",
-                        ),
-                        rx.hstack(
-                            rx.icon("circle-check", size=16),
-                            rx.text("Validar archivo", font_size=Typography.SIZE_SM),
-                            spacing="2",
-                            align="center",
-                        ),
-                    ),
-                    on_click=state.handle_upload_alta_masiva(
-                        rx.upload_files(upload_id=upload_id),
-                    ),
-                    disabled=state.alta_masiva_validando_archivo,
-                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-                    size="2",
-                ),
-                width="100%",
-                align="center",
-                spacing="3",
-            ),
-            rx.fragment(),
+            hover_border_color=Colors.PORTAL_PRIMARY,
+            hover_background=Colors.PORTAL_PRIMARY_LIGHTER,
+            padding=Spacing.XL,
         ),
         rx.cond(
             state.alta_masiva_archivo_error != "",
-            rx.callout(
-                state.alta_masiva_archivo_error,
-                icon="triangle-alert",
-                color_scheme="red",
-                size="1",
-                width="100%",
-            ),
+            _error_callout(state.alta_masiva_archivo_error),
             rx.fragment(),
         ),
         rx.box(
@@ -412,24 +347,48 @@ def _paso_preview(state) -> rx.Component:
             gap=Spacing.SM,
         ),
         rx.cond(
-            ~state.alta_masiva_puede_procesar,
-            rx.callout(
-                "No hay registros validos para procesar. Corrija el archivo y vuelva a cargarlo.",
-                icon="triangle-alert",
-                color_scheme="red",
-                size="1",
-                width="100%",
+            state.alta_masiva_validacion_errores.length() > 0,
+            _validation_callout(
+                "Se detectaron errores en el archivo. Corrija las filas indicadas y vuelva a cargarlo.",
+                "triangle-alert",
+                "red",
+            ),
+            rx.cond(
+                state.alta_masiva_validacion_reingresos.length() > 0,
+                _validation_callout(
+                    "Se detectaron reingresos. Se actualizaran/reactivaran al confirmar la carga.",
+                    "rotate-ccw",
+                    "amber",
+                ),
+                _validation_callout(
+                    "Archivo validado correctamente. Puede confirmar la alta.",
+                    "circle-check",
+                    "green",
+                ),
+            ),
+        ),
+        rx.cond(
+            state.alta_masiva_validacion_errores.length() > 0,
+            table_shell(
+                loading=False,
+                headers=_ENCABEZADOS_PREVIEW,
+                rows=state.alta_masiva_preview_rows,
+                row_renderer=_fila_preview,
+                has_rows=True,
+                empty_component=rx.fragment(),
+                total_caption=state.alta_masiva_resumen_paginacion_preview,
+                footer_component=table_pagination(
+                    current_page=state.alta_masiva_preview_pagina_actual,
+                    total_pages=state.alta_masiva_total_paginas_preview,
+                    page_numbers=state.alta_masiva_paginas_visibles_preview,
+                    on_page_change=state.ir_a_pagina_alta_masiva_preview,
+                    on_previous=state.pagina_anterior_alta_masiva_preview,
+                    on_next=state.pagina_siguiente_alta_masiva_preview,
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                ),
+                table_size="2",
             ),
             rx.fragment(),
-        ),
-        table_shell(
-            loading=False,
-            headers=_ENCABEZADOS_PREVIEW,
-            rows=state.alta_masiva_registros_preview,
-            row_renderer=_fila_preview,
-            has_rows=state.alta_masiva_registros_preview.length() > 0,
-            empty_component=rx.fragment(),
-            table_size="2",
         ),
         rx.text(
             "Archivo: ",
@@ -468,7 +427,8 @@ def _paso_preview(state) -> rx.Component:
                 on_click=state.confirmar_alta_masiva,
                 size="2",
                 color_scheme=Colors.PORTAL_ACCENT_SCHEME,
-                disabled=~state.alta_masiva_puede_procesar | state.alta_masiva_procesando,
+                disabled=~state.alta_masiva_puede_procesar
+                | state.alta_masiva_procesando,
             ),
             width="100%",
             spacing="3",
@@ -510,10 +470,20 @@ def _paso_resultados(state) -> rx.Component:
             table_shell(
                 loading=False,
                 headers=_ENCABEZADOS_RESULTADOS,
-                rows=state.alta_masiva_resultado_detalles,
+                rows=state.alta_masiva_resultados_paginados,
                 row_renderer=_fila_resultado,
                 has_rows=True,
                 empty_component=rx.fragment(),
+                total_caption=state.alta_masiva_resumen_paginacion_resultados,
+                footer_component=table_pagination(
+                    current_page=state.alta_masiva_resultados_pagina_actual,
+                    total_pages=state.alta_masiva_total_paginas_resultados,
+                    page_numbers=state.alta_masiva_paginas_visibles_resultados,
+                    on_page_change=state.ir_a_pagina_alta_masiva_resultados,
+                    on_previous=state.pagina_anterior_alta_masiva_resultados,
+                    on_next=state.pagina_siguiente_alta_masiva_resultados,
+                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                ),
                 table_size="2",
             ),
             rx.fragment(),
