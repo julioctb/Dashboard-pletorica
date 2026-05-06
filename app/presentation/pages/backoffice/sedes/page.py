@@ -2,93 +2,90 @@
 Pagina principal de Sedes BUAP.
 Muestra una tabla o cards con las sedes y acciones CRUD.
 """
-import reflex as rx
-from app.presentation.pages.backoffice.sedes.state import SedesState
-from app.presentation.layouts.backoffice import (
-    page_layout,
-    page_header,
-    page_toolbar,
-)
-from app.presentation.components.ui import (
-    table_cell_actions,
-    table_cell_badge,
-    table_shell,
-    status_badge_reactive,
-    tabla_vacia,
-    switch_inactivos,
-    tabla_action_button,
-    tabla_action_buttons,
-    identifier_badge,
-)
-from app.presentation.theme import Colors, Spacing, Shadows, Typography
-from app.presentation.components.backoffice.sedes.sedes_modals import (
-    modal_sede,
-    modal_confirmar_eliminar,
-)
 
+import reflex as rx
+
+from app.presentation.components.backoffice.sedes.sedes_modals import (
+    modal_confirmar_eliminar, modal_sede)
+from app.presentation.components.ui import (identifier_badge,
+                                            status_badge_reactive,
+                                            switch_inactivos,
+                                            tabla_action_button,
+                                            tabla_action_buttons, tabla_vacia,
+                                            table_cell_actions,
+                                            table_cell_badge, table_shell)
+from app.presentation.layouts.backoffice import (page_header, page_layout,
+                                                 page_toolbar)
+from app.presentation.pages.backoffice.sedes.state import SedesState
+from app.presentation.theme import Colors, Shadows, Spacing, Typography
 
 # =============================================================================
 # ACCIONES
 # =============================================================================
+
 
 def acciones_sede(sede: dict) -> rx.Component:
     """Acciones para cada sede"""
     es_activo = sede["estatus"] == "ACTIVO"
     es_inactivo = sede["estatus"] == "INACTIVO"
 
-    return tabla_action_buttons([
-        # Editar
-        tabla_action_button(
-            icon="pencil",
-            tooltip="Editar",
-            on_click=lambda: SedesState.abrir_modal_editar(sede),
-            color_scheme="blue",
-            visible=es_activo,
-        ),
-        # Eliminar
-        tabla_action_button(
-            icon="trash-2",
-            tooltip="Eliminar",
-            on_click=lambda: SedesState.abrir_confirmar_eliminar(sede),
-            color_scheme="red",
-            visible=es_activo,
-        ),
-        # Reactivar
-        tabla_action_button(
-            icon="rotate-ccw",
-            tooltip="Reactivar",
-            on_click=lambda: SedesState.activar_sede(sede),
-            color_scheme="green",
-            visible=es_inactivo,
-        ),
-    ])
+    return tabla_action_buttons(
+        [
+            # Editar
+            tabla_action_button(
+                icon="pencil",
+                tooltip="Editar",
+                on_click=lambda: SedesState.abrir_modal_editar(sede),
+                color_scheme="blue",
+                visible=es_activo,
+            ),
+            # Eliminar
+            tabla_action_button(
+                icon="trash-2",
+                tooltip="Eliminar",
+                on_click=lambda: SedesState.abrir_confirmar_eliminar(sede),
+                color_scheme="red",
+                visible=es_activo,
+            ),
+            # Reactivar
+            tabla_action_button(
+                icon="rotate-ccw",
+                tooltip="Reactivar",
+                on_click=lambda: SedesState.activar_sede(sede),
+                color_scheme="green",
+                visible=es_inactivo,
+            ),
+        ]
+    )
 
 
 # =============================================================================
 # TABLA
 # =============================================================================
 
+
 def fila_sede(sede: dict) -> rx.Component:
     """Fila de la tabla para una sede"""
     return rx.table.row(
         # Codigo
         rx.table.cell(
-            rx.text(
+            table_text_sm(
                 sede["codigo"],
+                uppercase=True,
                 font_weight=Typography.WEIGHT_BOLD,
-                font_size=Typography.SIZE_SM,
             ),
         ),
         # Nombre
         rx.table.cell(
             rx.vstack(
-                rx.text(sede["nombre"], font_size=Typography.SIZE_SM),
+                table_text_sm(sede["nombre"], uppercase=True),
                 rx.cond(
                     sede["nombre_corto"],
                     rx.text(
                         sede["nombre_corto"],
                         font_size=Typography.SIZE_XS,
                         color=Colors.TEXT_MUTED,
+                        text_transform="uppercase",
                     ),
                     rx.fragment(),
                 ),
@@ -146,6 +143,7 @@ def tabla_sedes() -> rx.Component:
 # VISTA DE CARDS
 # =============================================================================
 
+
 def card_sede(sede: dict) -> rx.Component:
     """Card individual para una sede"""
     return rx.card(
@@ -158,14 +156,13 @@ def card_sede(sede: dict) -> rx.Component:
                 width="100%",
                 align="center",
             ),
-
             # Nombre
             rx.text(
                 sede["nombre"],
                 font_weight=Typography.WEIGHT_BOLD,
                 font_size=Typography.SIZE_LG,
+                text_transform="uppercase",
             ),
-
             # Nombre corto
             rx.cond(
                 sede["nombre_corto"],
@@ -173,10 +170,10 @@ def card_sede(sede: dict) -> rx.Component:
                     sede["nombre_corto"],
                     font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_SECONDARY,
+                    text_transform="uppercase",
                 ),
                 rx.fragment(),
             ),
-
             # Tipo y ubicacion
             rx.hstack(
                 rx.badge(sede["tipo_descripcion"], variant="soft", size="1"),
@@ -192,14 +189,12 @@ def card_sede(sede: dict) -> rx.Component:
                 spacing="2",
                 wrap="wrap",
             ),
-
             # Acciones
             rx.hstack(
                 acciones_sede(sede),
                 width="100%",
                 justify="end",
             ),
-
             spacing="3",
             width="100%",
         ),
@@ -234,7 +229,9 @@ def grid_sedes() -> rx.Component:
                 ),
                 # Contador
                 rx.text(
-                    "Mostrando ", SedesState.total_sedes, " sede(s)",
+                    "Mostrando ",
+                    SedesState.total_sedes,
+                    " sede(s)",
                     font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_MUTED,
                 ),
@@ -249,6 +246,7 @@ def grid_sedes() -> rx.Component:
 # =============================================================================
 # PAGINA PRINCIPAL
 # =============================================================================
+
 
 def sedes_page() -> rx.Component:
     """Pagina de Sedes BUAP usando el layout estandar"""
@@ -282,11 +280,9 @@ def sedes_page() -> rx.Component:
                     tabla_sedes(),
                     grid_sedes(),
                 ),
-
                 # Modales
                 modal_sede(),
                 modal_confirmar_eliminar(),
-
                 spacing="4",
                 width="100%",
             ),

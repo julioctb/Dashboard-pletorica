@@ -2,97 +2,94 @@
 Pagina principal de Tipos de Servicio.
 Muestra una tabla o cards con los tipos y acciones CRUD.
 """
-import reflex as rx
-from app.presentation.pages.backoffice.tipo_servicio.state import TipoServicioState
-from app.presentation.layouts.backoffice import (
-    page_layout,
-    page_header,
-    page_toolbar,
-)
-from app.presentation.components.ui import (
-    table_cell_actions,
-    table_cell_badge,
-    table_shell,
-    table_text_sm,
-    status_badge_reactive,
-    tabla_vacia,
-    switch_inactivos,
-    tabla_action_button,
-    tabla_action_buttons,
-    identifier_badge,
-)
-from app.presentation.theme import Colors, Spacing, Shadows, Typography
-from app.presentation.components.backoffice.tipo_servicio.tipo_servicio_modals import (
-    modal_tipo_servicio,
-    modal_confirmar_eliminar,
-)
 
+import reflex as rx
+
+from app.presentation.components.backoffice.tipo_servicio.tipo_servicio_modals import (
+    modal_confirmar_eliminar, modal_tipo_servicio)
+from app.presentation.components.ui import (identifier_badge,
+                                            status_badge_reactive,
+                                            switch_inactivos,
+                                            tabla_action_button,
+                                            tabla_action_buttons, tabla_vacia,
+                                            table_cell_actions,
+                                            table_cell_badge, table_shell,
+                                            table_text_sm)
+from app.presentation.layouts.backoffice import (page_header, page_layout,
+                                                 page_toolbar)
+from app.presentation.pages.backoffice.tipo_servicio.state import \
+    TipoServicioState
+from app.presentation.theme import Colors, Shadows, Spacing, Typography
 
 # =============================================================================
 # ACCIONES
 # =============================================================================
+
 
 def acciones_tipo(tipo: dict) -> rx.Component:
     """Acciones para cada tipo de servicio"""
     es_activo = tipo["estatus"] == "ACTIVO"
     es_inactivo = tipo["estatus"] == "INACTIVO"
 
-    return tabla_action_buttons([
-        rx.tooltip(
-            rx.link(
-                rx.icon_button(
-                    rx.icon("folder", size=16),
-                    size="2",
-                    variant="soft",
-                    color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+    return tabla_action_buttons(
+        [
+            rx.tooltip(
+                rx.link(
+                    rx.icon_button(
+                        rx.icon("folder", size=16),
+                        size="2",
+                        variant="soft",
+                        color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+                    ),
+                    href="/categorias-puesto?tipo=" + tipo["id"].to(str),
                 ),
-                href="/categorias-puesto?tipo=" + tipo["id"].to(str),
+                content="Ver categorias",
             ),
-            content="Ver categorias",
-        ),
-        tabla_action_button(
-            icon="pencil",
-            tooltip="Editar",
-            on_click=lambda: TipoServicioState.abrir_modal_editar(tipo),
-            color_scheme="blue",
-            visible=es_activo,
-        ),
-        tabla_action_button(
-            icon="trash-2",
-            tooltip="Eliminar",
-            on_click=lambda: TipoServicioState.abrir_confirmar_eliminar(tipo),
-            color_scheme="red",
-            visible=es_activo,
-        ),
-        tabla_action_button(
-            icon="rotate-ccw",
-            tooltip="Reactivar",
-            on_click=lambda: TipoServicioState.activar_tipo(tipo),
-            color_scheme="green",
-            visible=es_inactivo,
-        ),
-    ])
+            tabla_action_button(
+                icon="pencil",
+                tooltip="Editar",
+                on_click=lambda: TipoServicioState.abrir_modal_editar(tipo),
+                color_scheme="blue",
+                visible=es_activo,
+            ),
+            tabla_action_button(
+                icon="trash-2",
+                tooltip="Eliminar",
+                on_click=lambda: TipoServicioState.abrir_confirmar_eliminar(tipo),
+                color_scheme="red",
+                visible=es_activo,
+            ),
+            tabla_action_button(
+                icon="rotate-ccw",
+                tooltip="Reactivar",
+                on_click=lambda: TipoServicioState.activar_tipo(tipo),
+                color_scheme="green",
+                visible=es_inactivo,
+            ),
+        ]
+    )
 
 
 # =============================================================================
 # TABLA
 # =============================================================================
 
+
 def fila_tipo(tipo: dict) -> rx.Component:
     """Fila de la tabla para un tipo"""
     return rx.table.row(
         rx.table.cell(
-            rx.text(
+            table_text_sm(
                 tipo["clave"],
+                uppercase=True,
                 font_weight=Typography.WEIGHT_BOLD,
-                font_size=Typography.SIZE_SM,
             ),
         ),
         rx.table.cell(
             rx.link(
-                rx.text(
+                table_text_sm(
                     tipo["nombre"],
-                    font_size=Typography.SIZE_SM,
+                    uppercase=True,
                     _hover={"text_decoration": "underline"},
                 ),
                 href="/categorias-puesto?tipo=" + tipo["id"].to(str),
@@ -135,6 +132,7 @@ def tabla_tipos() -> rx.Component:
 # VISTA DE CARDS
 # =============================================================================
 
+
 def card_tipo(tipo: dict) -> rx.Component:
     """Card individual para un tipo de servicio"""
     return rx.card(
@@ -151,6 +149,7 @@ def card_tipo(tipo: dict) -> rx.Component:
                     tipo["nombre"],
                     font_weight=Typography.WEIGHT_BOLD,
                     font_size=Typography.SIZE_LG,
+                    text_transform="uppercase",
                     _hover={"text_decoration": "underline"},
                 ),
                 href="/categorias-puesto?tipo=" + tipo["id"].to(str),
@@ -163,7 +162,11 @@ def card_tipo(tipo: dict) -> rx.Component:
                     tipo["descripcion"],
                     font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_SECONDARY,
-                    style={"max_width": "100%", "overflow": "hidden", "text_overflow": "ellipsis"},
+                    style={
+                        "max_width": "100%",
+                        "overflow": "hidden",
+                        "text_overflow": "ellipsis",
+                    },
                 ),
             ),
             rx.hstack(
@@ -204,7 +207,9 @@ def grid_tipos() -> rx.Component:
                     width="100%",
                 ),
                 rx.text(
-                    "Mostrando ", TipoServicioState.total_tipos, " tipo(s)",
+                    "Mostrando ",
+                    TipoServicioState.total_tipos,
+                    " tipo(s)",
                     font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_MUTED,
                 ),
@@ -219,6 +224,7 @@ def grid_tipos() -> rx.Component:
 # =============================================================================
 # PAGINA PRINCIPAL
 # =============================================================================
+
 
 def tipo_servicio_page() -> rx.Component:
     """Pagina de Tipos de Servicio usando el nuevo layout"""

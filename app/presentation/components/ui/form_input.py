@@ -1,17 +1,12 @@
 """Componentes de formulario reutilizables con labels visibles."""
-import reflex as rx
+
 from typing import Any
+
+import reflex as rx
 from reflex.vars.base import Var, var_operation, var_operation_return
 
-from app.presentation.theme import (
-    Colors,
-    FORM_ERROR_STYLE,
-    FORM_LABEL_STYLE,
-    Radius,
-    Spacing,
-    Typography,
-)
-
+from app.presentation.theme import (FORM_ERROR_STYLE, FORM_LABEL_STYLE, Colors,
+                                    Radius, Spacing, Typography)
 
 PORTAL_LABEL_STYLE = {
     **FORM_LABEL_STYLE,
@@ -66,7 +61,9 @@ def _select_root_props_for_variant(style_variant: str) -> dict[str, Any]:
     return {}
 
 
-def _select_trigger_props_for_variant(style_variant: str, error: Any = None) -> dict[str, Any]:
+def _select_trigger_props_for_variant(
+    style_variant: str, error: Any = None
+) -> dict[str, Any]:
     """Props visuales reutilizables para triggers de select por variante."""
     if style_variant == "portal":
         return {
@@ -95,6 +92,7 @@ def _select_trigger_props_for_variant(style_variant: str, error: Any = None) -> 
 # HELPERS INTERNOS
 # =============================================================================
 
+
 def _render_label(
     label: str,
     required: Any = False,
@@ -121,9 +119,7 @@ def _render_label(
     base_color = (
         Colors.TEXT_SECONDARY
         if label_variant in {"portal", "wizard"}
-        else Colors.TEXT_MUTED
-        if label_variant == "metadata"
-        else Colors.TEXT_PRIMARY
+        else Colors.TEXT_MUTED if label_variant == "metadata" else Colors.TEXT_PRIMARY
     )
     color = base_color
     if error is not None:
@@ -207,6 +203,7 @@ def _render_footer(
 
 def select_items_from_options(options: Any) -> rx.Component:
     """Renderiza items de select ignorando opciones con value vacío."""
+
     @var_operation
     def _safe_options(value: Any) -> Var:
         return var_operation_return(
@@ -266,6 +263,7 @@ def _date_inline_error_var(value: Any) -> Var:
 # COMPONENTES DE FORMULARIO
 # =============================================================================
 
+
 def form_field(
     control: Any,
     label: str = "",
@@ -279,9 +277,7 @@ def form_field(
 ) -> rx.Component:
     """Wrapper base para campos con label, control y footer consistente."""
     resolved_spacing = (
-        Spacing.NONE
-        if field_variant == "portal" and spacing == "1"
-        else spacing
+        Spacing.NONE if field_variant == "portal" and spacing == "1" else spacing
     )
     props = {
         "spacing": resolved_spacing,
@@ -296,6 +292,7 @@ def form_field(
         **props,
     )
 
+
 def form_input(
     placeholder: str = "",
     value: Any = "",
@@ -305,10 +302,11 @@ def form_input(
     max_length: int = None,
     label: str = "",
     required: Any = False,
-    hint: Any = "",
+    hint: str = "",
     label_variant: str = "default",
     style_variant: str = "default",
-    **props
+    uppercase: bool = False,
+    **props,
 ) -> rx.Component:
     """
     Input de formulario con label visible y manejo de errores.
@@ -323,6 +321,7 @@ def form_input(
         label: Texto del label visible encima del input
         required: Si True, muestra asterisco rojo en el label
         hint: Texto de ayuda debajo del input (error tiene prioridad)
+        uppercase: Si True, muestra el texto en mayusculas
         **props: Props adicionales para rx.input (type, disabled, step, min, etc.)
     """
     input_props = {
@@ -335,6 +334,8 @@ def form_input(
         **_input_props_for_variant(style_variant, error),
         **props,
     }
+    if uppercase:
+        input_props["text_transform"] = "uppercase"
     return form_field(
         control=rx.input(**input_props),
         label=label,
@@ -359,7 +360,7 @@ def form_textarea(
     hint: Any = "",
     label_variant: str = "default",
     style_variant: str = "default",
-    **props
+    **props,
 ) -> rx.Component:
     """
     Textarea de formulario con label visible y manejo de errores.
@@ -385,7 +386,7 @@ def form_textarea(
             max_length=max_length,
             width="100%",
             rows=rows,
-            **props
+            **props,
         ),
         label=label,
         required=required,
@@ -408,7 +409,7 @@ def form_select(
     label_variant: str = "default",
     style_variant: str = "default",
     trigger_props: dict[str, Any] | None = None,
-    **props
+    **props,
 ) -> rx.Component:
     """
     Select de formulario con label visible y manejo de errores.
@@ -443,7 +444,7 @@ def form_select(
         control=rx.select.root(
             rx.select.trigger(**select_trigger_props),
             rx.select.content(select_items_from_options(options)),
-            **select_root_props
+            **select_root_props,
         ),
         label=label,
         required=required,
@@ -504,7 +505,7 @@ def form_date(
     required: Any = False,
     hint: Any = "",
     label_variant: str = "default",
-    **props
+    **props,
 ) -> rx.Component:
     """
     Input de fecha con label visible y manejo de errores.

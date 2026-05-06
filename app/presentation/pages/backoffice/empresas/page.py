@@ -2,38 +2,30 @@
 Pagina principal de Empresas.
 Muestra una tabla o cards con las empresas y acciones CRUD.
 """
-import reflex as rx
-from app.core.ui_helpers import FILTRO_TODOS
-from app.presentation.pages.backoffice.empresas.state import EmpresasState
-from app.domain.enums import TipoEmpresa
-from app.presentation.layouts.backoffice import (
-    page_layout,
-    page_header,
-    page_toolbar,
-)
-from app.presentation.components.ui import (
-    acciones_filtros,
-    filtros_inline,
-    status_badge_reactive,
-    table_cell_text_sm,
-    tabla_vacia,
-    table_shell,
-    action_buttons_reactive,
-    switch_inactivos,
-    tabla_action_button,
-    indicador_filtros,
-    identifier_badge,
-)
-from app.presentation.theme import Colors, Spacing, Shadows, Typography
-from app.presentation.components.backoffice.empresas.empresa_modals import (
-    modal_empresa,
-    modal_detalle_empresa,
-)
 
+import reflex as rx
+
+from app.core.ui_helpers import FILTRO_TODOS
+from app.domain.enums import TipoEmpresa
+from app.presentation.components.backoffice.empresas.empresa_modals import (
+    modal_detalle_empresa, modal_empresa)
+from app.presentation.components.ui import (acciones_filtros,
+                                            action_buttons_reactive,
+                                            filtros_inline, identifier_badge,
+                                            indicador_filtros,
+                                            status_badge_reactive,
+                                            switch_inactivos,
+                                            tabla_action_button, tabla_vacia,
+                                            table_cell_text_sm, table_shell)
+from app.presentation.layouts.backoffice import (page_header, page_layout,
+                                                 page_toolbar)
+from app.presentation.pages.backoffice.empresas.state import EmpresasState
+from app.presentation.theme import Colors, Shadows, Spacing, Typography
 
 # =============================================================================
 # ACCIONES Y BADGES
 # =============================================================================
+
 
 def acciones_empresa(empresa: dict) -> rx.Component:
     """Acciones para cada empresa usando componente genérico."""
@@ -45,9 +37,7 @@ def acciones_empresa(empresa: dict) -> rx.Component:
             icon="folder-lock",
             tooltip="Documentación anual",
             on_click=rx.redirect(
-                "/empresas/"
-                + empresa["id"].to(str)
-                + "/documentacion"
+                "/empresas/" + empresa["id"].to(str) + "/documentacion"
             ),
             color_scheme="blue",
             visible=EmpresasState.puede_operar_empresas,
@@ -91,12 +81,15 @@ def tipo_empresa_badge(tipo: str) -> rx.Component:
 # TABLA
 # =============================================================================
 
+
 def fila_empresa(empresa: dict) -> rx.Component:
     """Fila de la tabla para una empresa."""
     return rx.table.row(
-        table_cell_text_sm(empresa["codigo_corto"], weight=Typography.WEIGHT_BOLD),
-        table_cell_text_sm(empresa["nombre_comercial"]),
-        table_cell_text_sm(empresa["razon_social"], tone="secondary"),
+        table_cell_text_sm(
+            empresa["codigo_corto"], weight=Typography.WEIGHT_BOLD, uppercase=True
+        ),
+        table_cell_text_sm(empresa["nombre_comercial"], uppercase=True),
+        table_cell_text_sm(empresa["razon_social"], tone="secondary", uppercase=True),
         rx.table.cell(
             tipo_empresa_badge(empresa["tipo_empresa"]),
         ),
@@ -130,7 +123,9 @@ def tabla_empresas() -> rx.Component:
         row_renderer=fila_empresa,
         has_rows=EmpresasState.tiene_empresas,
         empty_component=tabla_vacia(onclick=EmpresasState.abrir_modal_crear),
-        total_caption="Mostrando " + EmpresasState.total_empresas.to(str) + " empresa(s)",
+        total_caption="Mostrando "
+        + EmpresasState.total_empresas.to(str)
+        + " empresa(s)",
         loading_rows=5,
     )
 
@@ -138,6 +133,7 @@ def tabla_empresas() -> rx.Component:
 # =============================================================================
 # VISTA DE CARDS
 # =============================================================================
+
 
 def card_empresa(empresa: dict) -> rx.Component:
     """Card individual para una empresa."""
@@ -159,11 +155,13 @@ def card_empresa(empresa: dict) -> rx.Component:
                 font_weight=Typography.WEIGHT_BOLD,
                 font_size=Typography.SIZE_BASE,
                 color=Colors.TEXT_PRIMARY,
+                text_transform="uppercase",
             ),
             rx.text(
                 empresa["razon_social"],
                 font_size=Typography.SIZE_SM,
                 color=Colors.TEXT_SECONDARY,
+                text_transform="uppercase",
             ),
             rx.cond(
                 empresa["email"],
@@ -216,7 +214,9 @@ def grid_empresas() -> rx.Component:
                     width="100%",
                 ),
                 rx.text(
-                    "Mostrando ", EmpresasState.total_empresas, " empresa(s)",
+                    "Mostrando ",
+                    EmpresasState.total_empresas,
+                    " empresa(s)",
                     font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_MUTED,
                 ),
@@ -232,6 +232,7 @@ def grid_empresas() -> rx.Component:
 # FILTROS
 # =============================================================================
 
+
 def filtros_empresas() -> rx.Component:
     """Filtros para empresas."""
     return filtros_inline(
@@ -242,8 +243,8 @@ def filtros_empresas() -> rx.Component:
                     rx.select.item("Todos", value=FILTRO_TODOS),
                     rx.foreach(
                         [e.value for e in TipoEmpresa],
-                        lambda v: rx.select.item(v, value=v)
-                    )
+                        lambda v: rx.select.item(v, value=v),
+                    ),
                 ),
                 value=EmpresasState.filtro_tipo,
                 on_change=EmpresasState.set_filtro_tipo,
@@ -270,6 +271,7 @@ def filtros_empresas() -> rx.Component:
 # =============================================================================
 # PAGINA PRINCIPAL
 # =============================================================================
+
 
 def empresas_page() -> rx.Component:
     """Pagina de Empresas usando el nuevo layout"""

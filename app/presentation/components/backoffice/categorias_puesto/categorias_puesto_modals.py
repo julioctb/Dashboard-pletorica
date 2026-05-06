@@ -1,11 +1,15 @@
 """
 Componentes de modal para Categorías de Puesto.
 """
+
 import reflex as rx
 
-from app.presentation.pages.backoffice.categorias_puesto.state import CategoriasPuestoState
-from app.presentation.components.ui.form_input import form_input, form_textarea, form_select
-from app.presentation.components.ui.modals import modal_confirmar_accion, modal_formulario
+from app.presentation.components.ui.form_input import (form_input, form_select,
+                                                       form_textarea)
+from app.presentation.components.ui.modals import (modal_confirmar_accion,
+                                                   modal_formulario)
+from app.presentation.pages.backoffice.categorias_puesto.state import \
+    CategoriasPuestoState
 from app.presentation.theme import Colors, Typography
 
 
@@ -36,7 +40,6 @@ def modal_categoria_puesto() -> rx.Component:
                 error=CategoriasPuestoState.error_tipo_servicio_id,
                 disabled=True,
             ),
-
             # Campo: Nombre (genera clave automáticamente)
             form_input(
                 label="Nombre",
@@ -47,8 +50,8 @@ def modal_categoria_puesto() -> rx.Component:
                 on_blur=CategoriasPuestoState.validar_nombre_campo,
                 error=CategoriasPuestoState.error_nombre,
                 max_length=50,
+                uppercase=True,
             ),
-
             # Fila: Clave y Orden
             rx.hstack(
                 # Campo: Clave (auto-generada)
@@ -62,10 +65,10 @@ def modal_categoria_puesto() -> rx.Component:
                         error=CategoriasPuestoState.error_clave,
                         max_length=5,
                         hint="Auto-generada (editable)",
+                        uppercase=True,
                     ),
                     width="60%",
                 ),
-
                 # Campo: Orden
                 rx.box(
                     form_input(
@@ -83,7 +86,6 @@ def modal_categoria_puesto() -> rx.Component:
                 spacing="4",
                 width="100%",
             ),
-
             # Campo: Descripción
             form_textarea(
                 label="Descripcion",
@@ -115,7 +117,6 @@ def modal_categoria_puesto() -> rx.Component:
                 spacing="3",
                 width="100%",
             ),
-
             spacing="4",
             width="100%",
             padding_y="4",
@@ -133,8 +134,7 @@ def modal_confirmar_eliminar() -> rx.Component:
             CategoriasPuestoState.categoria_seleccionada,
             rx.text(
                 rx.text(
-                    CategoriasPuestoState.categoria_seleccionada["clave"],
-                    weight="bold"
+                    CategoriasPuestoState.categoria_seleccionada["clave"], weight="bold"
                 ),
                 " - ",
                 CategoriasPuestoState.categoria_seleccionada["nombre"],

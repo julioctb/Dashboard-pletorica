@@ -6,14 +6,24 @@ tanto en entities (Pydantic) como en validators (frontend).
 
 IMPORTANTE: Cualquier cambio aquí afecta ambas capas.
 """
-from decimal import Decimal, InvalidOperation
-from datetime import date, datetime
+
 import re
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Optional, Union
 
-
 _STOPWORDS_CODIGO = {
-    "DE", "DEL", "LA", "LAS", "LOS", "EL", "Y", "E", "EN", "PARA", "POR",
+    "DE",
+    "DEL",
+    "LA",
+    "LAS",
+    "LOS",
+    "EL",
+    "Y",
+    "E",
+    "EN",
+    "PARA",
+    "POR",
 }
 
 
@@ -36,6 +46,9 @@ def normalizar_mayusculas(texto: Optional[str]) -> str:
     return texto.strip().upper()
 
 
+UPPERCASE_TRANSFORM = "uppercase"
+
+
 def _normalizar_fragmentos_codigo(texto: Optional[str]) -> list[str]:
     """Extrae palabras alfanuméricas normalizadas para generar claves."""
     texto_normalizado = normalizar_mayusculas(texto)
@@ -43,7 +56,11 @@ def _normalizar_fragmentos_codigo(texto: Optional[str]) -> list[str]:
         return []
 
     fragmentos = re.findall(r"[A-Z0-9]+", texto_normalizado)
-    return [fragmento for fragmento in fragmentos if fragmento and fragmento not in _STOPWORDS_CODIGO]
+    return [
+        fragmento
+        for fragmento in fragmentos
+        if fragmento and fragmento not in _STOPWORDS_CODIGO
+    ]
 
 
 def generar_candidatos_clave_categoria_puesto(
@@ -210,7 +227,7 @@ def formatear_telefono(texto: Optional[str]) -> str:
     """
     if not texto:
         return ""
-    digitos = re.sub(r'[\s\-\(\)\+]', '', texto.strip())
+    digitos = re.sub(r"[\s\-\(\)\+]", "", texto.strip())
     if len(digitos) == 10:
         return f"{digitos[:3]} {digitos[3:6]} {digitos[6:]}"
     return digitos
@@ -256,7 +273,9 @@ def limpiar_espacios(texto: Optional[str]) -> str:
     return " ".join(texto.split())
 
 
-def obtener_iniciales(texto: Optional[str], max_palabras: int = 2, fallback: str = "?") -> str:
+def obtener_iniciales(
+    texto: Optional[str], max_palabras: int = 2, fallback: str = "?"
+) -> str:
     """Obtiene iniciales a partir de un nombre o texto libre."""
     palabras = [p for p in limpiar_espacios(texto).split() if p]
     if not palabras:
@@ -404,7 +423,7 @@ def formatear_porcentaje(
 def formatear_fecha(
     fecha: Optional[Union[date, datetime, str]],
     formato: str = "%d/%m/%Y",
-    valor_vacio: str = "-"
+    valor_vacio: str = "-",
 ) -> str:
     """
     Formatea una fecha al formato especificado.
@@ -494,13 +513,35 @@ def formatear_fecha_hora(
 
 
 _MESES_ES = [
-    "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
-    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+    "",
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
 ]
 
 _MESES_CORTOS_ES = [
-    "", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+    "",
+    "Ene",
+    "Feb",
+    "Mar",
+    "Abr",
+    "May",
+    "Jun",
+    "Jul",
+    "Ago",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dic",
 ]
 
 

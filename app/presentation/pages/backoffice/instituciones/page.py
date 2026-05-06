@@ -2,88 +2,86 @@
 Pagina principal de Instituciones.
 Muestra tabla o cards con las instituciones y acciones CRUD + gestion de empresas.
 """
-import reflex as rx
-from app.presentation.pages.backoffice.instituciones.state import InstitucionesState
-from app.presentation.layouts.backoffice import (
-    page_layout,
-    page_header,
-    page_toolbar,
-)
-from app.presentation.components.ui import (
-    table_cell_actions,
-    table_cell_badge,
-    table_shell,
-    status_badge_reactive,
-    tabla_vacia,
-    tabla_action_button,
-    tabla_action_buttons,
-    identifier_badge,
-)
-from app.presentation.theme import Colors, Spacing, Shadows, Typography
-from app.presentation.pages.backoffice.instituciones.instituciones_modals import (
-    modal_institucion,
-    modal_gestionar_empresas,
-    modal_confirmar_desactivar,
-)
 
+import reflex as rx
+
+from app.presentation.components.ui import (identifier_badge,
+                                            status_badge_reactive,
+                                            tabla_action_button,
+                                            tabla_action_buttons, tabla_vacia,
+                                            table_cell_actions,
+                                            table_cell_badge, table_shell)
+from app.presentation.layouts.backoffice import (page_header, page_layout,
+                                                 page_toolbar)
+from app.presentation.pages.backoffice.instituciones.instituciones_modals import (
+    modal_confirmar_desactivar, modal_gestionar_empresas, modal_institucion)
+from app.presentation.pages.backoffice.instituciones.state import \
+    InstitucionesState
+from app.presentation.theme import Colors, Shadows, Spacing, Typography
 
 # =============================================================================
 # ACCIONES
 # =============================================================================
+
 
 def acciones_institucion(institucion: dict) -> rx.Component:
     """Acciones para cada institucion"""
     es_activo = institucion["estatus"] == "ACTIVO"
     es_inactivo = institucion["estatus"] == "INACTIVO"
 
-    return tabla_action_buttons([
-        tabla_action_button(
-            icon="building-2",
-            tooltip="Gestionar Empresas",
-            on_click=lambda: InstitucionesState.abrir_modal_empresas(institucion),
-            color_scheme="purple",
-            visible=es_activo,
-        ),
-        tabla_action_button(
-            icon="pencil",
-            tooltip="Editar",
-            on_click=lambda: InstitucionesState.abrir_modal_editar(institucion),
-            color_scheme="blue",
-            visible=es_activo,
-        ),
-        tabla_action_button(
-            icon="trash-2",
-            tooltip="Desactivar",
-            on_click=lambda: InstitucionesState.abrir_confirmar_desactivar(institucion),
-            color_scheme="red",
-            visible=es_activo,
-        ),
-        tabla_action_button(
-            icon="rotate-ccw",
-            tooltip="Reactivar",
-            on_click=lambda: InstitucionesState.activar_institucion(institucion),
-            color_scheme="green",
-            visible=es_inactivo,
-        ),
-    ])
+    return tabla_action_buttons(
+        [
+            tabla_action_button(
+                icon="building-2",
+                tooltip="Gestionar Empresas",
+                on_click=lambda: InstitucionesState.abrir_modal_empresas(institucion),
+                color_scheme="purple",
+                visible=es_activo,
+            ),
+            tabla_action_button(
+                icon="pencil",
+                tooltip="Editar",
+                on_click=lambda: InstitucionesState.abrir_modal_editar(institucion),
+                color_scheme="blue",
+                visible=es_activo,
+            ),
+            tabla_action_button(
+                icon="trash-2",
+                tooltip="Desactivar",
+                on_click=lambda: InstitucionesState.abrir_confirmar_desactivar(
+                    institucion
+                ),
+                color_scheme="red",
+                visible=es_activo,
+            ),
+            tabla_action_button(
+                icon="rotate-ccw",
+                tooltip="Reactivar",
+                on_click=lambda: InstitucionesState.activar_institucion(institucion),
+                color_scheme="green",
+                visible=es_inactivo,
+            ),
+        ]
+    )
 
 
 # =============================================================================
 # TABLA
 # =============================================================================
 
+
 def fila_institucion(institucion: dict) -> rx.Component:
     """Fila de la tabla para una institucion"""
     return rx.table.row(
         rx.table.cell(
-            rx.text(
+            table_text_sm(
                 institucion["codigo"],
+                uppercase=True,
                 font_weight=Typography.WEIGHT_BOLD,
-                font_size=Typography.SIZE_SM,
             ),
         ),
         rx.table.cell(
-            rx.text(institucion["nombre"], font_size=Typography.SIZE_SM),
+            table_text_sm(institucion["nombre"], uppercase=True),
         ),
         rx.table.cell(
             rx.badge(
@@ -115,7 +113,9 @@ def tabla_instituciones() -> rx.Component:
         row_renderer=fila_institucion,
         has_rows=InstitucionesState.total_instituciones > 0,
         empty_component=tabla_vacia(onclick=InstitucionesState.abrir_modal_crear),
-        total_caption="Mostrando " + InstitucionesState.total_instituciones.to(str) + " institucion(es)",
+        total_caption="Mostrando "
+        + InstitucionesState.total_instituciones.to(str)
+        + " institucion(es)",
         loading_rows=5,
     )
 
@@ -123,6 +123,7 @@ def tabla_instituciones() -> rx.Component:
 # =============================================================================
 # VISTA DE CARDS
 # =============================================================================
+
 
 def card_institucion(institucion: dict) -> rx.Component:
     """Card individual para una institucion"""
@@ -139,6 +140,7 @@ def card_institucion(institucion: dict) -> rx.Component:
                 institucion["nombre"],
                 font_weight=Typography.WEIGHT_BOLD,
                 font_size=Typography.SIZE_LG,
+                text_transform="uppercase",
             ),
             rx.hstack(
                 rx.icon("building-2", size=14, color=Colors.TEXT_MUTED),
@@ -189,7 +191,9 @@ def grid_instituciones() -> rx.Component:
                     width="100%",
                 ),
                 rx.text(
-                    "Mostrando ", InstitucionesState.total_instituciones, " institucion(es)",
+                    "Mostrando ",
+                    InstitucionesState.total_instituciones,
+                    " institucion(es)",
                     font_size=Typography.SIZE_SM,
                     color=Colors.TEXT_MUTED,
                 ),
@@ -204,6 +208,7 @@ def grid_instituciones() -> rx.Component:
 # =============================================================================
 # PAGINA PRINCIPAL
 # =============================================================================
+
 
 def page() -> rx.Component:
     """Pagina de Instituciones usando el layout estandar"""

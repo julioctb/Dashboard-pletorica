@@ -8,7 +8,9 @@ from app.presentation.components.ui.skeletons import skeleton_tabla
 from app.presentation.theme import Colors, Spacing, Typography
 
 
-def table_header_cells(headers: list[dict], variant: str = "uppercase_muted") -> list[rx.Component]:
+def table_header_cells(
+    headers: list[dict], variant: str = "uppercase_muted"
+) -> list[rx.Component]:
     """Construye celdas de encabezado con variantes visuales consistentes."""
     if variant == "uppercase_muted":
         return [
@@ -96,16 +98,26 @@ def table_text(
 
     if fallback is None:
         return rx.text(value, **text_kwargs)
-    return rx.cond(value, rx.text(value, **text_kwargs), rx.text(fallback, **text_kwargs))
+    return rx.cond(
+        value, rx.text(value, **text_kwargs), rx.text(fallback, **text_kwargs)
+    )
 
 
-def table_cell_text_sm(value, *, tone: str = "primary", **text_props) -> rx.Component:
+def table_cell_text_sm(
+    value, *, tone: str = "primary", uppercase: bool = False, **text_props
+) -> rx.Component:
     """Atajo para celdas de texto tamaño SM."""
+    if uppercase:
+        text_props["text_transform"] = "uppercase"
     return table_cell_text(value, tone=tone, size=Typography.SIZE_SM, **text_props)
 
 
-def table_text_sm(value, *, tone: str = "primary", **text_props) -> rx.Component:
+def table_text_sm(
+    value, *, tone: str = "primary", uppercase: bool = False, **text_props
+) -> rx.Component:
     """Atajo para texto de celdas tamaño SM."""
+    if uppercase:
+        text_props["text_transform"] = "uppercase"
     return table_text(value, tone=tone, size=Typography.SIZE_SM, **text_props)
 
 
@@ -220,7 +232,9 @@ def table_shell(
 
     if body_component is None:
         if rows is None or row_renderer is None:
-            raise ValueError("`rows` and `row_renderer` are required when `body_component` is not provided")
+            raise ValueError(
+                "`rows` and `row_renderer` are required when `body_component` is not provided"
+            )
         computed_body = rx.foreach(rows, row_renderer)
     else:
         computed_body = body_component

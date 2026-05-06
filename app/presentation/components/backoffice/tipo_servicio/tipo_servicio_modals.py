@@ -1,10 +1,14 @@
 """
 Componentes de modal para Tipos de Servicio.
 """
+
 import reflex as rx
-from app.presentation.pages.backoffice.tipo_servicio.state import TipoServicioState
+
 from app.presentation.components.ui.form_input import form_input, form_textarea
-from app.presentation.components.ui.modals import modal_confirmar_accion, modal_formulario
+from app.presentation.components.ui.modals import (modal_confirmar_accion,
+                                                   modal_formulario)
+from app.presentation.pages.backoffice.tipo_servicio.state import \
+    TipoServicioState
 
 
 def modal_tipo_servicio() -> rx.Component:
@@ -33,8 +37,8 @@ def modal_tipo_servicio() -> rx.Component:
                 on_blur=TipoServicioState.validar_nombre_campo,
                 error=TipoServicioState.error_nombre,
                 max_length=50,
+                uppercase=True,
             ),
-
             # Campo: Clave (auto-generada, editable)
             form_input(
                 label="Clave",
@@ -45,8 +49,8 @@ def modal_tipo_servicio() -> rx.Component:
                 error=TipoServicioState.error_clave,
                 max_length=5,
                 hint="Auto-generada desde el nombre (editable)",
+                uppercase=True,
             ),
-
             # Campo: Descripcion
             form_textarea(
                 label="Descripcion",
@@ -57,7 +61,6 @@ def modal_tipo_servicio() -> rx.Component:
                 error=TipoServicioState.error_descripcion,
                 max_length=500,
             ),
-
             spacing="4",
             width="100%",
             padding_y="4",
