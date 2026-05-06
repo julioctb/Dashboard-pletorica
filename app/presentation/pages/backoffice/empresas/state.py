@@ -36,10 +36,6 @@ from app.core.validation.empresa_form_validators import (
 )
 
 
-# ============================================================================
-# CONFIGURACIÓN DE CAMPOS VALIDABLES
-# ============================================================================
-# Mapeo: nombre_campo -> función validadora
 CAMPOS_VALIDACION: dict[str, Callable[[str], str]] = {
     "nombre_comercial": validar_nombre_comercial,
     "razon_social": validar_razon_social,
@@ -51,7 +47,6 @@ CAMPOS_VALIDACION: dict[str, Callable[[str], str]] = {
     "prima_riesgo": validar_prima_riesgo,
 }
 
-# Campos con sus valores por defecto para limpiar formulario
 FORM_DEFAULTS = {
     "nombre_comercial": "",
     "razon_social": "",
@@ -75,35 +70,19 @@ class EmpresasState(AuthState):
 
     _campos_error_formulario: List[str] = list(CAMPOS_VALIDACION)
 
-    # ========================
-    # DATOS Y LISTAS
-    # ========================
     empresas: List[EmpresaResumen] = []
     empresa_seleccionada: Empresa | None = None
 
-    # ========================
-    # FILTROS Y BÚSQUEDA
-    # ========================
     filtro_tipo: str = FILTRO_TODOS
-    # filtro_busqueda heredado de BaseState
     solo_activas: bool = False
 
-    # ========================
-    # ESTADO DE LA UI
-    # ========================
     mostrar_modal_empresa: bool = False
-    modo_modal_empresa: str = ""  # "crear" | "editar" | ""
+    modo_modal_empresa: str = ""
     mostrar_modal_detalle: bool = False
     saving: bool = False
 
-    # ========================
-    # ESTADO DE VISTA (tabla/cards)
-    # ========================
     view_mode: str = "table"
 
-    # ========================
-    # FORMULARIO DE EMPRESA (Reflex requiere declaración explícita)
-    # ========================
     form_nombre_comercial: str = ""
     form_razon_social: str = ""
     form_tipo_empresa: str = TipoEmpresa.NOMINA.value
@@ -119,9 +98,6 @@ class EmpresasState(AuthState):
     form_registro_patronal: str = ""
     form_prima_riesgo: str = ""
 
-    # ========================
-    # ERRORES DE VALIDACIÓN (Reflex requiere declaración explícita)
-    # ========================
     error_nombre_comercial: str = ""
     error_razon_social: str = ""
     error_rfc: str = ""
@@ -131,9 +107,6 @@ class EmpresasState(AuthState):
     error_registro_patronal: str = ""
     error_prima_riesgo: str = ""
 
-    # ========================
-    # SETTERS DE FILTROS
-    # ========================
     def set_filtro_tipo(self, value):
         self.filtro_tipo = value if value else FILTRO_TODOS
 
@@ -141,11 +114,6 @@ class EmpresasState(AuthState):
         """Actualiza el filtro de activas sin recargar."""
         self.solo_activas = bool(value)
 
-    # View toggle heredado de BaseState
-
-    # ========================
-    # SETTERS DE FORMULARIO (Reflex v0.8.9+ requiere explícitos)
-    # ========================
     def set_form_nombre_comercial(self, value):
         self.form_nombre_comercial = value if value else ""
 
@@ -188,32 +156,23 @@ class EmpresasState(AuthState):
     def set_form_prima_riesgo(self, value):
         self.form_prima_riesgo = value if value else ""
 
-    # ========================
-    # SETTERS DE MODALES (Reflex v0.8.9+ requiere explícitos)
-    # ========================
     def set_mostrar_modal_empresa(self, value: bool):
         self.mostrar_modal_empresa = value
 
     def set_mostrar_modal_detalle(self, value: bool):
         self.mostrar_modal_detalle = value
 
-    # ========================
-    # MONTAJE CON VERIFICACIÓN DE AUTH
-    # ========================
     async def on_mount_empresas(self):
         """Verifica autenticación y carga empresas."""
         async for _ in self._montar_pagina_auth(self._fetch_empresas):
             yield
 
-    # ========================
-    # OPERACIONES PRINCIPALES
-    # ========================
     async def _fetch_empresas(self):
         """Carga empresas desde BD (sin manejo de loading)."""
         try:
             self.empresas = await empresa_service.buscar_con_filtros(
                 texto=None,
-                tipo_empresa=None,  # Filtro se aplica en memoria
+                tipo_empresa=None,
                 estatus="ACTIVO" if self.solo_activas else None,
                 incluir_inactivas=not self.solo_activas,
                 limite=100,
@@ -289,9 +248,6 @@ class EmpresasState(AuthState):
         except Exception as e:
             self.manejar_error(e, "al cambiar estatus")
 
-    # ========================
-    # OPERACIONES DE MODALES
-    # ========================
     def abrir_modal_crear(self):
         """Abrir modal en modo crear"""
         self._limpiar_formulario()
@@ -335,9 +291,6 @@ class EmpresasState(AuthState):
         self.mostrar_modal_detalle = False
         self.empresa_seleccionada = None
 
-    # ========================
-    # OPERACIONES DE FILTROS
-    # ========================
     async def aplicar_filtros(self):
         async for _ in self._recargar_datos(self._fetch_empresas):
             yield
@@ -350,9 +303,6 @@ class EmpresasState(AuthState):
         async for _ in self._recargar_datos(self._fetch_empresas):
             yield
 
-    # ========================
-    # VALIDACIÓN - Métodos individuales para on_blur
-    # ========================
     def validar_nombre_comercial_campo(self):
         self._validar_campo("nombre_comercial")
 
@@ -402,16 +352,13 @@ class EmpresasState(AuthState):
     @rx.var
     def empresas_filtradas(self) -> List[dict]:
         """Empresas filtradas por búsqueda y tipo (reactiva)"""
-        # Convertir a dict para consistencia con otros módulos
         empresas_dict = [e.model_dump() if hasattr(e, 'model_dump') else e for e in self.empresas]
 
         resultado = empresas_dict
 
-        # Filtrar por tipo (si no es TODOS)
         if self.filtro_tipo and self.filtro_tipo != FILTRO_TODOS:
             resultado = [e for e in resultado if e.get("tipo_empresa") == self.filtro_tipo]
 
-        # Filtrar por búsqueda (código, nombre comercial, razón social, RFC)
         if self.filtro_busqueda:
             termino = self.filtro_busqueda.lower()
             resultado = [
@@ -446,9 +393,6 @@ class EmpresasState(AuthState):
             self.solo_activas
         ])
 
-    # ========================
-    # MÉTODOS HELPER PRIVADOS
-    # ========================
     def _limpiar_formulario(self):
         """Limpia campos del formulario usando diccionario de defaults"""
         for campo, default in FORM_DEFAULTS.items():
@@ -499,9 +443,6 @@ class EmpresasState(AuthState):
             return EmpresaUpdate(**datos)
         return EmpresaCreate(**datos)
 
-    # ========================
-    # COMPATIBILIDAD (métodos públicos usados por otros módulos)
-    # ========================
     def limpiar_formulario(self):
         """Alias público para compatibilidad"""
         self._limpiar_formulario()

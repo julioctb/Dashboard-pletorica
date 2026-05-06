@@ -5,7 +5,7 @@ Se usa para contratos de ADQUISICION, donde los items se copian desde
 la requisicion con cantidades ajustables y precios obligatorios.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.contratos.contratos_state import ContratosState
+from app.presentation.pages.backoffice.contratos.state import ContratosState
 from app.presentation.components.ui import table_shell
 
 

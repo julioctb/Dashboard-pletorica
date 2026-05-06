@@ -3,7 +3,7 @@ Componentes de modal para Categorías de Puesto.
 """
 import reflex as rx
 
-from app.presentation.pages.backoffice.categorias_puesto.categorias_puesto_state import CategoriasPuestoState
+from app.presentation.pages.backoffice.categorias_puesto.state import CategoriasPuestoState
 from app.presentation.components.ui.form_input import form_input, form_textarea, form_select
 from app.presentation.components.ui.modals import modal_confirmar_accion, modal_formulario
 from app.presentation.theme import Colors, Typography

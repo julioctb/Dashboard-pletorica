@@ -6,7 +6,7 @@ Muestra la bitácora automática de movimientos de empleados.
 Los registros se crean automáticamente desde empleado_service.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.historial_laboral.historial_laboral_state import HistorialLaboralState
+from app.presentation.pages.backoffice.historial_laboral.state import HistorialLaboralState
 from app.presentation.layouts.backoffice import (
     page_layout,
     page_header,

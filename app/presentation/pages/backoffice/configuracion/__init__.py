@@ -1,7 +1,7 @@
 """Módulo de Configuración de Requisiciones."""
 
-from .configuracion_state import ConfiguracionState
-from .configuracion_page import configuracion_page
+from .state import ConfiguracionState
+from .page import configuracion_page
 
 __all__ = [
     "ConfiguracionState",

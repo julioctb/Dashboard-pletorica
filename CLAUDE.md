@@ -83,7 +83,7 @@ Backoffice:
 - `/pagos`
 - `/entregables`
 - `/entregables/[entregable_id]`
-- `/wip/requisiciones`
+
 - `/empleados`
 - `/plazas`
 - `/historial-laboral`
@@ -155,7 +155,6 @@ app/
 │   ├── services/           # Logica de aplicacion, orquestacion y acceso a datos
 │   └── repositories/       # Repositories Supabase
 │       └── shared/         # query_helpers.py
-├── infrastructure/         # Auth, database adapters, external, storage
 ├── modules/                # Modulos DDD (fachadas sobre domain/)
 │   ├── application/        # Bridge: re-exporta servicios legacy
 │   ├── cotizaciones/       # domain/ application/ infrastructure/ ui/
@@ -169,7 +168,6 @@ app/
 │   │   ├── backoffice/     # Paginas admin (20+ features)
 │   │   └── portal/         # Paginas portal cliente (15+ features)
 │   └── theme/              # Tema global
-├── shared/                 # Exceptions, formatting, pagination, validation utils
 └── tests/                  # Tests del paquete app
 ```
 

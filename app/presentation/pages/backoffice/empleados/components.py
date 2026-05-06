@@ -5,7 +5,7 @@ Tabla, cards, badges, acciones y filtros.
 """
 import reflex as rx
 
-from app.presentation.pages.backoffice.empleados.empleados_state import (
+from app.presentation.pages.backoffice.empleados.state import (
     EmpleadosState,
     EmpleadoListadoUI,
     DescuentoActivoUI,

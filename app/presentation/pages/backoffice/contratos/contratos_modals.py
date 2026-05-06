@@ -13,7 +13,7 @@ from app.presentation.components.ui import (
     metric_card,
     table_shell,
 )
-from app.presentation.pages.backoffice.contratos.contratos_state import ContratosState
+from app.presentation.pages.backoffice.contratos.state import ContratosState
 from app.presentation.pages.backoffice.contratos.contrato_detail_sections import contrato_detail_info_sections
 from app.presentation.theme import Colors, Radius, Spacing, Typography
 

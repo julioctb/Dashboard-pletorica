@@ -4,7 +4,7 @@ Muestra una tabla o cards con las empresas y acciones CRUD.
 """
 import reflex as rx
 from app.core.ui_helpers import FILTRO_TODOS
-from app.presentation.pages.backoffice.empresas.empresas_state import EmpresasState
+from app.presentation.pages.backoffice.empresas.state import EmpresasState
 from app.domain.enums import TipoEmpresa
 from app.presentation.layouts.backoffice import (
     page_layout,
@@ -40,7 +40,6 @@ def acciones_empresa(empresa: dict) -> rx.Component:
     es_activo = empresa["estatus"] == "ACTIVO"
     es_inactivo = empresa["estatus"] == "INACTIVO"
 
-    # Botones adicionales condicionales (solo con permiso operar)
     acciones_extra = [
         tabla_action_button(
             icon="folder-lock",
@@ -53,7 +52,6 @@ def acciones_empresa(empresa: dict) -> rx.Component:
             color_scheme="blue",
             visible=EmpresasState.puede_operar_empresas,
         ),
-        # Reactivar (si inactivo + permiso operar)
         tabla_action_button(
             icon="rotate-ccw",
             tooltip="Reactivar",
@@ -61,7 +59,6 @@ def acciones_empresa(empresa: dict) -> rx.Component:
             color_scheme="green",
             visible=es_inactivo & EmpresasState.puede_operar_empresas,
         ),
-        # Desactivar (si activo + permiso operar)
         tabla_action_button(
             icon="power-off",
             tooltip="Desactivar",
@@ -97,21 +94,15 @@ def tipo_empresa_badge(tipo: str) -> rx.Component:
 def fila_empresa(empresa: dict) -> rx.Component:
     """Fila de la tabla para una empresa."""
     return rx.table.row(
-        # Codigo
         table_cell_text_sm(empresa["codigo_corto"], weight=Typography.WEIGHT_BOLD),
-        # Nombre comercial
         table_cell_text_sm(empresa["nombre_comercial"]),
-        # Razon social
         table_cell_text_sm(empresa["razon_social"], tone="secondary"),
-        # Tipo
         rx.table.cell(
             tipo_empresa_badge(empresa["tipo_empresa"]),
         ),
-        # Estatus
         rx.table.cell(
             status_badge_reactive(empresa["estatus"], show_icon=True),
         ),
-        # Acciones
         rx.table.cell(
             acciones_empresa(empresa),
         ),
@@ -152,7 +143,6 @@ def card_empresa(empresa: dict) -> rx.Component:
     """Card individual para una empresa."""
     return rx.card(
         rx.vstack(
-            # Header con codigo y estatus
             rx.hstack(
                 rx.hstack(
                     identifier_badge(empresa["codigo_corto"]),
@@ -164,23 +154,17 @@ def card_empresa(empresa: dict) -> rx.Component:
                 width="100%",
                 align="center",
             ),
-
-            # Nombre comercial
             rx.text(
                 empresa["nombre_comercial"],
                 font_weight=Typography.WEIGHT_BOLD,
                 font_size=Typography.SIZE_BASE,
                 color=Colors.TEXT_PRIMARY,
             ),
-
-            # Razon social
             rx.text(
                 empresa["razon_social"],
                 font_size=Typography.SIZE_SM,
                 color=Colors.TEXT_SECONDARY,
             ),
-
-            # Email (si existe)
             rx.cond(
                 empresa["email"],
                 rx.hstack(
@@ -194,14 +178,11 @@ def card_empresa(empresa: dict) -> rx.Component:
                     align="center",
                 ),
             ),
-
-            # Acciones
             rx.hstack(
                 acciones_empresa(empresa),
                 width="100%",
                 justify="end",
             ),
-
             spacing="3",
             width="100%",
         ),
@@ -234,7 +215,6 @@ def grid_empresas() -> rx.Component:
                     gap=Spacing.MD,
                     width="100%",
                 ),
-                # Contador
                 rx.text(
                     "Mostrando ", EmpresasState.total_empresas, " empresa(s)",
                     font_size=Typography.SIZE_SM,
@@ -255,7 +235,6 @@ def grid_empresas() -> rx.Component:
 def filtros_empresas() -> rx.Component:
     """Filtros para empresas."""
     return filtros_inline(
-        # Filtro por tipo
         rx.box(
             rx.select.root(
                 rx.select.trigger(placeholder="Tipo empresa", width="100%"),
@@ -275,7 +254,6 @@ def filtros_empresas() -> rx.Component:
             max_width="220px",
             flex="1 1 180px",
         ),
-        # Switch mostrar inactivas (usando componente reutilizable)
         switch_inactivos(
             checked=~EmpresasState.solo_activas,
             on_change=lambda v: EmpresasState.set_solo_activas(~v),
@@ -324,17 +302,13 @@ def empresas_page() -> rx.Component:
                 on_view_cards=EmpresasState.set_view_cards,
             ),
             content=rx.vstack(
-                # Contenido segun vista
                 rx.cond(
                     EmpresasState.is_table_view,
                     tabla_empresas(),
                     grid_empresas(),
                 ),
-
-                # Modales
                 modal_empresa(),
                 modal_detalle_empresa(),
-
                 spacing="4",
                 width="100%",
             ),

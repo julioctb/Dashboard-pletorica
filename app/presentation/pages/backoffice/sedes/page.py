@@ -3,7 +3,7 @@ Pagina principal de Sedes BUAP.
 Muestra una tabla o cards con las sedes y acciones CRUD.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.sedes.sedes_state import SedesState
+from app.presentation.pages.backoffice.sedes.state import SedesState
 from app.presentation.layouts.backoffice import (
     page_layout,
     page_header,

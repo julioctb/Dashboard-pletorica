@@ -2,7 +2,7 @@
 
 from app.presentation.pages.backoffice.cotizador import cotizador_detalle_page, cotizador_page
 from app.presentation.pages.backoffice.cotizador.cotizador_detalle_state import CotizadorDetalleState
-from app.presentation.pages.backoffice.cotizador.cotizador_state import CotizadorState
+from app.presentation.pages.backoffice.cotizador.state import CotizadorState
 
 __all__ = [
     "CotizadorDetalleState",

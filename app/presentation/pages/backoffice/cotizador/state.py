@@ -40,7 +40,7 @@ class FormItemUI(TypedDict):
     descripcion: str
     precio_unitario: str
     importe: str
-    partida_idx: int  # -1 = global
+    partida_idx: int
 
 
 from app.presentation.pages.portal.state.portal_state import PortalState
@@ -57,34 +57,26 @@ PORTAL_COTIZADOR_ROUTE = "/portal/cotizador"
 class CotizadorState(PortalState):
     """Estado del listado de cotizaciones."""
 
-    # ─── Lista ────────────────────────────────────────────────────────────────
     cotizaciones: list[dict] = []
 
-    # ─── Filtros ──────────────────────────────────────────────────────────────
     filtro_estatus: str = "__todos__"
 
-    # ─── Selector de tipo ─────────────────────────────────────────────────────
     mostrar_selector_tipo: bool = False
     form_tipo_cotizacion: str = ""
 
-    # ─── Modal Crear ──────────────────────────────────────────────────────────
     mostrar_modal_crear: bool = False
     form_destinatario_nombre: str = ""
     form_destinatario_cargo: str = ""
     form_notas: str = ""
     form_mostrar_desglose: bool = False
 
-    # IVA interactivo (paso 3)
     form_aplicar_iva: bool = False
 
-    # Personal: meses
     form_cantidad_meses: str = "1"
     error_cantidad_meses: str = ""
 
-    # ─── Partidas inline ───────────────────────────────────────────────────────
     categorias_puesto_opciones: list[dict] = []
     form_partidas: list[FormPartidaUI] = []
-    # Campos temporales para agregar categoría a una partida
     partida_editando_idx: int = -1
     form_temp_cat_puesto_id: str = ""
     form_temp_cat_salario: str = ""
@@ -93,18 +85,14 @@ class CotizadorState(PortalState):
     form_temp_cat_tipo_sueldo: str = "BRUTO"
     error_temp_cat_salario: str = ""
 
-    # Items para PRODUCTOS_SERVICIOS (por partida)
     form_items_globales: list[dict] = []
 
-    # ─── Wizard de creación ────────────────────────────────────────────────────
     form_paso_actual: int = 1
 
-    # ─── Estado de UI ─────────────────────────────────────────────────────────
     loading_cotizaciones: bool = True
     saving_cotizacion: bool = False
     cotizacion_id_cambiando_estatus: int = 0
 
-    # ─── Computed vars ────────────────────────────────────────────────────────
     @rx.var
     def es_tipo_personal(self) -> bool:
         return self.form_tipo_cotizacion == "PERSONAL"
@@ -113,19 +101,15 @@ class CotizadorState(PortalState):
     def es_tipo_productos(self) -> bool:
         return self.form_tipo_cotizacion == "PRODUCTOS_SERVICIOS"
 
-    # ─── Setters explícitos ───────────────────────────────────────────────────
     def _formatear_fecha_resumen(self, valor) -> str:
-        """Normaliza fechas para el listado evitando render crudo en la UI."""
         return formatear_fecha(valor)
 
     def _formatear_periodo_resumen(self, fecha_inicio_texto: str, fecha_fin_texto: str) -> str:
-        """Construye el período visible para la tabla desde valores ya serializados."""
         if fecha_inicio_texto and fecha_fin_texto:
             return f"{fecha_inicio_texto} - {fecha_fin_texto}"
         return fecha_inicio_texto or fecha_fin_texto or ""
 
     def _serializar_resumen_cotizacion(self, cotizacion) -> dict:
-        """Prepara un resumen serializable y listo para render en tabla."""
         data = cotizacion.model_dump(mode='json')
         data["fecha_inicio_texto"] = self._formatear_fecha_resumen(
             data.get("fecha_inicio_periodo")
@@ -139,7 +123,6 @@ class CotizadorState(PortalState):
         )
         data["cantidad_partidas_texto"] = str(int(data.get("cantidad_partidas") or 0))
 
-        # Montos formateados para la tabla
         total_min = float(data.get("total_minimo") or 0)
         total_max = float(data.get("total_maximo") or 0)
         data["monto_minimo_texto"] = f"$ {total_min:,.2f}"
@@ -149,7 +132,6 @@ class CotizadorState(PortalState):
         return data
 
     def _periodo_default(self) -> tuple[str, str]:
-        """Sugiere un período válido para evitar inputs de fecha vacíos."""
         hoy = date.today()
         fecha_inicio = hoy.replace(day=1)
         fecha_fin = hoy.replace(day=monthrange(hoy.year, hoy.month)[1])
@@ -198,13 +180,10 @@ class CotizadorState(PortalState):
         if self.form_paso_actual > 1:
             self.form_paso_actual -= 1
 
-    # ─── Selector de tipo ─────────────────────────────────────────────────────
     async def abrir_modal_crear(self):
-        """Abre el selector de tipo primero."""
         self.mostrar_selector_tipo = True
 
     async def seleccionar_tipo_cotizacion(self, tipo: str):
-        """Guarda tipo y abre wizard."""
         self.form_tipo_cotizacion = tipo
         self.mostrar_selector_tipo = False
         self.mostrar_modal_crear = True
@@ -247,9 +226,7 @@ class CotizadorState(PortalState):
     def cerrar_selector_tipo(self):
         self.mostrar_selector_tipo = False
 
-    # ─── Partidas inline: handlers ─────────────────────────────────────────────
     def _reindexar_partidas(self, partidas: list[dict]) -> list[dict]:
-        """Inyecta idx, num y cat_idx en partidas para rx.foreach."""
         resultado = []
         for i, p in enumerate(partidas):
             cats = []
@@ -265,7 +242,6 @@ class CotizadorState(PortalState):
         return resultado
 
     def _reindexar_items_globales(self, items: list[dict]) -> list[dict]:
-        """Reindexar items globales."""
         resultado = []
         for k, item in enumerate(items):
             resultado.append({**item, "idx": k, "numero": k + 1, "partida_idx": -1})
@@ -317,18 +293,15 @@ class CotizadorState(PortalState):
         if idx < 0 or idx >= len(self.form_partidas):
             return
 
-        # Validar puesto seleccionado
         if not self.form_temp_cat_puesto_id:
             self.error_temp_cat_salario = "Selecciona una categoría de puesto"
             return
 
-        # Validar salario
         err_salario = validar_salario_base(self.form_temp_cat_salario)
         if err_salario:
             self.error_temp_cat_salario = err_salario
             return
 
-        # Validar cantidades
         err_min = validar_cantidad(self.form_temp_cat_min, "Cantidad mínima")
         if err_min:
             self.error_temp_cat_salario = err_min
@@ -344,7 +317,6 @@ class CotizadorState(PortalState):
             self.error_temp_cat_salario = "Máximo debe ser ≥ Mínimo"
             return
 
-        # Buscar nombre en catálogo
         cat_puesto_id = int(self.form_temp_cat_puesto_id)
         nombre_cat = ""
         for op in self.categorias_puesto_opciones:
@@ -387,9 +359,7 @@ class CotizadorState(PortalState):
                 nuevas_partidas.append(p)
         self.form_partidas = self._reindexar_partidas(nuevas_partidas)
 
-    # ─── Items handlers (PRODUCTOS_SERVICIOS) ─────────────────────────────────
     def _calcular_importe(self, cantidad: str, precio: str) -> str:
-        """Calcula importe = cantidad × precio."""
         try:
             c = Decimal(cantidad.replace(",", "") or "0")
             p = Decimal(precio.replace(",", "") or "0")
@@ -398,7 +368,6 @@ class CotizadorState(PortalState):
             return "0"
 
     def agregar_item_partida(self, partida_idx: int):
-        """Agrega un item vacío a una partida."""
         nuevas = list(self.form_partidas)
         if 0 <= partida_idx < len(nuevas):
             items = list(nuevas[partida_idx].get("items", []))
@@ -412,7 +381,6 @@ class CotizadorState(PortalState):
             self.form_partidas = self._reindexar_partidas(nuevas)
 
     def eliminar_item_partida(self, partida_idx: int, item_idx: int):
-        """Elimina un item de una partida y renumera."""
         nuevas = list(self.form_partidas)
         if 0 <= partida_idx < len(nuevas):
             items = list(nuevas[partida_idx].get("items", []))
@@ -422,7 +390,6 @@ class CotizadorState(PortalState):
             self.form_partidas = self._reindexar_partidas(nuevas)
 
     def actualizar_item_campo(self, partida_idx: int, item_idx: int, campo: str, valor: str):
-        """Actualiza campo de un item y recalcula importe."""
         nuevas = list(self.form_partidas)
         if 0 <= partida_idx < len(nuevas):
             items = list(nuevas[partida_idx].get("items", []))
@@ -437,7 +404,6 @@ class CotizadorState(PortalState):
             nuevas[partida_idx] = {**nuevas[partida_idx], "items": items}
             self.form_partidas = self._reindexar_partidas(nuevas)
 
-    # Items globales (paso 3)
     def agregar_item_global(self):
         items = list(self.form_items_globales)
         items.append({
@@ -466,13 +432,7 @@ class CotizadorState(PortalState):
             items[item_idx] = item
         self.form_items_globales = self._reindexar_items_globales(items)
 
-    # ─── Handlers principales ─────────────────────────────────────────────────
     async def on_mount_cotizador(self):
-        """Valida acceso y carga cotizaciones de la empresa activa.
-
-        Admins del sistema acceden directamente.
-        Usuarios portal pasan por on_mount_portal para verificar empresa.
-        """
         resultado_auth = await self.verificar_y_redirigir()
         if resultado_auth:
             self.loading_cotizaciones = False
@@ -500,7 +460,6 @@ class CotizadorState(PortalState):
         yield
 
     async def _fetch_cotizaciones(self):
-        """Obtiene cotizaciones de la empresa activa sin manejar loading."""
         empresa_id = self.id_empresa_actual
         if not empresa_id:
             self.cotizaciones = []
@@ -519,7 +478,6 @@ class CotizadorState(PortalState):
             self.manejar_error(e, "cargar cotizaciones")
 
     async def cargar_cotizaciones(self):
-        """Recarga cotizaciones mostrando spinner del listado."""
         self.loading_cotizaciones = True
         yield
         try:
@@ -528,7 +486,6 @@ class CotizadorState(PortalState):
             self.loading_cotizaciones = False
 
     async def crear_cotizacion(self):
-        """Crea una nueva cotización con partidas, categorías/items inline."""
         if not self.form_partidas:
             yield rx.toast.error("Agrega al menos una partida")
             return
@@ -589,7 +546,6 @@ class CotizadorState(PortalState):
                     partida_id = nueva_partida.id
 
                 if self.form_tipo_cotizacion == "PERSONAL":
-                    # Crear categorías (perfiles)
                     categorias = form_partida.get("categorias", [])
                     for cat in categorias:
                         cat_create = CotizacionPartidaCategoriaCreate(
@@ -614,7 +570,6 @@ class CotizadorState(PortalState):
                         except Exception:
                             pass
                 else:
-                    # PRODUCTOS_SERVICIOS: crear items por partida
                     items = form_partida.get("items", [])
                     for item in items:
                         if not item.get("descripcion", "").strip():
@@ -630,7 +585,6 @@ class CotizadorState(PortalState):
                             item_create, empresa_id=empresa_id
                         )
 
-            # Items globales
             for item in self.form_items_globales:
                 if not item.get("descripcion", "").strip():
                     continue
@@ -655,7 +609,6 @@ class CotizadorState(PortalState):
             self.saving_cotizacion = False
 
     async def cambiar_estatus(self, cotizacion_id: int, nuevo_estatus: str):
-        """Cambia el estatus de una cotización."""
         if not self.es_admin_empresa:
             yield rx.toast.error("Solo admin_empresa puede actualizar cotizaciones")
             return
@@ -680,7 +633,6 @@ class CotizadorState(PortalState):
             self.cotizacion_id_cambiando_estatus = 0
 
     async def crear_nueva_version(self, cotizacion_id: int):
-        """Crea una nueva versión de una cotización."""
         if not self.es_admin_empresa:
             yield rx.toast.error("Solo admin_empresa puede versionar cotizaciones")
             return
@@ -703,15 +655,12 @@ class CotizadorState(PortalState):
             self.loading = False
 
     async def descargar_pdf(self, cotizacion_id: int):
-        """Genera y descarga PDF de una cotización."""
         self.loading = True
         yield
 
         try:
             from app.modules.cotizaciones.application import cotizacion_pdf_service
             pdf_bytes = await cotizacion_pdf_service.generar_pdf(cotizacion_id)
-            # En Reflex, el download se maneja a través de un endpoint o descarga directa
-            # Por ahora mostrar mensaje de éxito
             self.mostrar_mensaje("PDF generado exitosamente", "success")
         except ImportError:
             self.mostrar_mensaje(
@@ -723,10 +672,8 @@ class CotizadorState(PortalState):
         finally:
             self.loading = False
 
-    # ─── Computed vars (listado) ──────────────────────────────────────────────
     @rx.var
     def cotizaciones_filtradas(self) -> list[dict]:
-        """Filtra cotizaciones por estatus."""
         if self.filtro_estatus == "__todos__":
             return self.cotizaciones
         return [
@@ -738,10 +685,8 @@ class CotizadorState(PortalState):
     def total_cotizaciones(self) -> int:
         return len(self.cotizaciones)
 
-    # ─── Computed vars (resumen wizard) ────────────────────────────────────────
     @rx.var
     def resumen_subtotal(self) -> str:
-        """Subtotal calculado en tiempo real para PRODUCTOS_SERVICIOS."""
         total = 0.0
         for p in self.form_partidas:
             for item in p.get("items", []):
@@ -758,7 +703,6 @@ class CotizadorState(PortalState):
 
     @rx.var
     def resumen_iva(self) -> str:
-        """IVA 16% del subtotal si aplicar_iva."""
         if not self.form_aplicar_iva:
             return "$0.00"
         total = 0.0
@@ -777,7 +721,6 @@ class CotizadorState(PortalState):
 
     @rx.var
     def resumen_total(self) -> str:
-        """Total = subtotal + IVA."""
         total = 0.0
         for p in self.form_partidas:
             for item in p.get("items", []):

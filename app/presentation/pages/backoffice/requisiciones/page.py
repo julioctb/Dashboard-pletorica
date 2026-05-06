@@ -3,7 +3,7 @@ Pagina principal de Requisiciones.
 Muestra tabla con requisiciones, filtros y acciones CRUD + transiciones de estado.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.requisiciones.requisiciones_state import RequisicionesState
+from app.presentation.pages.backoffice.requisiciones.state import RequisicionesState
 from app.presentation.components.ui import (
     acciones_filtros,
     filtros_inline,

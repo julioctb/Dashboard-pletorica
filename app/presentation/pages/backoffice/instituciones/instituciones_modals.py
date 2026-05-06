@@ -2,7 +2,7 @@
 Componentes de modal para Instituciones.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.instituciones.instituciones_state import InstitucionesState
+from app.presentation.pages.backoffice.instituciones.state import InstitucionesState
 from app.presentation.components.ui.form_input import (
     form_input,
     form_select,

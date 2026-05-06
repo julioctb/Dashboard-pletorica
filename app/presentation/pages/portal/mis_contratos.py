@@ -60,7 +60,7 @@ from app.presentation.pages.backoffice.contratos.contrato_presentacion import (
     serializar_categoria_contrato_detalle,
 )
 from app.presentation.pages.backoffice.contratos.contratos_modals import modal_contrato
-from app.presentation.pages.backoffice.contratos.contratos_state import ContratosState
+from app.presentation.pages.backoffice.contratos.state import ContratosState
 from app.presentation.pages.portal.state.portal_state import PortalState
 from app.presentation.theme import Colors, Layout, Radius, Spacing, Typography
 

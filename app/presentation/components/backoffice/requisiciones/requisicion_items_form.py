@@ -1,7 +1,7 @@
 """Sub-componente para gestionar items dentro del formulario de requisiciones."""
 import reflex as rx
 from app.presentation.components.ui import table_shell
-from app.presentation.pages.backoffice.requisiciones.requisiciones_state import RequisicionesState
+from app.presentation.pages.backoffice.requisiciones.state import RequisicionesState
 
 
 def _fila_item(item: dict, index: int) -> rx.Component:

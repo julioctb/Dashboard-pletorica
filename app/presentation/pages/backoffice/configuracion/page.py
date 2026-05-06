@@ -11,7 +11,7 @@ import reflex as rx
 from app.presentation.layouts.backoffice import page_layout, page_header
 from app.presentation.theme import Colors, Spacing, Typography
 from app.presentation.components.ui.form_input import form_input
-from .configuracion_state import ConfiguracionState
+from .state import ConfiguracionState
 
 
 # =============================================================================

@@ -14,10 +14,8 @@ from app.core.validation.catalogo_form_validators import (
 )
 from app.domain.models import TipoServicioCreate, TipoServicioUpdate
 from app.modules.application import tipo_servicio_service
-# Las excepciones se manejan centralizadamente en BaseState
 from app.presentation.components.shared.base_state import BaseState
 
-# Campos con sus valores por defecto para limpiar formulario
 FORM_DEFAULTS = {
     "clave": "",
     "nombre": "",
@@ -40,15 +38,12 @@ class TipoServicioState(BaseState):
     # ========================
     # ESTADO DE UI
     # ========================
-    # loading, saving, filtro_busqueda vienen de BaseState
     mostrar_modal_tipo: bool = False
     mostrar_modal_confirmar_eliminar: bool = False
     es_edicion: bool = False
 
-    # Vista (tabla/cards)
     view_mode: str = "table"
 
-    # Filtros (filtro_busqueda viene de BaseState)
     incluir_inactivas: bool = False
 
     # ========================
@@ -58,7 +53,6 @@ class TipoServicioState(BaseState):
     form_nombre: str = ""
     form_descripcion: str = ""
 
-    # Errores de validación
     error_clave: str = ""
     error_nombre: str = ""
     error_descripcion: str = ""
@@ -66,7 +60,6 @@ class TipoServicioState(BaseState):
     # ========================
     # SETTERS EXPLÍCITOS (Reflex 0.8.9+)
     # ========================
-    # set_filtro_busqueda viene de BaseState
 
     async def on_change_busqueda(self, value: str):
         """Actualizar filtro y buscar automáticamente"""
@@ -76,8 +69,6 @@ class TipoServicioState(BaseState):
     def set_incluir_inactivas(self, value: bool):
         self.incluir_inactivas = value
 
-    # View toggle heredado de BaseState
-
     def set_form_clave(self, value: str):
         """Set clave con auto-conversión a mayúsculas"""
         self.form_clave = normalizar_mayusculas(value)
@@ -85,11 +76,10 @@ class TipoServicioState(BaseState):
     async def set_form_nombre(self, value: str):
         """Set nombre con auto-conversión a mayúsculas y auto-sugerir clave única"""
         self.form_nombre = normalizar_mayusculas(value)
-        # Auto-sugerir clave si está vacía y no es edición
         if not self.form_clave and not self.es_edicion and value:
             candidatos = generar_candidatos_codigo(value)
-            for clave in candidatos[:10]:  # Probar máximo 10 candidatos
-                clave_corta = clave[:5]  # Máximo 5 caracteres
+            for clave in candidatos[:10]:
+                clave_corta = clave[:5]
                 if not await tipo_servicio_service.existe_clave(clave_corta):
                     self.form_clave = clave_corta
                     break
@@ -156,20 +146,19 @@ class TipoServicioState(BaseState):
 
     @rx.var
     def mostrar_tabla(self) -> bool:
-        """Muestra tabla si hay tipos O si hay filtro activo (para mantener el input visible)"""
+        """Muestra tabla si hay tipos O si hay filtro activo"""
         return self.total_tipos > 0 or bool(self.filtro_busqueda.strip())
 
     # ========================
     # OPERACIONES PRINCIPALES
     # ========================
     async def _fetch_tipos(self):
-        """Carga tipos de servicio desde BD (sin manejo de loading)."""
+        """Carga tipos de servicio desde BD"""
         try:
             tipos = await tipo_servicio_service.obtener_todas(
                 incluir_inactivas=self.incluir_inactivas
             )
 
-            # Filtrar por búsqueda si hay término
             if self.filtro_busqueda:
                 termino = self.filtro_busqueda.upper()
                 tipos = [
@@ -177,7 +166,6 @@ class TipoServicioState(BaseState):
                     if termino in t.clave.upper() or termino in t.nombre.upper()
                 ]
 
-            # Convertir a dict para Reflex
             self.tipos = [tipo.model_dump() for tipo in tipos]
             self.total_tipos = len(self.tipos)
 
@@ -186,12 +174,12 @@ class TipoServicioState(BaseState):
             self.tipos = []
 
     async def on_mount_tipos(self):
-        """Montaje de la página: skeleton en primera visita, silencioso en revisitas."""
+        """Montaje de la página"""
         async for _ in self._montar_pagina(self._fetch_tipos):
             yield
 
     async def cargar_tipos(self):
-        """Recarga tipos con skeleton loading (filtros, refresh)."""
+        """Recarga tipos con skeleton loading"""
         async for _ in self._recargar_datos(self._fetch_tipos):
             yield
 
@@ -246,7 +234,6 @@ class TipoServicioState(BaseState):
         self.es_edicion = True
         self.tipo_seleccionado = tipo
 
-        # Cargar datos en el formulario
         self.form_clave = tipo.get("clave", "")
         self.form_nombre = tipo.get("nombre", "")
         self.form_descripcion = tipo.get("descripcion", "") or ""
@@ -270,7 +257,6 @@ class TipoServicioState(BaseState):
 
     async def guardar_tipo(self):
         """Guardar tipo (crear o actualizar)"""
-        # Validar campos
         self.validar_todos_los_campos()
         if self.tiene_errores_formulario:
             return
@@ -282,7 +268,6 @@ class TipoServicioState(BaseState):
             else:
                 await self._crear_tipo()
 
-            # Cerrar modal y recargar
             self.cerrar_modal_tipo()
             await self._fetch_tipos()
 

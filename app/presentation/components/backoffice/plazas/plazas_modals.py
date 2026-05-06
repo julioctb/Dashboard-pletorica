@@ -15,7 +15,7 @@ from app.presentation.components.ui.form_input import (
     form_textarea,
 )
 from app.presentation.components.ui.modals import modal_confirmar_accion
-from app.presentation.pages.backoffice.plazas.plazas_state import PlazasState
+from app.presentation.pages.backoffice.plazas.state import PlazasState
 from app.presentation.theme import Spacing
 
 

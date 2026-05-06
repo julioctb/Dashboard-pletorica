@@ -3,7 +3,7 @@ Pagina principal de Empleados.
 """
 import reflex as rx
 
-from app.presentation.pages.backoffice.empleados.empleados_state import EmpleadosState
+from app.presentation.pages.backoffice.empleados.state import EmpleadosState
 from app.presentation.layouts.backoffice import page_layout, page_header, page_toolbar
 
 from .components import tabla_empleados, grid_empleados, filtros_empleados

@@ -3,7 +3,7 @@ Página principal de Contratos.
 Muestra una tabla o cards con los contratos y acciones CRUD.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.contratos.contratos_state import ContratosState
+from app.presentation.pages.backoffice.contratos.state import ContratosState
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.layouts.backoffice import (
     page_layout,
@@ -64,13 +64,11 @@ def acciones_contrato(contrato: dict) -> rx.Component:
     puede_ver_pagos = es_activo | (contrato["estatus"] == "VENCIDO") | (contrato["estatus"] == "LIQUIDADO")
 
     return tabla_action_buttons([
-        # Ver detalle
         tabla_action_button(
             icon="eye",
             tooltip="Ver detalle",
             on_click=lambda: ContratosState.abrir_modal_detalle(contrato["id"]),
         ),
-        # Pagos
         tabla_action_button(
             icon="credit-card",
             tooltip="Pagos",
@@ -78,7 +76,6 @@ def acciones_contrato(contrato: dict) -> rx.Component:
             color_scheme="sky",
             visible=puede_ver_pagos,
         ),
-        # Editar
         tabla_action_button(
             icon="pencil",
             tooltip="Editar",
@@ -86,7 +83,6 @@ def acciones_contrato(contrato: dict) -> rx.Component:
             color_scheme="blue",
             visible=(es_borrador | es_suspendido) & AuthState.puede_operar_contratos,
         ),
-        # Activar
         tabla_action_button(
             icon="check",
             tooltip="Activar",
@@ -94,7 +90,6 @@ def acciones_contrato(contrato: dict) -> rx.Component:
             color_scheme="green",
             visible=es_borrador & AuthState.puede_operar_contratos,
         ),
-        # Suspender
         tabla_action_button(
             icon="pause",
             tooltip="Suspender",
@@ -102,7 +97,6 @@ def acciones_contrato(contrato: dict) -> rx.Component:
             color_scheme="amber",
             visible=es_activo & AuthState.puede_operar_contratos,
         ),
-        # Reactivar
         tabla_action_button(
             icon="play",
             tooltip="Reactivar",
@@ -110,7 +104,6 @@ def acciones_contrato(contrato: dict) -> rx.Component:
             color_scheme="green",
             visible=es_suspendido & AuthState.puede_operar_contratos,
         ),
-        # Cancelar
         tabla_action_button(
             icon="x",
             tooltip="Cancelar",
@@ -128,15 +121,12 @@ def acciones_contrato(contrato: dict) -> rx.Component:
 def fila_contrato(contrato: dict) -> rx.Component:
     """Fila de la tabla para un contrato"""
     return rx.table.row(
-        # Fecha Inicio
         rx.table.cell(
             rx.text(contrato["fecha_inicio_fmt"], size="2"),
         ),
-        # Código
         rx.table.cell(
             rx.text(contrato["codigo"], weight="bold", size="2"),
         ),
-        # Objeto
         rx.table.cell(
             rx.text(
                 contrato["descripcion_objeto_display"],
@@ -153,19 +143,15 @@ def fila_contrato(contrato: dict) -> rx.Component:
                 ),
             ),
         ),
-        # Tipo de Contrato
         rx.table.cell(
             rx.text(contrato["tipo_contrato"], size="2"),
         ),
-        # Monto / Monto Maximo
         rx.table.cell(
             rx.text(contrato["monto_maximo_fmt"], size="2"),
         ),
-        # Saldo Pendiente
         rx.table.cell(
             rx.text(contrato["saldo_pendiente_fmt"], size="2", color=Colors.WARNING),
         ),
-        # Empresa
         rx.table.cell(
             rx.cond(
                 contrato["nombre_empresa"],
@@ -173,11 +159,9 @@ def fila_contrato(contrato: dict) -> rx.Component:
                 rx.text("Sin empresa", size="2", color=Colors.TEXT_MUTED),
             ),
         ),
-        # Estatus
         rx.table.cell(
             status_badge_reactive(contrato["estatus"], show_icon=True),
         ),
-        # Acciones
         rx.table.cell(
             acciones_contrato(contrato),
         ),
@@ -219,7 +203,6 @@ def card_contrato(contrato: dict) -> rx.Component:
     """Card individual para un contrato"""
     return rx.card(
         rx.vstack(
-            # Header con código y estatus
             rx.hstack(
                 rx.hstack(
                     rx.text(contrato["codigo"], weight="bold", size="3"),
@@ -232,10 +215,7 @@ def card_contrato(contrato: dict) -> rx.Component:
                 width="100%",
                 align="center",
             ),
-
             rx.divider(),
-
-            # Datos del contrato
             rx.vstack(
                 rx.hstack(
                     rx.icon("calendar", size=14, color=Colors.TEXT_MUTED),
@@ -287,14 +267,11 @@ def card_contrato(contrato: dict) -> rx.Component:
                 align_items="start",
                 width="100%",
             ),
-
-            # Acciones
             rx.hstack(
                 acciones_contrato(contrato),
                 width="100%",
                 justify="end",
             ),
-
             spacing="3",
             width="100%",
         ),
@@ -327,7 +304,6 @@ def grid_contratos() -> rx.Component:
                     gap=Spacing.MD,
                     width="100%",
                 ),
-                # Contador
                 rx.text(
                     "Mostrando ", ContratosState.total_contratos, " contrato(s)",
                     size="2",
@@ -348,7 +324,6 @@ def grid_contratos() -> rx.Component:
 def filtros_contratos() -> rx.Component:
     """Filtros para contratos"""
     return filtros_inline(
-        # Filtro de fecha inicio (rango)
         rx.hstack(
             filter_date_input(
                 label="Desde",
@@ -365,7 +340,6 @@ def filtros_contratos() -> rx.Component:
             spacing="2",
             align="end",
         ),
-        # Switch inactivos
         switch_inactivos(
             checked=ContratosState.incluir_inactivos,
             on_change=ContratosState.set_incluir_inactivos,
@@ -414,23 +388,17 @@ def contratos_page() -> rx.Component:
                 on_view_cards=ContratosState.set_view_cards,
             ),
             content=rx.vstack(
-                # Contenido según vista
                 rx.cond(
                     ContratosState.is_table_view,
                     tabla_contratos(),
                     grid_contratos(),
                 ),
-
-                # Modales de contratos
                 modal_contrato(),
                 modal_detalle_contrato(),
                 modal_confirmar_cancelar(),
-
-                # Modales de pagos
                 modal_pagos(),
                 modal_pago_form(),
                 modal_confirmar_eliminar_pago(),
-
                 spacing="4",
                 width="100%",
             ),

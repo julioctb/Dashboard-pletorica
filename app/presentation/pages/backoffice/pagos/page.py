@@ -3,7 +3,7 @@ Pagina principal de Pagos.
 Muestra todos los pagos del sistema con filtros.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.pagos.pagos_state import PagosPageState
+from app.presentation.pages.backoffice.pagos.state import PagosPageState
 from app.presentation.components.ui import (
     acciones_filtros,
     filtros_inline,

@@ -10,7 +10,7 @@ import reflex as rx
 from app.presentation.theme import Colors, Spacing, Typography, Radius
 from app.presentation.layouts.backoffice import page_layout, page_header, page_toolbar
 from app.presentation.components.ui import form_input, form_textarea, form_row
-from app.presentation.pages.backoffice.cotizador.cotizador_state import CotizadorState
+from app.presentation.pages.backoffice.cotizador.state import CotizadorState
 from app.presentation.pages.backoffice.cotizador.cotizador_components import (
     _header_label,
     tabla_cotizaciones,
@@ -130,7 +130,6 @@ def _fila_agregar_categoria(partida_idx: rx.Var) -> rx.Component:
             width="100%",
             padding_top=Spacing.XS,
         ),
-        # Botón para iniciar agregar
         rx.button(
             rx.icon("plus", size=14),
             "Categoría",
@@ -149,7 +148,6 @@ def _partida_form_row(partida: dict) -> rx.Component:
 
     return rx.box(
         rx.vstack(
-            # Encabezado
             rx.hstack(
                 rx.text(
                     "Partida ",
@@ -171,7 +169,6 @@ def _partida_form_row(partida: dict) -> rx.Component:
                 width="100%",
                 align="center",
             ),
-            # Tabla de categorías
             rx.cond(
                 categorias.length() > 0,
                 rx.table.root(
@@ -205,7 +202,6 @@ def _partida_form_row(partida: dict) -> rx.Component:
                     width="100%",
                 ),
             ),
-            # Fila agregar categoría
             _fila_agregar_categoria(p_idx),
             spacing="2",
             width="100%",
@@ -216,10 +212,6 @@ def _partida_form_row(partida: dict) -> rx.Component:
         width="100%",
     )
 
-
-# =============================================================================
-# WIZARD DE CREACIÓN — Indicador de pasos
-# =============================================================================
 
 def _indicador_pasos() -> rx.Component:
     """Indicador visual: 3 círculos numerados + conectores + título del paso."""
@@ -277,10 +269,6 @@ def _indicador_pasos() -> rx.Component:
     )
 
 
-# =============================================================================
-# MODAL SELECTOR DE TIPO
-# =============================================================================
-
 def _modal_selector_tipo() -> rx.Component:
     """Modal para elegir tipo de cotización antes del wizard."""
 
@@ -326,7 +314,6 @@ def _modal_selector_tipo() -> rx.Component:
     return rx.dialog.root(
         rx.dialog.content(
             rx.vstack(
-                # Header: ícono teal + título + descripción + botón X
                 rx.hstack(
                     rx.box(
                         rx.icon("file-plus", size=20, color=Colors.PORTAL_PRIMARY_TEXT),
@@ -372,7 +359,6 @@ def _modal_selector_tipo() -> rx.Component:
                     padding_y=Spacing.BASE,
                     border_bottom=f"1px solid {Colors.BORDER}",
                 ),
-                # Body: grid de 2 cards
                 rx.box(
                     rx.grid(
                         _card_tipo(
@@ -397,7 +383,6 @@ def _modal_selector_tipo() -> rx.Component:
                     padding_top=Spacing.BASE,
                     padding_bottom=Spacing.XL,
                 ),
-                # Footer: botón Cancelar alineado a la derecha
                 rx.hstack(
                     rx.button(
                         "Cancelar",
@@ -429,10 +414,6 @@ def _modal_selector_tipo() -> rx.Component:
         on_open_change=rx.noop,
     )
 
-
-# =============================================================================
-# WIZARD DE CREACIÓN — Contenido de cada paso
-# =============================================================================
 
 def _paso_datos_generales() -> rx.Component:
     """Paso 1: Destinatario, notas (sin fechas de período)."""
@@ -729,7 +710,6 @@ def _paso_resumen() -> rx.Component:
         )
 
     return rx.vstack(
-        # Destinatario
         rx.cond(
             (CotizadorState.form_destinatario_nombre != "")
             | (CotizadorState.form_destinatario_cargo != ""),
@@ -752,7 +732,6 @@ def _paso_resumen() -> rx.Component:
                 ),
             ),
         ),
-        # Partidas resumen
         _card_resumen(
             "Partidas",
             rx.text(
@@ -774,7 +753,6 @@ def _paso_resumen() -> rx.Component:
                 ),
             ),
         ),
-        # Cantidad de meses (solo PERSONAL)
         rx.cond(
             CotizadorState.es_tipo_personal,
             _card_resumen(
@@ -802,7 +780,6 @@ def _paso_resumen() -> rx.Component:
                 ),
             ),
         ),
-        # Conceptos globales
         _card_resumen(
             "Conceptos globales (aplican a toda la cotización)",
             rx.cond(
@@ -837,7 +814,6 @@ def _paso_resumen() -> rx.Component:
                 color_scheme=Colors.PORTAL_ACCENT_SCHEME,
             ),
         ),
-        # Notas
         rx.cond(
             CotizadorState.form_notas != "",
             _card_resumen(
@@ -845,7 +821,6 @@ def _paso_resumen() -> rx.Component:
                 rx.text(CotizadorState.form_notas, font_size=Typography.SIZE_SM),
             ),
         ),
-        # IVA y totales
         rx.separator(),
         rx.hstack(
             rx.checkbox(
@@ -856,7 +831,6 @@ def _paso_resumen() -> rx.Component:
             ),
             width="100%",
         ),
-        # Totales footer (solo visible para PRODUCTOS_SERVICIOS en wizard)
         rx.cond(
             CotizadorState.es_tipo_productos,
             rx.vstack(
@@ -885,7 +859,6 @@ def _paso_resumen() -> rx.Component:
                 width="100%",
             ),
         ),
-        # Callout informativo
         rx.callout(
             "Después de crear la cotización podrás editar conceptos y valores en el detalle.",
             icon="info",
@@ -897,10 +870,6 @@ def _paso_resumen() -> rx.Component:
         width="100%",
     )
 
-
-# =============================================================================
-# MODAL WIZARD
-# =============================================================================
 
 def _modal_crear_cotizacion() -> rx.Component:
     """Modal wizard de 3 pasos para crear una nueva cotización."""
@@ -926,9 +895,7 @@ def _modal_crear_cotizacion() -> rx.Component:
                 ),
                 margin_bottom="16px",
             ),
-            # Indicador de pasos
             _indicador_pasos(),
-            # Contenido del paso actual
             rx.box(
                 rx.match(
                     CotizadorState.form_paso_actual,
@@ -941,7 +908,6 @@ def _modal_crear_cotizacion() -> rx.Component:
                 padding_top=Spacing.BASE,
             ),
             rx.box(height="20px"),
-            # Footer
             rx.hstack(
                 rx.button(
                     "Cancelar",

@@ -3,7 +3,7 @@ Pagina principal de Tipos de Servicio.
 Muestra una tabla o cards con los tipos y acciones CRUD.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.tipo_servicio.tipo_servicio_state import TipoServicioState
+from app.presentation.pages.backoffice.tipo_servicio.state import TipoServicioState
 from app.presentation.layouts.backoffice import (
     page_layout,
     page_header,
@@ -38,7 +38,6 @@ def acciones_tipo(tipo: dict) -> rx.Component:
     es_inactivo = tipo["estatus"] == "INACTIVO"
 
     return tabla_action_buttons([
-        # Ver categorias (siempre visible, usa link)
         rx.tooltip(
             rx.link(
                 rx.icon_button(
@@ -51,7 +50,6 @@ def acciones_tipo(tipo: dict) -> rx.Component:
             ),
             content="Ver categorias",
         ),
-        # Editar
         tabla_action_button(
             icon="pencil",
             tooltip="Editar",
@@ -59,7 +57,6 @@ def acciones_tipo(tipo: dict) -> rx.Component:
             color_scheme="blue",
             visible=es_activo,
         ),
-        # Eliminar
         tabla_action_button(
             icon="trash-2",
             tooltip="Eliminar",
@@ -67,7 +64,6 @@ def acciones_tipo(tipo: dict) -> rx.Component:
             color_scheme="red",
             visible=es_activo,
         ),
-        # Reactivar
         tabla_action_button(
             icon="rotate-ccw",
             tooltip="Reactivar",
@@ -85,7 +81,6 @@ def acciones_tipo(tipo: dict) -> rx.Component:
 def fila_tipo(tipo: dict) -> rx.Component:
     """Fila de la tabla para un tipo"""
     return rx.table.row(
-        # Clave
         rx.table.cell(
             rx.text(
                 tipo["clave"],
@@ -93,7 +88,6 @@ def fila_tipo(tipo: dict) -> rx.Component:
                 font_size=Typography.SIZE_SM,
             ),
         ),
-        # Nombre
         rx.table.cell(
             rx.link(
                 rx.text(
@@ -106,13 +100,10 @@ def fila_tipo(tipo: dict) -> rx.Component:
                 underline="none",
             ),
         ),
-        # Descripcion
         rx.table.cell(
             table_text_sm(tipo["descripcion"], fallback="-", tone="muted"),
         ),
-        # Estatus
         table_cell_badge(status_badge_reactive(tipo["estatus"], show_icon=True)),
-        # Acciones
         table_cell_actions(acciones_tipo(tipo)),
     )
 
@@ -148,7 +139,6 @@ def card_tipo(tipo: dict) -> rx.Component:
     """Card individual para un tipo de servicio"""
     return rx.card(
         rx.vstack(
-            # Header con clave y estatus
             rx.hstack(
                 identifier_badge(tipo["clave"]),
                 rx.spacer(),
@@ -156,8 +146,6 @@ def card_tipo(tipo: dict) -> rx.Component:
                 width="100%",
                 align="center",
             ),
-
-            # Nombre
             rx.link(
                 rx.text(
                     tipo["nombre"],
@@ -169,8 +157,6 @@ def card_tipo(tipo: dict) -> rx.Component:
                 color="inherit",
                 underline="none",
             ),
-
-            # Descripcion
             rx.cond(
                 tipo["descripcion"],
                 rx.text(
@@ -180,14 +166,11 @@ def card_tipo(tipo: dict) -> rx.Component:
                     style={"max_width": "100%", "overflow": "hidden", "text_overflow": "ellipsis"},
                 ),
             ),
-
-            # Acciones
             rx.hstack(
                 acciones_tipo(tipo),
                 width="100%",
                 justify="end",
             ),
-
             spacing="3",
             width="100%",
         ),
@@ -220,7 +203,6 @@ def grid_tipos() -> rx.Component:
                     gap=Spacing.MD,
                     width="100%",
                 ),
-                # Contador
                 rx.text(
                     "Mostrando ", TipoServicioState.total_tipos, " tipo(s)",
                     font_size=Typography.SIZE_SM,
@@ -264,17 +246,13 @@ def tipo_servicio_page() -> rx.Component:
                 on_view_cards=TipoServicioState.set_view_cards,
             ),
             content=rx.vstack(
-                # Contenido segun vista
                 rx.cond(
                     TipoServicioState.is_table_view,
                     tabla_tipos(),
                     grid_tipos(),
                 ),
-
-                # Modales
                 modal_tipo_servicio(),
                 modal_confirmar_eliminar(),
-
                 spacing="4",
                 width="100%",
             ),

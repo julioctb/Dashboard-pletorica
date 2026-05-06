@@ -1,4 +1,4 @@
-"""Estado de Reflex para el módulo de plazas bajo el modelo plazas-first."""
+"""State de Reflex para el módulo de plazas bajo el modelo plazas-first."""
 
 from __future__ import annotations
 
@@ -46,14 +46,8 @@ FORM_DEFAULTS = {
 class PlazasState(AuthState):
     """State del módulo de plazas centrado en contrato y operación de plazas."""
 
-    # =========================================================================
-    # VISTA
-    # =========================================================================
     view_mode: str = "table"
 
-    # =========================================================================
-    # DATOS
-    # =========================================================================
     plazas: List[dict] = []
     plaza_seleccionada: Optional[dict] = None
     resumen_categorias: List[dict] = []
@@ -81,9 +75,6 @@ class PlazasState(AuthState):
     cantidad_plazas_maxima: int = 0
     plazas_desfase: int = 0
 
-    # =========================================================================
-    # UI
-    # =========================================================================
     mostrar_modal_plaza: bool = False
     mostrar_modal_detalle: bool = False
     mostrar_modal_confirmar_cancelar: bool = False
@@ -94,20 +85,11 @@ class PlazasState(AuthState):
     cargando_categorias: bool = False
     cargando_empleados: bool = False
 
-    # =========================================================================
-    # ASIGNACIÓN DE EMPLEADO
-    # =========================================================================
     empleados_disponibles: List[dict] = []
     empleado_seleccionado_id: str = ""
 
-    # =========================================================================
-    # FILTROS
-    # =========================================================================
     filtro_estatus: str = FILTRO_TODOS
 
-    # =========================================================================
-    # FORMULARIO
-    # =========================================================================
     form_codigo: str = ""
     form_sede_id: str = ""
     form_categoria_puesto_id: str = ""
@@ -122,9 +104,6 @@ class PlazasState(AuthState):
     form_prefijo_codigo: str = ""
     modo_asignacion_lote: str = MODO_ASIGNACION_SEDE_CATEGORIA
 
-    # =========================================================================
-    # ERRORES
-    # =========================================================================
     error_codigo: str = ""
     error_sede_id: str = ""
     error_categoria_puesto_id: str = ""
@@ -133,9 +112,6 @@ class PlazasState(AuthState):
     error_factor_jornada: str = ""
     error_cantidad: str = ""
 
-    # =========================================================================
-    # COMPUTED VARS
-    # =========================================================================
     @rx.var
     def mostrar_vista_inicial(self) -> bool:
         return self.contrato_id == 0
@@ -541,9 +517,6 @@ class PlazasState(AuthState):
             )
         return "La sede se asignará a todas las plazas del lote."
 
-    # =========================================================================
-    # SETTERS
-    # =========================================================================
     def set_filtro_estatus(self, value: str):
         self.filtro_estatus = value or FILTRO_TODOS
 
@@ -626,9 +599,6 @@ class PlazasState(AuthState):
             return PlazasState.seleccionar_contrato(int(value))
         return PlazasState.volver_a_resumen
 
-    # =========================================================================
-    # HELPERS
-    # =========================================================================
     def _empresa_filtro_actual(self) -> Optional[int]:
         if self.es_contexto_portal:
             return self.id_empresa_actual or None
@@ -824,9 +794,6 @@ class PlazasState(AuthState):
         )
         self.plaza_seleccionada = None
 
-    # =========================================================================
-    # CARGA DE DATOS
-    # =========================================================================
     async def cargar_contratos_con_personal(self):
         self.cargando_contratos = True
         try:
@@ -1017,9 +984,6 @@ class PlazasState(AuthState):
         async for _ in self._montar_pagina_auth(self._fetch_desde_url):
             yield
 
-    # =========================================================================
-    # MODALES
-    # =========================================================================
     def abrir_modal_editar(self, plaza: dict):
         try:
             self._asegurar_permiso_operar_plazas()
@@ -1139,9 +1103,6 @@ class PlazasState(AuthState):
         self.empleado_seleccionado_id = ""
         self.empleados_disponibles = []
 
-    # =========================================================================
-    # OPERACIONES
-    # =========================================================================
     async def confirmar_asignar_empleado(self):
         if not self.plaza_seleccionada or not self.empleado_seleccionado_id:
             yield rx.toast.error("Seleccione un empleado")

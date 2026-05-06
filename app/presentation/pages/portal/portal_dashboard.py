@@ -9,15 +9,17 @@ import reflex as rx
 
 from app.presentation.components.ui import metric_card, metric_card_grid
 from app.presentation.components.ui.badges_domain import payroll_period_status_badge
-from app.presentation.components.ui.cards import empty_state_card
-from app.presentation.pages.portal.state.portal_dashboard_state import PortalDashboardState
+from app.presentation.pages.portal.state.portal_dashboard_state import (
+    PortalDashboardState,
+)
 from app.presentation.layouts.backoffice import page_layout, page_header
-from app.presentation.theme import CardStyles, Colors, Radius, Typography
+from app.presentation.theme import CardStyles, Colors, Radius, StatusColors, Typography
 
 
 # =============================================================================
 # HELPERS LOCALES
 # =============================================================================
+
 
 def _section_label(text: str) -> rx.Component:
     """Label de seccion en uppercase."""
@@ -121,6 +123,7 @@ def _metric_skeleton() -> rx.Component:
 # METRICAS PRINCIPALES
 # =============================================================================
 
+
 def _metricas_grid() -> rx.Component:
     """Grid de 4 metricas principales con footers enriquecidos."""
     return rx.cond(
@@ -139,11 +142,12 @@ def _metricas_grid() -> rx.Component:
                 footer=rx.cond(
                     PortalDashboardState.empleados_en_onboarding > 0,
                     rx.text(
-                        PortalDashboardState.empleados_en_onboarding.to(str) + " en onboarding",
+                        PortalDashboardState.empleados_en_onboarding.to(str)
+                        + " en onboarding",
                         font_size=Typography.SIZE_XS,
                         color=Colors.TEXT_SECONDARY,
                     ),
-                    rx.fragment(),
+                    rx.text(" ", font_size=Typography.SIZE_XS),
                 ),
             ),
             metric_card(
@@ -155,11 +159,12 @@ def _metricas_grid() -> rx.Component:
                 footer=rx.cond(
                     PortalDashboardState.contratos_por_vencer > 0,
                     rx.text(
-                        PortalDashboardState.contratos_por_vencer.to(str) + " por vencer",
+                        PortalDashboardState.contratos_por_vencer.to(str)
+                        + " por vencer",
                         font_size=Typography.SIZE_XS,
                         color=Colors.WARNING,
                     ),
-                    rx.fragment(),
+                    rx.text(" ", font_size=Typography.SIZE_XS),
                 ),
             ),
             metric_card(
@@ -209,6 +214,7 @@ def _metricas_grid() -> rx.Component:
 # =============================================================================
 # WIDGET: COBERTURA POR CONTRATO
 # =============================================================================
+
 
 def _badge_ocupadas_cat(cat: rx.Var) -> rx.Component:
     """Badge semaforo numerico por categoria."""
@@ -339,6 +345,7 @@ def _contrato_cobertura_block(contrato: rx.Var) -> rx.Component:
 
 def _leyenda_semaforo() -> rx.Component:
     """Leyenda de colores del semaforo."""
+
     def _item(color_scheme: str, label: str) -> rx.Component:
         return rx.hstack(
             rx.badge(" ", color_scheme=color_scheme, variant="soft", size="1"),
@@ -360,7 +367,9 @@ def _leyenda_semaforo() -> rx.Component:
 
 def _widget_cobertura() -> rx.Component:
     return _widget_container(
-        _widget_header("Cobertura por contrato", "Ver plazas", "/portal/empleados?view=plaza"),
+        _widget_header(
+            "Cobertura por contrato", "Ver plazas", "/portal/empleados?view=plaza"
+        ),
         rx.cond(
             PortalDashboardState.tiene_cobertura,
             rx.vstack(
@@ -388,53 +397,6 @@ def _widget_cobertura() -> rx.Component:
 # =============================================================================
 # WIDGET: ESTADO DE NOMINA
 # =============================================================================
-
-_NOMINA_STEPS = [
-    ("BORRADOR", "Abierto"),
-    ("EN_PREPARACION_RRHH", "En preparacion"),
-    ("ENVIADO_A_CONTABILIDAD", "Enviado"),
-    ("EN_PROCESO_CONTABILIDAD", "En contabilidad"),
-    ("CALCULADO", "Listo para pago"),
-    ("CERRADO", "Cerrado"),
-]
-
-
-def _nomina_step(label: str, step_estatus: str) -> rx.Component:
-    """Un paso del stepper de nomina."""
-    return rx.hstack(
-        rx.center(
-            rx.icon("check", size=12, color="white"),
-            width="20px",
-            height="20px",
-            border_radius=Radius.FULL,
-            background=rx.cond(
-                PortalDashboardState.nomina_estatus == step_estatus,
-                Colors.PORTAL_PRIMARY,
-                rx.cond(
-                    # Step ya pasado — simplificamos: si el step esta antes del actual
-                    False,  # no podemos hacer comparacion de orden con rx.cond facilmente
-                    Colors.SUCCESS,
-                    Colors.BORDER,
-                ),
-            ),
-        ),
-        rx.text(
-            label,
-            font_size=Typography.SIZE_XS,
-            font_weight=rx.cond(
-                PortalDashboardState.nomina_estatus == step_estatus,
-                Typography.WEIGHT_SEMIBOLD,
-                Typography.WEIGHT_REGULAR,
-            ),
-            color=rx.cond(
-                PortalDashboardState.nomina_estatus == step_estatus,
-                Colors.TEXT_PRIMARY,
-                Colors.TEXT_MUTED,
-            ),
-        ),
-        spacing="2",
-        align="center",
-    )
 
 
 def _widget_nomina() -> rx.Component:
@@ -469,6 +431,7 @@ def _widget_nomina() -> rx.Component:
 # WIDGET: ENTREGABLES DEL MES
 # =============================================================================
 
+
 def _entregable_row(item: rx.Var) -> rx.Component:
     return rx.hstack(
         rx.vstack(
@@ -488,12 +451,72 @@ def _entregable_row(item: rx.Var) -> rx.Component:
         rx.spacer(),
         rx.match(
             item["estatus"],
-            ("PENDIENTE", rx.badge("Pendiente", color_scheme="gray", size="1", variant="soft")),
-            ("EN_REVISION", rx.badge("En revision", color_scheme="sky", size="1", variant="soft")),
-            ("APROBADO", rx.badge("Aprobado", color_scheme="green", size="1", variant="soft")),
-            ("RECHAZADO", rx.badge("Rechazado", color_scheme="red", size="1", variant="soft")),
-            ("FACTURADO", rx.badge("Facturado", color_scheme="amber", size="1", variant="soft")),
-            ("PAGADO", rx.badge("Pagado", color_scheme="green", size="1", variant="soft")),
+            (
+                "PENDIENTE",
+                rx.badge(
+                    StatusColors.get_entregable_status_label("PENDIENTE"),
+                    color_scheme=StatusColors.get_entregable_status_color_scheme(
+                        "PENDIENTE"
+                    ),
+                    size="1",
+                    variant="soft",
+                ),
+            ),
+            (
+                "EN_REVISION",
+                rx.badge(
+                    StatusColors.get_entregable_status_label("EN_REVISION"),
+                    color_scheme=StatusColors.get_entregable_status_color_scheme(
+                        "EN_REVISION"
+                    ),
+                    size="1",
+                    variant="soft",
+                ),
+            ),
+            (
+                "APROBADO",
+                rx.badge(
+                    StatusColors.get_entregable_status_label("APROBADO"),
+                    color_scheme=StatusColors.get_entregable_status_color_scheme(
+                        "APROBADO"
+                    ),
+                    size="1",
+                    variant="soft",
+                ),
+            ),
+            (
+                "RECHAZADO",
+                rx.badge(
+                    StatusColors.get_entregable_status_label("RECHAZADO"),
+                    color_scheme=StatusColors.get_entregable_status_color_scheme(
+                        "RECHAZADO"
+                    ),
+                    size="1",
+                    variant="soft",
+                ),
+            ),
+            (
+                "FACTURADO",
+                rx.badge(
+                    StatusColors.get_entregable_status_label("FACTURADO"),
+                    color_scheme=StatusColors.get_entregable_status_color_scheme(
+                        "FACTURADO"
+                    ),
+                    size="1",
+                    variant="soft",
+                ),
+            ),
+            (
+                "PAGADO",
+                rx.badge(
+                    StatusColors.get_entregable_status_label("PAGADO"),
+                    color_scheme=StatusColors.get_entregable_status_color_scheme(
+                        "PAGADO"
+                    ),
+                    size="1",
+                    variant="soft",
+                ),
+            ),
             rx.badge(item["estatus"], color_scheme="gray", size="1", variant="soft"),
         ),
         width="100%",
@@ -543,6 +566,7 @@ def _widget_entregables() -> rx.Component:
 # WIDGET: AUSENCIAS RECIENTES (Top 5 empleados)
 # =============================================================================
 
+
 def _ausencia_empleado_row(item: rx.Var) -> rx.Component:
     return rx.hstack(
         rx.text(
@@ -570,7 +594,8 @@ def _widget_ausencias_empleados() -> rx.Component:
             PortalDashboardState.tiene_ausencias,
             rx.vstack(
                 rx.text(
-                    PortalDashboardState.total_faltas_mes.to(str) + " incidencias registradas",
+                    PortalDashboardState.total_faltas_mes.to(str)
+                    + " incidencias registradas",
                     font_size=Typography.SIZE_XS,
                     color=Colors.TEXT_SECONDARY,
                 ),
@@ -597,15 +622,6 @@ def _widget_ausencias_empleados() -> rx.Component:
 # =============================================================================
 # WIDGET: TIPO DE AUSENCIA (Top 5 tipos)
 # =============================================================================
-
-_TIPO_INCIDENCIA_LABELS = {
-    "FALTA": "Falta",
-    "RETARDO": "Retardo",
-    "HORA_EXTRA": "Hora extra",
-    "PERMISO": "Permiso",
-    "INCAPACIDAD": "Incapacidad",
-    "VACACIONES": "Vacaciones",
-}
 
 
 def _tipo_ausencia_row(item: rx.Var) -> rx.Component:
@@ -658,6 +674,7 @@ def _widget_tipos_ausencia() -> rx.Component:
 # WIDGET: GASTOS (Placeholder)
 # =============================================================================
 
+
 def _widget_gastos_placeholder() -> rx.Component:
     return rx.box(
         _widget_container(
@@ -666,7 +683,7 @@ def _widget_gastos_placeholder() -> rx.Component:
                 rx.vstack(
                     rx.icon("wallet", size=32, color=Colors.TEXT_MUTED),
                     rx.text(
-                        "Proximamente",
+                        "Próximamente",
                         font_size=Typography.SIZE_XS,
                         color=Colors.TEXT_MUTED,
                     ),
@@ -685,6 +702,7 @@ def _widget_gastos_placeholder() -> rx.Component:
 # =============================================================================
 # GRID DE SEGUIMIENTO
 # =============================================================================
+
 
 def _seguimiento_grid() -> rx.Component:
     """Grid de 6 widgets en 2 columnas con skeleton loading."""
@@ -713,6 +731,7 @@ def _seguimiento_grid() -> rx.Component:
 # =============================================================================
 # PAGINA PRINCIPAL
 # =============================================================================
+
 
 def portal_dashboard_page() -> rx.Component:
     """Pagina de dashboard del portal de cliente."""

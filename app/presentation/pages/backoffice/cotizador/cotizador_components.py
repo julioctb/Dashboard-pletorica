@@ -184,7 +184,7 @@ def badge_estatus_partida(estatus: rx.Var) -> rx.Component:
 
 def fila_cotizacion(cotizacion: dict) -> rx.Component:
     """Fila de la tabla de cotizaciones."""
-    from app.presentation.pages.backoffice.cotizador.cotizador_state import CotizadorState
+    from app.presentation.pages.backoffice.cotizador.state import CotizadorState
 
     return rx.table.row(
         _celda_dos_lineas(

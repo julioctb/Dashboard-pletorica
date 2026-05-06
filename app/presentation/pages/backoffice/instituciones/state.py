@@ -11,7 +11,6 @@ from app.modules.application import institucion_service, empresa_service
 from app.presentation.components.shared.auth_state import AuthState
 
 
-# Campos con sus valores por defecto
 FORM_DEFAULTS = {
     "nombre": "",
     "codigo": "",
@@ -30,9 +29,7 @@ class InstitucionesState(AuthState):
     institucion_seleccionada: Optional[dict] = None
     total_instituciones: int = 0
 
-    # Empresas asignadas a la institucion seleccionada
     empresas_asignadas: List[dict] = []
-    # Todas las empresas disponibles para asignar
     opciones_empresas: List[dict] = []
     form_empresa_id: str = ""
 
@@ -44,10 +41,8 @@ class InstitucionesState(AuthState):
     mostrar_modal_confirmar_desactivar: bool = False
     es_edicion: bool = False
 
-    # Vista (tabla/cards)
     view_mode: str = "table"
 
-    # Filtros
     incluir_inactivas: bool = False
 
     # ========================
@@ -56,7 +51,6 @@ class InstitucionesState(AuthState):
     form_nombre: str = ""
     form_codigo: str = ""
 
-    # Errores de validacion
     error_nombre: str = ""
     error_codigo: str = ""
 
@@ -154,7 +148,6 @@ class InstitucionesState(AuthState):
                 solo_activas=not self.incluir_inactivas
             )
 
-            # Filtrar por busqueda si hay termino
             if self.filtro_busqueda:
                 termino = self.filtro_busqueda.upper()
                 instituciones = [
@@ -340,7 +333,6 @@ class InstitucionesState(AuthState):
         self.institucion_seleccionada = institucion
         self.form_empresa_id = ""
 
-        # Cargar empresas asignadas
         try:
             asignadas = await institucion_service.obtener_empresas(institucion["id"])
             self.empresas_asignadas = [
@@ -356,7 +348,6 @@ class InstitucionesState(AuthState):
             self.manejar_error(e, "al cargar empresas asignadas")
             self.empresas_asignadas = []
 
-        # Cargar todas las empresas para el select
         try:
             todas = await empresa_service.obtener_todas(incluir_inactivas=False, limite=500)
             ids_asignados = {a["empresa_id"] for a in self.empresas_asignadas}
@@ -389,9 +380,7 @@ class InstitucionesState(AuthState):
                 self.institucion_seleccionada["id"],
                 int(self.form_empresa_id),
             )
-            # Recargar el modal
             await self.abrir_modal_empresas(self.institucion_seleccionada)
-            # Recargar tabla principal (cantidad_empresas cambio)
             await self._fetch_instituciones()
             return rx.toast.success("Empresa asignada", position="top-center")
         except Exception as e:
@@ -410,9 +399,7 @@ class InstitucionesState(AuthState):
                 self.institucion_seleccionada["id"],
                 asignacion["empresa_id"],
             )
-            # Recargar el modal
             await self.abrir_modal_empresas(self.institucion_seleccionada)
-            # Recargar tabla principal
             await self._fetch_instituciones()
             return rx.toast.success("Empresa removida", position="top-center")
         except Exception as e:

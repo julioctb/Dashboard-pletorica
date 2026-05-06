@@ -4,7 +4,7 @@ Modales del módulo de Historial Laboral.
 Este módulo es de SOLO LECTURA - solo tiene modal de detalle.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.historial_laboral.historial_laboral_state import HistorialLaboralState
+from app.presentation.pages.backoffice.historial_laboral.state import HistorialLaboralState
 from app.presentation.components.ui import identifier_badge
 from app.presentation.components.ui.modals import modal_detalle
 from app.presentation.theme import Colors

@@ -1,6 +1,6 @@
 """Tabla de listado de requisiciones."""
 import reflex as rx
-from app.presentation.pages.backoffice.requisiciones.requisiciones_state import RequisicionesState
+from app.presentation.pages.backoffice.requisiciones.state import RequisicionesState
 from app.presentation.components.backoffice.requisiciones.requisicion_estado_badge import estado_requisicion_badge
 from app.presentation.components.ui import tabla_vacia, table_shell
 from app.presentation.components.ui.action_buttons import (

@@ -3,7 +3,7 @@ Pagina principal de Instituciones.
 Muestra tabla o cards con las instituciones y acciones CRUD + gestion de empresas.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.instituciones.instituciones_state import InstitucionesState
+from app.presentation.pages.backoffice.instituciones.state import InstitucionesState
 from app.presentation.layouts.backoffice import (
     page_layout,
     page_header,
@@ -37,7 +37,6 @@ def acciones_institucion(institucion: dict) -> rx.Component:
     es_inactivo = institucion["estatus"] == "INACTIVO"
 
     return tabla_action_buttons([
-        # Gestionar empresas
         tabla_action_button(
             icon="building-2",
             tooltip="Gestionar Empresas",
@@ -45,7 +44,6 @@ def acciones_institucion(institucion: dict) -> rx.Component:
             color_scheme="purple",
             visible=es_activo,
         ),
-        # Editar
         tabla_action_button(
             icon="pencil",
             tooltip="Editar",
@@ -53,7 +51,6 @@ def acciones_institucion(institucion: dict) -> rx.Component:
             color_scheme="blue",
             visible=es_activo,
         ),
-        # Desactivar
         tabla_action_button(
             icon="trash-2",
             tooltip="Desactivar",
@@ -61,7 +58,6 @@ def acciones_institucion(institucion: dict) -> rx.Component:
             color_scheme="red",
             visible=es_activo,
         ),
-        # Reactivar
         tabla_action_button(
             icon="rotate-ccw",
             tooltip="Reactivar",
@@ -79,7 +75,6 @@ def acciones_institucion(institucion: dict) -> rx.Component:
 def fila_institucion(institucion: dict) -> rx.Component:
     """Fila de la tabla para una institucion"""
     return rx.table.row(
-        # Codigo
         rx.table.cell(
             rx.text(
                 institucion["codigo"],
@@ -87,11 +82,9 @@ def fila_institucion(institucion: dict) -> rx.Component:
                 font_size=Typography.SIZE_SM,
             ),
         ),
-        # Nombre
         rx.table.cell(
             rx.text(institucion["nombre"], font_size=Typography.SIZE_SM),
         ),
-        # Empresas
         rx.table.cell(
             rx.badge(
                 institucion["cantidad_empresas"],
@@ -99,9 +92,7 @@ def fila_institucion(institucion: dict) -> rx.Component:
                 size="1",
             ),
         ),
-        # Estatus
         table_cell_badge(status_badge_reactive(institucion["estatus"], show_icon=True)),
-        # Acciones
         table_cell_actions(acciones_institucion(institucion)),
     )
 
@@ -137,7 +128,6 @@ def card_institucion(institucion: dict) -> rx.Component:
     """Card individual para una institucion"""
     return rx.card(
         rx.vstack(
-            # Header con codigo y estatus
             rx.hstack(
                 identifier_badge(institucion["codigo"]),
                 rx.spacer(),
@@ -145,13 +135,11 @@ def card_institucion(institucion: dict) -> rx.Component:
                 width="100%",
                 align="center",
             ),
-            # Nombre
             rx.text(
                 institucion["nombre"],
                 font_weight=Typography.WEIGHT_BOLD,
                 font_size=Typography.SIZE_LG,
             ),
-            # Cantidad de empresas
             rx.hstack(
                 rx.icon("building-2", size=14, color=Colors.TEXT_MUTED),
                 rx.text(
@@ -163,7 +151,6 @@ def card_institucion(institucion: dict) -> rx.Component:
                 spacing="2",
                 align="center",
             ),
-            # Acciones
             rx.hstack(
                 acciones_institucion(institucion),
                 width="100%",
@@ -201,7 +188,6 @@ def grid_instituciones() -> rx.Component:
                     gap=Spacing.MD,
                     width="100%",
                 ),
-                # Contador
                 rx.text(
                     "Mostrando ", InstitucionesState.total_instituciones, " institucion(es)",
                     font_size=Typography.SIZE_SM,
@@ -219,7 +205,7 @@ def grid_instituciones() -> rx.Component:
 # PAGINA PRINCIPAL
 # =============================================================================
 
-def instituciones_page() -> rx.Component:
+def page() -> rx.Component:
     """Pagina de Instituciones usando el layout estandar"""
     return rx.box(
         page_layout(
@@ -245,18 +231,14 @@ def instituciones_page() -> rx.Component:
                 on_view_cards=InstitucionesState.set_view_cards,
             ),
             content=rx.vstack(
-                # Contenido segun vista
                 rx.cond(
                     InstitucionesState.is_table_view,
                     tabla_instituciones(),
                     grid_instituciones(),
                 ),
-
-                # Modales
                 modal_institucion(),
                 modal_gestionar_empresas(),
                 modal_confirmar_desactivar(),
-
                 spacing="4",
                 width="100%",
             ),

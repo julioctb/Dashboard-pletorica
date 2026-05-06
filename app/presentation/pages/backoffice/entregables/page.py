@@ -7,7 +7,7 @@ Cards de estadísticas son clickeables para filtrar.
 import reflex as rx
 
 from app.core.ui_helpers import FILTRO_TODOS
-from app.presentation.pages.backoffice.entregables.entregables_state import EntregablesState
+from app.presentation.pages.backoffice.entregables.state import EntregablesState
 from app.presentation.layouts.backoffice import page_layout, page_header
 from app.presentation.components.ui import (
     acciones_filtros,
@@ -80,7 +80,6 @@ def _stat_card(
 def _seccion_estadisticas() -> rx.Component:
     """Cards de estadísticas que actúan como filtros."""
     return rx.vstack(
-        # Fila 1: Flujo de revisión
         rx.hstack(
             _stat_card(
                 "Total",
@@ -126,7 +125,6 @@ def _seccion_estadisticas() -> rx.Component:
             width="100%",
             flex_wrap="wrap",
         ),
-        # Fila 2: Flujo de facturación
         rx.hstack(
             _stat_card(
                 "Prefacturas",
@@ -167,7 +165,6 @@ def _seccion_estadisticas() -> rx.Component:
 def _barra_filtros() -> rx.Component:
     """Barra con búsqueda y filtro de contrato."""
     return filtros_inline(
-        # Título dinámico del filtro actual
         rx.text(
             EntregablesState.titulo_filtro_actual,
             size="4",
@@ -182,7 +179,6 @@ def _barra_filtros() -> rx.Component:
             placeholder="Buscar por período, contrato, empresa...",
             width="280px",
         ),
-        # Filtro por contrato (opcional)
         rx.select.root(
             rx.select.trigger(placeholder="Todos los contratos", width="220px"),
             rx.select.content(select_items_from_options(EntregablesState.opciones_contratos)),
@@ -207,7 +203,6 @@ def _barra_filtros() -> rx.Component:
 def _fila_entregable(entregable: dict) -> rx.Component:
     """Fila de la tabla con la nueva estructura de columnas."""
     return rx.table.row(
-        # Contrato
         rx.table.cell(
             rx.badge(
                 entregable["contrato_codigo"],
@@ -216,7 +211,6 @@ def _fila_entregable(entregable: dict) -> rx.Component:
                 variant="soft",
             ),
         ),
-        # Empresa
         rx.table.cell(
             rx.text(
                 entregable["empresa_nombre"],
@@ -224,7 +218,6 @@ def _fila_entregable(entregable: dict) -> rx.Component:
                 weight="medium",
             ),
         ),
-        # Período
         rx.table.cell(
             rx.vstack(
                 rx.text(f"Período {entregable['numero_periodo']}", weight="medium", size="2"),
@@ -233,7 +226,6 @@ def _fila_entregable(entregable: dict) -> rx.Component:
                 align="start",
             ),
         ),
-        # Fecha Entrega
         rx.table.cell(
             rx.cond(
                 entregable["fecha_entrega"],
@@ -241,9 +233,7 @@ def _fila_entregable(entregable: dict) -> rx.Component:
                 rx.text("-", size="2", color=Colors.TEXT_MUTED),
             ),
         ),
-        # Estado
         rx.table.cell(status_badge_reactive(entregable["estatus"])),
-        # Acción
         rx.table.cell(
             rx.hstack(
                 rx.button(
@@ -301,12 +291,9 @@ def _tabla_entregables() -> rx.Component:
 def _contenido_principal() -> rx.Component:
     """Contenido principal de la página."""
     return rx.vstack(
-        # Cards de estadísticas (clickeables como filtros)
         _seccion_estadisticas(),
         rx.divider(margin_y="4"),
-        # Barra de filtros
         _barra_filtros(),
-        # Tabla o skeleton
         rx.cond(
             EntregablesState.cargando,
             skeleton_tabla(columnas=ENCABEZADOS_TABLA, filas=5),
@@ -314,7 +301,6 @@ def _contenido_principal() -> rx.Component:
                 EntregablesState.tiene_entregables,
                 rx.vstack(
                     _tabla_entregables(),
-                    # Contador
                     rx.text(
                         "Mostrando ",
                         EntregablesState.total_mostrados,

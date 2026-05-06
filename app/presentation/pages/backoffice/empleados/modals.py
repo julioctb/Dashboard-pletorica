@@ -5,7 +5,7 @@ Modal crear/editar, detalle, baja, restriccion, liberacion e historial.
 """
 import reflex as rx
 
-from app.presentation.pages.backoffice.empleados.empleados_state import EmpleadosState
+from app.presentation.pages.backoffice.empleados.state import EmpleadosState
 from app.presentation.theme import Colors, Typography, Spacing
 from app.presentation.components.reusable import (
     employee_form_body,

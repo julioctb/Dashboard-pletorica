@@ -492,7 +492,7 @@ class CategoriasPuestoState(BaseState):
         except DatabaseError as e:
             self.mostrar_mensaje(f"Error de base de datos: {str(e)}", "error")
         except Exception as e:
-            self.mostrar_mensaje(f"Error inesperado: {str(e)}", "error")
+            self.mostrar_mensaje(f"Error: {str(e)}", "error")
         finally:
             self.saving = False
 

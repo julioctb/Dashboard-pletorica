@@ -1,5 +1,5 @@
 """Módulo del simulador de costo patronal"""
-from .simulador_page import simulador_page
-from .simulador_state import SimuladorState
+from app.presentation.pages.backoffice.simulador.page import simulador_page
+from app.presentation.pages.backoffice.simulador.state import SimuladorState
 
 __all__ = ["simulador_page", "SimuladorState"]

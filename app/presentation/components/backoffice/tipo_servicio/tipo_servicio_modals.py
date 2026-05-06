@@ -2,7 +2,7 @@
 Componentes de modal para Tipos de Servicio.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.tipo_servicio.tipo_servicio_state import TipoServicioState
+from app.presentation.pages.backoffice.tipo_servicio.state import TipoServicioState
 from app.presentation.components.ui.form_input import form_input, form_textarea
 from app.presentation.components.ui.modals import modal_confirmar_accion, modal_formulario
 

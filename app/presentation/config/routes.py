@@ -37,40 +37,38 @@ from app.modules.nomina.ui.portal import (
 from app.presentation.pages.backoffice.admin.dashboard import super_admin_dashboard_page
 from app.presentation.pages.backoffice.admin.usuarios.usuarios_page import usuarios_admin_page
 from app.presentation.pages.backoffice.admin_onboarding import admin_onboarding_page
-from app.presentation.pages.backoffice.categorias_puesto.categorias_puesto_page import (
+from app.presentation.pages.backoffice.categorias_puesto.page import (
     categorias_puesto_page,
 )
-from app.presentation.pages.backoffice.configuracion.configuracion_page import (
+from app.presentation.pages.backoffice.configuracion.page import (
     configuracion_page,
 )
-from app.presentation.pages.backoffice.contratos.contratos_page import contratos_page
+from app.presentation.pages.backoffice.contratos.page import contratos_page
 from app.presentation.pages.backoffice.empresas.empresa_documentacion_page import (
     empresa_documentacion_page,
 )
-from app.presentation.pages.backoffice.empresas.empresas_page import empresas_page
+from app.presentation.pages.backoffice.empresas.page import empresas_page
 from app.presentation.pages.backoffice.entregables import (
     entregable_detalle_page,
     entregables_page,
 )
-from app.presentation.pages.backoffice.historial_laboral.historial_laboral_page import (
+from app.presentation.pages.backoffice.historial_laboral.page import (
     historial_laboral_page,
 )
-from app.presentation.pages.backoffice.instituciones.instituciones_page import (
-    instituciones_page,
-)
+from app.presentation.pages.backoffice.instituciones.page import page
 from app.presentation.pages.backoffice.login.login_page import login_page
 from app.presentation.pages.backoffice.mi_perfil import mi_perfil_page
-from app.presentation.pages.backoffice.pagos.pagos_page import pagos_page
-from app.presentation.pages.backoffice.plazas.plazas_page import plazas_page
-from app.presentation.pages.backoffice.requisiciones.requisiciones_page import (
+from app.presentation.pages.backoffice.pagos.page import pagos_page
+from app.presentation.pages.backoffice.plazas.page import plazas_page
+from app.presentation.pages.backoffice.requisiciones.page import (
     requisiciones_page,
 )
-from app.presentation.pages.backoffice.sedes.sedes_page import sedes_page
+from app.presentation.pages.backoffice.sedes.page import sedes_page
 from app.presentation.pages.backoffice.shared.empresa_documentacion_share_page import (
     empresa_documentacion_share_page,
 )
-from app.presentation.pages.backoffice.simulador.simulador_page import simulador_page
-from app.presentation.pages.backoffice.tipo_servicio.tipo_servicio_page import (
+from app.presentation.pages.backoffice.simulador.page import simulador_page
+from app.presentation.pages.backoffice.tipo_servicio.page import (
     tipo_servicio_page,
 )
 from app.presentation.pages.portal.asistencias import asistencias_page
@@ -124,7 +122,7 @@ BACKOFFICE_PAGE_ROUTES: tuple[PageRoute, ...] = (
     ("/nominas/conciliacion", conciliacion_nomina_page),
     ("/admin/usuarios", usuarios_admin_page),
     ("/admin/onboarding", admin_onboarding_page),
-    ("/admin/instituciones", instituciones_page),
+    ("/admin/instituciones", page),
 )
 
 PORTAL_PAGE_ROUTES: tuple[PageRoute, ...] = (

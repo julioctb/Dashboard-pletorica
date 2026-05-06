@@ -186,4 +186,5 @@ def metric_card_grid(
         columns=rx.breakpoints(**breakpoints),
         spacing=spacing,
         width="100%",
+        align="stretch",
     )

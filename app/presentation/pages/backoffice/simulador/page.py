@@ -5,7 +5,7 @@ import reflex as rx
 from app.core.ui_options import ESTADOS_DISPLAY, TIPO_SALARIO_CALCULO
 from app.presentation.components.ui import form_input, form_select
 from app.presentation.layouts.backoffice import page_header, page_layout
-from app.presentation.pages.backoffice.simulador.simulador_state import SimuladorState
+from app.presentation.pages.backoffice.simulador.state import SimuladorState
 from app.presentation.theme import (
     ButtonStyles,
     CardStyles,

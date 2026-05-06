@@ -3,7 +3,7 @@ import reflex as rx
 from app.presentation.components.ui.feedback import feedback_callout
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea, form_date
 from app.presentation.components.ui.buttons import boton_guardar
-from app.presentation.pages.backoffice.requisiciones.requisiciones_state import RequisicionesState
+from app.presentation.pages.backoffice.requisiciones.state import RequisicionesState
 from app.presentation.components.backoffice.requisiciones.requisicion_items_form import requisicion_items_form
 from app.presentation.components.common.archivo_uploader import archivo_uploader, archivo_visor
 from app.presentation.theme import Colors, Spacing, Typography

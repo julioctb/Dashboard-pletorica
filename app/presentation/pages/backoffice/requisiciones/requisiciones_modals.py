@@ -2,7 +2,7 @@
 import reflex as rx
 from app.presentation.components.ui.form_input import form_select, form_date, form_textarea
 from app.presentation.components.ui.buttons import boton_guardar, boton_cancelar, boton_eliminar
-from app.presentation.pages.backoffice.requisiciones.requisiciones_state import RequisicionesState
+from app.presentation.pages.backoffice.requisiciones.state import RequisicionesState
 from app.presentation.components.backoffice.requisiciones.requisicion_estado_badge import estado_requisicion_badge
 
 

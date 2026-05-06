@@ -3,7 +3,7 @@
 from decimal import Decimal
 
 from app.domain.models.categoria_puesto import CategoriaPuestoCreate
-from app.presentation.pages.backoffice.categorias_puesto.categorias_puesto_state import (
+from app.presentation.pages.backoffice.categorias_puesto.state import (
     CategoriasPuestoState,
 )
 

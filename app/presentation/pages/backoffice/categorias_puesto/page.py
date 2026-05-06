@@ -4,7 +4,7 @@ Muestra una tabla o cards con las categorias y acciones CRUD.
 """
 import reflex as rx
 from app.core.ui_helpers import FILTRO_TODOS
-from app.presentation.pages.backoffice.categorias_puesto.categorias_puesto_state import CategoriasPuestoState
+from app.presentation.pages.backoffice.categorias_puesto.state import CategoriasPuestoState
 from app.presentation.layouts.backoffice import (
     page_layout,
     page_header,

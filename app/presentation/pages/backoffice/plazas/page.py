@@ -25,7 +25,7 @@ from app.presentation.components.ui import (
     table_text_sm,
 )
 from app.presentation.layouts.backoffice import page_header, page_layout, page_toolbar
-from app.presentation.pages.backoffice.plazas.plazas_state import PlazasState
+from app.presentation.pages.backoffice.plazas.state import PlazasState
 from app.presentation.theme import Colors, Radius, Shadows, Spacing, Typography
 
 

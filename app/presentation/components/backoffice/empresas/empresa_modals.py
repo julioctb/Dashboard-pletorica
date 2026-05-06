@@ -2,7 +2,7 @@ import reflex as rx
 from app.presentation.components.ui.form_input import form_input, form_select, form_textarea
 from app.presentation.components.ui.feedback import feedback_callout
 from app.presentation.components.ui.modals import modal_formulario, modal_detalle
-from app.presentation.pages.backoffice.empresas.empresas_state import EmpresasState
+from app.presentation.pages.backoffice.empresas.state import EmpresasState
 from app.domain.models import TipoEmpresa, EstatusEmpresa
 
 

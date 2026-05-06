@@ -2,7 +2,7 @@
 Componentes de modal para Sedes BUAP.
 """
 import reflex as rx
-from app.presentation.pages.backoffice.sedes.sedes_state import SedesState
+from app.presentation.pages.backoffice.sedes.state import SedesState
 from app.presentation.components.ui.form_input import (
     form_input,
     form_select,
