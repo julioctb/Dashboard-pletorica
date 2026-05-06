@@ -7,20 +7,17 @@ Patron de manejo de errores:
 - DatabaseError: Errores de conexion o infraestructura
 - BusinessRuleError: Violaciones de reglas de negocio
 """
+
 import logging
 import re
 from typing import List, Optional
 
-from app.domain.models import (
-    TipoServicio,
-    TipoServicioCreate,
-    TipoServicioUpdate,
-)
-from app.domain.enums import Estatus, EstatusContrato, OrigenTipoServicio
-from app.domain.repositories import SupabaseTipoServicioRepository
 from app.core.exceptions import BusinessRuleError, DuplicateError
 from app.core.text_utils import normalizar_mayusculas
 from app.core.utils import generar_candidatos_codigo
+from app.domain.enums import Estatus, EstatusContrato, OrigenTipoServicio
+from app.domain.models import TipoServicio, TipoServicioCreate, TipoServicioUpdate
+from app.domain.repositories import SupabaseTipoServicioRepository
 from app.domain.services.base_service import BaseService
 
 logger = logging.getLogger(__name__)
@@ -62,7 +59,7 @@ class TipoServicioService(BaseService):
         self,
         incluir_inactivas: bool = False,
         limite: Optional[int] = None,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[TipoServicio]:
         """
         Obtiene todos los tipos de servicio con paginacion.
@@ -94,7 +91,9 @@ class TipoServicioService(BaseService):
             origen=OrigenTipoServicio.EMPRESA,
         )
 
-    async def obtener_activas_portal_empresa(self, empresa_id: int) -> List[TipoServicio]:
+    async def obtener_activas_portal_empresa(
+        self, empresa_id: int
+    ) -> List[TipoServicio]:
         """Obtiene tipos activos del catálogo de la empresa."""
         return await self.obtener_portal_empresa(
             empresa_id,
@@ -134,7 +133,10 @@ class TipoServicioService(BaseService):
             DuplicateError: Si la clave ya existe
             DatabaseError: Si hay error de BD
         """
-        tipo = TipoServicio(**tipo_create.model_dump())
+        datos = tipo_create.model_dump()
+        datos["clave"] = normalizar_mayusculas(datos.get("clave") or "")
+        datos["nombre"] = normalizar_mayusculas(datos.get("nombre") or "")
+        tipo = TipoServicio(**datos)
 
         logger.info(f"Creando tipo de servicio: {tipo.clave} - {tipo.nombre}")
 
@@ -161,18 +163,23 @@ class TipoServicioService(BaseService):
             )
 
         clave = await self._generar_clave_portal_empresa(nombre_normalizado)
-        return await self.crear(
-            TipoServicioCreate(
-                empresa_id=empresa_id,
-                clave=clave,
-                nombre=nombre_normalizado,
-                descripcion=descripcion,
-                origen=OrigenTipoServicio.EMPRESA,
-                estatus=Estatus.ACTIVO,
-            )
+        tipo_create = TipoServicioCreate(
+            empresa_id=empresa_id,
+            clave=clave,
+            nombre=nombre_normalizado,
+            descripcion=descripcion,
+            origen=OrigenTipoServicio.EMPRESA,
+            estatus=Estatus.ACTIVO,
         )
+        datos = tipo_create.model_dump()
+        datos["clave"] = normalizar_mayusculas(datos.get("clave") or "")
+        datos["nombre"] = normalizar_mayusculas(datos.get("nombre") or "")
+        tipo = TipoServicio(**datos)
+        return await self.repository.crear(tipo)
 
-    async def actualizar(self, tipo_id: int, tipo_update: TipoServicioUpdate) -> TipoServicio:
+    async def actualizar(
+        self, tipo_id: int, tipo_update: TipoServicioUpdate
+    ) -> TipoServicio:
         """
         Actualiza un tipo de servicio existente.
 
@@ -181,17 +188,22 @@ class TipoServicioService(BaseService):
             DuplicateError: Si la nueva clave ya existe
             DatabaseError: Si hay error de BD
         """
-        tipo_actual = await self._merge_y_actualizar(tipo_id, tipo_update, self.repository)
+        tipo_actual = await self._merge_y_actualizar(
+            tipo_id, tipo_update, self.repository
+        )
 
         logger.info(f"Actualizando tipo de servicio ID {tipo_id}")
 
         # Verificar clave duplicada (excluyendo el registro actual)
-        if await self.repository.existe_clave(tipo_actual.clave, excluir_id=tipo_actual.id):
+        if await self.repository.existe_clave(
+            tipo_actual.clave, excluir_id=tipo_actual.id
+        ):
             from app.core.exceptions import DuplicateError
+
             raise DuplicateError(
                 f"La clave '{tipo_actual.clave}' ya existe en otro tipo",
                 field="clave",
-                value=tipo_actual.clave
+                value=tipo_actual.clave,
             )
 
         return await self.repository.actualizar_entidad(tipo_actual)
@@ -256,7 +268,9 @@ class TipoServicioService(BaseService):
             tipo_id, Estatus.ACTIVO.value, self.repository, "El tipo"
         )
 
-    async def activar_portal_empresa(self, tipo_id: int, empresa_id: int) -> TipoServicio:
+    async def activar_portal_empresa(
+        self, tipo_id: int, empresa_id: int
+    ) -> TipoServicio:
         """Reactiva un tipo de servicio del catálogo de la empresa."""
         tipo = await self.obtener_por_id(tipo_id)
         self._validar_tipo_portal_empresa(tipo, empresa_id)
@@ -279,7 +293,8 @@ class TipoServicioService(BaseService):
         contratos_activos = [
             contrato
             for contrato in contratos
-            if contrato.estatus in (
+            if contrato.estatus
+            in (
                 EstatusContrato.BORRADOR,
                 EstatusContrato.ACTIVO,
                 EstatusContrato.SUSPENDIDO,
@@ -303,11 +318,15 @@ class TipoServicioService(BaseService):
     def _validar_tipo_portal_empresa(self, tipo: TipoServicio, empresa_id: int) -> None:
         """Garantiza que el tipo pertenezca al catálogo editable de la empresa."""
         if int(getattr(tipo, "empresa_id", 0) or 0) != int(empresa_id or 0):
-            raise BusinessRuleError("El tipo de servicio no pertenece a la empresa activa")
+            raise BusinessRuleError(
+                "El tipo de servicio no pertenece a la empresa activa"
+            )
         origen = getattr(tipo, "origen", OrigenTipoServicio.EMPRESA)
         raw_origen = getattr(origen, "value", origen)
         if str(raw_origen or "").upper() != OrigenTipoServicio.EMPRESA.value:
-            raise BusinessRuleError("El tipo de servicio es de solo lectura para la empresa")
+            raise BusinessRuleError(
+                "El tipo de servicio es de solo lectura para la empresa"
+            )
 
     async def _generar_clave_portal_empresa(self, nombre: str) -> str:
         """Genera una clave corta única para tipos de servicio del portal."""
@@ -327,7 +346,7 @@ class TipoServicioService(BaseService):
         for longitud in range(3, min(len(nombre_normalizado), 5) + 1):
             agregar(nombre_normalizado[:longitud])
         for indice in range(max(len(nombre_normalizado) - 4, 1)):
-            agregar(nombre_normalizado[indice: indice + 5])
+            agregar(nombre_normalizado[indice : indice + 5])
 
         agregar("TIPO")
 
