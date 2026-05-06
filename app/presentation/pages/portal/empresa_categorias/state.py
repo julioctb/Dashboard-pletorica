@@ -10,13 +10,11 @@ from typing import Optional
 import reflex as rx
 
 from app.core.catalogs import PoliticaFiscalResolver, Tolerancias
-from app.core.text_utils import (
-    capitalizar_con_preposiciones,
-    formatear_moneda,
-    normalizar_mayusculas,
-)
+from app.core.text_utils import (capitalizar_con_preposiciones,
+                                 formatear_moneda, normalizar_mayusculas)
 from app.domain.models import CategoriaPuesto, TipoServicio
-from app.modules.application import categoria_puesto_service, tipo_servicio_service
+from app.modules.application import (categoria_puesto_service,
+                                     tipo_servicio_service)
 from app.presentation.pages.portal.state.portal_state import PortalState
 
 FILTRO_TODOS = "all"
@@ -63,11 +61,7 @@ class EmpresaCategoriasState(PortalState):
     @staticmethod
     def _parse_salario(valor: str) -> Decimal:
         limpio = (
-            str(valor or "")
-            .replace(",", "")
-            .replace("$", "")
-            .replace(" ", "")
-            .strip()
+            str(valor or "").replace(",", "").replace("$", "").replace(" ", "").strip()
         )
         if not limpio:
             return Decimal("0")
@@ -97,8 +91,7 @@ class EmpresaCategoriasState(PortalState):
 
     def _salario_base_es_menor_salario_minimo(self, salario: Decimal) -> bool:
         return (
-            salario > Decimal("0")
-            and salario < self._salario_minimo_mensual_decimal()
+            salario > Decimal("0") and salario < self._salario_minimo_mensual_decimal()
         )
 
     @staticmethod
@@ -109,7 +102,7 @@ class EmpresaCategoriasState(PortalState):
             "id": tipo_id,
             "id_str": str(tipo_id),
             "nombre": nombre,
-            "nombre_display": capitalizar_con_preposiciones(nombre),
+            "nombre_display": normalizar_mayusculas(nombre),
         }
 
     def _serializar_categoria(
@@ -136,7 +129,7 @@ class EmpresaCategoriasState(PortalState):
             "clave": str(getattr(categoria, "clave", "") or ""),
             "clave_display": normalizar_mayusculas(getattr(categoria, "clave", "")),
             "nombre": str(getattr(categoria, "nombre", "") or ""),
-            "nombre_display": capitalizar_con_preposiciones(
+            "nombre_display": normalizar_mayusculas(
                 str(getattr(categoria, "nombre", "") or "")
             ),
             "salario_base_mensual": str(salario),
@@ -214,16 +207,22 @@ class EmpresaCategoriasState(PortalState):
                 continue
             categorias.extend(resultado)
 
-        conteos_contratos = await categoria_puesto_service.contar_contratos_por_categorias(
-            [int(getattr(categoria, "id", 0) or 0) for categoria in categorias]
+        conteos_contratos = (
+            await categoria_puesto_service.contar_contratos_por_categorias(
+                [int(getattr(categoria, "id", 0) or 0) for categoria in categorias]
+            )
         )
 
         self.tipos_servicio_catalogo = [self._serializar_tipo(tipo) for tipo in tipos]
         self.categorias_catalogo = [
             self._serializar_categoria(
                 categoria,
-                tipo_servicio=tipos_por_id.get(int(getattr(categoria, "tipo_servicio_id", 0) or 0)),
-                contratos_count=conteos_contratos.get(int(getattr(categoria, "id", 0) or 0), 0),
+                tipo_servicio=tipos_por_id.get(
+                    int(getattr(categoria, "tipo_servicio_id", 0) or 0)
+                ),
+                contratos_count=conteos_contratos.get(
+                    int(getattr(categoria, "id", 0) or 0), 0
+                ),
             )
             for categoria in categorias
             if int(getattr(categoria, "tipo_servicio_id", 0) or 0) in tipos_por_id
@@ -316,18 +315,26 @@ class EmpresaCategoriasState(PortalState):
         self._limpiar_form_categoria()
         self.categoria_editando_id = int(categoria.get("id") or 0)
         self.form_tipo_servicio_id = str(categoria.get("tipo_servicio_id_str") or "")
-        self.form_nombre_categoria = normalizar_mayusculas(str(categoria.get("nombre") or ""))
-        self.form_clave_categoria = normalizar_mayusculas(str(categoria.get("clave") or ""))
+        self.form_nombre_categoria = normalizar_mayusculas(
+            str(categoria.get("nombre") or "")
+        )
+        self.form_clave_categoria = normalizar_mayusculas(
+            str(categoria.get("clave") or "")
+        )
         salario_raw = str(categoria.get("salario_base_mensual") or "0")
         self.form_salario_base_categoria = (
             formatear_moneda(salario_raw) if Decimal(salario_raw) > Decimal("0") else ""
         )
-        self.categoria_editando_contratos_count = await categoria_puesto_service.contar_contratos_por_categoria(
-            self.categoria_editando_id
+        self.categoria_editando_contratos_count = (
+            await categoria_puesto_service.contar_contratos_por_categoria(
+                self.categoria_editando_id
+            )
         )
-        self.categoria_editando_puede_desactivar = await categoria_puesto_service.puede_desactivar_portal_empresa(
-            self.categoria_editando_id,
-            self.id_empresa_actual,
+        self.categoria_editando_puede_desactivar = (
+            await categoria_puesto_service.puede_desactivar_portal_empresa(
+                self.categoria_editando_id,
+                self.id_empresa_actual,
+            )
         )
         self.modal_categoria_abierto = True
 
@@ -461,11 +468,19 @@ class EmpresaCategoriasState(PortalState):
 
     @rx.var
     def total_activas(self) -> int:
-        return sum(1 for categoria in self.categorias_catalogo if categoria.get("estatus") == "ACTIVO")
+        return sum(
+            1
+            for categoria in self.categorias_catalogo
+            if categoria.get("estatus") == "ACTIVO"
+        )
 
     @rx.var
     def total_inactivas(self) -> int:
-        return sum(1 for categoria in self.categorias_catalogo if categoria.get("estatus") == "INACTIVO")
+        return sum(
+            1
+            for categoria in self.categorias_catalogo
+            if categoria.get("estatus") == "INACTIVO"
+        )
 
     @rx.var
     def anio_actual(self) -> int:
@@ -503,7 +518,10 @@ class EmpresaCategoriasState(PortalState):
 
     @rx.var
     def tiene_filtros_activos(self) -> bool:
-        return bool(str(self.busqueda_categoria or "").strip()) or self.filtro_estatus_categoria != FILTRO_TODOS
+        return (
+            bool(str(self.busqueda_categoria or "").strip())
+            or self.filtro_estatus_categoria != FILTRO_TODOS
+        )
 
     @rx.var
     def tipos_servicio_con_categorias(self) -> list[dict]:
@@ -525,7 +543,10 @@ class EmpresaCategoriasState(PortalState):
                     clave = str(categoria.get("clave_display") or "").lower()
                     if termino not in nombre and termino not in clave:
                         continue
-                if filtro_estatus != FILTRO_TODOS.upper() and str(categoria.get("estatus") or "").upper() != filtro_estatus:
+                if (
+                    filtro_estatus != FILTRO_TODOS.upper()
+                    and str(categoria.get("estatus") or "").upper() != filtro_estatus
+                ):
                     continue
                 categorias_visibles.append(categoria)
 
@@ -538,10 +559,20 @@ class EmpresaCategoriasState(PortalState):
                     **tipo,
                     "total_categorias": total_categorias,
                     "total_categorias_label": (
-                        f"{total_categorias} categoría" if total_categorias == 1 else f"{total_categorias} categorías"
+                        f"{total_categorias} categoría"
+                        if total_categorias == 1
+                        else f"{total_categorias} categorías"
                     ),
-                    "categorias": categorias_visibles if self.tiene_filtros_activos else categorias_tipo,
-                    "tiene_categorias": bool(categorias_visibles if self.tiene_filtros_activos else categorias_tipo),
+                    "categorias": (
+                        categorias_visibles
+                        if self.tiene_filtros_activos
+                        else categorias_tipo
+                    ),
+                    "tiene_categorias": bool(
+                        categorias_visibles
+                        if self.tiene_filtros_activos
+                        else categorias_tipo
+                    ),
                 }
             )
 
@@ -553,11 +584,15 @@ class EmpresaCategoriasState(PortalState):
 
     @rx.var
     def mostrar_empty_state_filtros(self) -> bool:
-        return self.tiene_filtros_activos and len(self.tipos_servicio_con_categorias) == 0
+        return (
+            self.tiene_filtros_activos and len(self.tipos_servicio_con_categorias) == 0
+        )
 
     @rx.var
     def titulo_modal_categoria(self) -> str:
-        return "Editar categoría" if self.categoria_editando_id > 0 else "Nueva categoría"
+        return (
+            "Editar categoría" if self.categoria_editando_id > 0 else "Nueva categoría"
+        )
 
     @rx.var
     def descripcion_modal_categoria(self) -> str:

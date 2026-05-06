@@ -1,15 +1,15 @@
 """
 Componentes de modal para Sedes BUAP.
 """
+
 import reflex as rx
+
+from app.presentation.components.ui.form_input import (form_input, form_row,
+                                                       form_select,
+                                                       form_textarea)
+from app.presentation.components.ui.modals import (modal_confirmar_accion,
+                                                   modal_formulario)
 from app.presentation.pages.backoffice.sedes.state import SedesState
-from app.presentation.components.ui.form_input import (
-    form_input,
-    form_select,
-    form_textarea,
-    form_row,
-)
-from app.presentation.components.ui.modals import modal_confirmar_accion, modal_formulario
 
 
 def modal_sede() -> rx.Component:
@@ -27,7 +27,6 @@ def modal_sede() -> rx.Component:
         contenido=rx.vstack(
             # Seccion: Informacion basica
             rx.text("Informacion basica", weight="bold", size="2", color="gray"),
-
             # Codigo y Tipo de sede
             form_row(
                 form_input(
@@ -40,6 +39,7 @@ def modal_sede() -> rx.Component:
                     error=SedesState.error_codigo,
                     max_length=20,
                     hint="Formato: PREFIJO-CLAVE",
+                    uppercase=True,
                 ),
                 form_select(
                     label="Tipo de sede",
@@ -51,7 +51,6 @@ def modal_sede() -> rx.Component:
                     error=SedesState.error_tipo_sede,
                 ),
             ),
-
             # Nombre completo
             form_input(
                 label="Nombre completo",
@@ -62,8 +61,8 @@ def modal_sede() -> rx.Component:
                 on_blur=SedesState.validar_nombre_campo,
                 error=SedesState.error_nombre,
                 max_length=150,
+                uppercase=True,
             ),
-
             # Nombre corto
             form_input(
                 label="Nombre corto",
@@ -75,10 +74,8 @@ def modal_sede() -> rx.Component:
                 max_length=50,
                 hint="Alias o abreviatura comun",
             ),
-
             # Seccion: Jerarquia y ubicacion
             rx.text("Jerarquia y ubicacion", weight="bold", size="2", color="gray"),
-
             # Es ubicacion fisica (switch)
             rx.hstack(
                 rx.switch(
@@ -89,7 +86,6 @@ def modal_sede() -> rx.Component:
                 spacing="2",
                 align="center",
             ),
-
             # Sede padre
             form_select(
                 label="Sede padre (jerarquia)",
@@ -99,7 +95,6 @@ def modal_sede() -> rx.Component:
                 on_change=SedesState.set_form_sede_padre_id,
                 hint="Ej: Facultad dentro de Campus",
             ),
-
             # Ubicacion fisica (solo si NO es ubicacion fisica)
             rx.cond(
                 ~SedesState.form_es_ubicacion_fisica,
@@ -112,10 +107,8 @@ def modal_sede() -> rx.Component:
                     hint="Sede con espacio fisico donde opera",
                 ),
             ),
-
             # Seccion: Detalles adicionales
             rx.text("Detalles adicionales", weight="bold", size="2", color="gray"),
-
             # Direccion
             form_textarea(
                 label="Direccion",
@@ -124,7 +117,6 @@ def modal_sede() -> rx.Component:
                 on_change=SedesState.set_form_direccion,
                 rows="2",
             ),
-
             # Notas
             form_textarea(
                 label="Notas",
@@ -133,7 +125,6 @@ def modal_sede() -> rx.Component:
                 on_change=SedesState.set_form_notas,
                 rows="3",
             ),
-
             spacing="4",
             width="100%",
             padding_y="4",

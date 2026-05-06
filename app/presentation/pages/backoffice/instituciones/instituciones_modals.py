@@ -1,13 +1,15 @@
 """
 Componentes de modal para Instituciones.
 """
+
 import reflex as rx
-from app.presentation.pages.backoffice.instituciones.state import InstitucionesState
-from app.presentation.components.ui.form_input import (
-    form_input,
-    form_select,
-)
-from app.presentation.components.ui.modals import modal_confirmar_accion, modal_formulario, modal_detalle
+
+from app.presentation.components.ui.form_input import form_input, form_select
+from app.presentation.components.ui.modals import (modal_confirmar_accion,
+                                                   modal_detalle,
+                                                   modal_formulario)
+from app.presentation.pages.backoffice.instituciones.state import \
+    InstitucionesState
 from app.presentation.theme import Colors, Spacing, Typography
 
 
@@ -36,6 +38,7 @@ def modal_institucion() -> rx.Component:
                 on_blur=InstitucionesState.validar_nombre_campo,
                 error=InstitucionesState.error_nombre,
                 max_length=200,
+                uppercase=True,
             ),
             form_input(
                 label="Codigo",
@@ -47,6 +50,7 @@ def modal_institucion() -> rx.Component:
                 on_blur=InstitucionesState.validar_codigo_campo,
                 error=InstitucionesState.error_codigo,
                 max_length=20,
+                uppercase=True,
             ),
             spacing="4",
             width="100%",
@@ -117,9 +121,7 @@ def modal_gestionar_empresas() -> rx.Component:
                 align="end",
                 gap=Spacing.SM,
             ),
-
             rx.divider(),
-
             # Lista de empresas asignadas
             rx.text(
                 "Empresas asignadas",
@@ -147,7 +149,6 @@ def modal_gestionar_empresas() -> rx.Component:
                     padding="4",
                 ),
             ),
-
             spacing="4",
             width="100%",
             padding_y="4",
@@ -164,7 +165,9 @@ def modal_confirmar_desactivar() -> rx.Component:
         detalle_contenido=rx.cond(
             InstitucionesState.institucion_seleccionada,
             rx.text(
-                rx.text(InstitucionesState.institucion_seleccionada["codigo"], weight="bold"),
+                rx.text(
+                    InstitucionesState.institucion_seleccionada["codigo"], weight="bold"
+                ),
                 " - ",
                 InstitucionesState.institucion_seleccionada["nombre"],
             ),

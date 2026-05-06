@@ -2,13 +2,9 @@
 
 import reflex as rx
 
-from app.presentation.components.ui import (
-    botones_modal,
-    feedback_callout,
-    form_input,
-    form_select,
-    modal_formulario,
-)
+from app.presentation.components.ui import (botones_modal, feedback_callout,
+                                            form_input, form_select,
+                                            modal_formulario)
 from app.presentation.theme import Colors, Spacing, Typography
 
 from .state import EmpresaCategoriasState
@@ -38,7 +34,9 @@ def modal_categoria_catalogo() -> rx.Component:
                 feedback_callout(
                     content=rx.text(
                         "Esta categoría está en "
-                        + EmpresaCategoriasState.categoria_editando_contratos_count.to(str)
+                        + EmpresaCategoriasState.categoria_editando_contratos_count.to(
+                            str
+                        )
                         + " contrato(s). Los cambios de nombre se reflejan en todos.",
                         font_size=Typography.SIZE_SM,
                     ),
@@ -67,6 +65,7 @@ def modal_categoria_catalogo() -> rx.Component:
                 error=EmpresaCategoriasState.error_form_nombre_categoria,
                 label_variant="portal",
                 style_variant="portal",
+                uppercase=True,
             ),
             rx.grid(
                 form_input(
@@ -78,6 +77,7 @@ def modal_categoria_catalogo() -> rx.Component:
                     hint="Se autogenera si se deja vacía",
                     label_variant="portal",
                     style_variant="portal",
+                    uppercase=True,
                 ),
                 form_input(
                     label="Salario base mensual sugerido",

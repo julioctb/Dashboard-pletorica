@@ -2,23 +2,17 @@
 
 import reflex as rx
 
-from app.presentation.components.ui import (
-    boton_cancelar,
-    boton_guardar,
-    empty_state_card,
-    filtros_inline,
-    form_input,
-    metric_card,
-    metric_card_grid,
-    tabla_cta_button,
-    table_shell,
-)
-from app.presentation.layouts.backoffice import page_header, page_layout, page_toolbar
+from app.presentation.components.ui import (boton_cancelar, boton_guardar,
+                                            empty_state_card, filtros_inline,
+                                            form_input, metric_card,
+                                            metric_card_grid, tabla_cta_button,
+                                            table_shell)
+from app.presentation.layouts.backoffice import (page_header, page_layout,
+                                                 page_toolbar)
 from app.presentation.theme import Colors, Radius, Spacing, Typography
 
 from .modals import modal_categoria_catalogo
-from .state import EmpresaCategoriasState, FILTRO_TODOS
-
+from .state import FILTRO_TODOS, EmpresaCategoriasState
 
 GRUPO_HEADERS = [
     {"nombre": "Categoría", "ancho": "200px", "header_align": "left"},
@@ -96,6 +90,7 @@ def _fila_categoria(item: dict) -> rx.Component:
                     font_weight=Typography.WEIGHT_MEDIUM,
                     color=Colors.TEXT_PRIMARY,
                     font_size=Typography.SIZE_SM,
+                    text_transform="uppercase",
                 ),
                 rx.text(
                     item["clave_display"],
@@ -152,14 +147,18 @@ def _fila_categoria(item: dict) -> rx.Component:
                     item["es_activa"],
                     tabla_cta_button(
                         text="Editar",
-                        on_click=EmpresaCategoriasState.editar_categoria_puesto(item["id"]),
+                        on_click=EmpresaCategoriasState.editar_categoria_puesto(
+                            item["id"]
+                        ),
                         color_scheme=Colors.NEUTRAL_SCHEME,
                         size="1",
                         variant="outline",
                     ),
                     tabla_cta_button(
                         text="Reactivar",
-                        on_click=EmpresaCategoriasState.reactivar_categoria_puesto(item["id"]),
+                        on_click=EmpresaCategoriasState.reactivar_categoria_puesto(
+                            item["id"]
+                        ),
                         color_scheme="green",
                         size="1",
                         variant="outline",
@@ -210,7 +209,9 @@ def _tipo_servicio_group(tipo: dict) -> rx.Component:
             rx.button(
                 rx.icon("plus", size=14),
                 "Agregar categoría",
-                on_click=EmpresaCategoriasState.abrir_modal_categoria_en_tipo(tipo["id"]),
+                on_click=EmpresaCategoriasState.abrir_modal_categoria_en_tipo(
+                    tipo["id"]
+                ),
                 color_scheme=Colors.PORTAL_ACCENT_SCHEME,
                 variant="soft",
                 size="2",

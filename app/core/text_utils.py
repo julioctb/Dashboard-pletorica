@@ -46,9 +46,6 @@ def normalizar_mayusculas(texto: Optional[str]) -> str:
     return texto.strip().upper()
 
 
-UPPERCASE_TRANSFORM = "uppercase"
-
-
 def _normalizar_fragmentos_codigo(texto: Optional[str]) -> list[str]:
     """Extrae palabras alfanuméricas normalizadas para generar claves."""
     texto_normalizado = normalizar_mayusculas(texto)
