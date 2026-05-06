@@ -1,6 +1,7 @@
 """
 State para la pagina de Bajas de Personal en el portal RRHH.
 """
+
 import logging
 from datetime import date
 from typing import List
@@ -36,7 +37,8 @@ class BajasState(PortalState):
 
         if self.empleado_id_query > 0:
             bajas = [
-                baja for baja in bajas
+                baja
+                for baja in bajas
                 if int(baja.get("empleado_id") or 0) == self.empleado_id_query
             ]
 
@@ -45,7 +47,8 @@ class BajasState(PortalState):
 
         termino = self.filtro_busqueda.lower()
         return [
-            baja for baja in bajas
+            baja
+            for baja in bajas
             if termino in (baja.get("empleado_nombre") or "").lower()
             or termino in (baja.get("empleado_clave") or "").lower()
             or termino in (baja.get("motivo") or "").lower()
@@ -116,7 +119,7 @@ class BajasState(PortalState):
             )
             bajas = []
             for resumen in resumenes:
-                baja = resumen.model_dump(mode='json')
+                baja = resumen.model_dump(mode="json")
                 baja["fecha_efectiva_fmt"] = self._formatear_fecha_iso(
                     str(baja.get("fecha_efectiva", ""))
                 )
@@ -131,7 +134,8 @@ class BajasState(PortalState):
 
             if self.filtro_estatus == "CERRADAS":
                 bajas = [
-                    baja for baja in bajas
+                    baja
+                    for baja in bajas
                     if baja.get("estatus") in ("CERRADA", "CANCELADA")
                 ]
 
@@ -212,7 +216,7 @@ class BajasState(PortalState):
             self.saving = False
 
     async def cancelar_baja(self):
-        """Cancela la baja y reactiva al empleado."""
+        """Cancela la baja y recalcula el estatus del empleado."""
         if not self.baja_seleccionada:
             return
 
@@ -224,7 +228,9 @@ class BajasState(PortalState):
             )
             self.cerrar_modal_accion()
             await self._recargar_resumen()
-            return rx.toast.success("Baja cancelada. Empleado reactivado.")
+            return rx.toast.success(
+                "Baja cancelada. El empleado quedará activo solo si tiene plaza asignada."
+            )
         except (BusinessRuleError, ValueError) as e:
             return rx.toast.error(str(e))
         except Exception as e:
@@ -239,7 +245,8 @@ class BajasState(PortalState):
             await self._cargar_bajas()
             msg = (
                 "Sustitucion marcada como requerida"
-                if requiere else "Marcado: no requiere sustitucion"
+                if requiere
+                else "Marcado: no requiere sustitucion"
             )
             return rx.toast.success(msg)
         except Exception as e:

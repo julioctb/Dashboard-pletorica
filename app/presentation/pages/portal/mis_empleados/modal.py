@@ -88,7 +88,7 @@ def modal_empleado() -> rx.Component:
             _employee_modal_identificacion_section(),
             _employee_modal_contacto_section(),
             _employee_modal_contacto_emergencia_section(),
-            _employee_modal_datos_bancarios_section(),
+            _seccion_datos_bancarios(),
             _employee_modal_descuentos_section(),
             _employee_modal_notas_field(),
             gap=Spacing.MD,
@@ -102,6 +102,7 @@ def modal_empleado() -> rx.Component:
             "Guardar cambios",
             "Crear empleado",
         ),
+        save_disabled=~MisEmpleadosState.puede_guardar_empleado,
         saving=MisEmpleadosState.saving,
         save_loading_text="Guardando...",
         save_color_scheme=Colors.PORTAL_ACCENT_SCHEME,
@@ -418,15 +419,7 @@ def _employee_modal_datos_bancarios_section() -> rx.Component:
     return _employee_modal_section(
         "Datos bancarios",
         _employee_modal_three_col_grid(
-            _employee_modal_select(
-                label="Banco",
-                value=MisEmpleadosState.form_banco,
-                on_change=MisEmpleadosState.set_form_banco,
-                options=MisEmpleadosState.opciones_banco_empleado,
-                error=MisEmpleadosState.error_banco,
-                placeholder="Seleccionar banco",
-                disabled=MisEmpleadosState.datos_bancarios_bloqueados,
-            ),
+            _employee_modal_banco_combo_editable(),
             _employee_modal_input(
                 label="No. de cuenta",
                 value=MisEmpleadosState.form_cuenta_bancaria,
@@ -468,6 +461,44 @@ def _employee_modal_datos_bancarios_section() -> rx.Component:
             ),
             rx.fragment(),
         ),
+    )
+
+
+def _employee_modal_banco_combo_editable() -> rx.Component:
+    """Campo banco editable con sugerencias rápidas."""
+    return rx.vstack(
+        _employee_modal_input(
+            label="Banco",
+            value=MisEmpleadosState.form_banco,
+            on_change=MisEmpleadosState.set_form_banco,
+            on_blur=MisEmpleadosState.validar_banco_blur,
+            error=MisEmpleadosState.error_banco,
+            placeholder="Escriba o seleccione un banco",
+            disabled=MisEmpleadosState.datos_bancarios_bloqueados,
+            hint="Se normaliza automáticamente a mayúsculas.",
+        ),
+        rx.cond(
+            MisEmpleadosState.datos_bancarios_bloqueados,
+            rx.fragment(),
+            rx.flex(
+                rx.foreach(
+                    MisEmpleadosState.opciones_banco_empleado,
+                    lambda option: rx.button(
+                        option["label"],
+                        size="1",
+                        variant="soft",
+                        color_scheme="gray",
+                        on_click=MisEmpleadosState.set_form_banco(option["value"]),
+                    ),
+                ),
+                gap="6px",
+                wrap="wrap",
+                width="100%",
+            ),
+        ),
+        align="stretch",
+        width="100%",
+        spacing="2",
     )
 
 
@@ -1456,6 +1487,8 @@ def _seccion_datos_bancarios() -> rx.Component:
         banco_on_change=MisEmpleadosState.set_form_banco,
         banco_on_blur=MisEmpleadosState.validar_banco_blur,
         banco_error=MisEmpleadosState.error_banco,
+        banco_options=MisEmpleadosState.opciones_banco_empleado,
+        banco_on_select=MisEmpleadosState.set_form_banco,
         clabe_value=MisEmpleadosState.form_clabe,
         clabe_on_change=MisEmpleadosState.set_form_clabe,
         clabe_on_blur=MisEmpleadosState.validar_clabe_blur,

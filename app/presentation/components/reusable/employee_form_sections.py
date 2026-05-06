@@ -473,6 +473,8 @@ def employee_bank_data_section(
     disabled: Any = False,
     header_action: rx.Component | None = None,
     helper_text: rx.Component | None = None,
+    banco_options: Any = None,
+    banco_on_select=None,
 ) -> rx.Component:
     """Sección reusable de datos bancarios para formularios de empleado."""
     return rx.vstack(
@@ -489,6 +491,51 @@ def employee_bank_data_section(
         ),
         helper_text if helper_text is not None else rx.fragment(),
         rx.hstack(
+            rx.vstack(
+                _field_stack(
+                    label=banco_label,
+                    value=banco_value,
+                    on_change=banco_on_change,
+                    on_blur=banco_on_blur,
+                    error=banco_error,
+                    placeholder="Ej: BBVA, Banorte",
+                    disabled=disabled,
+                ),
+                rx.cond(
+                    (banco_options is not None) & (banco_on_select is not None),
+                    rx.cond(
+                        disabled,
+                        rx.fragment(),
+                        rx.flex(
+                            rx.foreach(
+                                banco_options,
+                                lambda option: rx.button(
+                                    option["label"],
+                                    size="1",
+                                    variant="soft",
+                                    color_scheme="gray",
+                                    on_click=banco_on_select(option["value"]),
+                                ),
+                            ),
+                            gap="6px",
+                            wrap="wrap",
+                            width="100%",
+                        ),
+                    ),
+                    rx.fragment(),
+                ),
+                width="100%",
+                spacing="2",
+            ),
+            _field_stack(
+                label=clabe_label,
+                value=clabe_value,
+                on_change=clabe_on_change,
+                on_blur=clabe_on_blur,
+                error=clabe_error,
+                placeholder="18 digitos",
+                disabled=disabled,
+            ),
             _field_stack(
                 label=cuenta_label,
                 value=cuenta_value,
@@ -498,26 +545,8 @@ def employee_bank_data_section(
                 placeholder="10-18 digitos",
                 disabled=disabled,
             ),
-            _field_stack(
-                label=banco_label,
-                value=banco_value,
-                on_change=banco_on_change,
-                on_blur=banco_on_blur,
-                error=banco_error,
-                placeholder="Ej: BBVA, Banorte",
-                disabled=disabled,
-            ),
             spacing="3",
             width="100%",
-        ),
-        _field_stack(
-            label=clabe_label,
-            value=clabe_value,
-            on_change=clabe_on_change,
-            on_blur=clabe_on_blur,
-            error=clabe_error,
-            placeholder="18 digitos",
-            disabled=disabled,
         ),
         width="100%",
         spacing="2",

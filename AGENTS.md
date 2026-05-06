@@ -5,7 +5,7 @@ Compact repo guidance for future OpenCode sessions. For deeper architecture note
 ## Sources Of Truth
 
 - App composition starts at `app/app.py`, which calls `create_app()` in `app/bootstrap/app_factory.py`.
-- Reflex routes are defined in `app/presentation/config/routes.py` and registered by `app/bootstrap/routes_core.py`, `routes_backoffice.py`, and `routes_portal.py`.
+- Reflex routes are defined in `app/presentation/config/routes.py`. CORE routes register bare pages; backoffice/portal routes are wrapped in shell layout (`backoffice_page`, `portal_page`) by `app/bootstrap/routes_core.py`, `routes_backoffice.py`, and `routes_portal.py` before registration.
 - FastAPI is mounted into Reflex via `api_transformer=api_app`; API entrypoint is `app/api/main.py`, and v1 routers are registered in `app/api/v1/router.py`.
 - Runtime/dependency truth is `pyproject.toml` plus `poetry.lock`; `requirements.txt` is partial/deploy-oriented and can lag app deps.
 - Reflex config is `rxconfig.py`: `REFLEX_USE_GRANIAN=true`, React StrictMode disabled, `SitemapPlugin` and `TailwindV4Plugin` enabled.
@@ -15,8 +15,7 @@ Compact repo guidance for future OpenCode sessions. For deeper architecture note
 - Install: `poetry install`.
 - Run app: `poetry run reflex run`.
 - Reinitialize Reflex when generated state is broken: `poetry run reflex init`.
-- Default tests from config: `poetry run pytest -q` discovers `core/tests` and `tests`; it does not discover `app/tests/`.
-- Feature tests under `app/tests/` must be targeted explicitly, for example `poetry run pytest app/tests/test_validation.py -q` or `poetry run pytest app/tests -q`.
+- Tests are discovered in `tests/` via `pytest.ini` (`testpaths = core/tests tests`); `core/tests` does not exist so pytest warns/skips it. Run `poetry run pytest -q` for the root suite. No `app/tests/` exists; tests targeting that path will error.
 - Quality commands are manual; no root CI/pre-commit config exists: `poetry run black app/`, `poetry run isort app/`, `poetry run flake8 app/`, `poetry run mypy app/`.
 
 ## Environment And Tests
@@ -33,9 +32,9 @@ Compact repo guidance for future OpenCode sessions. For deeper architecture note
 - `/` is a role/context dispatcher, not the main dashboard; backoffice starts at `/admin`, portal at `/portal`.
 - Keep business logic out of Reflex render functions and components; normal flow is `presentation/state -> domain/services -> domain/repositories -> database`.
 - UI and components should not query Supabase directly; put orchestration in `State`, business rules in `app/domain/services/`, and complex data access in repositories.
-- Guardrail: `app/presentation/**` must not call `db_manager.get_client()`, `supabase.table(...)`, or `supabase.storage...` directly. Use services (for legacy bridge cases: `presentation_bridge_service`) and keep database calls out of page/state modules.
-- `app/modules/*` are mostly DDD facades over legacy `app/domain/*`; do not assume the real logic lives in the module directory.
-- Before choosing a state base, inspect the neighboring feature: common bases include `AuthState`, `PortalState`, `NominaBaseState`, and `CRUDStateMixin` combinations.
+- Guardrail: `app/presentation/**` must not call `db_manager.get_client()`, `supabase.table(...)`, or `supabase.storage...` directly. State files may call services (e.g., `presentation_bridge_service`) for complex operations — the rule is no direct Supabase client in presentation layer.
+- `app/modules/*` are DDD facades over legacy `app/domain/*`; do not assume the real logic lives in the module directory. `modules/application/` re-exports `app.domain.services` without adding logic.
+- Before choosing a state base, inspect the neighboring feature: common bases include `AuthState`, `PortalState`, `NominaBaseState`, and `CRUDStateMixin` combinations. Hierarchy is: `rx.State -> BaseState -> AuthState -> PortalState/NominaBaseState`.
 - For Reflex reactive rendering, use `rx.cond(...)` and `rx.foreach(...)`; keep `@rx.var` pure and cheap and prefer explicit setters in `State`.
 - Validation intentionally exists in two layers: form validators in `presentation/pages/.../*validators.py` and domain/core validators in `app/domain/` or `app/core/validation/`.
 
@@ -48,5 +47,5 @@ Compact repo guidance for future OpenCode sessions. For deeper architecture note
 ## Placement Conventions
 
 - For new UI features prefer the modular page shape (`page.py`, `state.py`, `components.py`, `modal.py`) unless the neighboring feature uses the legacy `*_page.py`, `*_state.py`, `*_modals.py`, `*_validators.py` style.
-- Reuse shared UI from `app/presentation/components/ui`, `shared`, `common`, and existing backoffice component folders before adding new widgets.
+- Reuse shared UI from `app/presentation/components/ui`, `components/shared`, `components/common`, and existing `components/backoffice/` feature folders before adding new widgets.
 - `wip/` is explicitly non-production and not in the Python package tree; do not import from it.

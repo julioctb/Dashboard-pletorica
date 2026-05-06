@@ -86,6 +86,120 @@ def descuentos_badges(descuentos: list[DescuentoActivoUI]) -> rx.Component:
     )
 
 
+def _identificacion_badge(status: str) -> rx.Component:
+    """Badge semáforo para RFC/NSS/CP según estado precomputado."""
+    return rx.match(
+        status,
+        (
+            "completo",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("check", size=12), rx.text("Completo", size="1")),
+                    color_scheme=Colors.SUCCESS_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="RFC, NSS y CP registrados",
+            ),
+        ),
+        (
+            "falta_rfc",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("circle_alert", size=12), rx.text("Falta RFC", size="1")),
+                    color_scheme=Colors.WARNING_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Falta RFC",
+            ),
+        ),
+        (
+            "falta_nss",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("circle_alert", size=12), rx.text("Falta NSS", size="1")),
+                    color_scheme=Colors.WARNING_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Falta NSS",
+            ),
+        ),
+        (
+            "falta_cp",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("circle_alert", size=12), rx.text("Falta CP", size="1")),
+                    color_scheme=Colors.WARNING_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Falta código postal",
+            ),
+        ),
+        (
+            "falta_rfc_nss",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("triangle_alert", size=12), rx.text("Falta RFC y NSS", size="1")),
+                    color_scheme=Colors.ERROR_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Faltan RFC y NSS",
+            ),
+        ),
+        (
+            "falta_rfc_cp",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("triangle_alert", size=12), rx.text("Falta RFC y CP", size="1")),
+                    color_scheme=Colors.ERROR_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Faltan RFC y código postal",
+            ),
+        ),
+        (
+            "falta_nss_cp",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("triangle_alert", size=12), rx.text("Falta NSS y CP", size="1")),
+                    color_scheme=Colors.ERROR_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Faltan NSS y código postal",
+            ),
+        ),
+        (
+            "faltan_tres",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("triangle_alert", size=12), rx.text("Faltan datos", size="1")),
+                    color_scheme=Colors.ERROR_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Faltan RFC, NSS y código postal",
+            ),
+        ),
+        rx.badge(
+            rx.text("—", size="1"),
+            color_scheme=Colors.NEUTRAL_SCHEME,
+            variant="soft",
+            size="1",
+        ),
+    )
+
+
+def identificacion_cell(status: str) -> rx.Component:
+    """Celda de identificación RFC/NSS/CP para tabla."""
+    return rx.center(_identificacion_badge(status), width="100%")
+
+
 # =============================================================================
 # ACCIONES
 # =============================================================================
@@ -160,14 +274,15 @@ def acciones_empleado(empleado: EmpleadoListadoUI) -> rx.Component:
 # =============================================================================
 
 ENCABEZADOS_EMPLEADOS = [
-    {"nombre": "Clave", "ancho": "100px"},
-    {"nombre": "Nombre", "ancho": "200px"},
-    {"nombre": "CURP", "ancho": "180px"},
-    {"nombre": "Empresa", "ancho": "150px"},
-    {"nombre": "Estatus", "ancho": "100px"},
-    {"nombre": "Descuentos", "ancho": "130px"},
-    {"nombre": "Onboarding", "ancho": "130px"},
-    {"nombre": "Acciones", "ancho": "120px"},
+    {"nombre": "Clave", "ancho": "80px"},
+    {"nombre": "Nombre", "ancho": "180px"},
+    {"nombre": "CURP", "ancho": "150px"},
+    {"nombre": "Empresa", "ancho": "120px"},
+    {"nombre": "Identificación", "ancho": "110px"},
+    {"nombre": "Estatus", "ancho": "90px"},
+    {"nombre": "Descuentos", "ancho": "110px"},
+    {"nombre": "Onboarding", "ancho": "110px"},
+    {"nombre": "Acciones", "ancho": "100px"},
 ]
 
 
@@ -193,6 +308,11 @@ def fila_empleado(empleado: EmpleadoListadoUI) -> rx.Component:
         # CURP
         rx.table.cell(
             table_text_sm(empleado["curp"], tone="muted"),
+            on_click=_abrir, style=_cell_style,
+        ),
+        # Identificación (RFC/NSS)
+        rx.table.cell(
+            identificacion_cell(empleado["identificacion_status"]),
             on_click=_abrir, style=_cell_style,
         ),
         # Empresa
@@ -306,6 +426,9 @@ def card_empleado(empleado: EmpleadoListadoUI) -> rx.Component:
                     spacing="2",
                     align="center",
                 ),
+
+                # Identificación RFC/NSS
+                _identificacion_badge(empleado["identificacion_status"]),
 
                 # Empresa
                 rx.hstack(

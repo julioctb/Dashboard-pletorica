@@ -1,4 +1,0 @@
-interface:
-  display_name: "Core Source Auditor"
-  short_description: "Audita app/core y su centralizacion"
-  default_prompt: "Use $core-source-auditor to audit app/core as the source of truth, detect duplicated logic, and flag dead or redundant code."

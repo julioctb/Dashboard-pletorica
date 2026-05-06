@@ -5,6 +5,7 @@ AltaEmpleadoBuap: datos mínimos para dar de alta un empleado desde BUAP.
 CompletarDatosEmpleado: datos que el empleado llena en autoservicio.
 ExpedienteStatus: value object con el estado del expediente documental.
 """
+
 import re
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator, ConfigDict
@@ -41,6 +42,9 @@ class AltaEmpleadoBuap(BaseModel):
     Datos mínimos que BUAP proporciona para dar de alta un empleado.
 
     El CURP se valida con el mismo patrón que la entidad Empleado.
+
+    Nota: La sede, categoría y sueldo se asignan al asignar una plaza.
+    Este modelo solo contiene los datos mínimos de registro.
     """
 
     model_config = ConfigDict(
@@ -53,21 +57,22 @@ class AltaEmpleadoBuap(BaseModel):
     apellido_paterno: str = Field(min_length=APELLIDO_MIN, max_length=APELLIDO_MAX)
     apellido_materno: Optional[str] = Field(None, max_length=APELLIDO_MAX)
     email: Optional[str] = Field(None, max_length=EMAIL_MAX)
-    sede_id: Optional[int] = None
 
-    @field_validator('curp', mode='before')
+    @field_validator("curp", mode="before")
     @classmethod
     def validar_curp(cls, v: str) -> str:
         """Valida formato de CURP (reutiliza patrón de Empleado)."""
         if v:
             v = v.upper().strip()
             if len(v) != CURP_LEN:
-                raise ValueError(f'CURP debe tener {CURP_LEN} caracteres (tiene {len(v)})')
+                raise ValueError(
+                    f"CURP debe tener {CURP_LEN} caracteres (tiene {len(v)})"
+                )
             if not re.match(CURP_PATTERN, v):
-                raise ValueError('CURP con formato inválido')
+                raise ValueError("CURP con formato inválido")
         return v
 
-    @field_validator('nombre', 'apellido_paterno', 'apellido_materno', mode='before')
+    @field_validator("nombre", "apellido_paterno", "apellido_materno", mode="before")
     @classmethod
     def normalizar_nombre(cls, v: Optional[str]) -> Optional[str]:
         """Normaliza nombres a mayúsculas."""
@@ -75,14 +80,14 @@ class AltaEmpleadoBuap(BaseModel):
             return v.upper().strip()
         return v
 
-    @field_validator('email', mode='before')
+    @field_validator("email", mode="before")
     @classmethod
     def validar_email(cls, v: Optional[str]) -> Optional[str]:
         """Valida formato de email."""
         if v:
             v = v.lower().strip()
-            if '@' not in v or '.' not in v:
-                raise ValueError('Email con formato inválido')
+            if "@" not in v or "." not in v:
+                raise ValueError("Email con formato inválido")
         return v
 
 
@@ -108,17 +113,17 @@ class CompletarDatosEmpleado(BaseModel):
     banco: Optional[str] = Field(None, max_length=BANCO_MAX)
     clabe_interbancaria: Optional[str] = Field(None, max_length=CLABE_LEN)
 
-    @field_validator('telefono', mode='before')
+    @field_validator("telefono", mode="before")
     @classmethod
     def validar_telefono(cls, v: Optional[str]) -> Optional[str]:
         """Valida teléfono (solo 10 dígitos)."""
         if v:
-            v = re.sub(r'[^0-9]', '', v)
+            v = re.sub(r"[^0-9]", "", v)
             if len(v) != TELEFONO_DIGITOS:
-                raise ValueError(f'Teléfono debe tener {TELEFONO_DIGITOS} dígitos')
+                raise ValueError(f"Teléfono debe tener {TELEFONO_DIGITOS} dígitos")
         return v
 
-    @field_validator('clabe_interbancaria', mode='before')
+    @field_validator("clabe_interbancaria", mode="before")
     @classmethod
     def validar_clabe(cls, v: Optional[str]) -> Optional[str]:
         """Valida CLABE interbancaria (18 dígitos)."""
@@ -129,7 +134,7 @@ class CompletarDatosEmpleado(BaseModel):
                 raise ValueError(error)
         return v
 
-    @field_validator('cuenta_bancaria', mode='before')
+    @field_validator("cuenta_bancaria", mode="before")
     @classmethod
     def validar_cuenta(cls, v: Optional[str]) -> Optional[str]:
         """Valida cuenta bancaria (10-18 dígitos)."""
@@ -140,7 +145,7 @@ class CompletarDatosEmpleado(BaseModel):
                 raise ValueError(error)
         return v
 
-    @field_validator('banco', mode='before')
+    @field_validator("banco", mode="before")
     @classmethod
     def normalizar_banco(cls, v: Optional[str]) -> Optional[str]:
         """Normaliza banco a mayúsculas antes de persistir."""

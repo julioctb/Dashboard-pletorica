@@ -116,11 +116,9 @@ class Empleado(BaseModel):
     )
 
     # Estado laboral
-    estatus: EstatusEmpleado = Field(default=EstatusEmpleado.ACTIVO)
+    estatus: EstatusEmpleado = Field(default=EstatusEmpleado.INACTIVO)
     fecha_ingreso: date = Field(default_factory=date.today)
     fecha_ingreso_vigente: Optional[date] = None
-    fecha_baja: Optional[date] = None
-    motivo_baja: Optional[MotivoBaja] = None
 
     # Notas
     notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
@@ -159,8 +157,11 @@ class Empleado(BaseModel):
     requiere_cambio_password: bool = True
     fecha_primer_acceso: Optional[datetime] = None
 
-    # Sede
-    sede_id: Optional[int] = Field(None)
+    # Plaza actual - fuente de verdad para actividad laboral
+    plaza_actual_id: Optional[int] = Field(
+        None,
+        description="Plaza vigente del empleado. NULL = inactivo. Sincronizado por trigger desde plazas.",
+    )
 
     # Auditoría
     fecha_creacion: Optional[datetime] = None
@@ -247,20 +248,6 @@ class Empleado(BaseModel):
                 raise ValueError(error)
         return v
 
-    @field_validator("fecha_baja", mode="after")
-    @classmethod
-    def validar_fecha_baja(cls, v: Optional[date], info) -> Optional[date]:
-        """Valida que fecha_baja sea >= fecha_ingreso_vigente."""
-        if v and ("fecha_ingreso_vigente" in info.data or "fecha_ingreso" in info.data):
-            fecha_ingreso = info.data.get("fecha_ingreso_vigente") or info.data.get(
-                "fecha_ingreso"
-            )
-            if fecha_ingreso and v < fecha_ingreso:
-                raise ValueError(
-                    "Fecha de baja no puede ser anterior a fecha de ingreso"
-                )
-        return v
-
     # =========================================================================
     # MÉTODOS DE CONSULTA
     # =========================================================================
@@ -306,9 +293,8 @@ class Empleado(BaseModel):
         return edad
 
     def antiguedad_dias(self) -> int:
-        """Calcula días de antigüedad desde el ingreso vigente."""
-        fecha_fin = self.fecha_baja or date.today()
-        return (fecha_fin - (self.fecha_ingreso_vigente or self.fecha_ingreso)).days
+        """Calcula días de antigüedad desde el ingreso vigente hasta hoy."""
+        return (date.today() - (self.fecha_ingreso_vigente or self.fecha_ingreso)).days
 
     def antiguedad_anios(self) -> float:
         """Calcula años de antigüedad."""
@@ -319,12 +305,16 @@ class Empleado(BaseModel):
     # =========================================================================
 
     def activar(self):
-        """Activa el empleado."""
+        """
+        Activa el empleado.
+
+        Nota: con la nueva fuente de verdad (plaza_actual_id),
+        el empleado se activa automaticamente al asignarle una plaza.
+        Este metodo es para compatibilidad con flujos legacy.
+        """
         if self.estatus == EstatusEmpleado.ACTIVO:
             raise ValueError(msg_entidad_ya_estado("El empleado", "activo"))
         self.estatus = EstatusEmpleado.ACTIVO
-        self.fecha_baja = None
-        self.motivo_baja = None
 
     def suspender(self):
         """Suspende el empleado."""
@@ -333,12 +323,17 @@ class Empleado(BaseModel):
         self.estatus = EstatusEmpleado.SUSPENDIDO
 
     def dar_de_baja(self, motivo: MotivoBaja, fecha: Optional[date] = None):
-        """Da de baja al empleado con motivo y fecha."""
+        """
+        Marca al empleado como inactivo.
+
+        Nota: con la nueva arquitectura, los datos de baja (fecha, motivo)
+        se gestionan en la tabla bajas_empleado, no en empleados.
+        Este metodo existe por compatibilidad; los datos reales de baja
+        deben consultarse desde bajas_empleado.
+        """
         if self.estatus == EstatusEmpleado.INACTIVO:
             raise ValueError(msg_entidad_ya_estado("El empleado", "dado de baja"))
         self.estatus = EstatusEmpleado.INACTIVO
-        self.fecha_baja = fecha or date.today()
-        self.motivo_baja = motivo
 
     # =========================================================================
     # MÉTODOS ESTÁTICOS
@@ -478,8 +473,6 @@ class EmpleadoUpdate(BaseModel):
     estatus: Optional[EstatusEmpleado] = None
     fecha_ingreso: Optional[date] = None
     fecha_ingreso_vigente: Optional[date] = None
-    fecha_baja: Optional[date] = None
-    motivo_baja: Optional[MotivoBaja] = None
     notas: Optional[str] = Field(None, max_length=NOTAS_MAX)
 
     # Campos de restriccion (solo admins pueden modificar via servicio)
@@ -491,7 +484,7 @@ class EmpleadoUpdate(BaseModel):
     # Onboarding / autoservicio
     estatus_onboarding: Optional[str] = None
     user_id: Optional[UUID] = None
-    sede_id: Optional[int] = None
+    plaza_actual_id: Optional[int] = None
 
     # Datos bancarios
     cuenta_bancaria: Optional[str] = Field(None, max_length=18)
@@ -573,6 +566,9 @@ class EmpleadoResumen(BaseModel):
     fecha_ingreso_vigente: Optional[date] = None
     telefono: Optional[str] = None
     email: Optional[str] = None
+    rfc: Optional[str] = None
+    nss: Optional[str] = None
+    codigo_postal: Optional[str] = None
     estatus_onboarding: Optional[str] = None
     documentos_aprobados_expediente: int = 0
     documentos_requeridos_expediente: int = 0
@@ -605,6 +601,9 @@ class EmpleadoResumen(BaseModel):
             fecha_ingreso_vigente=empleado.fecha_ingreso_vigente,
             telefono=empleado.telefono,
             email=empleado.email,
+            rfc=empleado.rfc,
+            nss=empleado.nss,
+            codigo_postal=empleado.codigo_postal,
             estatus_onboarding=empleado.estatus_onboarding,
             documentos_aprobados_expediente=documentos_aprobados_expediente,
             documentos_requeridos_expediente=documentos_requeridos_expediente,
@@ -646,6 +645,9 @@ class EmpleadoResumen(BaseModel):
             fecha_ingreso_vigente=data.get("fecha_ingreso_vigente"),
             telefono=data.get("telefono"),
             email=data.get("email"),
+            rfc=data.get("rfc"),
+            nss=data.get("nss"),
+            codigo_postal=data.get("codigo_postal"),
             estatus_onboarding=data.get("estatus_onboarding"),
             documentos_aprobados_expediente=documentos_aprobados_expediente,
             documentos_requeridos_expediente=documentos_requeridos_expediente,

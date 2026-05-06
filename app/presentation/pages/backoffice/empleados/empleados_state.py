@@ -7,13 +7,16 @@ Refactorizado para usar:
 - ui_helpers para opciones de enums
 - BaseState.limpiar_formulario para limpieza de formularios
 """
+
 import reflex as rx
 from typing import List, Optional, Dict, Any, TypedDict
 from datetime import date
 
 from app.presentation.components.shared.auth_state import AuthState
 from app.presentation.components.shared.crud_state_mixin import CRUDStateMixin
-from app.presentation.components.shared.employee_form_state_mixin import EmployeeFormStateMixin
+from app.presentation.components.shared.employee_form_state_mixin import (
+    EmployeeFormStateMixin,
+)
 from app.core.ui_helpers import (
     FILTRO_TODOS,
     opciones_desde_enum,
@@ -25,7 +28,11 @@ from app.modules.empleados.application import (
 )
 from app.core.text_utils import formatear_fecha, formatear_fecha_hora
 from app.core.utils import normalize_date_input, parse_date_input
-from app.modules.empleados.domain.enums import EstatusEmpleado, GeneroEmpleado, MotivoBaja
+from app.modules.empleados.domain.enums import (
+    EstatusEmpleado,
+    GeneroEmpleado,
+    MotivoBaja,
+)
 
 from app.domain.models import (
     EmpleadoCreate,
@@ -65,6 +72,10 @@ class EmpleadoListadoUI(TypedDict):
     estatus_onboarding: str
     email: str
     telefono: str
+    rfc: str
+    nss: str
+    codigo_postal: str
+    identificacion_status: str
     descuentos_activos_hoy: list[DescuentoActivoUI]
 
 
@@ -99,8 +110,16 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         "notas_liberacion": "",
     }
     _campos_error: List[str] = [
-        "curp", "rfc", "nss", "nombre", "apellido_paterno",
-        "email", "telefono", "empresa_id", "fecha_ingreso", "descuentos_recurrentes"
+        "curp",
+        "rfc",
+        "nss",
+        "nombre",
+        "apellido_paterno",
+        "email",
+        "telefono",
+        "empresa_id",
+        "fecha_ingreso",
+        "descuentos_recurrentes",
     ]
 
     # ========================
@@ -142,6 +161,28 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     mostrar_modal_historial: bool = False
     es_edicion: bool = False
     pestaña_activa: str = "datos"
+
+    @staticmethod
+    def _resolver_identificacion_status(rfc: str, nss: str, codigo_postal: str) -> str:
+        rfc_val = str(rfc or "").strip()
+        nss_val = str(nss or "").strip()
+        cp_val = str(codigo_postal or "").strip()
+
+        if rfc_val and nss_val and cp_val:
+            return "completo"
+        if not rfc_val and not nss_val and not cp_val:
+            return "faltan_tres"
+        if not rfc_val and not nss_val:
+            return "falta_rfc_nss"
+        if not rfc_val and not cp_val:
+            return "falta_rfc_cp"
+        if not nss_val and not cp_val:
+            return "falta_nss_cp"
+        if not rfc_val:
+            return "falta_rfc"
+        if not nss_val:
+            return "falta_nss"
+        return "falta_cp"
 
     # ========================
     # FORMULARIO
@@ -227,9 +268,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
             self.hay_mas = False
             try:
                 empleados = await empleado_service.buscar(
-                    texto=value,
-                    empresa_id=self._empresa_id_filtro_actual(),
-                    limite=200
+                    texto=value, empresa_id=self._empresa_id_filtro_actual(), limite=200
                 )
                 self.empleados = await self._convertir_a_dicts(empleados)
                 self.total_empleados = len(self.empleados)
@@ -423,7 +462,8 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
         termino = self.filtro_busqueda.lower()
         return [
-            e for e in self.empleados
+            e
+            for e in self.empleados
             if termino in e.get("nombre_completo", "").lower()
             or termino in e.get("curp", "").lower()
             or termino in e.get("clave", "").lower()
@@ -554,9 +594,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
             # Buscar empleados
             if self.filtro_busqueda and len(self.filtro_busqueda) >= 2:
                 empleados = await empleado_service.buscar(
-                    texto=self.filtro_busqueda,
-                    empresa_id=empresa_id,
-                    limite=200
+                    texto=self.filtro_busqueda, empresa_id=empresa_id, limite=200
                 )
                 self.hay_mas = False
             elif empresa_id:
@@ -564,14 +602,14 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                     empresa_id=empresa_id,
                     incluir_inactivos=incluir_inactivos,
                     limite=self.por_pagina,
-                    offset=0
+                    offset=0,
                 )
                 self.hay_mas = len(empleados) >= self.por_pagina
             else:
                 empleados = await empleado_service.obtener_todos(
                     incluir_inactivos=incluir_inactivos,
                     limite=self.por_pagina,
-                    offset=0
+                    offset=0,
                 )
                 self.hay_mas = len(empleados) >= self.por_pagina
 
@@ -589,11 +627,15 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
             "empresas",
             lambda: empresa_service.obtener_todas(incluir_inactivas=False),
             contexto_error="cargando empresas",
-            transformar=lambda e: {
-                "id": e.id,
-                "nombre_comercial": e.nombre_comercial,
-                "codigo_corto": e.codigo_corto or "",
-            } if e.puede_tener_empleados() and self._empresa_en_alcance(e.id) else None,
+            transformar=lambda e: (
+                {
+                    "id": e.id,
+                    "nombre_comercial": e.nombre_comercial,
+                    "codigo_corto": e.codigo_corto or "",
+                }
+                if e.puede_tener_empleados() and self._empresa_en_alcance(e.id)
+                else None
+            ),
         )
         self.empresas = [empresa for empresa in empresas if empresa]
         if not self.es_admin:
@@ -608,10 +650,15 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         self.loading = True
         try:
             empleado = await empleado_service.obtener_por_id(empleado_id)
+            from app.modules.empleados.application import baja_service
+
             descuentos_resumen = (
                 await empleado_descuento_recurrente_service.obtener_resumenes_ui_por_empleados(
                     [empleado_id]
                 )
+            ).get(empleado_id, {})
+            baja_actual = (
+                await baja_service.obtener_ultimas_bajas_por_empleados([empleado_id])
             ).get(empleado_id, {})
 
             # Obtener nombre de empresa
@@ -634,34 +681,54 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 "empresa_id": empleado.empresa_id,
                 "empresa_nombre": empresa_nombre,
                 "estatus": empleado.estatus,
-                "fecha_ingreso": formatear_fecha(empleado.fecha_ingreso) if empleado.fecha_ingreso else "",
-                "fecha_ingreso_iso": empleado.fecha_ingreso.isoformat() if empleado.fecha_ingreso else "",
+                "fecha_ingreso": (
+                    formatear_fecha(empleado.fecha_ingreso)
+                    if empleado.fecha_ingreso
+                    else ""
+                ),
+                "fecha_ingreso_iso": (
+                    empleado.fecha_ingreso.isoformat() if empleado.fecha_ingreso else ""
+                ),
                 "fecha_ingreso_vigente": (
                     formatear_fecha(empleado.fecha_ingreso_vigente)
-                    if empleado.fecha_ingreso_vigente else ""
+                    if empleado.fecha_ingreso_vigente
+                    else ""
                 ),
                 "fecha_ingreso_vigente_iso": (
                     empleado.fecha_ingreso_vigente.isoformat()
-                    if empleado.fecha_ingreso_vigente else ""
+                    if empleado.fecha_ingreso_vigente
+                    else ""
                 ),
                 "telefono": empleado.telefono or "",
                 "email": empleado.email or "",
                 "rfc": empleado.rfc or "",
                 "nss": empleado.nss or "",
-                "fecha_nacimiento": formatear_fecha(empleado.fecha_nacimiento) if empleado.fecha_nacimiento else "",
-                "fecha_nacimiento_iso": empleado.fecha_nacimiento.isoformat() if empleado.fecha_nacimiento else "",
+                "fecha_nacimiento": (
+                    formatear_fecha(empleado.fecha_nacimiento)
+                    if empleado.fecha_nacimiento
+                    else ""
+                ),
+                "fecha_nacimiento_iso": (
+                    empleado.fecha_nacimiento.isoformat()
+                    if empleado.fecha_nacimiento
+                    else ""
+                ),
                 "genero": empleado.genero or "",
                 "direccion": empleado.direccion or "",
                 "contacto_emergencia": empleado.contacto_emergencia or "",
                 "notas": empleado.notas or "",
-                "fecha_baja": formatear_fecha(empleado.fecha_baja) if empleado.fecha_baja else "",
-                "motivo_baja": empleado.motivo_baja or "",
+                "fecha_baja": formatear_fecha(baja_actual.get("fecha_efectiva")),
+                "motivo_baja": baja_actual.get("motivo") or "",
                 "antiguedad_anios": empleado.antiguedad_anios(),
                 "edad": empleado.edad(),
                 "is_restricted": empleado.is_restricted,
                 "restriction_reason": empleado.restriction_reason or "",
-                "restricted_at": empleado.restricted_at.isoformat() if empleado.restricted_at else "",
-                "restricted_by": str(empleado.restricted_by) if empleado.restricted_by else "",
+                "restricted_at": (
+                    empleado.restricted_at.isoformat() if empleado.restricted_at else ""
+                ),
+                "restricted_by": (
+                    str(empleado.restricted_by) if empleado.restricted_by else ""
+                ),
                 "descuentos_configurados": descuentos_resumen.get(
                     "descuentos_configurados",
                     [],
@@ -910,7 +977,9 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
         descuentos_form = self._construir_descuentos_recurrentes_form()
         if descuentos_form is None:
-            return rx.toast.error(self.error_descuentos_recurrentes or "Revise los descuentos recurrentes")
+            return rx.toast.error(
+                self.error_descuentos_recurrentes or "Revise los descuentos recurrentes"
+            )
 
         # Validar que tenemos ID en modo edición
         if self.es_edicion and not self.empleado_id_edicion:
@@ -927,13 +996,14 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 )
 
                 empleado_actualizado = await empleado_service.actualizar(
-                    self.empleado_id_edicion,  # Usar ID guardado
-                    empleado_update
+                    self.empleado_id_edicion, empleado_update  # Usar ID guardado
                 )
                 await empleado_descuento_recurrente_service.reemplazar_descuentos_empleado(
                     empleado_actualizado.id,
                     [
-                        descuento.model_copy(update={"empleado_id": empleado_actualizado.id})
+                        descuento.model_copy(
+                            update={"empleado_id": empleado_actualizado.id}
+                        )
                         for descuento in descuentos_form
                     ],
                 )
@@ -961,7 +1031,9 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
                 self.cerrar_modal_empleado()
                 await self._fetch_empleados()
-                return rx.toast.success(f"Empleado {empleado.clave} creado correctamente")
+                return rx.toast.success(
+                    f"Empleado {empleado.clave} creado correctamente"
+                )
 
         except DuplicateError as e:
             if "curp" in str(e).lower():
@@ -982,7 +1054,8 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
         empleado_id = (
             self.empleado_seleccionado.get("id")
-            if isinstance(self.empleado_seleccionado, dict) else None
+            if isinstance(self.empleado_seleccionado, dict)
+            else None
         )
         if not empleado_id:
             yield rx.toast.error("Error: No se pudo obtener el ID del empleado")
@@ -1006,8 +1079,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         registrado_por = self.obtener_uuid_usuario_actual()
 
         empresa_id = (
-            self.empleado_seleccionado.get("empresa_id")
-            or self.id_empresa_actual
+            self.empleado_seleccionado.get("empresa_id") or self.id_empresa_actual
         )
 
         self.saving = True
@@ -1040,7 +1112,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
             self.saving = False
 
     async def reactivar_empleado(self):
-        """Reactiva al empleado seleccionado"""
+        """Retira la suspensión del empleado seleccionado."""
         empleado_id = self._obtener_empleado_id_seleccionado()
         if empleado_id is None:
             return rx.toast.error("No hay empleado seleccionado")
@@ -1049,7 +1121,7 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
         return await self._ejecutar_cambio_estatus_empleado(
             operacion=lambda: empleado_service.reactivar(empleado_id),
-            mensaje_exito="Empleado reactivado correctamente",
+            mensaje_exito="Suspensión retirada. El estatus se recalculó según su plaza actual.",
         )
 
     async def suspender_empleado(self):
@@ -1074,10 +1146,10 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
         )
 
     async def reactivar_desde_lista(self, empleado_id: int):
-        """Reactiva un empleado desde la lista (sin modal de detalle)"""
+        """Retira la suspensión desde la lista."""
         return await self.ejecutar_guardado(
             operacion=lambda: empleado_service.reactivar(empleado_id),
-            mensaje_exito="Empleado reactivado correctamente",
+            mensaje_exito="Suspensión retirada. El estatus se recalculó según su plaza actual.",
             on_exito=self.cargar_empleados,
         )
 
@@ -1100,13 +1172,13 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                     empresa_id=empresa_id,
                     incluir_inactivos=incluir_inactivos,
                     limite=self.por_pagina,
-                    offset=offset
+                    offset=offset,
                 )
             else:
                 nuevos = await empleado_service.obtener_todos(
                     incluir_inactivos=incluir_inactivos,
                     limite=self.por_pagina,
-                    offset=offset
+                    offset=offset,
                 )
 
             self.hay_mas = len(nuevos) >= self.por_pagina
@@ -1123,6 +1195,8 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
 
     async def _convertir_a_dicts(self, empleados) -> list:
         """Convierte lista de Empleado a dicts para la UI."""
+        from app.modules.empleados.application import baja_service
+
         empresas_cache = {}
         for emp in empleados:
             if emp.empresa_id is not None and emp.empresa_id not in empresas_cache:
@@ -1133,6 +1207,9 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                     empresas_cache[emp.empresa_id] = "N/A"
 
         descuentos_resumen = await empleado_descuento_recurrente_service.obtener_resumenes_ui_por_empleados(
+            [emp.id for emp in empleados if emp.id is not None]
+        )
+        bajas_resumen = await baja_service.obtener_ultimas_bajas_por_empleados(
             [emp.id for emp in empleados if emp.id is not None]
         )
 
@@ -1146,28 +1223,43 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
                 "apellido_paterno": emp.apellido_paterno,
                 "apellido_materno": emp.apellido_materno or "",
                 "empresa_id": emp.empresa_id,
-                "empresa_nombre": empresas_cache.get(emp.empresa_id, "N/A") if emp.empresa_id is not None else "Sin asignar",
+                "empresa_nombre": (
+                    empresas_cache.get(emp.empresa_id, "N/A")
+                    if emp.empresa_id is not None
+                    else "Sin asignar"
+                ),
                 "estatus": emp.estatus,
-                "fecha_ingreso": formatear_fecha(emp.fecha_ingreso) if emp.fecha_ingreso else "",
+                "fecha_ingreso": (
+                    formatear_fecha(emp.fecha_ingreso) if emp.fecha_ingreso else ""
+                ),
                 "fecha_ingreso_vigente": (
                     formatear_fecha(emp.fecha_ingreso_vigente)
-                    if emp.fecha_ingreso_vigente else ""
+                    if emp.fecha_ingreso_vigente
+                    else ""
                 ),
                 "telefono": emp.telefono or "",
                 "email": emp.email or "",
-                "rfc": emp.rfc or "",
-                "nss": emp.nss or "",
-                "fecha_nacimiento": emp.fecha_nacimiento.isoformat() if emp.fecha_nacimiento else "",
+                "rfc": str(emp.rfc or "").strip(),
+                "nss": str(emp.nss or "").strip(),
+                "codigo_postal": str(emp.codigo_postal or "").strip(),
+                "identificacion_status": self._resolver_identificacion_status(emp.rfc or "", emp.nss or "", emp.codigo_postal or ""),
+                "fecha_nacimiento": (
+                    emp.fecha_nacimiento.isoformat() if emp.fecha_nacimiento else ""
+                ),
                 "genero": emp.genero or "",
                 "direccion": emp.direccion or "",
                 "contacto_emergencia": emp.contacto_emergencia or "",
                 "notas": emp.notas or "",
-                "fecha_baja": formatear_fecha(emp.fecha_baja) if emp.fecha_baja else "",
-                "motivo_baja": emp.motivo_baja or "",
+                "fecha_baja": formatear_fecha(
+                    bajas_resumen.get(emp.id or 0, {}).get("fecha_efectiva")
+                ),
+                "motivo_baja": bajas_resumen.get(emp.id or 0, {}).get("motivo") or "",
                 "estatus_onboarding": emp.estatus_onboarding or "",
                 "is_restricted": emp.is_restricted,
                 "restriction_reason": emp.restriction_reason or "",
-                "restricted_at": emp.restricted_at.isoformat() if emp.restricted_at else "",
+                "restricted_at": (
+                    emp.restricted_at.isoformat() if emp.restricted_at else ""
+                ),
                 "restricted_by": str(emp.restricted_by) if emp.restricted_by else "",
                 "descuentos_configurados": descuentos_resumen.get(emp.id, {}).get(
                     "descuentos_configurados",
@@ -1226,7 +1318,8 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
     def _limpiar_formulario(self):
         """Limpia el formulario usando configuración del mixin"""
         self._reset_employee_form_fields(
-            error_fields=self._campos_error + ["fecha_ingreso", "descuentos_recurrentes"],
+            error_fields=self._campos_error
+            + ["fecha_ingreso", "descuentos_recurrentes"],
             extra_defaults={
                 "form_empresa_id": "",
                 "form_motivo_baja": "",
@@ -1316,7 +1409,11 @@ class EmpleadosState(AuthState, CRUDStateMixin, EmployeeFormStateMixin):
             curp_validator=validar_curp,
             required_validations=[
                 ("error_nombre", self.form_nombre, validar_nombre),
-                ("error_apellido_paterno", self.form_apellido_paterno, validar_apellido_paterno),
+                (
+                    "error_apellido_paterno",
+                    self.form_apellido_paterno,
+                    validar_apellido_paterno,
+                ),
             ],
             optional_validations=[
                 ("error_rfc", self.form_rfc, validar_rfc),

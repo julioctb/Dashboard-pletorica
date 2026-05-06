@@ -3,6 +3,7 @@ Endpoints REST del modulo Onboarding.
 
 Alta de empleados, gestion de expedientes y documentos.
 """
+
 import logging
 from uuid import UUID
 
@@ -46,7 +47,11 @@ def _obtener_user_id_request(request: Request) -> UUID:
     description="Da de alta un nuevo empleado en el proceso de onboarding.",
 )
 async def alta_empleado(request_http: Request, request: AltaEmpleadoRequest):
-    """Registra un nuevo empleado desde RRHH."""
+    """Registra un nuevo empleado desde RRHH.
+
+    El empleado se crea en estatus INACTIVO.
+    La sede, categoría y sueldo se asignan al asignar una plaza.
+    """
     try:
         datos = AltaEmpleadoBuap(
             empresa_id=request.empresa_id,
@@ -55,7 +60,6 @@ async def alta_empleado(request_http: Request, request: AltaEmpleadoRequest):
             apellido_paterno=request.apellido_paterno,
             apellido_materno=request.apellido_materno,
             email=request.email,
-            sede_id=request.sede_id,
         )
 
         registrado_por = _obtener_user_id_request(request_http)

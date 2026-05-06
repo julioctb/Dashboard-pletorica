@@ -5,6 +5,7 @@ Patron Orquestador (como alta_masiva_service): NO accede a BD directamente,
 coordina llamadas a otros servicios.
 Usa imports diferidos para evitar dependencias circulares.
 """
+
 import logging
 from typing import List, Optional
 from uuid import UUID
@@ -32,12 +33,12 @@ class OnboardingService:
     """
 
     TRANSICIONES_VALIDAS = {
-        'REGISTRADO': ['DATOS_PENDIENTES'],
-        'DATOS_PENDIENTES': ['DOCUMENTOS_PENDIENTES'],
-        'DOCUMENTOS_PENDIENTES': ['EN_REVISION'],
-        'EN_REVISION': ['APROBADO', 'RECHAZADO'],
-        'RECHAZADO': ['DOCUMENTOS_PENDIENTES'],
-        'APROBADO': ['ACTIVO_COMPLETO'],
+        "REGISTRADO": ["DATOS_PENDIENTES"],
+        "DATOS_PENDIENTES": ["DOCUMENTOS_PENDIENTES"],
+        "DOCUMENTOS_PENDIENTES": ["EN_REVISION"],
+        "EN_REVISION": ["APROBADO", "RECHAZADO"],
+        "RECHAZADO": ["DOCUMENTOS_PENDIENTES"],
+        "APROBADO": ["ACTIVO_COMPLETO"],
     }
 
     async def alta_empleado_buap(
@@ -49,7 +50,7 @@ class OnboardingService:
         Flujo:
         1. Valida CURP (formato + duplicados)
         2. Crea empleado via empleado_service
-        3. Actualiza estatus_onboarding y sede_id
+        3. Actualiza estatus_onboarding
         4. Crea notificacion de alta
 
         Args:
@@ -92,25 +93,25 @@ class OnboardingService:
         )
         empleado = await empleado_service.crear(empleado_create)
 
-        # 3. Actualizar onboarding y sede
+        # 3. Actualizar solo estatus de onboarding
         update_data = EmpleadoUpdate(
             estatus_onboarding=EstatusOnboarding.DATOS_PENDIENTES.value,
         )
-        if datos.sede_id:
-            update_data.sede_id = datos.sede_id
 
         empleado = await empleado_service.actualizar(empleado.id, update_data)
 
         # 4. Notificar alta
         try:
-            await notificacion_service.crear(NotificacionCreate(
-                empresa_id=datos.empresa_id,
-                titulo="Nuevo empleado registrado",
-                mensaje=f"Se registro al empleado {empleado.nombre} {empleado.apellido_paterno} ({empleado.clave})",
-                tipo="onboarding_alta",
-                entidad_tipo="EMPLEADO",
-                entidad_id=empleado.id,
-            ))
+            await notificacion_service.crear(
+                NotificacionCreate(
+                    empresa_id=datos.empresa_id,
+                    titulo="Nuevo empleado registrado",
+                    mensaje=f"Se registro al empleado {empleado.nombre} {empleado.apellido_paterno} ({empleado.clave})",
+                    tipo="onboarding_alta",
+                    entidad_tipo="EMPLEADO",
+                    entidad_id=empleado.id,
+                )
+            )
         except Exception as e:
             logger.warning(f"No se pudo crear notificacion de alta: {e}")
 
@@ -123,22 +124,22 @@ class OnboardingService:
         Returns:
             ExpedienteStatus con conteos y porcentaje.
         """
-        from app.domain.services.empleado_documento_service import empleado_documento_service
+        from app.domain.services.empleado_documento_service import (
+            empleado_documento_service,
+        )
 
         conteos = await empleado_documento_service.contar_por_estatus(empleado_id)
 
-        total_requeridos = conteos['total_requeridos']
+        total_requeridos = conteos["total_requeridos"]
         porcentaje = 0.0
         if total_requeridos > 0:
-            porcentaje = round(
-                (conteos['aprobados'] / total_requeridos) * 100, 1
-            )
+            porcentaje = round((conteos["aprobados"] / total_requeridos) * 100, 1)
 
         return ExpedienteStatus(
             documentos_requeridos=total_requeridos,
-            documentos_subidos=conteos['subidos'],
-            documentos_aprobados=conteos['aprobados'],
-            documentos_rechazados=conteos['rechazados'],
+            documentos_subidos=conteos["subidos"],
+            documentos_aprobados=conteos["aprobados"],
+            documentos_rechazados=conteos["rechazados"],
             porcentaje_completado=porcentaje,
         )
 
@@ -157,7 +158,7 @@ class OnboardingService:
         from app.domain.services.empleado_service import empleado_service
 
         empleado = await empleado_service.obtener_por_id(empleado_id)
-        estatus_actual = empleado.estatus_onboarding or 'REGISTRADO'
+        estatus_actual = empleado.estatus_onboarding or "REGISTRADO"
 
         destinos_validos = self.TRANSICIONES_VALIDAS.get(estatus_actual, [])
         if nuevo_estatus.value not in destinos_validos:
@@ -189,39 +190,43 @@ class OnboardingService:
         try:
             supabase = db_manager.get_client()
             query = (
-                supabase.table('empleados')
+                supabase.table("empleados")
                 .select(
-                    'id, clave, curp, nombre, apellido_paterno, '
-                    'apellido_materno, email, estatus_onboarding, '
-                    'fecha_creacion, sede_id'
+                    "id, uuid, clave, curp, rfc, nss, codigo_postal, nombre, apellido_paterno, "
+                    "apellido_materno, email, estatus_onboarding, "
+                    "fecha_creacion"
                 )
-                .eq('empresa_id', empresa_id)
-                .not_.is_('estatus_onboarding', 'null')
+                .eq("empresa_id", empresa_id)
+                .not_.is_("estatus_onboarding", "null")
             )
 
             if estatus:
-                query = query.eq('estatus_onboarding', estatus)
+                query = query.eq("estatus_onboarding", estatus)
 
-            result = query.order('fecha_creacion', desc=True).execute()
+            result = query.order("fecha_creacion", desc=True).execute()
 
             empleados = []
-            for r in (result.data or []):
-                nombre_completo = f"{r.get('nombre', '')} {r.get('apellido_paterno', '')}".strip()
-                if r.get('apellido_materno'):
+            for r in result.data or []:
+                nombre_completo = (
+                    f"{r.get('nombre', '')} {r.get('apellido_paterno', '')}".strip()
+                )
+                if r.get("apellido_materno"):
                     nombre_completo += f" {r['apellido_materno']}"
-                r['nombre_completo'] = nombre_completo
+                r["nombre_completo"] = nombre_completo
                 empleados.append(r)
 
             return empleados
 
         except Exception as e:
-            logger.error(f"Error obteniendo empleados onboarding empresa {empresa_id}: {e}")
+            logger.error(
+                f"Error obteniendo empleados onboarding empresa {empresa_id}: {e}"
+            )
             raise DatabaseError(f"Error obteniendo empleados en onboarding: {e}")
 
     async def completar_datos(
         self,
         empleado_id: int,
-        datos: 'CompletarDatosEmpleado',
+        datos: "CompletarDatosEmpleado",
         cambiado_por: UUID | None = None,
     ) -> Empleado:
         """
@@ -231,13 +236,17 @@ class OnboardingService:
         """
         from app.domain.models.onboarding import CompletarDatosEmpleado
         from app.domain.services.empleado_service import empleado_service
-        from app.domain.services.cuenta_bancaria_historial_service import cuenta_bancaria_historial_service
-        from app.domain.models.cuenta_bancaria_historial import CuentaBancariaHistorialCreate
+        from app.domain.services.cuenta_bancaria_historial_service import (
+            cuenta_bancaria_historial_service,
+        )
+        from app.domain.models.cuenta_bancaria_historial import (
+            CuentaBancariaHistorialCreate,
+        )
 
         # 1. Obtener empleado, validar estatus
         empleado = await empleado_service.obtener_por_id(empleado_id)
-        estatus_actual = empleado.estatus_onboarding or 'REGISTRADO'
-        if estatus_actual != 'DATOS_PENDIENTES':
+        estatus_actual = empleado.estatus_onboarding or "REGISTRADO"
+        if estatus_actual != "DATOS_PENDIENTES":
             raise BusinessRuleError(
                 f"Solo se pueden completar datos cuando el estatus es DATOS_PENDIENTES "
                 f"(estatus actual: {estatus_actual})"
@@ -249,11 +258,13 @@ class OnboardingService:
         await empleado_service.actualizar(empleado_id, empleado_update)
 
         # 3. Si tiene datos bancarios, registrar en historial
-        tiene_bancarios = any([
-            datos.cuenta_bancaria,
-            datos.banco,
-            datos.clabe_interbancaria,
-        ])
+        tiene_bancarios = any(
+            [
+                datos.cuenta_bancaria,
+                datos.banco,
+                datos.clabe_interbancaria,
+            ]
+        )
         if tiene_bancarios:
             try:
                 if cambiado_por:
@@ -264,7 +275,9 @@ class OnboardingService:
                         clabe_interbancaria=datos.clabe_interbancaria,
                         cambiado_por=cambiado_por,
                     )
-                    await cuenta_bancaria_historial_service.registrar_cambio(historial_datos)
+                    await cuenta_bancaria_historial_service.registrar_cambio(
+                        historial_datos
+                    )
                 else:
                     logger.warning(
                         "Se omitió el historial bancario del empleado %s por falta de actor",
@@ -285,15 +298,17 @@ class OnboardingService:
         Valida que tenga al menos los documentos obligatorios subidos.
         Transiciona DOCUMENTOS_PENDIENTES -> EN_REVISION.
         """
-        from app.domain.services.empleado_documento_service import empleado_documento_service
+        from app.domain.services.empleado_documento_service import (
+            empleado_documento_service,
+        )
         from app.domain.services.empleado_service import empleado_service
         from app.domain.services.notificacion_service import notificacion_service
 
         empleado = await empleado_service.obtener_por_id(empleado_id)
-        estatus_actual = empleado.estatus_onboarding or 'REGISTRADO'
+        estatus_actual = empleado.estatus_onboarding or "REGISTRADO"
 
         # Permitir envio desde DOCUMENTOS_PENDIENTES o RECHAZADO
-        if estatus_actual not in ('DOCUMENTOS_PENDIENTES', 'RECHAZADO'):
+        if estatus_actual not in ("DOCUMENTOS_PENDIENTES", "RECHAZADO"):
             raise BusinessRuleError(
                 f"Solo se puede enviar a revision desde DOCUMENTOS_PENDIENTES o RECHAZADO "
                 f"(estatus actual: {estatus_actual})"
@@ -301,15 +316,15 @@ class OnboardingService:
 
         # Validar documentos subidos
         conteos = await empleado_documento_service.contar_por_estatus(empleado_id)
-        total_requeridos = conteos['total_requeridos']
-        subidos = conteos['subidos']
+        total_requeridos = conteos["total_requeridos"]
+        subidos = conteos["subidos"]
         if subidos < total_requeridos:
             raise BusinessRuleError(
                 f"Faltan documentos por subir: {subidos}/{total_requeridos} documentos obligatorios"
             )
 
         # Transicionar (manejar RECHAZADO -> DOCUMENTOS_PENDIENTES -> EN_REVISION)
-        if estatus_actual == 'RECHAZADO':
+        if estatus_actual == "RECHAZADO":
             await self.transicionar_estatus(
                 empleado_id, EstatusOnboarding.DOCUMENTOS_PENDIENTES
             )
@@ -319,14 +334,16 @@ class OnboardingService:
 
         # Notificar
         try:
-            await notificacion_service.crear(NotificacionCreate(
-                empresa_id=empleado.empresa_id,
-                titulo="Expediente enviado a revision",
-                mensaje=f"El empleado {empleado.nombre} {empleado.apellido_paterno} envio su expediente para revision",
-                tipo="onboarding_revision",
-                entidad_tipo="EMPLEADO",
-                entidad_id=empleado_id,
-            ))
+            await notificacion_service.crear(
+                NotificacionCreate(
+                    empresa_id=empleado.empresa_id,
+                    titulo="Expediente enviado a revision",
+                    mensaje=f"El empleado {empleado.nombre} {empleado.apellido_paterno} envio su expediente para revision",
+                    tipo="onboarding_revision",
+                    entidad_tipo="EMPLEADO",
+                    entidad_id=empleado_id,
+                )
+            )
         except Exception as e:
             logger.warning(f"No se pudo crear notificacion de envio a revision: {e}")
 
@@ -344,32 +361,35 @@ class OnboardingService:
         try:
             supabase = db_manager.get_client()
             query = (
-                supabase.table('empleados')
+                supabase.table("empleados")
                 .select(
-                    'id, clave, curp, nombre, apellido_paterno, '
-                    'apellido_materno, email, estatus_onboarding, '
-                    'fecha_creacion, sede_id, empresa_id, '
-                    'empresas(nombre_comercial)'
+                    "id, clave, curp, nombre, apellido_paterno, "
+                    "apellido_materno, email, estatus_onboarding, "
+                    "fecha_creacion, empresa_id, "
+                    "empresas(nombre_comercial)"
                 )
-                .not_.is_('estatus_onboarding', 'null')
+                .not_.is_("estatus_onboarding", "null")
             )
 
             if estatus:
-                query = query.eq('estatus_onboarding', estatus)
+                query = query.eq("estatus_onboarding", estatus)
 
-            result = query.order('fecha_creacion', desc=True).execute()
+            result = query.order("fecha_creacion", desc=True).execute()
 
             empleados = []
-            for r in (result.data or []):
-                nombre_completo = f"{r.get('nombre', '')} {r.get('apellido_paterno', '')}".strip()
-                if r.get('apellido_materno'):
+            for r in result.data or []:
+                nombre_completo = (
+                    f"{r.get('nombre', '')} {r.get('apellido_paterno', '')}".strip()
+                )
+                if r.get("apellido_materno"):
                     nombre_completo += f" {r['apellido_materno']}"
-                r['nombre_completo'] = nombre_completo
+                r["nombre_completo"] = nombre_completo
 
-                empresa_data = r.pop('empresas', None)
-                r['nombre_empresa'] = (
-                    empresa_data.get('nombre_comercial', 'N/A')
-                    if empresa_data else 'N/A'
+                empresa_data = r.pop("empresas", None)
+                r["nombre_empresa"] = (
+                    empresa_data.get("nombre_comercial", "N/A")
+                    if empresa_data
+                    else "N/A"
                 )
                 empleados.append(r)
 
@@ -379,9 +399,7 @@ class OnboardingService:
             logger.error(f"Error obteniendo empleados onboarding global: {e}")
             raise DatabaseError(f"Error obteniendo empleados en onboarding: {e}")
 
-    async def obtener_conteos_pipeline(
-        self, empresa_id: Optional[int] = None
-    ) -> dict:
+    async def obtener_conteos_pipeline(self, empresa_id: Optional[int] = None) -> dict:
         """
         Conteos por estatus para el pipeline visual.
         Returns: {DATOS_PENDIENTES: 5, DOCUMENTOS_PENDIENTES: 3, ...}
@@ -391,19 +409,19 @@ class OnboardingService:
         try:
             supabase = db_manager.get_client()
             query = (
-                supabase.table('empleados')
-                .select('estatus_onboarding')
-                .not_.is_('estatus_onboarding', 'null')
+                supabase.table("empleados")
+                .select("estatus_onboarding")
+                .not_.is_("estatus_onboarding", "null")
             )
 
             if empresa_id:
-                query = query.eq('empresa_id', empresa_id)
+                query = query.eq("empresa_id", empresa_id)
 
             result = query.execute()
 
             conteos = {}
-            for r in (result.data or []):
-                estatus = r.get('estatus_onboarding', '')
+            for r in result.data or []:
+                estatus = r.get("estatus_onboarding", "")
                 if estatus:
                     conteos[estatus] = conteos.get(estatus, 0) + 1
 

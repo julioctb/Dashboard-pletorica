@@ -684,14 +684,10 @@ class IncapacidadState(PortalState):
             self.cargando_incapacidades = False
 
     def ir_a_ficha_empleado(self, incapacidad: dict):
-        empleado_ref = str(
-            incapacidad.get("empleado_uuid")
-            or incapacidad.get("empleado_id")
-            or ""
-        ).strip()
-        if empleado_ref == "":
+        empleado_uuid = str(incapacidad.get("empleado_uuid") or "").strip()
+        if not empleado_uuid:
             return rx.toast.error("No se pudo abrir la ficha del empleado")
-        return rx.redirect(f"/portal/empleados/{empleado_ref}")
+        return rx.redirect(f"/portal/empleados/{empleado_uuid}")
 
     async def guardar_incapacidad(self):
         if self.empleado_contexto_id <= 0:

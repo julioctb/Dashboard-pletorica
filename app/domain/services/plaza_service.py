@@ -565,6 +565,16 @@ class PlazaService:
         empleado_id: int,
         fecha_asignacion: Optional[date] = None,
     ) -> Plaza:
+        """
+        Asigna un empleado a una plaza.
+
+        Flujo:
+        1. Valida que la plaza tenga categoría y sede.
+        2. Actualiza plazas.empleado_id.
+        3. El trigger de BD sincroniza empleados.plaza_actual_id.
+        4. El trigger de BD sincroniza empleados.estatus desde plaza_actual_id.
+        5. Se registra en historial como bitácora (no afecta estatus).
+        """
         fecha_asignacion = fecha_asignacion or date.today()
         plaza = await self.repository.obtener_por_id(plaza_id)
         if plaza.categoria_puesto_id is None:
@@ -579,30 +589,44 @@ class PlazaService:
             raise BusinessRuleError("La plaza no está disponible para asignación")
         plaza.empleado_id = empleado_id
         plaza.estatus = EstatusPlaza.OCUPADA
-        plaza_actualizada = await self.repository.actualizar(plaza)
-
-        from app.domain.services import empleado_service
 
         await self._sincronizar_historial_asignacion(
             empleado_id,
             plaza_id,
             fecha_asignacion,
         )
-        await empleado_service.sincronizar_estatus_por_plazas(
-            empleado_id,
-            tiene_plaza_activa=True,
-            fecha_ingreso_vigente=fecha_asignacion,
-        )
+
+        plaza_actualizada = await self.repository.actualizar(plaza)
+
+        from app.domain.services import empleado_service
+
+        try:
+            await empleado_service.sincronizar_estatus_por_plazas(
+                empleado_id,
+                tiene_plaza_activa=True,
+                fecha_ingreso_vigente=fecha_asignacion,
+            )
+        except Exception:
+            pass
+
         return plaza_actualizada
 
     async def liberar_plaza(self, plaza_id: int) -> Plaza:
+        """
+        Libera una plaza ocupada.
+
+        Flujo:
+        1. Limpia plazas.empleado_id.
+        2. El trigger de BD sincroniza empleados.plaza_actual_id a NULL.
+        3. El trigger de BD sincroniza empleados.estatus a INACTIVO.
+        4. Se registra en historial como bitácora.
+        """
         plaza = await self.repository.obtener_por_id(plaza_id)
         if plaza.estatus != EstatusPlaza.OCUPADA:
             raise BusinessRuleError("Solo se pueden liberar plazas ocupadas")
         empleado_id = int(plaza.empleado_id or 0)
         plaza.empleado_id = None
         plaza.estatus = EstatusPlaza.VACANTE
-        plaza_actualizada = await self.repository.actualizar(plaza)
 
         if empleado_id > 0:
             from app.domain.services import empleado_service
@@ -612,10 +636,15 @@ class PlazaService:
                 empleado_id,
                 excluir_plaza_id=plaza_id,
             )
-            await empleado_service.sincronizar_estatus_por_plazas(
-                empleado_id,
-                tiene_plaza_activa=tiene_plaza_activa,
-            )
+            try:
+                await empleado_service.sincronizar_estatus_por_plazas(
+                    empleado_id,
+                    tiene_plaza_activa=tiene_plaza_activa,
+                )
+            except Exception:
+                pass
+
+        plaza_actualizada = await self.repository.actualizar(plaza)
         return plaza_actualizada
 
     async def reasignar_empleado_a_plaza(
@@ -625,6 +654,15 @@ class PlazaService:
         plaza_destino_id: int,
         fecha_asignacion: Optional[date] = None,
     ) -> Plaza:
+        """
+        Reasigna un empleado de una plaza a otra.
+
+        Flujo:
+        1. Libera plaza origen (actualiza plazas.empleado_id a NULL).
+        2. Asigna plaza destino (actualiza plazas.empleado_id).
+        3. Los triggers sincronizan plaza_actual_id y estatus automaticamente.
+        4. Se registra cambio en historial.
+        """
         fecha_asignacion = fecha_asignacion or date.today()
         if plaza_origen_id == plaza_destino_id:
             raise BusinessRuleError("Seleccione una plaza destino diferente")
@@ -657,26 +695,33 @@ class PlazaService:
             )
 
         empleado_id = int(plaza_origen.empleado_id or 0)
+
         plaza_origen.empleado_id = None
         plaza_origen.estatus = EstatusPlaza.VACANTE
         await self.repository.actualizar(plaza_origen)
 
         plaza_destino.empleado_id = empleado_id
         plaza_destino.estatus = EstatusPlaza.OCUPADA
-        plaza_actualizada = await self.repository.actualizar(plaza_destino)
-
-        from app.domain.services import empleado_service
 
         await self._sincronizar_historial_asignacion(
             empleado_id,
             plaza_destino_id,
             fecha_asignacion,
         )
-        await empleado_service.sincronizar_estatus_por_plazas(
-            empleado_id,
-            tiene_plaza_activa=True,
-            fecha_ingreso_vigente=fecha_asignacion,
-        )
+
+        plaza_actualizada = await self.repository.actualizar(plaza_destino)
+
+        from app.domain.services import empleado_service
+
+        try:
+            await empleado_service.sincronizar_estatus_por_plazas(
+                empleado_id,
+                tiene_plaza_activa=True,
+                fecha_ingreso_vigente=fecha_asignacion,
+            )
+        except Exception:
+            pass
+
         return plaza_actualizada
 
     async def suspender_plaza(self, plaza_id: int) -> Plaza:

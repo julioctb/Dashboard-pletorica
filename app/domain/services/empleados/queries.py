@@ -65,7 +65,7 @@ class EmpleadoQueryService:
         self,
         empresa_id: int,
         incluir_inactivos: bool = False,
-        limite: Optional[int] = 50,
+        limite: Optional[int] = None,
         offset: int = 0,
     ) -> list[Empleado]:
         return await self.root.repository.obtener_por_empresa(
@@ -88,7 +88,7 @@ class EmpleadoQueryService:
         self,
         empresa_id: int,
         incluir_inactivos: bool = False,
-        limite: int = 50,
+        limite: Optional[int] = None,
         offset: int = 0,
     ) -> list[EmpleadoResumen]:
         empleados = await self.obtener_por_empresa(

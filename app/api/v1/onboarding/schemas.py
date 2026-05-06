@@ -1,6 +1,7 @@
 """
 Schemas Pydantic para los endpoints de onboarding.
 """
+
 from datetime import datetime
 from typing import Optional
 
@@ -8,18 +9,23 @@ from pydantic import BaseModel, Field
 
 
 class AltaEmpleadoRequest(BaseModel):
-    """Request para dar de alta un empleado."""
+    """
+    Request para dar de alta un empleado.
+
+    Nota: La sede se asigna al asignar una plaza, no en el alta.
+    """
+
     empresa_id: int
     curp: str = Field(min_length=18, max_length=18)
     nombre: str = Field(min_length=2, max_length=100)
     apellido_paterno: str = Field(min_length=2, max_length=100)
     apellido_materno: Optional[str] = Field(None, max_length=100)
     email: Optional[str] = Field(None, max_length=200)
-    sede_id: Optional[int] = None
 
 
 class EmpleadoOnboardingResponse(BaseModel):
     """Respuesta con datos de empleado en onboarding."""
+
     id: int
     clave: str
     curp: str
@@ -31,6 +37,7 @@ class EmpleadoOnboardingResponse(BaseModel):
 
 class ExpedienteStatusResponse(BaseModel):
     """Estado del expediente documental."""
+
     documentos_requeridos: int = 0
     documentos_subidos: int = 0
     documentos_aprobados: int = 0
@@ -42,6 +49,7 @@ class ExpedienteStatusResponse(BaseModel):
 
 class DocumentoResponse(BaseModel):
     """Respuesta con datos de un documento."""
+
     id: int
     tipo_documento: str
     nombre_archivo: Optional[str] = None
@@ -54,4 +62,5 @@ class DocumentoResponse(BaseModel):
 
 class RechazoDocumentoRequest(BaseModel):
     """Request para rechazar un documento."""
+
     observacion: str = Field(min_length=5, max_length=1000)

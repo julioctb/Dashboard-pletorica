@@ -3,6 +3,7 @@
 from datetime import date
 import logging
 from typing import Optional
+from uuid import UUID
 
 import reflex as rx
 
@@ -120,34 +121,34 @@ class EmpleadoFichaState(PortalState, EmployeeExpedienteStateMixin):
 
         router_data = self.router_data or {}
         pathname = str(router_data.get("pathname", "") or "").strip()
-        return pathname == "/portal/empleados/[id]"
+        return pathname == "/portal/empleados/[uuid]"
 
     def _obtener_uuid_ruta(self) -> str:
-        """Obtiene el uuid/id desde el parámetro dinámico de ruta [id]."""
+        """Obtiene el uuid desde el parámetro dinámico de ruta [uuid]."""
         uuid = ""
 
-        # 1. DynamicRouteVar inyectado por Reflex desde la ruta [id].
+        # 1. DynamicRouteVar inyectado por Reflex desde la ruta [uuid].
         try:
-            raw = getattr(self, "id", None)
+            raw = getattr(self, "uuid", None)
             if raw is not None and callable(raw) is False:
                 uuid = str(raw).strip()
-                logger.debug("[ficha] id via DynamicRouteVar: %r", uuid)
+                logger.debug("[ficha] uuid via DynamicRouteVar: %r", uuid)
         except Exception:
             uuid = ""
 
         # 2. Fallback: query params (Next.js almacena route params aquí).
         if not uuid:
             router_data = self.router_data or {}
-            posibles_ids = [
-                (router_data.get("query", {}) or {}).get("id", ""),
-                (router_data.get("params", {}) or {}).get("id", ""),
-                (router_data.get("path_params", {}) or {}).get("id", ""),
-                (router_data.get("kwargs", {}) or {}).get("id", ""),
+            posibles_uuids = [
+                (router_data.get("query", {}) or {}).get("uuid", ""),
+                (router_data.get("params", {}) or {}).get("uuid", ""),
+                (router_data.get("path_params", {}) or {}).get("uuid", ""),
+                (router_data.get("kwargs", {}) or {}).get("uuid", ""),
             ]
-            for raw_id in posibles_ids:
-                uuid = str(raw_id or "").strip()
+            for raw_uuid in posibles_uuids:
+                uuid = str(raw_uuid or "").strip()
                 if uuid:
-                    logger.debug("[ficha] id via router_data: %r", uuid)
+                    logger.debug("[ficha] uuid via router_data: %r", uuid)
                     break
 
         # 3. Fallback: parsear segmento de URL directamente.
@@ -161,16 +162,16 @@ class EmpleadoFichaState(PortalState, EmployeeExpedienteStateMixin):
                     and parts[1] == "empleados"
                 ):
                     uuid = str(parts[2] or "").strip()
-                    logger.debug("[ficha] id via URL path: %r", uuid)
+                    logger.debug("[ficha] uuid via URL path: %r", uuid)
             except Exception:
                 uuid = ""
 
         if not uuid:
             if self._es_ruta_listado_empleados():
-                logger.debug("[ficha] State evaluado en listado base; no se requiere id de ruta.")
+                logger.debug("[ficha] State evaluado en listado base; no se requiere uuid de ruta.")
             else:
                 logger.warning(
-                    "[ficha] No se pudo extraer id de ruta. router_data keys=%s, url=%s",
+                    "[ficha] No se pudo extraer uuid de ruta. router_data keys=%s, url=%s",
                     list((self.router_data or {}).keys()),
                     self._ruta_actual() or "N/A",
                 )
@@ -315,12 +316,18 @@ class EmpleadoFichaState(PortalState, EmployeeExpedienteStateMixin):
         self._limpiar_ficha()
         self.empleado_uuid = empleado_uuid
 
-        empleado = await empleado_service.obtener_por_uuid(empleado_uuid)
-        if not empleado and str(empleado_uuid).isdigit():
-            try:
-                empleado = await empleado_service.obtener_por_id(int(empleado_uuid))
-            except Exception:
-                empleado = None
+        empleado_ref = str(empleado_uuid or "").strip()
+        if not empleado_ref:
+            self.error = "Identificador de empleado no proporcionado."
+            return
+
+        try:
+            UUID(empleado_ref)
+        except ValueError:
+            self.error = "Identificador de empleado inválido."
+            return
+
+        empleado = await empleado_service.obtener_por_uuid(empleado_ref)
 
         if not empleado:
             self.error = "Empleado no encontrado."

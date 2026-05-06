@@ -7,7 +7,9 @@ from types import SimpleNamespace
 
 import reflex as rx
 
+from app.core.ui_helpers import opciones_desde_enum
 from app.domain.enums import EstatusPlaza, TipoJornadaPlaza
+from app.modules.empleados.domain.enums import GeneroEmpleado
 from app.domain.models.plaza import PlazaResumen
 from app.presentation.pages.portal.mis_empleados import state as mis_empleados_state_module
 from app.presentation.pages.portal.mis_empleados.state import (
@@ -128,6 +130,81 @@ class _DummySalarioPlazaState:
         return None
 
 
+class _DummyFormVarsState:
+    form_genero = ""
+    form_banco = ""
+    es_edicion = False
+    editar_datos_bancarios = True
+    snapshot_bancario_base_edicion = {}
+    saving = False
+    form_curp = "TEST900101HDFABC01"
+    form_nombre = "ANA"
+    form_apellido_paterno = "PEREZ"
+    form_apellido_materno = "LOPEZ"
+    form_rfc = "PELA900101ABC"
+    form_nss = "12345678901"
+    form_fecha_ingreso = "2025-01-01"
+    form_fecha_nacimiento = "1990-01-01"
+    form_telefono = "5512345678"
+    error_curp = ""
+    error_nombre = ""
+    error_apellido_paterno = ""
+    error_apellido_materno = ""
+    error_rfc = ""
+    error_nss = ""
+    error_fecha_ingreso = ""
+    error_fecha_nacimiento = ""
+    error_genero = ""
+    error_telefono = ""
+
+
+def test_mis_empleados_state_reexpone_opciones_genero_del_mixin():
+    dummy = _DummyFormVarsState()
+
+    opciones = MisEmpleadosState.opciones_genero.fget(dummy)
+
+    assert opciones == opciones_desde_enum(GeneroEmpleado)
+    assert opciones == [
+        {"value": "MASCULINO", "label": "Masculino"},
+        {"value": "FEMENINO", "label": "Femenino"},
+    ]
+
+
+def test_mis_empleados_state_reexpone_opciones_banco_del_mixin():
+    dummy = _DummyFormVarsState()
+
+    opciones = MisEmpleadosState.opciones_banco_empleado.fget(dummy)
+
+    assert opciones[0] == {"label": "BBVA", "value": "BBVA"}
+    assert {"label": "Santander", "value": "SANTANDER"} in opciones
+
+
+def test_opciones_banco_preservan_valor_actual_fuera_del_catalogo():
+    dummy = _DummyFormVarsState()
+    dummy.form_banco = "BANCO PRUEBA"
+
+    opciones = MisEmpleadosState.opciones_banco_empleado.fget(dummy)
+
+    assert opciones[0] == {"label": "BANCO PRUEBA", "value": "BANCO PRUEBA"}
+
+
+def test_puede_guardar_empleado_es_false_mientras_saving():
+    dummy = _DummyFormVarsState()
+    dummy.form_genero = "MASCULINO"
+    dummy.saving = True
+
+    assert MisEmpleadosState.puede_guardar_empleado.fget(dummy) is False
+
+
+def test_puede_guardar_empleado_requiere_campos_minimos():
+    dummy = _DummyFormVarsState()
+
+    assert MisEmpleadosState.puede_guardar_empleado.fget(dummy) is False
+
+    dummy.form_genero = "FEMENINO"
+    assert MisEmpleadosState.puede_guardar_empleado.fget(dummy) is True
+
+
 def _contrato_resumen(
     contrato_id: int,
     *,
@@ -190,7 +267,7 @@ def test_ver_perfil_plaza_prioriza_uuid_presente_en_payload():
     assert "/portal/empleados/00000000-0000-0000-0000-000000000099" in str(evento)
 
 
-def test_ver_ficha_empleado_fallback_por_id_no_usa_ruta_legacy():
+def test_ver_ficha_empleado_sin_uuid_no_navega():
     dummy = _DummyMisEmpleadosState()
     evento = MisEmpleadosState.ver_ficha_empleado.fn(
         dummy,
@@ -200,9 +277,7 @@ def test_ver_ficha_empleado_fallback_por_id_no_usa_ruta_legacy():
         },
     )
 
-    assert isinstance(evento, rx.event.EventSpec)
-    assert "/portal/empleados/77" in str(evento)
-    assert "/expediente" not in str(evento)
+    assert evento is None
 
 
 def test_resolver_contrato_plaza_autoselecciona_primer_visible_con_pill():

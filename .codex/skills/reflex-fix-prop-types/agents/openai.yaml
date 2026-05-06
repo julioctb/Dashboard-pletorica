@@ -1,4 +1,0 @@
-interface:
-  display_name: "Reflex Compile Guardrails"
-  short_description: "Detecta errores comunes de compile en Reflex"
-  default_prompt: "Use $reflex-fix-prop-types to diagnose and fix common Reflex compilation errors, including invalid props and Var boolean coercion."

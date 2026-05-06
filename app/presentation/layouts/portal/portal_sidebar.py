@@ -221,7 +221,7 @@ def _portal_navigation() -> rx.Component:
                         "/portal/empleados",
                         active_paths=(
                             "/portal/empleados",
-                            "/portal/empleados/[id]",
+                            "/portal/empleados/[uuid]",
                             "/portal/onboarding",
                         ),
                     ),

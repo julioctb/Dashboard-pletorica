@@ -31,14 +31,6 @@ class EmpleadoMutationService:
     def __init__(self, root: "EmpleadoService"):
         self.root = root
 
-    @staticmethod
-    def _resolver_fecha_ingreso_vigente(
-        *,
-        fecha_historica: date,
-        fecha_vigente: Optional[date],
-    ) -> date:
-        return fecha_vigente or fecha_historica
-
     async def crear(self, empleado_create: EmpleadoCreate) -> Empleado:
         empleado_existente = await self.root.repository.obtener_por_curp(
             empleado_create.curp
@@ -94,7 +86,7 @@ class EmpleadoMutationService:
                 empleado_id=empleado_creado.id,
                 plaza_id=None,
                 fecha=empleado_creado.fecha_ingreso,
-                notas=f"Alta de empleado: {empleado_creado.nombre_completo}",
+                notas=f"Alta de empleado: {empleado_creado.nombre_completo()}",
             )
         except Exception as exc:
             logger.warning("Error registrando alta en historial: %s", exc)
@@ -126,13 +118,24 @@ class EmpleadoMutationService:
         tiene_plaza_activa: bool,
         fecha_ingreso_vigente: Optional[date] = None,
     ) -> Empleado:
+        """
+        Sincroniza el estatus del empleado segun tenga plaza o no.
+
+        La fuente de verdad es plaza_actual_id en empleados.
+        Esta funcion existe como compatiblidad para flujos que necesitan
+        actualizar explicitamente el estatus, pero el trigger de BD ya lo hace.
+
+        No manipula fecha_baja/motivo_baja - eso es responsabilidad de BajaService.
+        """
         empleado = await self.root.repository.obtener_por_id(empleado_id)
+
         if empleado.estatus == EstatusEmpleado.SUSPENDIDO:
             return empleado
 
         nuevo_estatus = (
             EstatusEmpleado.ACTIVO if tiene_plaza_activa else EstatusEmpleado.INACTIVO
         )
+
         if empleado.estatus == nuevo_estatus:
             if tiene_plaza_activa and fecha_ingreso_vigente:
                 empleado.fecha_ingreso_vigente = fecha_ingreso_vigente
@@ -140,11 +143,9 @@ class EmpleadoMutationService:
             return empleado
 
         empleado.estatus = nuevo_estatus
-        if nuevo_estatus == EstatusEmpleado.ACTIVO:
-            empleado.fecha_baja = None
-            empleado.motivo_baja = None
-            if fecha_ingreso_vigente:
-                empleado.fecha_ingreso_vigente = fecha_ingreso_vigente
+        if nuevo_estatus == EstatusEmpleado.ACTIVO and fecha_ingreso_vigente:
+            empleado.fecha_ingreso_vigente = fecha_ingreso_vigente
+
         return await self.root.repository.actualizar(empleado)
 
     async def dar_de_baja(
@@ -174,17 +175,21 @@ class EmpleadoMutationService:
 
     async def reactivar(self, empleado_id: int) -> Empleado:
         empleado = await self.root.repository.obtener_por_id(empleado_id)
-        if empleado.estatus == EstatusEmpleado.ACTIVO:
-            raise BusinessRuleError("El empleado ya está activo")
+        if empleado.estatus != EstatusEmpleado.SUSPENDIDO:
+            raise BusinessRuleError("Solo se puede reactivar un empleado suspendido")
 
-        empleado.activar()
+        empleado.estatus = (
+            EstatusEmpleado.ACTIVO
+            if empleado.plaza_actual_id is not None
+            else EstatusEmpleado.INACTIVO
+        )
         empleado_actualizado = await self.root.repository.actualizar(empleado)
 
         try:
             historial_service = _get_historial_service()
             await historial_service.registrar_reactivacion(
                 empleado_id=empleado_id,
-                plaza_id=None,
+                plaza_id=empleado.plaza_actual_id,
                 notas="Reactivación de empleado",
             )
         except Exception as exc:
@@ -251,10 +256,12 @@ class EmpleadoMutationService:
                         continue
                     setattr(empleado, campo, valor)
 
-        if empleado.estatus != EstatusEmpleado.ACTIVO:
-            empleado.estatus = EstatusEmpleado.ACTIVO
-            empleado.fecha_baja = None
-            empleado.motivo_baja = None
+        if empleado.estatus != EstatusEmpleado.SUSPENDIDO:
+            empleado.estatus = (
+                EstatusEmpleado.ACTIVO
+                if empleado.plaza_actual_id is not None
+                else EstatusEmpleado.INACTIVO
+            )
         empleado.fecha_ingreso_vigente = fecha_reingreso
 
         empleado_actualizado = await self.root.repository.actualizar(empleado)

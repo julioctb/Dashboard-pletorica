@@ -9,6 +9,7 @@ Plazos reales:
 - Comunicación al cliente: sin deadline estricto
 - Sustitucion: dato informativo
 """
+
 import logging
 from datetime import date, timedelta
 from typing import List, Optional
@@ -38,7 +39,7 @@ class BajaService:
 
     def __init__(self):
         self.supabase = db_manager.get_client()
-        self.tabla = 'bajas_empleado'
+        self.tabla = "bajas_empleado"
 
     def _calcular_fecha_limite(self, fecha_base: date, dias_habiles: int) -> date:
         """Calcula fecha limite sumando dias habiles (lun-vie)."""
@@ -54,10 +55,7 @@ class BajaService:
         """Obtiene una baja por ID o lanza NotFoundError."""
         try:
             result = (
-                self.supabase.table(self.tabla)
-                .select('*')
-                .eq('id', baja_id)
-                .execute()
+                self.supabase.table(self.tabla).select("*").eq("id", baja_id).execute()
             )
             if not result.data:
                 raise NotFoundError(f"Baja {baja_id} no encontrada")
@@ -73,10 +71,10 @@ class BajaService:
         try:
             result = (
                 self.supabase.table(self.tabla)
-                .select('*')
-                .eq('empleado_id', empleado_id)
-                .neq('estatus', EstatusBaja.CERRADA.value)
-                .neq('estatus', EstatusBaja.CANCELADA.value)
+                .select("*")
+                .eq("empleado_id", empleado_id)
+                .neq("estatus", EstatusBaja.CERRADA.value)
+                .neq("estatus", EstatusBaja.CANCELADA.value)
                 .limit(1)
                 .execute()
             )
@@ -87,23 +85,60 @@ class BajaService:
             logger.error(f"Error validando baja activa empleado {empleado_id}: {e}")
             raise DatabaseError(f"Error validando baja activa: {e}")
 
+    async def obtener_ultimas_bajas_por_empleados(
+        self,
+        empleado_ids: list[int],
+    ) -> dict[int, dict]:
+        """
+        Obtiene la ultima baja no cancelada por empleado.
+
+        Se usa para enriquecer listados y detalles sin depender de las
+        columnas legacy fecha_baja/motivo_baja en empleados.
+        """
+        if not empleado_ids:
+            return {}
+
+        try:
+            result = (
+                self.supabase.table(self.tabla)
+                .select("empleado_id, motivo, fecha_efectiva, estatus, fecha_creacion")
+                .in_("empleado_id", empleado_ids)
+                .neq("estatus", EstatusBaja.CANCELADA.value)
+                .order("fecha_efectiva", desc=True)
+                .order("fecha_creacion", desc=True)
+                .execute()
+            )
+        except Exception as e:
+            logger.error("Error obteniendo ultimas bajas por empleados: %s", e)
+            raise DatabaseError(f"Error consultando bajas: {e}")
+
+        ultimas_bajas: dict[int, dict] = {}
+        for row in result.data or []:
+            empleado_id = int(row.get("empleado_id") or 0)
+            if empleado_id <= 0 or empleado_id in ultimas_bajas:
+                continue
+            ultimas_bajas[empleado_id] = row
+
+        return ultimas_bajas
+
     async def _actualizar_baja(self, baja: BajaEmpleado) -> BajaEmpleado:
         """Persiste cambios de una baja en BD."""
         payload = {
-            'estatus': baja.estatus.value,
-            'estatus_liquidacion': baja.estatus_liquidacion.value,
-            'fecha_comunicacion_buap': (
+            "estatus": baja.estatus.value,
+            "estatus_liquidacion": baja.estatus_liquidacion.value,
+            "fecha_comunicacion_buap": (
                 baja.fecha_comunicacion_buap.isoformat()
-                if baja.fecha_comunicacion_buap else None
+                if baja.fecha_comunicacion_buap
+                else None
             ),
-            'requiere_sustitucion': baja.requiere_sustitucion,
-            'notas': baja.notas,
+            "requiere_sustitucion": baja.requiere_sustitucion,
+            "notas": baja.notas,
         }
         try:
             result = (
                 self.supabase.table(self.tabla)
                 .update(payload)
-                .eq('id', baja.id)
+                .eq("id", baja.id)
                 .execute()
             )
             if not result.data:
@@ -122,9 +157,11 @@ class BajaService:
         1. Valida empleado activo y sin baja en proceso
         2. Obtiene plaza actual si no se proporciono
         3. Calcula fecha limite de liquidacion
-        4. Inserta en bajas_empleado
-        5. Da de baja al empleado via empleado_service
-        6. Crea notificacion con plazo de liquidacion
+        4. Libera la plaza actual si existe
+        5. Sincroniza al empleado como INACTIVO
+        6. Inserta en bajas_empleado
+        7. Registra BAJA en historial
+        8. Crea notificacion con plazo de liquidacion
         """
         from app.domain.services.empleado_service import empleado_service
         from app.domain.services.notificacion_service import notificacion_service
@@ -152,36 +189,37 @@ class BajaService:
 
         plaza_id = datos.plaza_id
         if not plaza_id:
-            try:
-                from app.domain.services.historial_laboral_service import historial_laboral_service
-
-                registro = await historial_laboral_service.obtener_registro_activo(
-                    datos.empleado_id
-                )
-                if registro:
-                    plaza_id = registro.plaza_id
-            except Exception as e:
-                logger.warning(f"No se pudo obtener plaza activa: {e}")
+            plaza_id = empleado.plaza_actual_id
 
         fecha_limite_liq = self._calcular_fecha_limite(datos.fecha_efectiva, 15)
 
+        if plaza_id:
+            from app.domain.services import plaza_service
+
+            await plaza_service.liberar_plaza(plaza_id)
+        else:
+            await empleado_service.sincronizar_estatus_por_plazas(
+                datos.empleado_id,
+                tiene_plaza_activa=False,
+            )
+
         try:
             payload = {
-                'empleado_id': datos.empleado_id,
-                'empresa_id': datos.empresa_id,
-                'plaza_id': plaza_id,
-                'motivo': datos.motivo.value,
-                'fecha_registro': fecha_registro.isoformat(),
-                'fecha_efectiva': datos.fecha_efectiva.isoformat(),
-                'fecha_limite_liquidacion': fecha_limite_liq.isoformat(),
-                'notas': datos.notas,
-                'estatus': EstatusBaja.INICIADA.value,
-                'estatus_liquidacion': EstatusLiquidacion.PENDIENTE.value,
-                'registrado_por': (
+                "empleado_id": datos.empleado_id,
+                "empresa_id": datos.empresa_id,
+                "plaza_id": plaza_id,
+                "motivo": datos.motivo.value,
+                "fecha_registro": fecha_registro.isoformat(),
+                "fecha_efectiva": datos.fecha_efectiva.isoformat(),
+                "fecha_limite_liquidacion": fecha_limite_liq.isoformat(),
+                "notas": datos.notas,
+                "estatus": EstatusBaja.INICIADA.value,
+                "estatus_liquidacion": EstatusLiquidacion.PENDIENTE.value,
+                "registrado_por": (
                     str(datos.registrado_por) if datos.registrado_por else None
                 ),
-                'es_automatica': bool(datos.es_automatica),
-                'contrato_id_origen': datos.contrato_id_origen,
+                "es_automatica": bool(datos.es_automatica),
+                "contrato_id_origen": datos.contrato_id_origen,
             }
             result = self.supabase.table(self.tabla).insert(payload).execute()
             if not result.data:
@@ -193,26 +231,35 @@ class BajaService:
             logger.error(f"Error insertando baja: {e}")
             raise DatabaseError(f"Error registrando baja: {e}")
 
-        await empleado_service.dar_de_baja(
-            empleado_id=datos.empleado_id,
-            motivo=datos.motivo,
-            fecha_baja=datos.fecha_efectiva,
-        )
+        try:
+            from app.domain.services.historial_laboral_service import (
+                historial_laboral_service,
+            )
+
+            await historial_laboral_service.registrar_baja(
+                empleado_id=datos.empleado_id,
+                fecha=datos.fecha_efectiva,
+                notas=f"Baja por: {datos.motivo.descripcion}",
+            )
+        except Exception as e:
+            logger.warning(f"Error registrando baja en historial: {e}")
 
         try:
             nombre = f"{empleado.nombre} {empleado.apellido_paterno}"
-            await notificacion_service.crear(NotificacionCreate(
-                empresa_id=datos.empresa_id,
-                titulo="Baja de empleado registrada",
-                mensaje=(
-                    f"Se registro la baja de {nombre} ({empleado.clave}) "
-                    f"por {datos.motivo.descripcion}. "
-                    f"Entregar liquidacion antes del {fecha_limite_liq.strftime('%d/%m/%Y')}."
-                ),
-                tipo="baja_registrada",
-                entidad_tipo="BAJA_EMPLEADO",
-                entidad_id=baja.id,
-            ))
+            await notificacion_service.crear(
+                NotificacionCreate(
+                    empresa_id=datos.empresa_id,
+                    titulo="Baja de empleado registrada",
+                    mensaje=(
+                        f"Se registro la baja de {nombre} ({empleado.clave}) "
+                        f"por {datos.motivo.descripcion}. "
+                        f"Entregar liquidacion antes del {fecha_limite_liq.strftime('%d/%m/%Y')}."
+                    ),
+                    tipo="baja_registrada",
+                    entidad_tipo="BAJA_EMPLEADO",
+                    entidad_id=baja.id,
+                )
+            )
         except Exception as e:
             logger.warning(f"Error creando notificacion de baja: {e}")
 
@@ -231,18 +278,20 @@ class BajaService:
             from app.domain.services.notificacion_service import notificacion_service
             from app.domain.models.notificacion import NotificacionCreate
 
-            await notificacion_service.crear(NotificacionCreate(
-                empresa_id=baja.empresa_id,
-                titulo="Baja comunicada al cliente",
-                mensaje=(
-                    f"Se comunicó al cliente la baja del empleado (baja #{baja.id}). "
-                    f"Pendiente: entregar liquidación antes del "
-                    f"{baja.fecha_limite_liquidacion.strftime('%d/%m/%Y')}."
-                ),
-                tipo="baja_comunicada",
-                entidad_tipo="BAJA_EMPLEADO",
-                entidad_id=baja.id,
-            ))
+            await notificacion_service.crear(
+                NotificacionCreate(
+                    empresa_id=baja.empresa_id,
+                    titulo="Baja comunicada al cliente",
+                    mensaje=(
+                        f"Se comunicó al cliente la baja del empleado (baja #{baja.id}). "
+                        f"Pendiente: entregar liquidación antes del "
+                        f"{baja.fecha_limite_liquidacion.strftime('%d/%m/%Y')}."
+                    ),
+                    tipo="baja_comunicada",
+                    entidad_tipo="BAJA_EMPLEADO",
+                    entidad_id=baja.id,
+                )
+            )
         except Exception as e:
             logger.warning(f"Error creando notificacion de comunicacion: {e}")
 
@@ -272,7 +321,7 @@ class BajaService:
 
     async def cancelar_baja(self, baja_id: int, notas: str) -> BajaEmpleado:
         """
-        Cancela la baja y reactiva al empleado.
+        Cancela la baja y retira la suspensión si aplica.
         """
         if not notas or len(notas.strip()) < 5:
             raise BusinessRuleError(
@@ -305,44 +354,50 @@ class BajaService:
             query = (
                 self.supabase.table(self.tabla)
                 .select(
-                    '*, empleados!bajas_empleado_empleado_id_fkey('
-                    'clave, nombre, apellido_paterno)'
+                    "*, empleados!bajas_empleado_empleado_id_fkey("
+                    "clave, nombre, apellido_paterno)"
                 )
-                .eq('empresa_id', empresa_id)
-                .order('fecha_creacion', desc=True)
+                .eq("empresa_id", empresa_id)
+                .order("fecha_creacion", desc=True)
             )
 
             if solo_activas:
-                query = (
-                    query.neq('estatus', EstatusBaja.CERRADA.value)
-                    .neq('estatus', EstatusBaja.CANCELADA.value)
+                query = query.neq("estatus", EstatusBaja.CERRADA.value).neq(
+                    "estatus", EstatusBaja.CANCELADA.value
                 )
 
             result = query.execute()
 
             resumenes = []
-            for row in (result.data or []):
-                emp = row.get('empleados', {}) or {}
-                nombre = f"{emp.get('nombre', '')} {emp.get('apellido_paterno', '')}".strip()
-                clave = emp.get('clave', '')
-                baja = BajaEmpleado(**{k: v for k, v in row.items() if k != 'empleados'})
+            for row in result.data or []:
+                emp = row.get("empleados", {}) or {}
+                nombre = (
+                    f"{emp.get('nombre', '')} {emp.get('apellido_paterno', '')}".strip()
+                )
+                clave = emp.get("clave", "")
+                baja = BajaEmpleado(
+                    **{k: v for k, v in row.items() if k != "empleados"}
+                )
 
-                resumenes.append(BajaEmpleadoResumen(
-                    id=baja.id,
-                    empleado_id=baja.empleado_id,
-                    empleado_nombre=nombre,
-                    empleado_clave=clave,
-                    motivo=(
-                        baja.motivo.value
-                        if hasattr(baja.motivo, 'value') else str(baja.motivo)
-                    ),
-                    fecha_efectiva=baja.fecha_efectiva,
-                    estatus=baja.estatus.value,
-                    estatus_liquidacion=baja.estatus_liquidacion.value,
-                    dias_para_liquidar=baja.dias_para_liquidar,
-                    requiere_sustitucion=baja.requiere_sustitucion,
-                    fue_comunicada=baja.fue_comunicada,
-                ))
+                resumenes.append(
+                    BajaEmpleadoResumen(
+                        id=baja.id,
+                        empleado_id=baja.empleado_id,
+                        empleado_nombre=nombre,
+                        empleado_clave=clave,
+                        motivo=(
+                            baja.motivo.value
+                            if hasattr(baja.motivo, "value")
+                            else str(baja.motivo)
+                        ),
+                        fecha_efectiva=baja.fecha_efectiva,
+                        estatus=baja.estatus.value,
+                        estatus_liquidacion=baja.estatus_liquidacion.value,
+                        dias_para_liquidar=baja.dias_para_liquidar,
+                        requiere_sustitucion=baja.requiere_sustitucion,
+                        fue_comunicada=baja.fue_comunicada,
+                    )
+                )
 
             return resumenes
         except Exception as e:
@@ -357,53 +412,61 @@ class BajaService:
             result = (
                 self.supabase.table(self.tabla)
                 .select(
-                    '*, empleados!bajas_empleado_empleado_id_fkey('
-                    'clave, nombre, apellido_paterno)'
+                    "*, empleados!bajas_empleado_empleado_id_fkey("
+                    "clave, nombre, apellido_paterno)"
                 )
-                .eq('empresa_id', empresa_id)
-                .neq('estatus', EstatusBaja.CERRADA.value)
-                .neq('estatus', EstatusBaja.CANCELADA.value)
+                .eq("empresa_id", empresa_id)
+                .neq("estatus", EstatusBaja.CERRADA.value)
+                .neq("estatus", EstatusBaja.CANCELADA.value)
                 .execute()
             )
 
             alertas = []
-            for row in (result.data or []):
-                baja = BajaEmpleado(**{k: v for k, v in row.items() if k != 'empleados'})
+            for row in result.data or []:
+                baja = BajaEmpleado(
+                    **{k: v for k, v in row.items() if k != "empleados"}
+                )
                 if baja.estatus not in (EstatusBaja.INICIADA, EstatusBaja.COMUNICADA):
                     continue
-                emp = row.get('empleados', {}) or {}
-                nombre = f"{emp.get('nombre', '')} {emp.get('apellido_paterno', '')}".strip()
-                clave = emp.get('clave', '')
+                emp = row.get("empleados", {}) or {}
+                nombre = (
+                    f"{emp.get('nombre', '')} {emp.get('apellido_paterno', '')}".strip()
+                )
+                clave = emp.get("clave", "")
                 dias = baja.dias_para_liquidar
 
                 if dias < 0:
-                    alertas.append({
-                        'baja_id': baja.id,
-                        'tipo': 'LIQUIDACION_VENCIDA',
-                        'nivel': 'critico',
-                        'dias': abs(dias),
-                        'empleado': nombre,
-                        'clave': clave,
-                        'mensaje': (
-                            f"Liquidacion de {nombre} ({clave}): vencida "
-                            f"hace {abs(dias)} dia(s)"
-                        ),
-                    })
+                    alertas.append(
+                        {
+                            "baja_id": baja.id,
+                            "tipo": "LIQUIDACION_VENCIDA",
+                            "nivel": "critico",
+                            "dias": abs(dias),
+                            "empleado": nombre,
+                            "clave": clave,
+                            "mensaje": (
+                                f"Liquidacion de {nombre} ({clave}): vencida "
+                                f"hace {abs(dias)} dia(s)"
+                            ),
+                        }
+                    )
                 elif dias <= 5:
-                    alertas.append({
-                        'baja_id': baja.id,
-                        'tipo': 'LIQUIDACION_PROXIMA',
-                        'nivel': 'advertencia',
-                        'dias': dias,
-                        'empleado': nombre,
-                        'clave': clave,
-                        'mensaje': (
-                            f"Liquidacion de {nombre} ({clave}): {dias} dia(s) restantes"
-                        ),
-                    })
+                    alertas.append(
+                        {
+                            "baja_id": baja.id,
+                            "tipo": "LIQUIDACION_PROXIMA",
+                            "nivel": "advertencia",
+                            "dias": dias,
+                            "empleado": nombre,
+                            "clave": clave,
+                            "mensaje": (
+                                f"Liquidacion de {nombre} ({clave}): {dias} dia(s) restantes"
+                            ),
+                        }
+                    )
 
             alertas.sort(
-                key=lambda a: (0 if a['nivel'] == 'critico' else 1, a.get('dias', 0))
+                key=lambda a: (0 if a["nivel"] == "critico" else 1, a.get("dias", 0))
             )
             return alertas
         except Exception as e:

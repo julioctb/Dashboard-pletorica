@@ -4,13 +4,11 @@ import reflex as rx
 
 from app.presentation.components.ui import (
     empty_state_card,
-    employee_status_badge,
     filter_pill,
     input_busqueda,
     metric_card,
     metric_card_grid,
     select_items_from_options,
-    tabla_cta_button,
     table_pagination,
     table_shell,
 )
@@ -21,6 +19,115 @@ from app.presentation.pages.portal.plaza_shared_components import (
 from app.presentation.theme import Colors, Radius, Spacing, StatusColors, Typography
 
 from .state import MisEmpleadosState
+
+
+def _identificacion_badge_portal(status: str) -> rx.Component:
+    """Badge semáforo para RFC/NSS/CP en portal según estado precomputado."""
+    return rx.match(
+        status,
+        (
+            "completo",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("check", size=12), rx.text("Completo", size="1")),
+                    color_scheme=Colors.SUCCESS_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="RFC, NSS y CP registrados",
+            ),
+        ),
+        (
+            "falta_rfc",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("circle_alert", size=12), rx.text("Falta RFC", size="1")),
+                    color_scheme=Colors.WARNING_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Falta RFC",
+            ),
+        ),
+        (
+            "falta_nss",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("circle_alert", size=12), rx.text("Falta NSS", size="1")),
+                    color_scheme=Colors.WARNING_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Falta NSS",
+            ),
+        ),
+        (
+            "falta_cp",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("circle_alert", size=12), rx.text("Falta CP", size="1")),
+                    color_scheme=Colors.WARNING_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Falta código postal",
+            ),
+        ),
+        (
+            "falta_rfc_nss",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("triangle_alert", size=12), rx.text("Falta RFC y NSS", size="1")),
+                    color_scheme=Colors.ERROR_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Faltan RFC y NSS",
+            ),
+        ),
+        (
+            "falta_rfc_cp",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("triangle_alert", size=12), rx.text("Falta RFC y CP", size="1")),
+                    color_scheme=Colors.ERROR_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Faltan RFC y código postal",
+            ),
+        ),
+        (
+            "falta_nss_cp",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("triangle_alert", size=12), rx.text("Falta NSS y CP", size="1")),
+                    color_scheme=Colors.ERROR_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Faltan NSS y código postal",
+            ),
+        ),
+        (
+            "faltan_tres",
+            rx.tooltip(
+                rx.badge(
+                    rx.hstack(rx.icon("triangle_alert", size=12), rx.text("Faltan datos", size="1")),
+                    color_scheme=Colors.ERROR_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
+                content="Faltan RFC, NSS y código postal",
+            ),
+        ),
+        rx.badge(
+            rx.text("—", size="1"),
+            color_scheme=Colors.NEUTRAL_SCHEME,
+            variant="soft",
+            size="1",
+        ),
+    )
 
 
 def metricas_empleados() -> rx.Component:
@@ -187,55 +294,48 @@ def _celda_texto_centrada(
     )
 
 
-def _docs_color_texto(tone) -> rx.Var | str:
-    return rx.match(
-        tone,
-        ("success", Colors.SUCCESS),
-        ("warning", Colors.WARNING),
-        Colors.TEXT_MUTED,
-    )
-
-
-def _docs_color_barra(tone) -> rx.Var | str:
-    return rx.match(
-        tone,
-        ("success", Colors.SUCCESS),
-        ("warning", Colors.WARNING),
-        Colors.BORDER,
-    )
-
-
 def _docs_cell(emp: dict) -> rx.Component:
-    docs_tone = emp.get("docs_tone", "muted")
+    return rx.table.cell(
+        rx.text(
+            emp.get("docs_resumen_ui", "0/0"),
+            font_size=Typography.SIZE_XS,
+            font_weight=Typography.WEIGHT_MEDIUM,
+            font_variant_numeric="tabular-nums",
+            color=Colors.TEXT_SECONDARY,
+        ),
+        text_align="center",
+    )
+
+
+def _estatus_icon_cell(estatus: str) -> rx.Component:
     return rx.table.cell(
         rx.center(
-            rx.flex(
-                rx.text(
-                    emp.get("docs_resumen_ui", "0/0"),
-                    font_size=Typography.SIZE_XS,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                    font_variant_numeric="tabular-nums",
-                    color=_docs_color_texto(docs_tone),
-                ),
-                rx.box(
-                    rx.box(
-                        width=emp.get("docs_porcentaje_ui", "0%"),
-                        height="100%",
-                        border_radius=Radius.FULL,
-                        background=_docs_color_barra(docs_tone),
+            rx.match(
+                estatus,
+                (
+                    "ACTIVO",
+                    rx.badge(
+                        "Activo",
+                        color_scheme=Colors.SUCCESS_SCHEME,
+                        variant="soft",
+                        size="1",
                     ),
-                    width=Spacing.XXL,
-                    height=Spacing.XS,
-                    background=Colors.SECONDARY_LIGHT,
-                    border_radius=Radius.FULL,
-                    overflow="hidden",
                 ),
-                align="center",
-                justify="center",
-                gap=Spacing.XS,
-                width="100%",
-                cursor="pointer",
-                on_click=MisEmpleadosState.ver_ficha_empleado(emp),
+                (
+                    "INACTIVO",
+                    rx.badge(
+                        "Inactivo",
+                        color_scheme=Colors.NEUTRAL_SCHEME,
+                        variant="soft",
+                        size="1",
+                    ),
+                ),
+                rx.badge(
+                    rx.cond(estatus != "", estatus, "—"),
+                    color_scheme=Colors.NEUTRAL_SCHEME,
+                    variant="soft",
+                    size="1",
+                ),
             ),
             width="100%",
         ),
@@ -249,116 +349,90 @@ def _render_nombre_cell(emp: dict) -> rx.Component:
     uuid = emp.get("uuid", "")
     iniciales = emp.get("avatar_iniciales_ui", "?")
     estatus = emp.get("estatus_portal", "INACTIVO")
-    return rx.table.cell(
-        rx.flex(
-            rx.center(
-                rx.text(
-                    iniciales,
-                    font_size=Typography.SIZE_XS,
-                    font_weight=Typography.WEIGHT_MEDIUM,
-                    color=rx.cond(
-                        estatus == "ACTIVO",
-                        Colors.PORTAL_PRIMARY_TEXT,
-                        Colors.TEXT_MUTED,
-                    ),
-                ),
-                width="30px",
-                height="30px",
-                border_radius=Radius.FULL,
-                background=rx.cond(
+    return rx.flex(
+        rx.center(
+            rx.text(
+                iniciales,
+                font_size=Typography.SIZE_XS,
+                font_weight=Typography.WEIGHT_MEDIUM,
+                color=rx.cond(
                     estatus == "ACTIVO",
-                    Colors.PORTAL_PRIMARY_LIGHTER,
-                    Colors.SECONDARY_LIGHT,
+                    Colors.PORTAL_PRIMARY_TEXT,
+                    Colors.TEXT_MUTED,
                 ),
-                flex_shrink="0",
             ),
-            rx.flex(
-                rx.cond(
-                    uuid != "",
-                    rx.link(
-                        rx.cond(nombre != "", nombre, "Sin nombre"),
-                        href="/portal/empleados/" + uuid.to(str),
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                        color=Colors.TEXT_PRIMARY,
-                        text_decoration="none",
-                        white_space="nowrap",
-                        overflow="hidden",
-                        text_overflow="ellipsis",
-                        _hover={
-                            "color": Colors.PORTAL_PRIMARY_TEXT,
-                            "text_decoration": "underline",
-                        },
-                    ),
-                    rx.text(
-                        rx.cond(nombre != "", nombre, "Sin nombre"),
-                        font_weight=Typography.WEIGHT_MEDIUM,
-                        color=Colors.TEXT_PRIMARY,
-                        white_space="nowrap",
-                        overflow="hidden",
-                        text_overflow="ellipsis",
-                    ),
+            width="30px",
+            height="30px",
+            border_radius=Radius.FULL,
+            background=rx.cond(
+                estatus == "ACTIVO",
+                Colors.PORTAL_PRIMARY_LIGHTER,
+                Colors.SECONDARY_LIGHT,
+            ),
+            flex_shrink="0",
+        ),
+        rx.flex(
+            rx.cond(
+                uuid != "",
+                rx.link(
+                    rx.cond(nombre != "", nombre, "Sin nombre"),
+                    href="/portal/empleados/" + uuid.to(str),
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_PRIMARY,
+                    text_decoration="none",
+                    white_space="nowrap",
+                    overflow="hidden",
+                    text_overflow="ellipsis",
+                    _hover={
+                        "color": Colors.PORTAL_PRIMARY_TEXT,
+                        "text_decoration": "underline",
+                    },
                 ),
                 rx.text(
-                    rx.cond(curp != "", curp, "—"),
-                    font_size=Typography.SIZE_XS,
-                    font_family="var(--font-mono)",
-                    color=Colors.TEXT_MUTED,
+                    rx.cond(nombre != "", nombre, "Sin nombre"),
+                    font_weight=Typography.WEIGHT_MEDIUM,
+                    color=Colors.TEXT_PRIMARY,
+                    white_space="nowrap",
+                    overflow="hidden",
+                    text_overflow="ellipsis",
                 ),
-                direction="column",
-                min_width="0",
             ),
-            align="center",
-            gap=Spacing.SM,
-        )
-    )
-
-
-def _accion_empleado(emp: dict) -> rx.Component:
-    return rx.match(
-        emp.get("estatus_portal", ""),
-        (
-            "INACTIVO",
-            tabla_cta_button(
-                "Completar datos",
-                MisEmpleadosState.ver_ficha_empleado(emp),
-                color_scheme=Colors.PORTAL_ACCENT_SCHEME,
+            rx.text(
+                rx.cond(curp != "", curp, "—"),
+                font_size=Typography.SIZE_XS,
+                font_family="var(--font-mono)",
+                color=Colors.TEXT_MUTED,
             ),
+            direction="column",
+            min_width="0",
         ),
-        rx.fragment(),
+        align="center",
+        gap=Spacing.SM,
     )
 
 
 def fila_empleado(emp: dict) -> rx.Component:
     return rx.table.row(
-        _render_nombre_cell(emp),
-        _celda_texto_centrada(emp.get("contrato_codigo", ""), color=Colors.TEXT_SECONDARY, fallback="—"),
+        rx.table.cell(_render_nombre_cell(emp), text_align="left"),
         _celda_texto_centrada(emp.get("categoria_nombre", ""), fallback="—"),
         _celda_texto_centrada(emp.get("sede_nombre_ui", ""), color=Colors.TEXT_PRIMARY, fallback="—"),
-        _celda_texto_centrada(
-            emp.get("telefono_ui", ""),
-            color=Colors.TEXT_SECONDARY,
-            font_variant_numeric="tabular-nums",
-            fallback="—",
-        ),
-        _docs_cell(emp),
         rx.table.cell(
-            rx.center(employee_status_badge(emp.get("estatus_portal", "")), width="100%"),
+            rx.center(_identificacion_badge_portal(emp.get("identificacion_status", "")), width="100%"),
             text_align="center",
         ),
-        rx.table.cell(rx.center(_accion_empleado(emp), width="100%"), text_align="center"),
+        _docs_cell(emp),
+        _estatus_icon_cell(emp.get("estatus_portal", "")),
         _hover={"background": Colors.SURFACE_HOVER},
     )
 
 
 ENCABEZADOS_EMPLEADOS = [
-    {"nombre": "Nombre", "ancho": "23%", "header_align": "left"},
-    {"nombre": "Contrato", "ancho": "10%", "header_align": "center"},
-    {"nombre": "Categoría", "ancho": "13%", "header_align": "center"},
-    {"nombre": "Sede", "ancho": "13%", "header_align": "center"},
-    {"nombre": "Teléfono", "ancho": "11%", "header_align": "center"},
-    {"nombre": "Docs", "ancho": "7%", "header_align": "center"},
-    {"nombre": "Estatus", "ancho": "9%", "header_align": "center"},
-    {"nombre": "Acción", "ancho": "14%", "header_align": "center"},
+    {"nombre": "Nombre", "ancho": "24%", "header_align": "left"},
+    {"nombre": "Categoría", "ancho": "14%", "header_align": "center"},
+    {"nombre": "Sede", "ancho": "14%", "header_align": "center"},
+    {"nombre": "Identificación", "ancho": "14%", "header_align": "center"},
+    {"nombre": "Docs", "ancho": "8%", "header_align": "center"},
+    {"nombre": "Estatus", "ancho": "6%", "header_align": "center"},
 ]
 
 ENCABEZADOS_PLAZAS = PLAZA_TABLE_HEADERS

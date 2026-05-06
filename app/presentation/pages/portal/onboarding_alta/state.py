@@ -1,6 +1,7 @@
 """
 State para la pagina Alta de Empleados (Onboarding) del portal.
 """
+
 import reflex as rx
 from typing import List
 
@@ -53,7 +54,6 @@ class OnboardingAltaState(PortalState):
     form_apellido_paterno: str = ""
     form_apellido_materno: str = ""
     form_email: str = ""
-    form_sede_id: str = ""
 
     # Validacion CURP realtime
     curp_validado: bool = False
@@ -97,9 +97,6 @@ class OnboardingAltaState(PortalState):
     def set_form_email(self, value: str):
         self.form_email = value.lower() if value else ""
 
-    def set_form_sede_id(self, value: str):
-        self.form_sede_id = value if value else ""
-
     # ========================
     # VALIDADORES ON_BLUR
     # ========================
@@ -110,7 +107,9 @@ class OnboardingAltaState(PortalState):
         self.error_nombre = validar_nombre(self.form_nombre)
 
     def validar_apellido_paterno_blur(self):
-        self.error_apellido_paterno = validar_apellido_paterno(self.form_apellido_paterno)
+        self.error_apellido_paterno = validar_apellido_paterno(
+            self.form_apellido_paterno
+        )
 
     def validar_email_blur(self):
         if self.form_email:
@@ -171,16 +170,21 @@ class OnboardingAltaState(PortalState):
         """Filtra onboarding por búsqueda y estatus."""
         empleados = self.empleados_onboarding
 
-        if self.filtro_estatus_onboarding and self.filtro_estatus_onboarding != FILTRO_TODOS:
+        if (
+            self.filtro_estatus_onboarding
+            and self.filtro_estatus_onboarding != FILTRO_TODOS
+        ):
             empleados = [
-                e for e in empleados
+                e
+                for e in empleados
                 if e.get("estatus_onboarding") == self.filtro_estatus_onboarding
             ]
 
         if self.filtro_busqueda:
             termino = self.filtro_busqueda.strip().lower()
             empleados = [
-                e for e in empleados
+                e
+                for e in empleados
                 if termino in str(e.get("nombre_completo", "")).lower()
                 or termino in str(e.get("clave", "")).lower()
                 or termino in str(e.get("curp", "")).lower()
@@ -197,7 +201,9 @@ class OnboardingAltaState(PortalState):
     @rx.var
     def total_paginas_onboarding(self) -> int:
         """Total de páginas para el listado actual."""
-        return self.calcular_total_paginas(self.total_onboarding_filtrados, self.por_pagina)
+        return self.calcular_total_paginas(
+            self.total_onboarding_filtrados, self.por_pagina
+        )
 
     @rx.var
     def pagina_onboarding_actual(self) -> int:
@@ -339,7 +345,6 @@ class OnboardingAltaState(PortalState):
                 apellido_paterno=self.form_apellido_paterno,
                 apellido_materno=self.form_apellido_materno or None,
                 email=self.form_email or None,
-                sede_id=int(self.form_sede_id) if self.form_sede_id else None,
             )
 
             empleado = await onboarding_service.alta_empleado_buap(
@@ -375,7 +380,6 @@ class OnboardingAltaState(PortalState):
         self.form_apellido_paterno = ""
         self.form_apellido_materno = ""
         self.form_email = ""
-        self.form_sede_id = ""
         self.curp_validado = False
         self.curp_mensaje = ""
         self.curp_es_valido = False
@@ -416,7 +420,11 @@ class OnboardingAltaState(PortalState):
             [
                 ("error_curp", self.form_curp, validar_curp),
                 ("error_nombre", self.form_nombre, validar_nombre),
-                ("error_apellido_paterno", self.form_apellido_paterno, validar_apellido_paterno),
+                (
+                    "error_apellido_paterno",
+                    self.form_apellido_paterno,
+                    validar_apellido_paterno,
+                ),
             ]
         )
 

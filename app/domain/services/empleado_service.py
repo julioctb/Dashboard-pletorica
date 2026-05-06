@@ -198,11 +198,15 @@ class EmpleadoService:
 
     async def reactivar(self, empleado_id: int) -> Empleado:
         """
-        Reactiva un empleado dado de baja.
+        Retira la suspensión de un empleado.
+
+        El estatus final se recalcula según su plaza actual:
+        - con plaza_actual_id: ACTIVO
+        - sin plaza_actual_id: INACTIVO
 
         Raises:
             NotFoundError: Si el empleado no existe
-            BusinessRuleError: Si el empleado ya está activo
+            BusinessRuleError: Si el empleado no está suspendido
             DatabaseError: Si hay error de BD
         """
         return await self._mutation_service.reactivar(empleado_id)
@@ -228,7 +232,8 @@ class EmpleadoService:
         Reingresa un empleado existente a una nueva empresa.
 
         El empleado ya existe en el sistema (por CURP). Se cambia su empresa_id,
-        se reactiva si estaba inactivo, y se registra REINGRESO en historial.
+        se recalcula su estatus según plaza_actual_id, y se registra REINGRESO
+        en historial.
 
         Args:
             empleado_id: ID del empleado existente
@@ -274,7 +279,7 @@ class EmpleadoService:
         self,
         empresa_id: int,
         incluir_inactivos: bool = False,
-        limite: Optional[int] = 50,
+        limite: Optional[int] = None,
         offset: int = 0,
     ) -> List[Empleado]:
         """
@@ -309,7 +314,7 @@ class EmpleadoService:
         self,
         empresa_id: int,
         incluir_inactivos: bool = False,
-        limite: int = 50,
+        limite: Optional[int] = None,
         offset: int = 0,
     ) -> List[EmpleadoResumen]:
         """

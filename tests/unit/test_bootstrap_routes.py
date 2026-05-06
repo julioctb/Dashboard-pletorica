@@ -28,7 +28,7 @@ def test_backoffice_routes_include_modular_hotspots():
 def test_portal_routes_include_modular_hotspots():
     paths = _route_paths(PORTAL_PAGE_ROUTES)
     assert "/portal/empleados" in paths
-    assert "/portal/empleados/[id]" in paths
+    assert "/portal/empleados/[uuid]" in paths
     assert "/portal/empresa/categorias" in paths
     assert "/portal/cotizador" in paths
     assert "/portal/nominas" in paths

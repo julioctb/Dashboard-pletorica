@@ -137,7 +137,7 @@ PORTAL_PAGE_ROUTES: tuple[PageRoute, ...] = (
     ("/portal/configuracion-empresa", configuracion_empresa_page),
     ("/portal/usuarios", usuarios_empresa_page),
     ("/portal/empleados", mis_empleados_page),
-    ("/portal/empleados/[id]", empleado_ficha_page),
+    ("/portal/empleados/[uuid]", empleado_ficha_page),
     ("/portal/alta-masiva", alta_masiva_redirect_page),
     ("/portal/plazas", portal_plazas_redirect_page),
     ("/portal/onboarding", portal_onboarding_redirect_page),

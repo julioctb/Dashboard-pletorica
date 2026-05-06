@@ -9,7 +9,13 @@ from uuid import UUID
 
 from app.domain.enums import Estatus, EstatusContrato, EstatusJornada, RolEmpresa
 from app.core.exceptions import DatabaseError
-from app.domain.models.asistencia import EmpleadoAsistenciaEsperado, Horario, IncidenciaAsistencia, JornadaAsistencia, RegistroAsistencia
+from app.domain.models.asistencia import (
+    EmpleadoAsistenciaEsperado,
+    Horario,
+    IncidenciaAsistencia,
+    JornadaAsistencia,
+    RegistroAsistencia,
+)
 from app.domain.services.contrato_service import contrato_service
 from app.domain.services.empleado_service import empleado_service
 from app.domain.services.plaza_service import plaza_service
@@ -40,7 +46,10 @@ class AsistenciaPanelService:
                     if hasattr(contrato.estatus, "value")
                     else str(contrato.estatus)
                 )
-                if estatus != EstatusContrato.ACTIVO.value or not contrato.tiene_personal:
+                if (
+                    estatus != EstatusContrato.ACTIVO.value
+                    or not contrato.tiene_personal
+                ):
                     continue
                 resultado.append(
                     {
@@ -48,7 +57,9 @@ class AsistenciaPanelService:
                         "codigo": contrato.codigo,
                         "descripcion": contrato.descripcion_objeto or "",
                         "fecha_inicio": contrato.fecha_inicio.isoformat(),
-                        "fecha_fin": contrato.fecha_fin.isoformat() if contrato.fecha_fin else "",
+                        "fecha_fin": (
+                            contrato.fecha_fin.isoformat() if contrato.fecha_fin else ""
+                        ),
                     }
                 )
             return resultado
@@ -138,7 +149,9 @@ class AsistenciaPanelService:
         supervisor_id = None
         if user_id:
             try:
-                supervisor = await empleado_service.obtener_por_user_id(UUID(str(user_id)))
+                supervisor = await empleado_service.obtener_por_user_id(
+                    UUID(str(user_id))
+                )
             except Exception as exc:
                 logger.debug("No se pudo resolver empleado supervisor: %s", exc)
                 supervisor = None
@@ -176,7 +189,9 @@ class AsistenciaPanelService:
         try:
             result = (
                 self.root.supabase.table("supervisor_sedes")
-                .select("sede_id, fecha_inicio, fecha_fin, sedes:sede_id(id, codigo, nombre)")
+                .select(
+                    "sede_id, fecha_inicio, fecha_fin, sedes:sede_id(id, codigo, nombre)"
+                )
                 .eq("empresa_id", empresa_id)
                 .eq("supervisor_id", supervisor_id)
                 .eq("activo", True)
@@ -185,7 +200,11 @@ class AsistenciaPanelService:
             sedes = []
             for item in result.data or []:
                 fecha_inicio = date.fromisoformat(item["fecha_inicio"])
-                fecha_fin = date.fromisoformat(item["fecha_fin"]) if item.get("fecha_fin") else None
+                fecha_fin = (
+                    date.fromisoformat(item["fecha_fin"])
+                    if item.get("fecha_fin")
+                    else None
+                )
                 if fecha < fecha_inicio or (fecha_fin and fecha > fecha_fin):
                     continue
                 sede_data = item.get("sedes") or {}
@@ -216,13 +235,18 @@ class AsistenciaPanelService:
                 if plaza.empleado_id and estatus == "OCUPADA":
                     plazas_ocupadas.append(plaza)
 
-            empleado_ids = list({plaza.empleado_id for plaza in plazas_ocupadas if plaza.empleado_id})
+            empleado_ids = list(
+                {plaza.empleado_id for plaza in plazas_ocupadas if plaza.empleado_id}
+            )
             if not empleado_ids:
                 return []
 
             result_emp = (
                 self.root.supabase.table("empleados")
-                .select("id, clave, curp, nombre, apellido_paterno, apellido_materno, sede_id, estatus, empresa_id")
+                .select(
+                    "id, clave, curp, nombre, apellido_paterno, "
+                    "apellido_materno, estatus, empresa_id"
+                )
                 .in_("id", empleado_ids)
                 .eq("empresa_id", empresa_id)
                 .execute()
@@ -241,9 +265,7 @@ class AsistenciaPanelService:
                     return []
 
             sede_ids = {
-                item.get("sede_id")
-                for item in empleados_map.values()
-                if item.get("sede_id") is not None
+                plaza.sede_id for plaza in plazas_ocupadas if plaza.sede_id is not None
             }
             sedes_map = await self._obtener_sedes_map(list(sede_ids))
 
@@ -252,7 +274,7 @@ class AsistenciaPanelService:
                 empleado = empleados_map.get(plaza.empleado_id)
                 if not empleado:
                     continue
-                sede_id = empleado.get("sede_id")
+                sede_id = plaza.sede_id
                 if sedes_permitidas is not None and sede_id not in sedes_permitidas:
                     continue
                 apellido_m = empleado.get("apellido_materno") or ""
@@ -280,7 +302,9 @@ class AsistenciaPanelService:
                     )
                 )
 
-            filas.sort(key=lambda item: (item.sede_nombre, item.nombre_completo, item.clave))
+            filas.sort(
+                key=lambda item: (item.sede_nombre, item.nombre_completo, item.clave)
+            )
             return filas
         except DatabaseError:
             raise
@@ -300,11 +324,17 @@ class AsistenciaPanelService:
                 )
                 .execute()
             )
-            user_ids = [item["user_id"] for item in (roles_result.data or []) if item.get("user_id")]
+            user_ids = [
+                item["user_id"]
+                for item in (roles_result.data or [])
+                if item.get("user_id")
+            ]
 
             query = (
                 self.root.supabase.table("empleados")
-                .select("id, clave, nombre, apellido_paterno, apellido_materno, user_id")
+                .select(
+                    "id, clave, nombre, apellido_paterno, apellido_materno, user_id"
+                )
                 .eq("empresa_id", empresa_id)
                 .eq("estatus", Estatus.ACTIVO.value)
             )
@@ -354,7 +384,12 @@ class AsistenciaPanelService:
         if not sede_ids:
             return {}
         try:
-            result = self.root.supabase.table("sedes").select("id, codigo, nombre").in_("id", sede_ids).execute()
+            result = (
+                self.root.supabase.table("sedes")
+                .select("id, codigo, nombre")
+                .in_("id", sede_ids)
+                .execute()
+            )
             return {
                 item["id"]: {
                     "codigo": item.get("codigo", ""),
@@ -384,7 +419,8 @@ class AsistenciaPanelService:
         if (
             incluir_registros_consolidados
             and jornada
-            and self.root._enum_value(jornada.estatus) == EstatusJornada.CONSOLIDADA.value
+            and self.root._enum_value(jornada.estatus)
+            == EstatusJornada.CONSOLIDADA.value
             and empleados
         ):
             registros = await self.root._obtener_registros_jornada(jornada.id)
@@ -453,10 +489,14 @@ class AsistenciaPanelService:
         fila["resultado_dia"] = "PENDIENTE"
         return fila
 
-    async def _resolver_contexto_usuario(self, empresa_id: int, user_id: str, fecha: date) -> dict:
+    async def _resolver_contexto_usuario(
+        self, empresa_id: int, user_id: str, fecha: date
+    ) -> dict:
         return await self.resolver_contexto_usuario(empresa_id, user_id, fecha)
 
-    async def _obtener_sedes_supervision(self, empresa_id: int, supervisor_id: int, fecha: date) -> list[dict]:
+    async def _obtener_sedes_supervision(
+        self, empresa_id: int, supervisor_id: int, fecha: date
+    ) -> list[dict]:
         return await self.obtener_sedes_supervision(empresa_id, supervisor_id, fecha)
 
     async def _obtener_empleados_esperados(
@@ -466,7 +506,9 @@ class AsistenciaPanelService:
         supervisor_id: Optional[int],
         fecha: date,
     ) -> list[EmpleadoAsistenciaEsperado]:
-        return await self.obtener_empleados_esperados(empresa_id, contrato_id, supervisor_id, fecha)
+        return await self.obtener_empleados_esperados(
+            empresa_id, contrato_id, supervisor_id, fecha
+        )
 
     async def _obtener_sedes_map(self, sede_ids: list[int]) -> dict[int, dict]:
         return await self.obtener_sedes_map(sede_ids)

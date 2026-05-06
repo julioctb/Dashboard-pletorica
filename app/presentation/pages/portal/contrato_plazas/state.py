@@ -969,7 +969,7 @@ class ContratoPlazasState(MisEmpleadosState):
     def breadcrumb_items(self) -> list[dict]:
         """Breadcrumb lógico para la vista de plazas de un contrato.
 
-        Mismo patrón que `/portal/empleados/[id]`: el primer nivel apunta a
+        Mismo patrón que `/portal/empleados/[uuid]`: el primer nivel apunta a
         Contratos, el segundo nivel es la hoja (código del contrato)
         sin navegación. La UI renderiza este breadcrumb inline dentro del
         `page_header` — ver `_header_plazas`.
@@ -1199,12 +1199,9 @@ class ContratoPlazasState(MisEmpleadosState):
                     sede_display = sede_codigo or sede_nombre
 
             empleado_uuid = str(plaza.get("empleado_uuid") or "").strip()
-            empleado_id = int(plaza.get("empleado_id") or 0)
             empleado_href = ""
             if empleado_uuid:
                 empleado_href = f"/portal/empleados/{empleado_uuid}"
-            elif empleado_id > 0:
-                empleado_href = f"/portal/empleados/{empleado_id}"
 
             categoria_nombre_ui = nombres_categoria.get(
                 categoria_id,

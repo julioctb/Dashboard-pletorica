@@ -7,8 +7,8 @@ Patrón de manejo de errores:
 - DatabaseError: Errores de conexión o infraestructura
 - Propagar otras excepciones hacia arriba
 """
+
 from typing import List, Optional
-from datetime import date
 import logging
 
 from app.domain.models.empleado import Empleado, EmpleadoResumen
@@ -29,10 +29,11 @@ class SupabaseEmpleadoRepository:
         """
         if db_manager is None:
             from app.database import db_manager as default_db
+
             db_manager = default_db
 
         self.supabase = db_manager.get_client()
-        self.tabla = 'empleados'
+        self.tabla = "empleados"
 
     # =========================================================================
     # CRUD BÁSICO
@@ -47,10 +48,12 @@ class SupabaseEmpleadoRepository:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
-            result = self.supabase.table(self.tabla)\
-                .select('*')\
-                .eq('id', empleado_id)\
+            result = (
+                self.supabase.table(self.tabla)
+                .select("*")
+                .eq("id", empleado_id)
                 .execute()
+            )
 
             if not result.data:
                 raise NotFoundError(f"Empleado con ID {empleado_id} no encontrado")
@@ -98,10 +101,12 @@ class SupabaseEmpleadoRepository:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
-            result = self.supabase.table(self.tabla)\
-                .select('*')\
-                .eq('clave', clave.upper())\
+            result = (
+                self.supabase.table(self.tabla)
+                .select("*")
+                .eq("clave", clave.upper())
                 .execute()
+            )
 
             if not result.data:
                 return None
@@ -123,10 +128,12 @@ class SupabaseEmpleadoRepository:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
-            result = self.supabase.table(self.tabla)\
-                .select('*')\
-                .eq('curp', curp.upper())\
+            result = (
+                self.supabase.table(self.tabla)
+                .select("*")
+                .eq("curp", curp.upper())
                 .execute()
+            )
 
             if not result.data:
                 return None
@@ -149,9 +156,7 @@ class SupabaseEmpleadoRepository:
             # Verificar CURP duplicado
             if await self.existe_curp(empleado.curp):
                 raise DuplicateError(
-                    f"CURP {empleado.curp} ya existe",
-                    field="curp",
-                    value=empleado.curp
+                    f"CURP {empleado.curp} ya existe", field="curp", value=empleado.curp
                 )
 
             # Verificar clave duplicada
@@ -159,19 +164,21 @@ class SupabaseEmpleadoRepository:
                 raise DuplicateError(
                     f"Clave {empleado.clave} ya existe",
                     field="clave",
-                    value=empleado.clave
+                    value=empleado.clave,
                 )
 
             # Preparar datos (mode='json' para serializar date/datetime)
             datos = empleado.model_dump(
-                mode='json',
-                exclude={'id', 'uuid', 'fecha_creacion', 'fecha_actualizacion'}
+                mode="json",
+                exclude={"id", "uuid", "fecha_creacion", "fecha_actualizacion"},
             )
 
             result = self.supabase.table(self.tabla).insert(datos).execute()
 
             if not result.data:
-                raise DatabaseError("No se pudo crear el empleado (sin respuesta de BD)")
+                raise DatabaseError(
+                    "No se pudo crear el empleado (sin respuesta de BD)"
+                )
 
             return Empleado(**result.data[0])
 
@@ -192,14 +199,23 @@ class SupabaseEmpleadoRepository:
         try:
             # Excluir campos que no deben actualizarse
             datos = empleado.model_dump(
-                mode='json',
-                exclude={'id', 'uuid', 'clave', 'curp', 'fecha_creacion', 'fecha_actualizacion'}
+                mode="json",
+                exclude={
+                    "id",
+                    "uuid",
+                    "clave",
+                    "curp",
+                    "fecha_creacion",
+                    "fecha_actualizacion",
+                },
             )
 
-            result = self.supabase.table(self.tabla)\
-                .update(datos)\
-                .eq('id', empleado.id)\
+            result = (
+                self.supabase.table(self.tabla)
+                .update(datos)
+                .eq("id", empleado.id)
                 .execute()
+            )
 
             if not result.data:
                 raise NotFoundError(f"Empleado con ID {empleado.id} no encontrado")
@@ -210,23 +226,29 @@ class SupabaseEmpleadoRepository:
             raise
         except Exception as e:
             logger.error(f"Error actualizando empleado {empleado.id}: {e}")
-            raise DatabaseError(f"Error de base de datos al actualizar empleado: {str(e)}")
+            raise DatabaseError(
+                f"Error de base de datos al actualizar empleado: {str(e)}"
+            )
 
     async def eliminar(self, empleado_id: int) -> bool:
         """
-        Elimina (soft delete) un empleado estableciendo estatus INACTIVO.
+        Marca al empleado como inactivo (soft delete).
 
-        Returns:
-            True si se eliminó correctamente, False si falló
+        Nota: con la nueva arquitectura, los datos de baja (fecha, motivo)
+        se gestionan en la tabla bajas_empleado, no en empleados.
+        Este metodo solo marca el estatus como INACTIVO.
         """
         try:
-            result = self.supabase.table(self.tabla)\
-                .update({
-                    'estatus': 'INACTIVO',
-                    'fecha_baja': date.today().isoformat()
-                })\
-                .eq('id', empleado_id)\
+            result = (
+                self.supabase.table(self.tabla)
+                .update(
+                    {
+                        "estatus": "INACTIVO",
+                    }
+                )
+                .eq("id", empleado_id)
                 .execute()
+            )
 
             return bool(result.data)
 
@@ -242,7 +264,7 @@ class SupabaseEmpleadoRepository:
         self,
         incluir_inactivos: bool = False,
         limite: Optional[int] = None,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[Empleado]:
         """
         Obtiene todos los empleados con paginación.
@@ -251,17 +273,15 @@ class SupabaseEmpleadoRepository:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
-            query = self.supabase.table(self.tabla).select('*')
+            query = self.supabase.table(self.tabla).select("*")
 
             if not incluir_inactivos:
-                query = query.eq('estatus', 'ACTIVO')
+                query = query.eq("estatus", "ACTIVO")
 
-            query = query.order('fecha_creacion', desc=True)
+            query = query.order("fecha_creacion", desc=True)
 
-            if limite is None:
-                limite = 100
-
-            query = query.range(offset, offset + limite - 1)
+            if limite is not None:
+                query = query.range(offset, offset + limite - 1)
 
             result = query.execute()
             return [Empleado(**data) for data in result.data]
@@ -275,7 +295,7 @@ class SupabaseEmpleadoRepository:
         empresa_id: int,
         incluir_inactivos: bool = False,
         limite: Optional[int] = None,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[Empleado]:
         """
         Obtiene empleados de una empresa específica.
@@ -284,19 +304,17 @@ class SupabaseEmpleadoRepository:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
-            query = self.supabase.table(self.tabla)\
-                .select('*')\
-                .eq('empresa_id', empresa_id)
+            query = (
+                self.supabase.table(self.tabla).select("*").eq("empresa_id", empresa_id)
+            )
 
             if not incluir_inactivos:
-                query = query.eq('estatus', 'ACTIVO')
+                query = query.eq("estatus", "ACTIVO")
 
-            query = query.order('apellido_paterno', desc=False)
+            query = query.order("apellido_paterno", desc=False)
 
-            if limite is None:
-                limite = 100
-
-            query = query.range(offset, offset + limite - 1)
+            if limite is not None:
+                query = query.range(offset, offset + limite - 1)
 
             result = query.execute()
             return [Empleado(**data) for data in result.data]
@@ -310,7 +328,7 @@ class SupabaseEmpleadoRepository:
         texto: str,
         empresa_id: Optional[int] = None,
         limite: int = 20,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[Empleado]:
         """
         Busca empleados por nombre, CURP o clave.
@@ -319,8 +337,9 @@ class SupabaseEmpleadoRepository:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
-            query = self.supabase.table(self.tabla)\
-                .select('*')\
+            query = (
+                self.supabase.table(self.tabla)
+                .select("*")
                 .or_(
                     f"nombre.ilike.%{texto}%,"
                     f"apellido_paterno.ilike.%{texto}%,"
@@ -328,9 +347,10 @@ class SupabaseEmpleadoRepository:
                     f"curp.ilike.%{texto}%,"
                     f"clave.ilike.%{texto}%"
                 )
+            )
 
             if empresa_id:
-                query = query.eq('empresa_id', empresa_id)
+                query = query.eq("empresa_id", empresa_id)
 
             query = query.range(offset, offset + limite - 1)
 
@@ -342,9 +362,7 @@ class SupabaseEmpleadoRepository:
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def contar(
-        self,
-        empresa_id: Optional[int] = None,
-        estatus: Optional[str] = None
+        self, empresa_id: Optional[int] = None, estatus: Optional[str] = None
     ) -> int:
         """
         Cuenta empleados con filtros opcionales.
@@ -353,14 +371,13 @@ class SupabaseEmpleadoRepository:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
-            query = self.supabase.table(self.tabla)\
-                .select('id', count='exact')
+            query = self.supabase.table(self.tabla).select("id", count="exact")
 
             if empresa_id:
-                query = query.eq('empresa_id', empresa_id)
+                query = query.eq("empresa_id", empresa_id)
 
             if estatus:
-                query = query.eq('estatus', estatus)
+                query = query.eq("estatus", estatus)
 
             result = query.execute()
             return result.count or 0
@@ -392,19 +409,21 @@ class SupabaseEmpleadoRepository:
             anio_corto = str(anio)[-2:]
             prefijo = f"B{anio_corto}-"
 
-            result = self.supabase.table(self.tabla)\
-                .select('clave')\
-                .ilike('clave', f'{prefijo}%')\
-                .order('clave', desc=True)\
-                .limit(1)\
+            result = (
+                self.supabase.table(self.tabla)
+                .select("clave")
+                .ilike("clave", f"{prefijo}%")
+                .order("clave", desc=True)
+                .limit(1)
                 .execute()
+            )
 
             if not result.data:
                 return 1  # Primer empleado del año
 
             # Extraer el número de la última clave (B25-00003 -> 3)
-            ultima_clave = result.data[0]['clave']
-            ultimo_numero = int(ultima_clave.split('-')[1])
+            ultima_clave = result.data[0]["clave"]
+            ultimo_numero = int(ultima_clave.split("-")[1])
 
             return ultimo_numero + 1
 
@@ -431,12 +450,12 @@ class SupabaseEmpleadoRepository:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
-            query = self.supabase.table(self.tabla)\
-                .select('id')\
-                .eq('curp', curp.upper())
+            query = (
+                self.supabase.table(self.tabla).select("id").eq("curp", curp.upper())
+            )
 
             if excluir_id:
-                query = query.neq('id', excluir_id)
+                query = query.neq("id", excluir_id)
 
             result = query.execute()
             return len(result.data) > 0
@@ -456,10 +475,12 @@ class SupabaseEmpleadoRepository:
             DatabaseError: Si hay error de conexión/infraestructura
         """
         try:
-            result = self.supabase.table(self.tabla)\
-                .select('id')\
-                .eq('clave', clave.upper())\
+            result = (
+                self.supabase.table(self.tabla)
+                .select("id")
+                .eq("clave", clave.upper())
                 .execute()
+            )
 
             return len(result.data) > 0
 
@@ -476,7 +497,7 @@ class SupabaseEmpleadoRepository:
         empresa_id: int,
         incluir_inactivos: bool = False,
         limite: int = 50,
-        offset: int = 0
+        offset: int = 0,
     ) -> List[dict]:
         """
         Obtiene resumen de empleados con nombre de empresa.
@@ -485,44 +506,47 @@ class SupabaseEmpleadoRepository:
             Lista de diccionarios con datos de resumen
         """
         try:
-            query = self.supabase.table(self.tabla)\
-                .select('*, empresas(nombre_comercial)')\
-                .eq('empresa_id', empresa_id)
+            query = (
+                self.supabase.table(self.tabla)
+                .select("*, empresas(nombre_comercial)")
+                .eq("empresa_id", empresa_id)
+            )
 
             if not incluir_inactivos:
-                query = query.eq('estatus', 'ACTIVO')
+                query = query.eq("estatus", "ACTIVO")
 
-            query = query.order('apellido_paterno')\
-                .range(offset, offset + limite - 1)
+            query = query.order("apellido_paterno").range(offset, offset + limite - 1)
 
             result = query.execute()
 
             resumenes = []
             for data in result.data:
                 empresa_nombre = None
-                if data.get('empresas'):
-                    empresa_nombre = data['empresas'].get('nombre_comercial')
+                if data.get("empresas"):
+                    empresa_nombre = data["empresas"].get("nombre_comercial")
 
                 # Construir nombre completo
-                nombre_completo = data['nombre']
-                if data.get('apellido_paterno'):
+                nombre_completo = data["nombre"]
+                if data.get("apellido_paterno"):
                     nombre_completo += f" {data['apellido_paterno']}"
-                if data.get('apellido_materno'):
+                if data.get("apellido_materno"):
                     nombre_completo += f" {data['apellido_materno']}"
 
-                resumenes.append({
-                    'id': data['id'],
-                    'clave': data['clave'],
-                    'curp': data['curp'],
-                    'nombre_completo': nombre_completo,
-                    'empresa_id': data['empresa_id'],
-                    'empresa_nombre': empresa_nombre,
-                    'estatus': data['estatus'],
-                    'fecha_ingreso': data['fecha_ingreso'],
-                    'fecha_ingreso_vigente': data.get('fecha_ingreso_vigente'),
-                    'telefono': data.get('telefono'),
-                    'email': data.get('email'),
-                })
+                resumenes.append(
+                    {
+                        "id": data["id"],
+                        "clave": data["clave"],
+                        "curp": data["curp"],
+                        "nombre_completo": nombre_completo,
+                        "empresa_id": data["empresa_id"],
+                        "empresa_nombre": empresa_nombre,
+                        "estatus": data["estatus"],
+                        "fecha_ingreso": data["fecha_ingreso"],
+                        "fecha_ingreso_vigente": data.get("fecha_ingreso_vigente"),
+                        "telefono": data.get("telefono"),
+                        "email": data.get("email"),
+                    }
+                )
 
             return resumenes
 
@@ -531,8 +555,7 @@ class SupabaseEmpleadoRepository:
             raise DatabaseError(f"Error de base de datos: {str(e)}")
 
     async def obtener_disponibles_para_asignacion(
-        self,
-        limite: int = 100
+        self, limite: int = 100
     ) -> List[EmpleadoResumen]:
         """
         Obtiene empleados disponibles para asignar a una plaza.
@@ -549,34 +572,39 @@ class SupabaseEmpleadoRepository:
         """
         try:
             # Obtener IDs de empleados con asignación vigente a una plaza.
-            result_historial = self.supabase.table('historial_laboral')\
-                .select('empleado_id, plaza_id')\
-                .is_('fecha_fin', 'null')\
+            result_historial = (
+                self.supabase.table("historial_laboral")
+                .select("empleado_id, plaza_id")
+                .is_("fecha_fin", "null")
                 .execute()
+            )
 
             empleados_asignados = set(
-                h['empleado_id'] for h in result_historial.data
-                if h.get('empleado_id') is not None and h.get('plaza_id') is not None
+                h["empleado_id"]
+                for h in result_historial.data
+                if h.get("empleado_id") is not None and h.get("plaza_id") is not None
             )
 
             # Obtener empleados activos
-            query = self.supabase.table(self.tabla)\
-                .select('*, empresas(nombre_comercial)')\
-                .eq('estatus', 'ACTIVO')\
-                .order('apellido_paterno')\
+            query = (
+                self.supabase.table(self.tabla)
+                .select("*, empresas(nombre_comercial)")
+                .eq("estatus", "ACTIVO")
+                .order("apellido_paterno")
                 .limit(limite)
+            )
 
             result = query.execute()
 
             # Filtrar empleados que no están asignados
             empleados_disponibles = []
             for data in result.data:
-                if data['id'] in empleados_asignados:
+                if data["id"] in empleados_asignados:
                     continue  # Saltar empleados ya asignados
 
                 empresa_nombre = None
-                if data.get('empresas'):
-                    empresa_nombre = data['empresas'].get('nombre_comercial')
+                if data.get("empresas"):
+                    empresa_nombre = data["empresas"].get("nombre_comercial")
 
                 empleados_disponibles.append(
                     EmpleadoResumen.from_empleado_dict(data, empresa_nombre)
