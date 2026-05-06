@@ -13,7 +13,8 @@ from app.presentation.components.ui import (identifier_badge,
                                             tabla_action_button,
                                             tabla_action_buttons, tabla_vacia,
                                             table_cell_actions,
-                                            table_cell_badge, table_shell)
+                                            table_cell_badge, table_shell,
+                                            table_text_sm)
 from app.presentation.layouts.backoffice import (page_header, page_layout,
                                                  page_toolbar)
 from app.presentation.pages.backoffice.sedes.state import SedesState

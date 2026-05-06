@@ -15,7 +15,7 @@ from app.presentation.components.ui import (acciones_filtros, filtros_inline,
                                             switch_inactivos,
                                             tabla_action_button,
                                             tabla_action_buttons, tabla_vacia,
-                                            table_shell)
+                                            table_shell, table_text_sm)
 from app.presentation.layouts.backoffice import (page_header, page_layout,
                                                  page_toolbar)
 from app.presentation.pages.backoffice.categorias_puesto.state import \
